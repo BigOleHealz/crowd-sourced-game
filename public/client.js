@@ -35,10 +35,11 @@ const isDriving = () => id != null && world?.rover.driver === id;
 const gunnerRole=()=>gunnerVehicle(world,id);
 const isPilot = () => id != null && world?.heli.pilot === id;
 
+let requestedStance;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -54,6 +55,7 @@ function setGuide(open) {
 }
 function clearInput() {
   held.clear();
+  requestedStance = undefined;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
@@ -72,6 +74,8 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (e.code === 'Space') queuedDeploy = true;
   if (e.code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
+  if (e.code === 'KeyZ' && self?.grounded && !vitals.dead && !isPilot() && !isDriving() && !gunnerRole())
+    requestedStance = (requestedStance ?? self.stance) === 'prone' ? 'stand' : 'prone';
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
@@ -203,12 +207,14 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+    stance: pilot || driving || gunner ? undefined : requestedStance,
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = false;
+  requestedStance = undefined;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
@@ -289,6 +295,8 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
+  byId('prone-shortcut').hidden = pilot || isDriving() || !!gunner || vitals.dead;
+  byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
   byId('tool-shortcut').hidden = pilot || isDriving() || !!gunner;
   byId('fire-shortcut').hidden = vitals.dead;
   const prompt = byId('field-prompt');

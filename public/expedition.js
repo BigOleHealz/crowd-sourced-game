@@ -1,5 +1,5 @@
 // The server owns this transient expedition state. It survives individual joins.
-import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { BREAKABLES, stanceDrop, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -29,12 +29,27 @@ function withinBurst(center, feet, centerHeight) {
   return Math.hypot(feet.x - center.x, feet.y + centerHeight - center.y, feet.z - center.z) <= 3.5;
 }
 
+// Express rays in the horizontal ranger's upright model coordinates.
+function proneCoordinates(vector, actor, isPoint) {
+  const fx=Math.sin(actor.yaw || 0), fz=-Math.cos(actor.yaw || 0);
+  const feet=actor.state;
+  const x=vector.x-(isPoint ? feet.x-.96*fx : 0);
+  const y=vector.y-(isPoint ? feet.y+.14 : 0);
+  const z=vector.z-(isPoint ? feet.z-.96*fz : 0);
+  const forward=x*fx+z*fz;
+  const c=Math.cos(1.38), s=Math.sin(1.38);
+  const shift=forward*(c-1)-y*s;
+  return {x:x+fx*shift,y:y*c+forward*s,z:z+fz*shift};
+}
+
 // Use the same small head and wider torso for cursor picking and server damage.
 // A relaxed near miss can select the body, but only a ray through the head earns a critical hit.
 function actorIntersection(actor,from,dir) {
   const feet=actor.state;
-  const x=from.x-feet.x, y=from.y-feet.y, z=from.z-feet.z;
-  const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
+  const prone=feet.stance==='prone';
+  const {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
+  if(prone) dir=proneCoordinates(dir,actor,false);
+  const yaw=actor.yaw || 0, lean=actor.moving ? .095 : 0;
   const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69)/.161, hz=(z+lean*Math.cos(yaw))/.128;
   const dx=dir.x/.128, dy=dir.y/.161, dz=dir.z/.128;
   const a=dx*dx+dy*dy+dz*dz, b=hx*dx+hy*dy+hz*dz;
@@ -86,7 +101,9 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       target=direct.actor;headshot=direct.headshot;
       to={x:from.x+direction.x*direct.distance,y:from.y+direction.y*direct.distance,z:from.z+direction.z*direct.distance};
     } else if(assist) {
-      target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72,halo))?.actor;
+      target=intersections.find(entry=>entry.distance===Infinity && (entry.actor.state.stance==='prone'
+        ? insideBody(proneCoordinates(to,entry.actor,true),{x:0,y:0,z:0},.39,1.72,halo)
+        : insideBody(to,entry.actor.state,.39,1.72,halo)))?.actor;
     }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
@@ -98,7 +115,7 @@ export function fire(world, player, input, tick, players, npcs) {
   const bloom = player.weapon === 2;
   player.fireReady = tick + (bloom ? 21 : 6);
   const { x, y, z } = player.state;
-  const from = { x, y: y + 1.3, z };
+  const from = { x, y: y + 1.3 - .78*stanceDrop(player.state), z };
   const horizontal = Math.cos(input.aimPitch);
   const dx = Math.sin(input.aimYaw) * horizontal;
   const dy = Math.sin(input.aimPitch);
@@ -125,7 +142,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
       }
     }
     for (const actor of actors) {
-      if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
+      if (actor === target || (bloom && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
       }
     }

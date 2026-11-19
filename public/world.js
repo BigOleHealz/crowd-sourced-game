@@ -162,9 +162,14 @@ export function blocked(x, y, z, hp) {
   return solidTopAt(x, z, hp, PLAYER_RADIUS) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
+export function stanceDrop(state) {
+  return state.stance === 'prone' ? .98 : 0;
+}
+
 export function stepPlayer(state, input, dt, hp) {
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
-  const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const stance = state.grounded && !input.jump && !parachute ? (input.stance ?? state.stance) : undefined;
+  const speed = stance === 'prone' ? 1.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
@@ -203,6 +208,7 @@ export function stepPlayer(state, input, dt, hp) {
   }
   if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  if (grounded && stance === 'prone') next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;
   return next;
 }

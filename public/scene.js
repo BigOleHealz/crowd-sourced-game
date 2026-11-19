@@ -10,7 +10,7 @@ import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPain
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, stanceDrop, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -676,7 +676,7 @@ function characterLabel(root, name) {
       const hp = state.hp ?? 100, max = state.maxHp || 100;
       const status = state.dead ? 'DOWN' : state.protected ? 'SHIELD' : String(hp);
       const key = status + '/' + hp + '/' + max;
-      sprite.position.y = state.dead ? .95 : 2.26;
+      sprite.position.y = state.dead ? .95 : 2.26 - stanceDrop(state);
       if (key === previous) return;
       previous = key;
       ctx.clearRect(0, 0, 256, 60);
@@ -823,6 +823,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
+  const crawling = onFoot && state.stance === 'prone';
+  avatar.body.rotation.x = crawling ? -1.38 : 0;
+  if (crawling) {
+    // Rotate around the hips and keep the chest just above the ground.
+    avatar.body.position.set(0,.14+.012*swing*weight,.96);
+    avatar.spine.rotation.x = .10;
+  }
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
@@ -830,7 +837,11 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
-    if(gait) {
+    if(crawling) {
+      leg.rotation.set(.09 + side*swing*.25*weight,side*.10,side*.06);
+      knee.rotation.x = -.19 - Math.max(0,side*swing)*.37*weight;
+      ankle.rotation.set(-.52,0,0);
+    } else if(gait) {
       placeFoot(gait,foot,side);
       const c=Math.cos(gait.yaw),s=Math.sin(gait.yaw);
       const wx=state.x+c*foot.sideOffset+s*foot.forwardOffset;
@@ -873,7 +884,9 @@ function pose(avatar,state,dt,seated=null,station=null) {
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
-  avatar.shadow.scale.set(.37+height*.05,1,.30+height*.04);
+  avatar.shadow.rotation.y = crawling ? avatar.root.rotation.y : 0;
+  if (crawling) avatar.shadow.scale.set(.36,1,.87);
+  else avatar.shadow.scale.set(.37+height*.05,1,.30+height*.04);
   avatar.shadow.material.opacity=.4-height*.12;
 }
 
@@ -979,7 +992,7 @@ export function createScene(canvas) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
-    const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
+    const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3-.78*stanceDrop(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1054,8 +1067,8 @@ export function createScene(canvas) {
     else {
       const shoulder=local.parachute ? 0 : .66;
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
-      const clear=buildingTopAt(x,z,.15)<local.y+1.3;
-      desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
+      const clear=buildingTopAt(x,z,.15)<local.y+1.3-stanceDrop(local);
+      desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : 1.46-stanceDrop(local)),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
