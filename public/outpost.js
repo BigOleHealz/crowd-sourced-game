@@ -56,6 +56,10 @@ export function buildOutpost(scene,renderer,Batch) {
   walls.mesh(scene,masonry);
   for(const shape of [facade,iron,concrete,door,gable,chimney]) shape.dispose();
 
+  return buildStacks(scene,renderer,Batch);
+}
+
+export function buildStacks(scene,renderer,Batch) {
   const equipment=atlasMaterial(renderer,'./depot-equipment.webp');
   const box=tile(new THREE.BoxGeometry(),0),bundle=tile(new THREE.BoxGeometry(),1);
   const board=tile(new THREE.BoxGeometry(),2);

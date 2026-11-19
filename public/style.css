@@ -61,3 +61,6 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 
 #compass { column-gap: 7px; padding-inline: 10px; background: linear-gradient(90deg,transparent,#171a1799,transparent); }
 #degrees { color: #f4f0df; font-variant-numeric: tabular-nums; letter-spacing: .05em; }
+
+#map-choice { color: #f1eee0; background: #27332deb; border: 1px solid var(--line); padding: 5px; border-radius: 2px; cursor: pointer; }
+@media(max-width:700px) { .world-name { flex-direction:column;align-items:flex-start;gap:4px } }

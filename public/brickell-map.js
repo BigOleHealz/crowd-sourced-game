@@ -1,0 +1,25 @@
+// A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
+// collision dimensions come from the same layout on the server and client.
+export const avenues = [-38, 0, 32];
+export const streets = [-45, -9, 27, 61];
+export const coast = { west: -76, east: 43, north: -60, south: 76 };
+export const waterfront = (x,z) => x < coast.west || x > coast.east || z < coast.north || z > coast.south;
+export const roadway = (x,z) => avenues.some(a=>Math.abs(x-a)<5.7) || streets.some(s=>Math.abs(z-s)<4.1);
+export const cityGround = (x,z) => waterfront(x,z) ? -2.8 : roadway(x,z) ? .70 : .80;
+
+const towers = [
+  [-59,-31,17,18,39,1],[-52,10,12,19,26,3],[-61,47,17,18,38,0],
+  [-20,-31,13,16,37,1],[-17,7,15,18,24,0],[-19,43,16,19,46,3],
+  [15,-30,14,17,34,0],[17,45,14,19,42,1],[-57,-53,15,7,18,3],
+  [-16,-53,17,8,23,0],[17,-54,12,7,31,1],[-56,69,13,7,28,1],
+  [-18,69,15,7,22,3],[17,69,16,7,27,0],
+];
+const palms=[];
+for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
+  palms.push({x,z,height:6.4+1.1*Math.abs(Math.sin(x+z)), radius:.22});
+}
+export const brickellMap = {
+  bounds: 77, flightLimit: 73, flightCeiling: 73, waterY: -.14,
+  lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
+  buildings:towers.map(([x,z,w,d,eave,facade])=>({x,z,w,d,eave,facade,rise:0})),
+};

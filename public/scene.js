@@ -7,8 +7,9 @@ import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
-import { buildOutpost, meadow } from './outpost.js';
-import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
+import { cityStreets } from './brickell-scene.js';
+import { buildStacks, buildOutpost, meadow } from './outpost.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -197,7 +198,7 @@ function addGround(scene,renderer) {
 }
 
 function addSky(scene) {
-  const panorama=new THREE.TextureLoader().load('./valley-horizon.webp');
+  const panorama=new THREE.TextureLoader().load(CITY ? './brickell-sky.webp' : './valley-horizon.webp');
   panorama.colorSpace=THREE.SRGBColorSpace;panorama.wrapS=THREE.MirroredRepeatWrapping;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
     new THREE.ShaderMaterial({
@@ -217,7 +218,7 @@ function addSky(scene) {
         c=mix(c,vec3(.67,.67,.64),smoothstep(.54,.73,cloud)*smoothstep(.05,.20,d.y)*.6);
         c+=vec3(.18,.145,.09)*pow(sun,22.);
         float elevation=asin(clamp(d.y,-1.,1.));
-        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,(elevation+.44)/.98);
+        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,${CITY ? '(elevation+.16)/.69' : '(elevation+.44)/.98'});
         vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
         c=mix(range,c,smoothstep(.81,1.24,uv.y));
         gl_FragColor=vec4(c,1.);
@@ -877,7 +878,7 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xa5a9a4,.0125);
+  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
   scene.add(new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74));
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
   sun.position.set(-36,32,-21); sun.castShadow=true;
@@ -885,15 +886,25 @@ export function createScene(canvas) {
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
-  addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
-  const forest=new Batch();
-  conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
-  forest.mesh(scene,material);
-  granite(scene,MAP.rocks,terrainHeight,renderer);
-  addBridge(scene,renderer,rng);
-  const features=new Batch();addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
-  const glints=water(scene,rng,renderer);
+  const features=new Batch();
+  let glints, stacks;
+  if(CITY) {
+    cityStreets(scene,renderer,Batch);
+    stacks=buildStacks(scene,renderer,Batch);
+  } else {
+    addGround(scene,renderer);
+    const forest=new Batch();
+    conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
+    forest.mesh(scene,material);
+    granite(scene,MAP.rocks,terrainHeight,renderer);
+    addBridge(scene,renderer,rng);
+    addDetails(scene,features,rng);
+    glints=water(scene,rng,renderer);
+    stacks=buildOutpost(scene,renderer,Batch);
+    meadow(scene,renderer,rng,trailDistance);
+  }
+  landingMarks(features);features.mesh(scene,material);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
@@ -901,8 +912,7 @@ export function createScene(canvas) {
   const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
-  const stacks=buildOutpost(scene,renderer,Batch);
-  meadow(scene,renderer,rng,trailDistance);
+
   const effects=fieldEffects(scene);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
