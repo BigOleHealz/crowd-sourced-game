@@ -505,7 +505,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const paint=fieldPaint();
   const skin=hull.mesh(group,paint,false);
   Object.assign(skin.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
-  glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false).userData.impactSurface='solid';
+  Object.assign(glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false).userData,
+    {impactSurface:'solid',vehicle:'heli'});
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);

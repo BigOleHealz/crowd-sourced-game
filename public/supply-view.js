@@ -10,6 +10,7 @@ export function createSupplyView(scene) {
   const amber = new THREE.MeshBasicMaterial({ color: 0xffdc81, side: THREE.DoubleSide });
   function mesh(parent, geometry, material, x, y, z) {
     const piece = new THREE.Mesh(geometry, material);
+    piece.userData.impactSurface = material === metal || material === paint ? 'metal' : 'solid';
     piece.position.set(x,y,z);
     parent.add(piece);
     return piece;
