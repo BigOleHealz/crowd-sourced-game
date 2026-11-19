@@ -10,6 +10,12 @@ export const MAP = {
     [-6, -17], [-4, -24], [3, -23], [10, -17], [15, -10],
     [16, -4], [16, 4], [14, 10], [9, 16], [4, 17], [0, 15],
   ],
+  buildings: [
+    {x:-9.3,z:-7.8,w:10.2,d:5.6,eave:5.1,rise:1.25},
+    {x:9.7,z:6.0,w:6.4,d:4.4,eave:3.55,rise:.82,garage:true},
+    {x:-13.8,z:15.2,w:7.9,d:4.2,eave:3.25,rise:.68,garage:true},
+    {x:8.7,z:-25.8,w:7.3,d:4.8,eave:4.75,rise:1.12},
+  ],
   rocks: [
     { x: -4, z: 11.5, radius: 1.3, height: 1.45 },
     { x: 5, z: 7, radius: 1.6, height: 1.7 },
@@ -38,6 +44,26 @@ export const BREAKABLES = [
   { id: 'creek', x: 17.8, z: 7.2, radius: 0.6, height: 1.5, hp: 3 },
 ];
 
+export function onBuildingLot(x,z,margin=0) {
+  return MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
+}
+
+// Align the models, walking collision, aim traces and aircraft clearance.
+export function buildingTopAt(x,z,padding=0) {
+  let top=-Infinity;
+  for(const b of MAP.buildings) {
+    const dz=Math.max(0,Math.abs(z-b.z)-padding);
+    if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
+    top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
+  }
+  return top;
+}
+for(const b of MAP.buildings) {
+  const corners=[-1,1].flatMap(s=>[-1,1].map(t=>terrainHeight(b.x+s*b.w/2,b.z+t*b.d/2)));
+  b.base=Math.max(...corners)+.13;
+}
+MAP.rocks=MAP.rocks.filter(r=>!onBuildingLot(r.x,r.z,r.radius*.65));
+
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
 for (let i = 0; i < 9; i++) {
   for (let j = 0; j < 9; j++) {
@@ -53,7 +79,7 @@ for (let i = 0; i < 9; i++) {
       return Math.hypot(x - ax - t * dx, z - az - t * dz) < 4;
     });
     const byRock = MAP.rocks.some(rock => Math.hypot(x - rock.x, z - rock.z) < rock.radius + 1.2);
-    if (byTrail || byRock) continue;
+    if (byTrail || byRock || onBuildingLot(x,z,1.1)) continue;
     const height = 5.6 + 2.8 * (0.5 + 0.5 * Math.sin(i * 3 + j * 9));
     MAP.trees.push({ x, z, height, radius: height * 0.035 });
   }
@@ -108,7 +134,7 @@ function overlaps(x, z, obstacle, padding) {
 }
 
 export function solidTopAt(x, z, hp, padding = 0) {
-  let top = groundHeight(x, z);
+  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);

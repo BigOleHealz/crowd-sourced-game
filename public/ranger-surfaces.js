@@ -60,7 +60,7 @@ function shell(rows,front,back,face=false) {
   }
   const geometry=new THREE.BufferGeometry();
   geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('rangerUv',new THREE.Float32BufferAttribute(uv,2));
+  geometry.setAttribute('batchUv',new THREE.Float32BufferAttribute(uv,2));
   geometry.setIndex(indices);geometry.computeVertexNormals();
   // UV islands duplicate boundary vertices, including the bridge of the nose.
   // Share the shading normal at those identical positions.
