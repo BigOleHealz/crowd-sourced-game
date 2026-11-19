@@ -155,6 +155,7 @@ async function checkExpedition(host) {
   await until(() => player(a).grounded, 'safe parachute landing');
   assert.equal(player(a).hp, beforeLanding);
   assert.equal(player(a).parachute, undefined);
+  console.log('PASS: airborne bailout, accelerating free fall, manual canopy deployment, replicated descent and full-health landing.');
   await walkTo(b, padApproach);
   await drive(b, { interact: true });
   assert.equal(world(b).heli.pilot, b.id);
