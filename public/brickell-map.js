@@ -1,3 +1,4 @@
+import {bayfrontCrossings,deckThickness} from './bayfront-crossings.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
 import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
 // A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
@@ -13,11 +14,23 @@ export const causewayRails=[-1,1].map(side=>({
   x:side*5.73,z:(causeway.north+causeway.south)/2,w:.18,d:causeway.south-causeway.north,h:.55,
 }));
 export const within=(r,x,z)=>x>=r.west && x<=r.east && z>=r.north && z<=r.south;
+export const crossings=bayfrontCrossings(avenues.at(-1),streets,coast,harbor);
+export const deckAt=(x,z)=>crossings.decks.find(deck=>within(deck,x,z));
 export const waterfront=(x,z)=>![coast,causeway,harbor].some(r=>within(r,x,z));
-export const roadway = (x,z) => z<coast.north
+const originalRoad = (x,z) => z<coast.north
   ? within(causeway,x,z) || (within(harbor,x,z) && (Math.abs(x)<6 || Math.abs(z-harbor.crossing)<4.5))
   : avenues.some(a=>Math.abs(x-a)<5.7) || streets.some(s=>Math.abs(z-s)<4.1);
-export const cityGround = (x,z) => onBeach(x,z) ? sandHeight(x,z) : waterfront(x,z) ? -2.8 : roadway(x,z) ? .70 : .80;
+export const roadway=(x,z)=>!!deckAt(x,z) || within(crossings.keyRoad,x,z) || originalRoad(x,z);
+export function cityGround(x,z,maxBottom=Infinity) {
+  const deck=deckAt(x,z);
+  if(deck) {
+    const height=deck.height(x,z);
+    if(height-deckThickness<=maxBottom) return height;
+  }
+  if(onBeach(x,z)) return sandHeight(x,z);
+  if(waterfront(x,z)) return -2.8;
+  return within(crossings.keyRoad,x,z) || originalRoad(x,z) ? .70 : .80;
+}
 
 const towers = [
   [-59,-31,17,18,39,1],[-52,10,12,19,26,3],[-61,47,17,18,38,0],
@@ -34,7 +47,7 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 77, northBound:-289, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...causewayRails,...beachBarriers,
+  barriers:[...crossings.rails,...crossings.piers,...causewayRails,...beachBarriers,
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw])=>[-1,1].map(side=>({

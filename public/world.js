@@ -133,8 +133,8 @@ export function terrainHeight(x, z) {
   return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip;
 }
 
-export function groundHeight(x, z) {
-  if(CITY) return lookoutFloor(x,z,cityGround(x,z));
+export function groundHeight(x, z, maxBottom=Infinity) {
+  if(CITY) return lookoutFloor(x,z,cityGround(x,z,maxBottom));
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&
       Math.abs(z - bridge.z) <= bridge.length / 2) {
@@ -166,7 +166,7 @@ function overlaps(x, z, obstacle, padding) {
 }
 
 export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
-  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding,maxBottom));
+  let top = Math.max(groundHeight(x,z,maxBottom),buildingTopAt(x,z,padding,maxBottom));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
@@ -175,12 +175,13 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
 }
 
 export function blocked(x, y, z, hp) {
-  if (groundHeight(x, z) > y + 0.3) return true;
+  const floor=groundHeight(x,z,y+1.7);
+  if (floor > y + 0.3) return true;
   const bridge = MAP.bridge;
   const rail = !CITY && Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
     Math.abs(z - bridge.z) <= 4.8 && y < bridge.y + 0.9 && y + 1.7 >= bridge.y;
   if (rail) return true;
-  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, groundHeight(x, z)) + 0.001;
+  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, floor) + 0.001;
 }
 
 export function stanceBodyHeight(stance) {
@@ -241,7 +242,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx-=inward*nx;vz-=inward*nz;
     contact=vehicleContact(x,y,z,world,CITY,height);
   }
-  let floor = Math.max(groundHeight(x, z),contact.floor);
+  let floor = Math.max(groundHeight(x, z, y+height),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01);
   if (y >= top) floor = Math.max(floor,top);
   const draft=.72, floatY=MAP.waterY-draft;

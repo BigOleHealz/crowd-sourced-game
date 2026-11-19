@@ -1,10 +1,11 @@
+import {deckThickness} from './bayfront-crossings.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
-import { avenues, streets, coast, harbor, causeway, bayfrontLawns } from './brickell-map.js';
+import { deckAt, avenues, streets, coast, harbor, causeway, crossings, bayfrontLawns } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch,panorama) {
   addBeach(scene,Batch);
@@ -34,7 +35,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   const harborAvenue={...harbor,west:-6,east:6};
   const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
-  ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705)],5);
+  ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705),patch(crossings.keyRoad,.70)],5);
   const lots=[],lawns=bayfrontLawns.map(r=>patch(r,.812));
   const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
   const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
@@ -45,7 +46,10 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   for(const [west,east] of [[harbor.west,-6],[6,harbor.east]]) {
     for(const [north,south] of [[harbor.north,cross.north],[cross.south,harbor.south]]) {
-      const r={west,east,north,south};lawns.push(patch(r,.80));
+      if(west===6 && south===harbor.south) {
+        lawns.push(patch({west,east:crossings.keyRoad.west,north,south},.80),
+          patch({west:crossings.keyRoad.east,east,north,south},.80));
+      } else lawns.push(patch({west,east,north,south},.80));
     }
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
@@ -60,6 +64,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     const bays=Math.ceil(length/6);
     for(let i=0;i<=bays;i++)solids.add(box,0xc4bfaa,x,.96,causeway.north+i*length/bays,.18,.53,.17);
   }
+  addBayfrontBridges(scene,Batch,material('asphalt'),solids,box);
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
   for(const [x,z,label] of harborSigns) {
     const face=document.createElement('canvas');face.width=640;face.height=144;
@@ -134,4 +139,53 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
+}
+
+function addBayfrontBridges(scene,Batch,asphalt,solids,box) {
+  const surface=new Batch(true);
+  for(const deck of crossings.decks) {
+    const {west,east,north,south}=deck, w=east-west, d=south-north;
+    const x=(east+west)/2, z=(north+south)/2, y=deck.height(x,z);
+    // Shear a vertical-sided slab so the top meets both abutments exactly.
+    const slab=new THREE.BoxGeometry(w,deckThickness,d);
+    const vertices=slab.attributes.position;
+    for(let i=0;i<vertices.count;i++)
+      vertices.setY(i,vertices.getY(i)+deck.height(x+vertices.getX(i),z+vertices.getZ(i))-y);
+    slab.computeVertexNormals();
+    solids.add(slab,0xb9b5a3,x,y-deckThickness/2,z);
+    slab.dispose();
+
+    const road=new THREE.PlaneGeometry(w,d).rotateX(-Math.PI/2);
+    const pos=road.attributes.position, uv=road.attributes.uv.clone();
+    for(let i=0;i<pos.count;i++) {
+      const px=x+pos.getX(i), pz=z+pos.getZ(i);
+      pos.setY(i,deck.height(px,pz)-y);
+      uv.setXY(i,px/5,-pz/5);
+    }
+    road.computeVertexNormals();
+    road.setAttribute('batchUv',uv);
+    surface.add(road,0xffffff,x,y+.006,z);
+    road.dispose();
+
+    const alongX=deck.axis==='x', start=alongX?west:north, end=alongX?east:south;
+    for(let t=start+1;t+1.5<end;t+=4) {
+      if(deck.axis==='z' && deck.west>coast.east
+         && streets.some(street=>Math.abs(street-t)<5))continue;
+      const ax=alongX?t:x, az=alongX?z:t, bx=alongX?t+1.5:x, bz=alongX?z:t+1.5;
+      solids.beam(0xe3bc67,[ax,deck.height(ax,az)+.022,az],[bx,deck.height(bx,bz)+.022,bz],.066);
+    }
+  }
+  surface.mesh(scene,asphalt,false).userData.impactSurface='asphalt';
+  for(const {a,b} of crossings.rails) {
+    const [x,y,z]=a, [bx,by,bz]=b;
+    solids.add(box,0xbab7a6,x,y+.41,z,.14,.82,.14);
+    for(const h of [.39,.80])solids.beam(0xc7c4b5,[x,y+h,z],[bx,by+h,bz],.10);
+  }
+  for(const p of crossings.piers) {
+    const top=deckAt(p.x,p.z).height(p.x,p.z);
+    solids.add(box,0x999d93,p.x,top+(p.bottom+p.h)/2,p.z,p.w,p.h-p.bottom,p.d);
+  }
+  const road=crossings.keyRoad;
+  for(let z=road.north+2;z<road.south;z+=4)
+    solids.add(box,0xe3bc67,(road.east+road.west)/2,.713,z,.12,.014,2);
 }
