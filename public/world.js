@@ -111,8 +111,11 @@ export function terrainHeight(x, z) {
     (1 - smoothstep(7, 27, Math.abs(x + 4)));
   const relief = smoothstep(6, 14, Math.abs(z)) *
     (0.32 * Math.sin(x * 0.17) + 0.24 * Math.sin(z * 0.3));
-  const lip = smoothstep(33, MAP.bounds, Math.max(Math.abs(x), Math.abs(z)));
-  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip * 17;
+  const edge = Math.max(Math.abs(x), Math.abs(z));
+  // Shape the wading shelf separately from the steep underwater basin.
+  const shore = Math.max(0, Math.min(5, edge - (MAP.bounds - 6)));
+  const lip = shore + 12 * smoothstep(MAP.bounds - 1, MAP.bounds, edge);
+  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip;
 }
 
 export function groundHeight(x, z) {
@@ -189,6 +192,8 @@ export function stepPlayer(state, input, dt, hp) {
   if (!blocked(x,y,z+vz*dt,hp)) z+=vz*dt; else vz=0;
   // Water reaches every outer edge. Stay at the limit and allow movement
   // parallel to it, including a swimmer turning back toward the shoreline.
+  if (x < -MAP.bounds || x > MAP.bounds) vx=0;
+  if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
   x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
   z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
   let floor = groundHeight(x, z);

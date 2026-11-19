@@ -11,7 +11,8 @@ export function cityStreets(scene,renderer,Batch) {
     const map=loader.load('./brickell-'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
     map.colorSpace=THREE.SRGBColorSpace;
     map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-    map.wrapS=map.wrapT=THREE.RepeatWrapping;
+    // Mirror the photographed wave edges so adjacent water tiles meet at the surface.
+    map.wrapS=map.wrapT=name==='water' ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
     return new THREE.MeshStandardMaterial({map,roughness:.83,vertexColors:true,...options});
   }
   const furniture=new Batch(),solids=new Batch(), walls=new Batch(true);

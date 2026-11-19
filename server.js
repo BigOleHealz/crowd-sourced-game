@@ -261,7 +261,7 @@ function tick() {
       if (impact && damageActor(player, impact, ticks)) continue;
     }
     player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
-    player.sprint = player.moving && input.sprint;
+    player.sprint = player.moving && !player.state.swimming && input.sprint;
     if (input) {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
       if (input.fire) fire(world, player, input, ticks, players, npcs);
