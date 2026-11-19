@@ -196,3 +196,19 @@ export function creekMaterial(renderer) {
   return new THREE.MeshPhongMaterial({map,color:0xb1c7bb,specular:0x94aba4,shininess:24,
     bumpMap:map,bumpScale:.021,transparent:true,opacity:.90});
 }
+
+// Mild paint sheen and lower-panel trail dust use the vehicle's own coordinates.
+// The finish stays fixed to the body as it turns and requires no reflection pass.
+export function fieldPaint() {
+  const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x484a41,shininess:31});
+  paint.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 panelPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n panelPoint=position;');
+    shader.fragmentShader='varying vec3 panelPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      vec3 p=panelPoint;
+      float streak=.5+.5*sin(17.*p.z+2.*sin(11.*p.x)+sin(36.*p.z));
+      float dust=(1.-smoothstep(.35,.84+.11*streak,p.y))*(.17+.18*streak);
+      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.23,.195,.14),dust);`);
+  };
+  return paint;
+}
