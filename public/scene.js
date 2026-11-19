@@ -1007,7 +1007,8 @@ export function createScene(canvas) {
     let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
     // An obstruction between the chase camera and the turret cannot be an aim point
     // for the barrel. Keep its forward sightline while the camera passes that cover.
-    if(station && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
+    const edgeOrbit=Math.abs(cursorNdc.x)>1-2*Math.min(48/rect.width,.07);
+    if(station && (edgeOrbit || Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1)) {
       const depth=range+cameraOffset;
       to={x:origin.x+direction.x*depth,y:origin.y+direction.y*depth,z:origin.z+direction.z*depth};
     }
