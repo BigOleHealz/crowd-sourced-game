@@ -31,11 +31,11 @@ export function waterfrontRoads(avenues,streets,coast,harbor) {
   }
 
   const northStreet=-262,westStreet=-49,eastStreet=32,half=4.5;
-  island.push(rect(-6,6,northStreet-half,harbor.south));
+  island.push(rect(-6,6,harbor.north,harbor.south));
   for(const z of [northStreet,harbor.crossing])island.push(rect(westStreet-half,eastStreet+half,z-half,z+half));
   for(const x of [westStreet,eastStreet])island.push(rect(x-half,x+half,northStreet-half,harbor.crossing+half));
-  // Low reflectors frame the three northbound turns on the landward side of the coast.
-  for(const x of [westStreet,0,eastStreet])
+  // Low reflectors frame the two outer northbound turns on the landward side of the coast.
+  for(const x of [westStreet,eastStreet])
     curbs.push({x,z:northStreet-half-.15,w:7.3,d:.30,h:.38});
   return {roads:[...mainland,...island],mainland,island,ends,curbs,northStreet,westStreet,eastStreet};
 }
