@@ -137,7 +137,14 @@ export function fly(world, input, dt, players) {
 
 export function interact(world, player) {
   const heli = world.heli;
-  if (!heli.grounded || heli.wrecked) return;
+  if (heli.wrecked) return;
+  if (!heli.grounded) {
+    if (heli.pilot !== player.id) return;
+    player.state = { x: heli.x, y: heli.y + .6, z: heli.z, vy: 0, grounded: false, parachute: 'packed' };
+    // Use the same home pad as pilot disconnect recovery, retaining hull damage and cargo.
+    world.heli = Object.assign(parkedHelicopter(), {hp: heli.hp, cargo: heli.cargo ?? 0});
+    return;
+  }
   if (heli.pilot === null) {
     const range = Math.hypot(player.state.x - heli.x, player.state.z - heli.z, player.state.y - heli.y);
     if (range <= BOARD_RANGE && player.state.grounded) heli.pilot = player.id;

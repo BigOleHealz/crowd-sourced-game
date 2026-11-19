@@ -24,7 +24,7 @@ let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = 
 const isDriving = () => id != null && world?.rover.driver === id;
 const isPilot = () => id != null && world?.heli.pilot === id;
 
-let queuedReplay = false;
+let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
 const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE']);
@@ -44,7 +44,7 @@ function setGuide(open) {
 function clearInput() {
   held.clear();
   pressedAim = null;
-  queuedReplay = false;
+  queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
@@ -59,6 +59,7 @@ window.addEventListener('keydown', e => {
   e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;
+  if (e.code === 'Space') queuedDeploy = true;
   if (e.code === 'Space' && !isPilot() && !isDriving()) queuedJump = true;
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
@@ -190,8 +191,8 @@ function tick() {
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
-    replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
-  queuedReplay = false;
+    deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
+  queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
@@ -260,15 +261,18 @@ function updateEquipment(local) {
   byId('hp-label').textContent = (pilot ? 'Airframe ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = isDriving();
-  byId('space-action').textContent = pilot ? 'Climb' : 'Jump';
+  byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
+  if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
   byId('tool-shortcut').hidden = byId('fire-shortcut').hidden = pilot || isDriving();
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
+  else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
   else if (isDriving()) prompt.textContent = 'W/S drive  ·  A/D steer  ·  E park and exit';
   else if (!pilot && nearestVehicle(world,local)==='rover') prompt.textContent = 'E  ·  Drive trail rover';
   else if (heli.wrecked) prompt.textContent = 'Helicopter recovering · ' + Math.ceil(heli.recoverySeconds) + 's';
-  else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend and land';
+  else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend  ·  E to bail out';
   else if (heli.pilot != null) prompt.textContent = 'Helicopter in use';
   else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
   else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';

@@ -10,7 +10,7 @@ import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/e
 import { parkedRover, nearestVehicle, driveRover, interactRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
+import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -120,7 +120,7 @@ function acceptInput(player, data, binary) {
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
-    replaySupply: input.replaySupply === true,
+    replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
@@ -213,7 +213,12 @@ function tick() {
       player.sprint = false;
       continue;
     }
-    player.state = stepPlayer(player.state, input || idle, step, world.hp);
+    const falling = player.state;
+    player.state = stepPlayer(falling, input || idle, step, world.hp);
+    if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
+      const impact = Math.max(0, Math.round((-falling.vy - 7) * 10));
+      if (impact && damageActor(player, impact, ticks)) continue;
+    }
     player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
     player.sprint = player.moving && input.sprint;
     if (input) {

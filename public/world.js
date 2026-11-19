@@ -126,7 +126,8 @@ export function blocked(x, y, z, hp) {
 }
 
 export function stepPlayer(state, input, dt, hp) {
-  const speed = input.sprint ? 7.4 : 4.6;
+  const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
+  const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed * dt / Math.max(1, Math.hypot(ix, iz));
@@ -147,6 +148,7 @@ export function stepPlayer(state, input, dt, hp) {
   } else {
     grounded = false;
     vy -= GRAVITY * dt;
+    if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
     if (y <= floor && vy <= 0) {
       y = floor;
@@ -155,5 +157,7 @@ export function stepPlayer(state, input, dt, hp) {
     }
   }
   if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
-  return { x, y, z, vy, grounded };
+  const next = { x, y, z, vy, grounded };
+  if (parachute && !grounded) next.parachute = parachute;
+  return next;
 }
