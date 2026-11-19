@@ -111,17 +111,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   chassis.mesh(root,material,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   glazing.mesh(root,glassMat,false);
-  const driver=new Batch();
-  driver.add(seatForm,0x8e7561,-.322,1.215,-.085,.16,.19,.096);
-  driver.add(seatForm,0x98775e,-.322,1.421,-.102,.109,.116,.10);
-  driver.add(seatForm,0x47563f,-.322,1.485,-.103,.116,.064,.11);
-  for(const side of [-1,1]) {
-    const shoulder=[-.322+side*.107,1.262,-.12], elbow=[-.322+side*.15,1.175,-.19];
-    const hand=[-.36+side*.081,1.228,-.286];
-    driver.beam(0x8e7561,shoulder,elbow,.065);
-    driver.beam(0x98775e,elbow,hand,.047);
-  }
-  const seated=driver.mesh(root,material,false);
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
@@ -169,7 +158,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   scene.add(shadow);
   cube.dispose(); disc.dispose();
   return function update(r,dt) {
-    seated.visible=r.driver!=null;
     const sn=Math.sin(r.yaw), cs=Math.cos(r.yaw);
     const front=groundHeight(r.x+sn*.84,r.z-cs*.84), back=groundHeight(r.x-sn*.84,r.z+cs*.84);
     const right=groundHeight(r.x+cs*.68,r.z+sn*.68), left=groundHeight(r.x-cs*.68,r.z-sn*.68);
