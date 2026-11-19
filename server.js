@@ -1,3 +1,4 @@
+import {sampleRanger} from './public/ragdoll.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -225,12 +226,12 @@ function tick() {
     if (input) {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
-      if (input.interact) {
+      if (input.interact && !player.state.climb) {
         if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
         else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
         else interact(world, player);
-      } else if (input.seat) selectSeat(world,player,input.seatKind,input.seat);
+      } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
     if (world.rover.driver === player.id) {
       const before={...world.rover};
@@ -268,6 +269,11 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
+    if(player.state.climb || falling.climb){
+      player.yaw=(player.state.climb || falling.climb).yaw;
+      player.moving=player.sprint=false;
+      continue;
+    }
     if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
       const impact = Math.max(0, Math.round((-falling.vy - 7) * 10));
       if (impact && damageActor(player, impact, ticks)) continue;
@@ -286,6 +292,10 @@ function tick() {
     gunner.state={...gunnerFeet(v,kind),grounded:kind==='rover' || v.grounded,vy:0};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
+  }
+  if(players.size) {
+    for(const player of players.values())sampleRanger(player,step,world);
+    for(const npc of npcs)sampleRanger(npc,step,world);
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);

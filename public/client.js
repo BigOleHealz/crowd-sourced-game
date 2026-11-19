@@ -29,7 +29,7 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
-const canAim = () => self && !vitals.dead && !vitals.fall && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+const canAim = () => self && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
   byId('weapon-sight').hidden = !active || weapon!==1;
@@ -233,7 +233,7 @@ function tick() {
   sprint = moving && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !self.swimming && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
+  const fire = !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
     (pressedAim || (camera.sighted ? camera : null) || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -281,7 +281,10 @@ function remoteFrame(time) {
     return newer.map(p => {
       const q = older.find(q => p.id === q.id);
       if (!q || q.dead !== p.dead || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
-      return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const fall=p.fall?.joints && q.fall?.started===p.fall.started ? {...p.fall,
+        joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
+      const climb = q.climb && p.climb ? {...p.climb,t:mix(q.climb.t,p.climb.t,t)} : p.climb;
+      return { ...p, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
@@ -346,9 +349,10 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
-  byId('fire-shortcut').hidden = local.swimming || vitals.dead;
+  byId('fire-shortcut').hidden = local.swimming || !!local.climb || vitals.dead;
   const prompt = byId('field-prompt');
-  if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
+  if (local.climb) prompt.textContent = 'Pulling up…';
+  else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if (local.swimming) prompt.textContent='Swimming  ·  WASD / arrows to swim to shore';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
@@ -428,7 +432,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
+    const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const { players: remotes, npcs, heli, rover } = remoteFrame(time);
     local.weapon = weapon;

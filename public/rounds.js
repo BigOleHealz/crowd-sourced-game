@@ -37,9 +37,9 @@ const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
   {x:x+1.5,y:4.265,z:z-5.8,w:.34,h:.87,d:.32},
 ])):[];
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
-  let t=Infinity,target=null,hitKind=null,headshot=false;
-  function accept(value,obj,kind,head=false){
-    if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;}
+  let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity;
+  function accept(value,obj,kind,head=false,part=null,visual=value){
+    if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;}
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
@@ -69,7 +69,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const start=Math.hypot(now.x-prev.x,now.y-prev.y,now.z-prev.z)<2.5?prev:now;
     const rel={x:d.x-(now.x-start.x),y:d.y-(now.y-start.y),z:d.z-(now.z-start.z)};
     const hit=actorIntersection({...actor,state:start},round,rel);
-    accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot);
+    accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
   const above=f=>round.y+f*d.y-Math.max(MAP.waterY,groundHeight(round.x+f*d.x,round.z+f*d.z));
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
@@ -80,5 +80,5 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     for(let k=0;k<6;k++){const m=(lo+hi)/2;if(above(m)>0)lo=m;else hi=m;}
     accept(hi,null,'scenery');break;
   }
-  return {t,target,hitKind,headshot};
+  return {t,target,hitKind,headshot,hitPart,visualT};
 }
