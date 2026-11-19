@@ -1,4 +1,6 @@
 import {liveShots} from './shot-events.js';
+import {retailRoom} from './frontage-glass.js';
+import {galleryRoomAt} from './gallery-lobbies.js';
 import {storefrontRoom} from './storefront-layout.js';
 import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
@@ -521,7 +523,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
     const view = isDriving() ? drivingView(boat??rover, dt) : camera;
-    audio.engines(local,view.yaw,heli,rover,boats);
+    audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked);
     scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
@@ -530,7 +532,7 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-      const interior=CITY && storefrontRoom(local.x,local.y,local.z);
+  const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z));
       byId('location').textContent = interior ? interior.name : CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';

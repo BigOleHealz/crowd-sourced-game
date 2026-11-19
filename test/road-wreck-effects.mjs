@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {newExpedition,reportVehicleWreck} from '../public/expedition.js';
+import {damageRover,recoverRover} from '../public/rover.js';
+import {liveShots} from '../public/shot-events.js';
+const world=newExpedition(),driver={id:1,state:{x:world.rover.x,y:world.rover.y,z:world.rover.z},inputs:[],life:{hp:100}};
+world.rover.driver=driver.id;const players=new Map([[driver.id,driver]]),observer=liveShots([]);
+damageRover(world,250,players);reportVehicleWreck(world,world.rover,'rover','road',9);
+const [burst]=observer(world.shots);assert.equal(burst.weapon,'vehicleWreck');assert.equal(burst.surface,'road');
+assert.equal(world.rover.driver,null);assert.equal(driver.life.hp,100);
+reportVehicleWreck(world,world.rover,'rover','road',10);assert.deepEqual(observer(world.shots),[]);
+assert.deepEqual(liveShots(world.shots)(world.shots),[]);
+for(let i=0;i<179;i++)recoverRover(world,1/30);assert(world.rover.wrecked);
+recoverRover(world,1/30);assert(!world.rover.wrecked);assert.equal(world.rover.hp,250);
+damageRover(world,251,players);reportVehicleWreck(world,world.rover,'rover','road',190);
+assert(observer(world.shots).at(-1).id>burst.id);
+console.log('PASS road wreck, ejection without extra damage, one cue per destruction, late observer and six-second replacement.');

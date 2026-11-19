@@ -1,6 +1,9 @@
 import { addBrickellHorizon } from './brickell-horizon.js';
+import {breakableWindows} from './frontage-break-view.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
-import { retailRecess, streetShops } from './street-shops.js';
+import {galleryPlans} from './gallery-lobbies.js';
+import {galleryLobbyView} from './gallery-lobby-view.js';
+import { streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import {addCauseway} from './causeway-view.js';
 import { addApartmentBalconies, hasApartmentBalconies } from './apartment-balconies.js';
@@ -11,7 +14,7 @@ import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, causeway, bayfrontLawns } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch,panorama) {
-  addBeach(scene,Batch);
+  const updateCourts=addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
     const map=loader.load('./brickell-'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
@@ -96,16 +99,18 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
-  const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama);
+  const breakables=breakableWindows(scene,Batch);
+  const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
-  const furnishPortico=streetShops(scene,renderer,Batch,panorama);
-  const base=.80, podium=3.9;
+  const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama);
+  const furnishPortico=streetShops(scene,renderer,Batch,panorama,breakables);
+  const base=.80,podium=3.9;
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade,housing},i)=>{
     const avenueCorner=x===-17 && z===7;
-    const westDepth=retailRecess(w),eastDepth=avenueCorner?7.13:westDepth;
-    const coreWidth=w-westDepth-eastDepth;
-    walls.add(faces[2],0xf5eee5,x+(westDepth-eastDepth)/2,base+podium/2,z,coreWidth,podium,d);
+    const {west:westDepth,east:eastDepth,x:coreX,w:coreWidth,rooms,ends}=galleryPlans[i];
+    if(rooms.length===2)solids.add(box,0xb5a88e,coreX,base+podium/2,z,coreWidth,podium,d-2*ends[0].depth);
+    solids.add(box,0xbcaf97,coreX,base+podium-.34,z,coreWidth,.68,d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
     if (!hasApartmentBalconies(facade)) {
@@ -131,5 +136,5 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
-  return updateDoors;
+  return (doors,dt,local,remotes)=>{updateDoors(doors,dt);breakables.update(doors,dt);updateGallery(doors,breakables.scatter);updateCourts(doors,dt,local,remotes);};
 }

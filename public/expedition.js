@@ -15,6 +15,17 @@ import { mounts, mountPosition, vehicleById } from './mounts.js';
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
 
+const reportedWrecks=new WeakSet();
+// Sample after the authoritative damage, collisions and crew ejection for this
+// tick. The retained event shares the regular shot feed's deduplication on join.
+export function reportVehicleWreck(world,vehicle,source,surface,tick) {
+  if(!vehicle.wrecked){reportedWrecks.delete(vehicle);return;}
+  if(reportedWrecks.has(vehicle))return;
+  reportedWrecks.add(vehicle);
+  const at={x:vehicle.x,y:vehicle.y+(surface==='water' ? .47 : .85),z:vehicle.z};
+  world.shots.push({id:nextShotId++,weapon:'vehicleWreck',source,surface,from:at,to:at,tick});
+}
+
 export function newExpedition() {
   return {
     ...(CITY ? {doors:newStorefrontDoors()} : {}),
@@ -226,19 +237,38 @@ export function advanceMissiles(world,players,npcs,tick) {
 
 const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
-  const v=vehicleById(world,kind), ready=nextBullet.get(v) ?? tick;
-  if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
+  const v=vehicleById(world,kind);
+  if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked) return;
+  if(CITY && kind==='heli') {
+    // Five integer time slots per tick put rounds three slots apart (50/s).
+    // Reset the phase after a pause so idle time never accrues ammunition.
+    const start=tick*5, end=start+5, pivot=mountPosition(v,mounts.heli.turret);
+    let slot=Math.max(start,nextBullet.get(v) ?? start);
+    for(;slot<end;slot+=3) {
+      v.chainRounds=(v.chainRounds ?? 0)+1;
+      const tracer=(v.chainRounds-1)%5===0;
+      sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick,tracer,(slot-start)/5);
+    }
+    nextBullet.set(v,slot);
+    v.chainFiring=true;
+    return;
+  }
+  const ready=nextBullet.get(v) ?? tick;
+  if(tick<ready)return;
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
 
-function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick){
+function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){
   const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
-  world.bullets.push({...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
-    vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0});
-  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,source,from,to:from,tick});
+  const round={...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
+    vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0};
+  if(!tracer)round.hidden=true;
+  if(delay)round.delay=delay;
+  world.bullets.push(round);
+  if(tracer)world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,source,from,to:from,tick});
 }
 
 const lastPosition=new WeakMap();
@@ -246,7 +276,9 @@ export function advanceRounds(world,players,npcs,tick){
   const dt=1/30;
   world.bullets=world.bullets.filter(r=>{
     const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source);
-    const d={x:r.vx*dt,y:r.vy*dt,z:r.vz*dt};
+    const elapsed=dt*(1-(r.delay ?? 0));
+    if(r.delay)r.delay=0;
+    const d={x:r.vx*elapsed,y:r.vy*elapsed,z:r.vz*elapsed};
     const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
     d.x*=fraction;d.y*=fraction;d.z*=fraction;
     const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
@@ -257,6 +289,7 @@ export function advanceRounds(world,players,npcs,tick){
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
     const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage);
+    if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
     return false;

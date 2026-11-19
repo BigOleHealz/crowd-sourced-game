@@ -1,3 +1,4 @@
+import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
 import {nearBoat,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
@@ -10,7 +11,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, spawn, stepPlayer } from './public/world.js';
-import { newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
@@ -32,7 +33,14 @@ const players = new Map();
 let world = newExpedition();
 let npcs = newRivals();
 function worldView() {
-  return { ...world, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
+  const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
+    if(r.source!=='heli')return r;
+    const {id,weapon,x,y,z,vx,vy,vz,age}=r;
+    return {id,weapon,x,y,z,vx,vy,vz,age};
+  }) : world.bullets;
+  const heli=world.heli;
+  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
+  return { ...world, bullets, heli:heliView, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -209,7 +217,9 @@ function tick() {
       if(p.life.hp && p.id!==world.rover.driver && p.id!==world.heli.pilot && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
     }
     stepStorefrontDoors(world.doors,pedestrians,step);
+    stepRetailDoors(world.doors,pedestrians,step);
   }
+  if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
@@ -218,6 +228,7 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(world.heli.gunner!==player.id || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
@@ -282,8 +293,11 @@ function tick() {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
         vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
+        if(CITY && kind==='heli')player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(input.fire) firingGunners.add(player.id);
       }
+      // Bridge ordinary packet jitter, and release a stalled client's trigger.
+      if(CITY && kind==='heli' && ticks<player.chainFireUntil)firingGunners.add(player.id);
       continue;
     }
     const falling = player.state;
@@ -324,6 +338,8 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
+  for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
+  reportVehicleWreck(world,world.rover,'rover','road',ticks);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
 }

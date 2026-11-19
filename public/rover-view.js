@@ -282,12 +282,25 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   if(contact){contact.frustumCulled=false;contact.visible=false;scene.add(contact);}
 
   sheet.dispose(); cube.dispose(); disc.dispose();
+  const scorchedGlass=new THREE.MeshLambertMaterial({color:0x272e2d,vertexColors:true,side:THREE.DoubleSide});
+  const crumpled={front:.92,rear:.42,left:.65,right:.26};
+  let burned=false;
   return function update(r,dt) {
-    updatePanelDamage(r.bodyDamage);
+    if(burned!==r.wrecked){
+      burned=r.wrecked;
+      paint.color.setHex(burned ? 0x62584f : 0xffffff);
+      facingMaterial.color.setHex(burned ? 0x504b46 : 0xffffff);
+      windows.material=burned ? scorchedGlass : glassMat;tailTag.visible=!burned;
+    }
+    updatePanelDamage(burned ? crumpled : r.bodyDamage);
     const pose=r.suspension;
     axles.position.set(r.x,r.y,r.z);axles.rotation.y=-r.yaw;
-    root.position.set(r.x,r.y+(pose?.heave ?? 0),r.z);
-    root.rotation.set(pose?.pitch ?? 0,-r.yaw,(pose?.roll ?? 0)+(r.wrecked ? -.22 : 0),'YXZ');
+    // A collapsed front corner settles onto the axles. The six-second
+    // authoritative recovery clock also places late joiners in the right pose.
+    const age=burned ? Math.max(0,6-r.recoverySeconds) : 0;
+    const sag=1-Math.exp(-2.8*age);
+    root.position.set(r.x,r.y+(pose?.heave ?? 0)-.20*sag,r.z);
+    root.rotation.set((pose?.pitch ?? 0)-.13*sag,-r.yaw,(pose?.roll ?? 0)-.18*sag,'YXZ');
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
     if(contact){
       contact.visible=r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;
@@ -307,6 +320,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       wheel.rotation.x-=r.speed*dt/.36;
       wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
     });
-    for(let i=0;i<cargo.length;i++) cargo[i].visible=i<(r.cargo||0);
+    for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);
   };
 }

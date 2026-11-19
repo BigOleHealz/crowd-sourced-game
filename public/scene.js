@@ -1,3 +1,6 @@
+import {retailRoom} from './frontage-glass.js';
+import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
+import {vehicleWreckBurst} from './vehicle-wreck-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {crewBoat} from './patrol-boats.js';
@@ -752,6 +755,7 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
       particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
@@ -1158,7 +1162,7 @@ export function createScene(canvas) {
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
-    updateDoors?.(world.doors,dt);
+    updateDoors?.(world.doors,dt,local,remotes);
     updatePatrolBoats(world?.boats,dt);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
@@ -1204,8 +1208,11 @@ export function createScene(canvas) {
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
     const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
-    const indoors=CITY && Boolean(storefrontRoom(local.x,local.y,local.z));
-    const roomBlend=indoors ? THREE.MathUtils.smoothstep(doorX-local.x,0,.85) : 0;
+    const tenant=CITY && retailRoom(local.x,local.y,local.z);
+    const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
+    const indoors=Boolean(tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const roomBlend=indoors ? THREE.MathUtils.smoothstep(depth,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
