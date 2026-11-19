@@ -1,8 +1,59 @@
 import { MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+export const AIRFRAME_HP = 100;
+export const RECOVERY_SECONDS = 6;
+
+// Velocity and contact history belong to the server, not its public snapshots.
+const flightStates = new WeakMap();
+
 export function parkedHelicopter() {
-  return { ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, grounded: true };
+  const heli = {
+    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, grounded: true,
+    hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, wrecked: false, recoverySeconds: 0,
+  };
+  flightStates.set(heli, { vx: 0, vy: 0, vz: 0, sideContact: false, floorContact: false });
+  return heli;
+}
+
+export function damageHelicopter(world, damage, players, shooterId = null) {
+  const heli = world.heli;
+  if (heli.wrecked || !(damage > 0) || !Number.isFinite(damage)) return false;
+  if (shooterId != null && shooterId === heli.pilot) return false;
+  heli.hp = Math.max(0, heli.hp - damage);
+  if (heli.hp === 0) {
+    const pilot = players?.get(heli.pilot);
+    if (pilot) {
+      pilot.state = spawn(pilot.id - 1);
+      pilot.moving = false;
+      pilot.sprint = false;
+      pilot.inputs.length = 0;
+    }
+    heli.pilot = null;
+    heli.wrecked = true;
+    heli.recoverySeconds = RECOVERY_SECONDS;
+  }
+  return true;
+}
+
+export function recoverHelicopter(world, dt) {
+  const heli = world.heli;
+  if (!heli.wrecked) return;
+  const ground = Math.max(groundHeight(heli.x, heli.z), MAP.waterY);
+  heli.y = Math.max(ground, heli.y - dt * 6);
+  heli.grounded = heli.y <= ground;
+  heli.recoverySeconds = Math.max(0, heli.recoverySeconds - dt);
+  if (heli.recoverySeconds < 0.0001) world.heli = parkedHelicopter();
+}
+
+// Only the stopped component of a motion counts. A skimming hit loses less
+// hull than a square impact; slow taps can land without losing any hull.
+export function impactDamage(stoppedSpeed) {
+  return Math.max(0, Math.round((stoppedSpeed - 3) * 12));
+}
+
+function approach(current, target, maxDelta) {
+  return current + clamp(target - current, -maxDelta, maxDelta);
 }
 
 function landingSite(x, z, hp) {
@@ -30,32 +81,63 @@ function flightFloor(x, z, hp) {
   return floor;
 }
 
-export function fly(world, input, dt) {
-  const heli = world.heli;
-  if (heli.grounded && input.lift <= 0) return;
-  const currentFloor = flightFloor(heli.x, heli.z, world.hp);
-  const canLand = landingSite(heli.x, heli.z, world.hp) && currentFloor <= groundHeight(heli.x, heli.z) + 0.08;
-  const minY = currentFloor + (canLand ? 0 : 0.22);
-  heli.y = clamp(heli.y + input.lift * 4.8 * dt, minY, 23);
-  heli.grounded = canLand && heli.y <= minY + 0.025;
-  if (heli.grounded) {
-    heli.y = minY;
+export function fly(world, input, dt, players) {
+  const h = world.heli;
+  if (h.wrecked || (h.grounded && input.lift <= 0)) return;
+  const motion = flightStates.get(h);
+  const oldFloor = flightFloor(h.x, h.z, world.hp);
+  const landable = landingSite(h.x, h.z, world.hp) && oldFloor <= groundHeight(h.x, h.z) + 0.08;
+  const minY = oldFloor + (landable ? 0 : 0.22);
+  const liftTarget = input.lift * (input.lift < 0 ? 6 : 4.8);
+  motion.vy = approach(motion.vy, liftTarget, (input.lift ? 9 : 22) * dt);
+  const nextY = h.y + motion.vy * dt;
+  const floorContact = nextY <= minY && motion.vy <= 0;
+  if (floorContact && !motion.floorContact) {
+    damageHelicopter(world, impactDamage(-motion.vy), players);
+  }
+  motion.floorContact = floorContact;
+  h.y = clamp(nextY, minY, 23);
+  if (floorContact || h.y === 23) motion.vy = 0;
+  h.grounded = landable && floorContact;
+  if (h.grounded || h.wrecked) {
+    motion.vx = 0;
+    motion.vz = 0;
+    motion.sideContact = false;
     return;
   }
-  const x = clamp(heli.x + input.x * 7.6 * dt, -30, 30);
-  const z = clamp(heli.z + input.z * 7.6 * dt, -30, 30);
-  // The craft can hover; climbing gives clearance to cross a ridge or canopy.
-  if (heli.y > flightFloor(x, z, world.hp) + 0.15) {
-    heli.x = x;
-    heli.z = z;
+
+  const desiredX = input.x * 7.6, desiredZ = input.z * 7.6;
+  // Accelerate into flight and brake quickly when the pilot releases movement.
+  const deltaX = desiredX - motion.vx, deltaZ = desiredZ - motion.vz;
+  const maxChange = (desiredX || desiredZ ? 18 : 40) * dt;
+  const blend = Math.min(1, maxChange / (Math.hypot(deltaX, deltaZ) || 1));
+  motion.vx += deltaX * blend;
+  motion.vz += deltaZ * blend;
+  const x = clamp(h.x + motion.vx * dt, -30, 30);
+  const z = clamp(h.z + motion.vz * dt, -30, 30);
+  const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp) + 0.04;
+  let stoppedX = 0, stoppedZ = 0;
+  if (clear(x, z)) {
+    h.x = x;
+    h.z = z;
+  } else {
+    if (clear(x, h.z)) h.x = x;
+    else { stoppedX = motion.vx; motion.vx = 0; }
+    if (clear(h.x, z)) h.z = z;
+    else { stoppedZ = motion.vz; motion.vz = 0; }
   }
-  const turn = Math.atan2(Math.sin(input.aimYaw - heli.yaw), Math.cos(input.aimYaw - heli.yaw));
-  heli.yaw += clamp(turn, -2.8 * dt, 2.8 * dt);
+  const stoppedSpeed = Math.hypot(stoppedX, stoppedZ);
+  if (stoppedSpeed > 0 && !motion.sideContact) {
+    damageHelicopter(world, impactDamage(stoppedSpeed), players);
+  }
+  motion.sideContact = stoppedSpeed > 0;
+  const turn = Math.atan2(Math.sin(input.aimYaw - h.yaw), Math.cos(input.aimYaw - h.yaw));
+  h.yaw += clamp(turn, -2.8 * dt, 2.8 * dt);
 }
 
 export function interact(world, player) {
   const heli = world.heli;
-  if (!heli.grounded) return;
+  if (!heli.grounded || heli.wrecked) return;
   if (heli.pilot === null) {
     const range = Math.hypot(player.state.x - heli.x, player.state.z - heli.z, player.state.y - heli.y);
     if (range <= BOARD_RANGE && player.state.grounded) heli.pilot = player.id;

@@ -444,7 +444,8 @@ function fieldHelicopter(scene,material,shadowMap) {
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
-  hull.mesh(group,material,false);
+  const paint = material.clone();
+  hull.mesh(group,paint,false);
   for (let i=0; i<3; i++) {
     const a = i*TAU/3, s = Math.sin(a), c = Math.cos(a);
     rotor.add(cube,graphite,s*1.32,0,c*1.32,.132,.044,2.58,0,a);
@@ -461,11 +462,74 @@ function fieldHelicopter(scene,material,shadowMap) {
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  let speed=0;
+  const tag = document.createElement('canvas');
+  tag.width=320; tag.height=64;
+  const ink=tag.getContext('2d');
+  const labelMap=new THREE.CanvasTexture(tag);
+  labelMap.colorSpace=THREE.SRGBColorSpace;
+  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
+  label.scale.set(2.9,.58,1);
+  scene.add(label);
+  let labelHp, labelMax, labelRecovery;
+  function healthLabel(hp,maxHp,recovery) {
+    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery) return;
+    labelHp=hp; labelMax=maxHp; labelRecovery=recovery;
+    const condition=hp/maxHp;
+    ink.clearRect(0,0,320,64);
+    ink.fillStyle='rgba(21,37,36,.90)';
+    ink.fillRect(0,0,320,64);
+    ink.font='bold 23px sans-serif';
+    ink.textAlign='left';
+    ink.fillStyle='#f8f5e8';
+    ink.fillText(recovery===null ? 'TRAIL HELI' : 'WRECKED',12,28);
+    ink.textAlign='right';
+    ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
+    ink.fillStyle='#53615d';
+    ink.fillRect(12,40,296,12);
+    ink.fillStyle=condition<=.30 ? '#ff8b61' : condition<=.60 ? '#f1c46b' : '#98dfad';
+    ink.fillRect(12,40,296*condition,12);
+    labelMap.needsUpdate=true;
+  }
+
+  // One instanced draw for the exhaust plume. Each puff grows, drifts, and
+  // shrinks out at the top; the entire plume disappears when the craft recovers.
+  const puffCount=9;
+  const smoke=new THREE.InstancedMesh(stone,new THREE.MeshLambertMaterial({
+    color:0x676c6c,transparent:true,opacity:.68,depthWrite:false
+  }),puffCount);
+  smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  smoke.frustumCulled=false;
+  group.add(smoke);
+  const puff=new THREE.Object3D();
+  let phase=0, speed=0;
   return { group, update(heli,dt) {
+    const maxHp=Math.max(1,heli.maxHp??100);
+    const hp=clamp(heli.hp??maxHp,0,maxHp);
+    const wrecked=heli.wrecked===true;
+    const smoking=hp>0 && hp/maxHp<=.30;
+    const recovery=wrecked ? Math.max(0,Math.ceil(heli.recoverySeconds??0)) : null;
+    healthLabel(Math.ceil(hp),maxHp,recovery);
+    label.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
-    group.rotation.y=-heli.yaw;
-    speed = mix(speed,heli.pilot != null ? 20 : 0,1-Math.exp(-dt*4));
+    group.rotation.set(0,-heli.yaw,wrecked ? -.29 : 0,'YXZ');
+    paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
+    smoke.visible=smoking;
+    if(smoking) {
+      phase=(phase+dt*.72)%1;
+      for(let i=0;i<puffCount;i++){
+        const age=(phase+i/puffCount)%1;
+        const radius=.045+.38*Math.sin(Math.PI*age);
+        puff.position.set(.22+.75*age+.07*Math.sin(i*2.2),1.58+2.05*age,.48+.65*age);
+        puff.scale.set(radius,radius*.79,radius*.90);
+        puff.rotation.set(age,2.4*i+age,age*.7);
+        puff.updateMatrix(); smoke.setMatrixAt(i,puff.matrix);
+      }
+      smoke.instanceMatrix.needsUpdate=true;
+    } else {
+      phase=0;
+    }
+    mainRotor.rotation.z=wrecked ? -.18 : 0;
+    speed = wrecked ? 0 : mix(speed,heli.pilot != null ? 20 : 0,1-Math.exp(-dt*4));
     mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
     const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
     shadow.position.set(heli.x,floor+.07,heli.z);

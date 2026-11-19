@@ -5,7 +5,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
-import { parkedHelicopter, fly, interact } from './public/airframe.js';
+import { parkedHelicopter, fly, interact, recoverHelicopter } from './public/airframe.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -148,6 +148,7 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
+  recoverHelicopter(world, step);
   for (const player of players.values()) {
     const input = player.inputs.shift();
     if (input) {
@@ -155,7 +156,8 @@ function tick() {
       if (input.interact) interact(world, player);
     }
     if (world.heli.pilot === player.id) {
-      if (input) fly(world, input, step);
+      fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
+      if (world.heli.pilot !== player.id) continue;
       const { x, y, z, yaw, grounded } = world.heli;
       player.state = { x, y, z, vy: 0, grounded };
       player.yaw = yaw;
