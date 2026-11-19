@@ -858,12 +858,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(!seated && !state.parachute && !state.dead) {
-      const kit=avatar.tools[bloom ? 1 : 0].position;
+      const weapon=avatar.tools[bloom ? 1 : 0];
+      const kit=weapon.position;
       kit.y=1.325+.005*breathe-.085*run;
       kit.z=-.19+.045*run;
-      kit.rotation.x=-.32*run;
+      weapon.rotation.x=-.32*run;
       const gripZ=side===1 ? -.014 : -.226, gripY=side===1 ? -.04 : .018;
-      const sine=Math.sin(kit.rotation.x), cosine=Math.cos(kit.rotation.x);
+      const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
       gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
         kit.z+gripY*sine+gripZ*cosine,side);
     } else if(seated) {
