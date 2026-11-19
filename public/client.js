@@ -225,7 +225,7 @@ function remoteFrame(time) {
       abandonedFor: b.heli.abandonedFor == null ? null : mix(a.heli.abandonedFor ?? 0,b.heli.abandonedFor,t) };
   }
   let rover = b.rover;
-  if(a.rover.driver===b.rover.driver) {
+  if(a.rover.driver===b.rover.driver && a.rover.wrecked===b.rover.wrecked) {
     rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
       z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t) };
   }
@@ -256,10 +256,11 @@ function updateEquipment(local) {
   byId('kit').textContent = isDriving() ? 'Trail rover' : pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
   canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
-  const hp = pilot ? heli.hp : vitals.hp;
-  const maxHp = (pilot ? heli.maxHp : vitals.maxHp) || 100;
+  const health = pilot ? heli : isDriving() ? world.rover : vitals;
+  const hp = health.hp;
+  const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
-  byId('hp-label').textContent = (pilot ? 'Airframe ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('hp-label').textContent = (pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = isDriving();
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';

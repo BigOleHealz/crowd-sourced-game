@@ -52,7 +52,7 @@ if (combined) {
 }
 assert.equal(rover.cargo,0);
 assert.equal(world.heli.cargo,3);
-damageHelicopter(world,100);
+damageHelicopter(world,world.heli.maxHp);
 step(3); waitStage('delivery');
 assert.equal(world.heli.cargo,0);
 step(181,()=>recoverHelicopter(world,dt));

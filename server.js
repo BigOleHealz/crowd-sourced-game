@@ -7,7 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
 import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/expedition.js';
 
-import { parkedRover, nearestVehicle, driveRover, interactRover } from './public/rover.js';
+import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
@@ -155,8 +155,8 @@ sockets.on('connection', ws => {
       world = newExpedition();
       npcs = newRivals();
     }
-    else if (world.heli.pilot === id) world.heli = parkedHelicopter();
-    else if (world.rover.driver === id) world.rover = parkedRover();
+    else if (world.heli.pilot === id) world.heli = Object.assign(parkedHelicopter(), {hp: world.heli.hp, cargo: world.heli.cargo});
+    else if (world.rover.driver === id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
     publish();
   });
   ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
@@ -167,6 +167,7 @@ const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
   recoverHelicopter(world, step);
+  recoverRover(world, step);
   if (players.size) {
     for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
   }
@@ -174,7 +175,7 @@ function tick() {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
     if (player.life.hp === 0) {
-      if (world.rover.driver === player.id) world.rover = parkedRover();
+      if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
         player.life = newLife(ticks);
@@ -196,7 +197,8 @@ function tick() {
       }
     }
     if (world.rover.driver === player.id) {
-      driveRover(world, input || idle, step);
+      driveRover(world, input || idle, step, players);
+      if (world.rover.driver !== player.id) continue;
       const { x,y,z,yaw } = world.rover;
       player.state = { x,y,z,vy:0,grounded:true };
       player.yaw = yaw;

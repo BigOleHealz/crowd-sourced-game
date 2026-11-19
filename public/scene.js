@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
-import { conifers, granite, floorMaterial, creekMaterial } from './landscape.js';
+import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -43,6 +44,7 @@ function noise(x, z) {
 }
 
 class Batch {
+  constructor(textured=false) { this.uv=textured ? [] : null; }
   positions = [];
   normals = [];
   colors = [];
@@ -57,6 +59,7 @@ class Batch {
     normalsMatrix.getNormalMatrix(matrix);
     const p = geometry.attributes.position, n = geometry.attributes.normal;
     const base = this.positions.length / 3;
+    const uv=geometry.getAttribute('rangerUv');
     const c = color(tint);
     for (let i = 0; i < p.count; i++) {
       point.fromBufferAttribute(p, i).applyMatrix4(matrix);
@@ -64,6 +67,7 @@ class Batch {
       this.positions.push(point.x, point.y, point.z);
       this.normals.push(normal.x, normal.y, normal.z);
       this.colors.push(c.r, c.g, c.b);
+      if (this.uv) this.uv.push(uv ? uv.getX(i) : .984, uv ? uv.getY(i) : .031);
     }
     const index = geometry.index;
     for (let i = 0, length = index ? index.count : p.count; i < length; i++) {
@@ -85,6 +89,7 @@ class Batch {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(this.normals, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3));
+    if (this.uv) geometry.setAttribute('uv',new THREE.Float32BufferAttribute(this.uv,2));
     geometry.setIndex(this.indices);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = casts;
@@ -125,6 +130,7 @@ function addGround(scene,renderer) {
   const size = 164;
   const geo = new THREE.PlaneGeometry(size, size, 172, 172).rotateX(-Math.PI/2);
   const positions = geo.attributes.position;
+  const cover = new Uint8Array(positions.count);
   const colors = [];
   const dark = color(0x4d573f), light = color(0xa2a27c);
   const path = color(0xb2a184), shale = color(0x85877b);
@@ -140,6 +146,9 @@ function addGround(scene,renderer) {
     c.lerp(path, clamp((2.02 - clearing + .67*(patches-.5))*2.3,0,1)*.94);
     const pad=clamp((2.9-Math.hypot(x-HELIPAD.x,z-HELIPAD.z))*2.5,0,1);
     c.lerp(shale,pad*.89);
+    const verge=THREE.MathUtils.smoothstep(clearing+.8*(patches-.5),1.4,3.25);
+    const dry=THREE.MathUtils.smoothstep(y,MAP.waterY+.4,MAP.waterY+1.6);
+    cover[i]=Math.round(255*verge*dry*(1-pad));
     // Dark organic litter gathers at the bases of trees and stones.
     let shade=1;
     if(Math.abs(x)<35 && Math.abs(z)<35) {
@@ -156,6 +165,7 @@ function addGround(scene,renderer) {
     colors.push(c.r,c.g,c.b);
   }
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.setAttribute('forestCover',new THREE.Uint8BufferAttribute(cover,1,true));
   geo.computeVertexNormals();
   const mat=floorMaterial(renderer);
   const ground = new THREE.Mesh(geo,mat);
@@ -192,9 +202,27 @@ function addSky(scene) {
         }`
     }));
   sky.renderOrder=-20; scene.add(sky);
+  return panorama;
 }
 
-function addBridge(batch, rng) {
+function addBridge(scene,renderer,rng) {
+  // Project the board finish along the longest local dimension of each beam,
+  // including diagonal braces, before Batch transforms it into world space.
+  const uv=[];
+  class BridgeBatch extends Batch {
+    add(shape,tint,x,y,z,sx,sy,sz,...rotation) {
+      const pos=shape.attributes.position, normal=shape.attributes.normal;
+      for(let i=0;i<pos.count;i++) {
+        const px=pos.getX(i)*sx,py=pos.getY(i)*sy,pz=pos.getZ(i)*sz;
+        const u=sx>=sy && sx>=sz ? px : sy>=sz ? py : pz;
+        const v=sx>=sy && sx>=sz ? (Math.abs(normal.getY(i))>.5 ? pz : py)
+          : sy>=sz ? (Math.abs(normal.getX(i))>.5 ? pz : px) : (Math.abs(normal.getY(i))>.5 ? px : py);
+        uv.push(u*.43+z*.71+x*.15,v*1.2+y*.83+z*.33);
+      }
+      super.add(shape,tint,x,y,z,sx,sy,sz,...rotation);
+    }
+  }
+  const batch=new BridgeBatch();
   const { x,z,width,length,y }=MAP.bridge;
   const boards=[0xa58b60,0xb29973,0x9e815c,0xa68d68];
   for(let i=0;i<32;i++) {
@@ -217,6 +245,13 @@ function addBridge(batch, rng) {
       batch.beam(0x776649,[xx,y+.22,from+.1],[xx,y+.82,from+2.31],.083);
     }
   }
+  const map=new THREE.TextureLoader().load('./sawn-timber.webp');
+  map.wrapS=map.wrapT=THREE.MirroredRepeatWrapping;
+  map.colorSpace=THREE.SRGBColorSpace;
+  map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+  const wood=new THREE.MeshLambertMaterial({map,vertexColors:true});
+  const bridge=batch.mesh(scene,wood);
+  bridge.geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
 }
 
 function addTrailMarker(batch, x,z, heading, flag = false) {
@@ -381,7 +416,40 @@ function landingMarks(batch) {
   stripe(-.46,0,.46,0,.14);
 }
 
-function fieldHelicopter(scene,material,shadowMap) {
+function objectHealthLabel(scene,title) {
+  const tag = document.createElement('canvas');
+  tag.width=320; tag.height=64;
+  const ink=tag.getContext('2d');
+  const labelMap=new THREE.CanvasTexture(tag);
+  labelMap.colorSpace=THREE.SRGBColorSpace;
+  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
+  label.scale.set(2.9,.58,1);
+  scene.add(label);
+  let labelHp, labelMax, labelRecovery, labelUnpiloted;
+  function update(hp,maxHp,recovery,unpiloted=false) {
+    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery && unpiloted===labelUnpiloted) return;
+    labelHp=hp; labelMax=maxHp; labelRecovery=recovery; labelUnpiloted=unpiloted;
+    const condition=hp/maxHp;
+    ink.clearRect(0,0,320,64);
+    ink.fillStyle='rgba(21,37,36,.90)';
+    ink.fillRect(0,0,320,64);
+    ink.font='bold 23px sans-serif';
+    ink.textAlign='left';
+    ink.fillStyle='#f8f5e8';
+    ink.fillText(recovery!==null ? 'WRECKED' : unpiloted ? 'UNPILOTED' : title,12,28);
+    ink.textAlign='right';
+    ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
+    ink.fillStyle='#53615d';
+    ink.fillRect(12,40,296,12);
+    ink.fillStyle=condition<=.30 ? '#ff8b61' : condition<=.60 ? '#f1c46b' : '#98dfad';
+    ink.fillRect(12,40,296*condition,12);
+    labelMap.needsUpdate=true;
+  }
+
+  return {sprite:label,update};
+}
+
+function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
@@ -472,9 +540,9 @@ function fieldHelicopter(scene,material,shadowMap) {
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
-  const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x393c34,shininess:26});
+  const paint=fieldPaint();
   hull.mesh(group,paint,false);
-  glazing.mesh(group,new THREE.MeshPhongMaterial({vertexColors:true,specular:0xb3cccd,shininess:82}),false);
+  glazing.mesh(group,alpineGlass(panorama),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('FORESTRY',256,88);
@@ -505,35 +573,7 @@ function fieldHelicopter(scene,material,shadowMap) {
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const tag = document.createElement('canvas');
-  tag.width=320; tag.height=64;
-  const ink=tag.getContext('2d');
-  const labelMap=new THREE.CanvasTexture(tag);
-  labelMap.colorSpace=THREE.SRGBColorSpace;
-  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(2.9,.58,1);
-  scene.add(label);
-  let labelHp, labelMax, labelRecovery, labelUnpiloted;
-  function healthLabel(hp,maxHp,recovery,unpiloted) {
-    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery && unpiloted===labelUnpiloted) return;
-    labelHp=hp; labelMax=maxHp; labelRecovery=recovery; labelUnpiloted=unpiloted;
-    const condition=hp/maxHp;
-    ink.clearRect(0,0,320,64);
-    ink.fillStyle='rgba(21,37,36,.90)';
-    ink.fillRect(0,0,320,64);
-    ink.font='bold 23px sans-serif';
-    ink.textAlign='left';
-    ink.fillStyle='#f8f5e8';
-    ink.fillText(recovery!==null ? 'WRECKED' : unpiloted ? 'UNPILOTED' : 'TRAIL HELI',12,28);
-    ink.textAlign='right';
-    ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
-    ink.fillStyle='#53615d';
-    ink.fillRect(12,40,296,12);
-    ink.fillStyle=condition<=.30 ? '#ff8b61' : condition<=.60 ? '#f1c46b' : '#98dfad';
-    ink.fillRect(12,40,296*condition,12);
-    labelMap.needsUpdate=true;
-  }
-
+  const healthLabel=objectHealthLabel(scene,'TRAIL HELI');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -546,14 +586,14 @@ function fieldHelicopter(scene,material,shadowMap) {
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
   return { group, update(heli,dt) {
-    const maxHp=Math.max(1,heli.maxHp??100);
+    const maxHp=Math.max(1,heli.maxHp??500);
     const hp=clamp(heli.hp??maxHp,0,maxHp);
     const wrecked=heli.wrecked===true;
     const smoking=hp>0 && hp/maxHp<=.30;
     const recovery=wrecked ? Math.max(0,Math.ceil(heli.recoverySeconds??0)) : null;
     const drift = heli.abandonedFor ?? 0;
-    healthLabel(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
-    label.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
+    healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
+    healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set(-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : -Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
@@ -733,63 +773,52 @@ function characterLabel(root, name) {
   };
 }
 
-// Pattern-cut jacket, trousers and gaiters have a continuous hem profile.
-function cloth(profile){
-  return new THREE.LatheGeometry(profile.map(([y,r])=>new THREE.Vector2(r,y)),12);
-}
-const jacket=cloth([[-.29,.19],[-.255,.22],[-.12,.212],[.10,.246],[.185,.247],[.235,.18],[.25,.104]]);
-const trouser=cloth([[-.25,.085],[-.21,.097],[-.10,.108],[.02,.12],[.18,.12],[.225,.098]]);
-const gaiter=cloth([[-.235,.078],[-.20,.091],[-.14,.094],[.025,.093],[.14,.104],[.22,.086]]);
-const pack=cloth([[-.244,.105],[-.21,.161],[.12,.176],[.204,.158],[.237,.114]]);
-
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,shadowMap,name) {
+function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
-  const coat=tint ?? jacketColor(id), dark=0x263e41, warm=0xc99772;
-  const torso=new Batch();
-  torso.add(jacket,coat,0,1.30,.005,1,1,.75);
-  torso.add(trunk,0x505549,0,1.075,.008,.208,.039,.145);
-  torso.add(trunk,0x5e6351,0,1.53,.008,.12,.079,.096);
-  torso.add(cube,0x555d4f,.002,1.316,-.17,.013,.36,.009);
-  torso.add(cube,0xb3aa80,.101,1.36,-.151,.088,.035,.016);
-  torso.add(round,0x4b473a,-.139,1.677,.002,.021,.041,.027);
-  torso.add(round,warm,.132,1.674,.002,.019,.035,.025);
-  torso.add(round,dark,0,.99,0,.22,.13,.155);
-  torso.add(trunk,warm,0,1.56,0,.082,.15,.083);
-  torso.add(round,warm,0,1.68,-.011,.134,.17,.132);
-  torso.add(round,warm,0,1.665,-.137,.042,.049,.038);
-  torso.add(round,0x504b3a,0,1.73,.040,.133,.121,.116);
-  torso.add(round,0x586350,0,1.795,-.005,.145,.093,.14);
-  torso.add(round,0x4a5b4c,0,1.762,-.106,.143,.020,.107);
-  torso.add(pack,0x4e5541,0,1.315,.189,1,1,.73);
-  torso.add(cube,0x756a4e,0,1.32,.273,.267,.27,.064);
-  torso.add(cube,0x82795a,0,1.50,.236,.30,.08,.12);
-  torso.add(cube,0x475046,0,1.20,.296,.20,.085,.055);
+  const identity=rangerIdentity(id), warm=skinColors[identity];
+  const coat=tint ?? jacketColor(id);
+  const torso=new Batch(true);
+  torso.add(fieldJacket,coat,0,1.30,.005);
+  torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
+  torso.add(trouserSeat,0x97a291,0,.995,.004);
+  torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
+  torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
+  for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
+  torso.add(capCrown,0x9d9b7d,0,1.785,.004);
+  torso.add(round,0x454d40,0,1.781,-.096,.114,.013,.103,-.06);
+  if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
+  torso.add(fieldPack,0xe1d4ba,0,1.302,.172);
   for (const side of [-1,1]) {
-    torso.add(cube,0x575747,side*.113,1.31,-.147,.038,.36,.04,0,0,-side*.08);
-    torso.add(cube,0x555746,side*.098,1.32,.312,.020,.34,.014);
-    torso.add(cube,0xabaa89,side*.098,1.29,.323,.030,.031,.013);
+    torso.beam(0x6a6853,[side*.136,1.497,-.110],[side*.127,1.405,-.150],.031,.014);
+    torso.beam(0x6a6853,[side*.127,1.405,-.150],[side*.120,1.193,-.121],.031,.014);
+    torso.add(cube,0x96907b,side*.12,1.216,-.134,.037,.021,.009);
+    torso.beam(0x585844,[side*.120,1.193,-.121],[side*.171,1.12,-.049],.022,.014);
+    torso.beam(0x585844,[side*.171,1.12,-.049],[side*.152,1.17,.166],.022,.014);
     torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
     torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
   }
-  torso.mesh(body,material);
+  torso.mesh(body,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
-    const leg=new THREE.Group(); leg.position.set(side*.122,.975,0); body.add(leg);
-    const thigh=new Batch(); thigh.add(trouser,0x475549,0,-.192,0,1,1,.99);
-    thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,material);
+    const leg=new THREE.Group(); leg.position.set(side*.108,.975,0); body.add(leg);
+    const thigh=new Batch(true); thigh.add(fieldTrouser,0x97a291,0,-.192,0,1,1,.99);
+    thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,uniform);
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
-    const shin=new Batch(); shin.add(gaiter,0x38443a,0,-.188,.004,.97,1,1.05);
+    const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
     shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
     shin.add(round,0x61543f,0,-.446,-.039,.108,.091,.16);
-    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); shin.mesh(knee,material);
-    const arm=new THREE.Group(); arm.position.set(side*.245,1.445,0); body.add(arm);
-    const sleeve=new Batch(); sleeve.add(round,coat,side*.025,-.15,.013,.092,.20,.098);
-    sleeve.add(round,coat,side*.035,-.35,-.016,.077,.145,.082,-.32);
-    sleeve.add(trunk,0x5b6150,side*.035,-.443,-.043,.065,.051,.069,-.27);
-    sleeve.add(cube,0xafaa7d,side*.109,-.116,.018,.012,.060,.058,0,0,side*.1);
-    sleeve.add(round,warm,side*.035,-.49,-.058,.058,.092,.068,-.25); sleeve.mesh(arm,material);
+    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
+    shin.mesh(knee,uniform);
+    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
+    const sleeve=new Batch(true);
+    sleeve.add(fieldSleeve,coat,side*.017,-.012,.006,1,1,1,-.10);
+    sleeve.add(trunk,0x454d42,side*.018,-.423,.038,.059,.035,.059,-.10);
+    sleeve.add(round,warm,side*.02,-.466,.028,.041,.060,.037,-.15);
+    sleeve.add(round,warm,side*-.010,-.456,-.002,.019,.033,.019,-.38);
+    sleeve.add(cube,0xc3ac75,side*.097,-.107,.004,.012,.059,.048,0,0,side*.06);
+    sleeve.mesh(arm,uniform);
     limbs.push({side,leg,knee,arm});
   }
   // The mountain sun and static geometry share one cached shadow map.
@@ -812,7 +841,7 @@ function makeParachute(root, material) {
   return canopy.mesh(root,material,false);
 }
 
-function pose(avatar,state,dt) {
+function pose(avatar,state,dt,seated=null) {
   const active=!state.dead && !!state.moving && state.grounded !== false;
   avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
   avatar.cycle+=dt*(state.sprint?13:9);
@@ -822,22 +851,27 @@ function pose(avatar,state,dt) {
   if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
+  avatar.root.scale.setScalar(seated ? .85 : 1);
+  if (seated) {
+    const c=Math.cos(seated.yaw), s=Math.sin(seated.yaw);
+    avatar.root.position.set(seated.x-.322*c+.085*s,seated.y+.025,seated.z-.322*s-.085*c);
+  }
   const yaw=-(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
-  avatar.root.rotation.y+=delta*(1-Math.exp(-dt*19));
+  avatar.root.rotation.y = seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
   avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !bloom;
-  avatar.tools[1].visible = !state.dead && bloom;
+  avatar.tools[0].visible = !state.dead && !seated && !bloom;
+  avatar.tools[1].visible = !state.dead && !seated && bloom;
   avatar.label.update(state);
   for(const {leg,arm,knee,side} of avatar.limbs) {
-    leg.rotation.x=airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=airborne ? -.65 : -Math.max(0,-side*swing)*.77;
-    arm.rotation.x=side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
-    arm.rotation.z=side*(open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
+    leg.rotation.x=seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
+    knee.rotation.x=seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
+    arm.rotation.x=seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.z=side*(seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
@@ -882,26 +916,40 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xafc1ca,.0024);
-  scene.add(new THREE.HemisphereLight(0xcde3ef,0x9f9276,1.49));
-  const sun=new THREE.DirectionalLight(0xffe3b6,2.34);
+  scene.fog=new THREE.FogExp2(0xaebfc9,.0058);
+  scene.add(new THREE.HemisphereLight(0xc8dfec,0xa09074,1.36));
+  const sun=new THREE.DirectionalLight(0xffe6c7,2.55);
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
-  addSky(scene); addGround(scene,renderer);
-  const rng=random(4863), material=vertexMaterial();
+  const panorama=addSky(scene);
+  addGround(scene,renderer);
+  const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const forest=new Batch();
   conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
   forest.mesh(scene,material);
   granite(scene,MAP.rocks,terrainHeight,renderer);
-  const features=new Batch();addBridge(features,rng);addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
+  addBridge(scene,renderer,rng);
+  const features=new Batch();addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng,renderer);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
-  const updateRover=createRoverView(scene,Batch,material,shadowMap);
-  const helicopter=fieldHelicopter(scene,material,shadowMap);
-  const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
+  const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
+  const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
+  const quartz=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x98b9ae,shininess:46});
+  quartz.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 mineralPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n mineralPoint=position;');
+    shader.fragmentShader='varying vec3 mineralPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      float band=mineralPoint.y*44.+mineralPoint.x*3.7+sin(mineralPoint.z*7.);
+      float detail=1.-smoothstep(.15,1.5,fwidth(band));
+      float vein=smoothstep(.80,1.,sin(band+sin(band*.37)));
+      diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*.65+vec3(.22,.26,.23),vein*detail*.45);`);
+  };
+  const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,quartz,prop,6104+i*39));
   const effects=fieldEffects(scene);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
@@ -930,7 +978,7 @@ export function createScene(canvas) {
     cursorRay.setFromCamera(cursorNdc, camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot)
+      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
     const muzzleY = feet.y + 1.3;
     const cameraOffset = Math.hypot(origin.x-feet.x, origin.y-muzzleY, origin.z-feet.z);
@@ -951,6 +999,9 @@ export function createScene(canvas) {
     helicopter.update(heli,dt);
     const rover=world.rover, driving=rover.driver===local.id;
     updateRover(rover,dt);
+    roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
+    roverLabel.sprite.visible=!driving;
+    roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const crystal of crystals) {
       const {prop,mesh}=crystal;
       const hp=world?.hp?.[prop.id] ?? prop.hp;
@@ -973,12 +1024,15 @@ export function createScene(canvas) {
       let a=avatars.get(state.id);
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=hiker(scene,state.id,rival ? 0x98586d : state.color,material,shadowMap,state.name || 'Hiker ' + state.id);
+        a=hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,shadowMap,state.name || 'Hiker ' + state.id);
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
-      a.root.visible=a.shadow.visible=state.id!==heli.pilot && state.id!==rover.driver;
-      if(a.root.visible) pose(a,state,dt);
+      const seated=state.id===rover.driver;
+      a.root.visible=state.id!==heli.pilot;
+      a.shadow.visible=a.root.visible && !seated;
+      if(seated) a.label.sprite.visible=false;
+      if(a.root.visible) pose(a,state,dt,seated ? rover : null);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
@@ -1001,7 +1055,7 @@ export function createScene(canvas) {
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && !driving && distance>.86;
+    avatars.get(local.id).root.visible=!piloting && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }

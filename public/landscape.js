@@ -36,34 +36,48 @@ function texture(ctx,renderer,repeat=1) {
   return map;
 }
 
-// Mineral grains, dark little contact edges, bleached wood chips and needles
-// are baked once into a seamless neutral albedo. World vertex colors determine
-// where the dry trail gives way to grass, creek shale and damp needles.
+// Blend two small repeating surface tiles on the existing terrain mesh.
 export function floorMaterial(renderer) {
-  const rng=random(7981),ctx=canvasTile(512);
-  const pixels=ctx.createImageData(512,512);
-  for(let y=0;y<512;y++)for(let x=0;x<512;x++){
-    const broad=noise(x/64,y/64,31,8), medium=noise(x/8,y/8,17,64);
-    const c=154+53*broad+27*medium+17*rng();
-    pixels.data.set([c,c+1,c-1,255],(y*512+x)*4);
+  const loader=new THREE.TextureLoader();
+  const gravel=loader.load('./trail-gravel.webp');
+  const litter=loader.load('./forest-duff.webp');
+  for (const tile of [gravel,litter]) {
+    tile.colorSpace=THREE.SRGBColorSpace;
+    tile.wrapS=tile.wrapT=THREE.MirroredRepeatWrapping;
+    tile.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   }
-  ctx.putImageData(pixels,0,0);
-  for(let i=0;i<6000;i++){
-    const x=rng()*512,y=rng()*512,r=.39+Math.pow(rng(),3)*3.6;
-    ctx.save();ctx.translate(x,y);ctx.rotate(rng()*TAU);
-    ctx.scale(1,.40+.40*rng());
-    ctx.fillStyle='rgba(48,43,32,.44)';ctx.beginPath();ctx.ellipse(.3,.70,r*1.1,r,0,0,TAU);ctx.fill();
-    const c=149+Math.floor(rng()*77);
-    ctx.fillStyle='rgb('+c+','+(c-2)+','+(c-6)+')';ctx.beginPath();ctx.ellipse(0,0,r,r*.83,0,0,TAU);ctx.fill();
-    ctx.fillStyle='rgba(250,248,225,.56)';ctx.fillRect(-.5*r,-.53*r,r,.30*r);
-    ctx.restore();
-  }
-  for(let i=0;i<620;i++){
-    const x=rng()*512,y=rng()*512,a=rng()*TAU,l=1.5+rng()*8;
-    ctx.strokeStyle=i%3?'rgba(97,79,53,.40)':'rgba(235,214,171,.57)';ctx.lineWidth=.45+rng()*.7;
-    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*l,y+Math.sin(a)*l);ctx.stroke();
-  }
-  return new THREE.MeshLambertMaterial({map:texture(ctx,renderer,59),vertexColors:true});
+  gravel.repeat.set(43,43);
+  const material=new THREE.MeshLambertMaterial({map:gravel,vertexColors:true});
+  material.onBeforeCompile=shader=>{
+    shader.uniforms.forestDuff={value:litter};
+    shader.vertexShader='attribute float forestCover; varying float cover;\n'+shader.vertexShader
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n cover=forestCover;');
+    shader.fragmentShader='uniform sampler2D forestDuff; varying float cover;\n'+shader.fragmentShader
+      .replace('#include <map_fragment>', `
+        vec3 gravel=texture2D(map,vMapUv).rgb;
+        vec3 duff=texture2D(forestDuff,vMapUv*1.31).rgb;
+        diffuseColor.rgb*=mix(gravel,duff,cover);`);
+  };
+  material.addEventListener('dispose',()=>litter.dispose());
+  return material;
+}
+
+// Reflect the existing mountain panorama on vehicle windows. This samples
+// the sky texture directly and never renders the world into a reflection map.
+export function alpineGlass(panorama, options={}) {
+  const glass=new THREE.MeshPhongMaterial({vertexColors:true,specular:0xa9bfcc,shininess:88,...options});
+  glass.onBeforeCompile=shader=>{
+    shader.uniforms.alpineSky={value:panorama};
+    shader.fragmentShader='uniform sampler2D alpineSky;\n'+shader.fragmentShader.replace('#include <opaque_fragment>', `
+      vec3 eye=normalize(vViewPosition);
+      vec3 ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
+      vec2 uv=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.19)/.72,0.,1.));
+      vec3 skyReflection=texture2D(alpineSky,uv).rgb;
+      float grazing=1.-clamp(dot(normal,eye),0.,1.);
+      outgoingLight=mix(outgoingLight,skyReflection,.26+.57*grazing*grazing);
+      #include <opaque_fragment>`);
+  };
+  return glass;
 }
 
 // All crowns share one two-species photographic atlas and one draw. Each
@@ -181,4 +195,20 @@ export function creekMaterial(renderer) {
   const map=texture(ctx,renderer);map.repeat.set(28,2);
   return new THREE.MeshPhongMaterial({map,color:0xb1c7bb,specular:0x94aba4,shininess:24,
     bumpMap:map,bumpScale:.021,transparent:true,opacity:.90});
+}
+
+// Mild paint sheen and lower-panel trail dust use the vehicle's own coordinates.
+// The finish stays fixed to the body as it turns and requires no reflection pass.
+export function fieldPaint() {
+  const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x484a41,shininess:31});
+  paint.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 panelPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n panelPoint=position;');
+    shader.fragmentShader='varying vec3 panelPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      vec3 p=panelPoint;
+      float streak=.5+.5*sin(17.*p.z+2.*sin(11.*p.x)+sin(36.*p.z));
+      float dust=(1.-smoothstep(.35,.84+.11*streak,p.y))*(.17+.18*streak);
+      diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.23,.195,.14),dust);`);
+  };
+  return paint;
 }
