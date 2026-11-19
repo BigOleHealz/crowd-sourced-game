@@ -64,6 +64,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
   avatar.root.scale.setScalar(seated ? seatedScale : 1);
+  if (avatar.civilian) avatar.root.scale.set(avatar.civilian.width,avatar.civilian.height,1);
   if (seated) {
     const seat=seated.id ? helmFeet(seated) : mountPosition(seated,[-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
@@ -91,6 +92,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
     gait ? .28*gait.twist-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
+  if(avatar.civilian && gait){
+    const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
+    avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
+    avatar.spine.rotation.x+=.025*avatar.civilian.swing;
+  }
   if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
   avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
@@ -188,6 +194,13 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       const p=station.turretPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
+    } else if(avatar.civilian && !seated && !state.dead) {
+      const person=avatar.civilian;
+      // Swing opposite the planted foot. A shoulder bag damps its carrying arm.
+      const bag=side===-1 && (person.extra==='tote' || person.extra==='satchel');
+      const travel=(gait ? foot.forwardOffset : 0)*person.swing*(bag?.36:1);
+      arm.rotation.set(.025+travel,side*.04,side*(bag?.145:.092));
+      forearm.rotation.x=(bag?.39:.15)+Math.max(0,travel)*.48;
     } else if(!seated && !state.parachute && !state.dead) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position;
