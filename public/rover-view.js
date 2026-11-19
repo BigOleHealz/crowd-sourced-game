@@ -42,11 +42,25 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   shell(green,[[-1.48,.62,.62,.88],[-1.34,.70,.61,.96],[-.67,.72,.57,1.02],[-.55,.70,.57,1.02]],.055);
   shell(green,[[-.60,.69,.56,1.04],[-.36,.72,.50,1.02],[.30,.71,.5,1.01],[.42,.68,.56,1.02]],.045);
   box(steel,0,.48,-1.49,1.54,.125,.14);
+  const trimMap=new THREE.TextureLoader().load('./vehicle-trim.webp');
+  trimMap.colorSpace=THREE.SRGBColorSpace;
+  const facingMaterial=new THREE.MeshPhongMaterial({map:trimMap,specular:0x555958,shininess:36,vertexColors:true});
+  function trimFace(geometry,col,row){
+    const uv=geometry.attributes.uv.clone();
+    for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/2,(row+.008+.984*uv.getY(i))/2);
+    geometry.setAttribute('batchUv',uv);
+    return geometry;
+  }
+  const brightwork=new Batch(true);
+  const lensFace=trimFace(pickup?new THREE.PlaneGeometry():new THREE.CircleGeometry(1,24),0,1);
+  const grilleFace=trimFace(new THREE.PlaneGeometry(),1,1);
+  const rimFace=trimFace(new THREE.CircleGeometry(1,32),pickup?1:0,0);
   const nose=pickup?-1.67:-1.51;
+  brightwork.add(grilleFace,0xc6c6bf,0,.753,nose-.021,.925,.213,1,0,Math.PI);
   if(pickup) shell(green,[[-1.66,.64,.65,.88],[-1.51,.73,.60,.97],[-.67,.72,.58,1.02]],.055);
   box(rubber,0,.753,nose,.94,.223,.04);
   if(pickup) {
-    for(let row=0;row<4;row++) box(steel,0,.674+row*.046,nose-.023,.88,.016,.024);
+    for(let row=0;row<3;row++) box(steel,0,.679+row*.071,nose-.030,.89,.012,.017);
     box(steel,0,.568,nose+.004,1.55,.115,.12);
     box(0x9a9e95,0,.99,-.98,.68,.034,.64);
   } else {
@@ -97,6 +111,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
         }
       }
     }
+    brightwork.add(lensFace,0xf9f9ef,x(.555),pickup?.830:.810,nose-.053,pickup?.184:.084,pickup?.104:.084,1,0,Math.PI);
     if(pickup) {
       box(rubber,x(.58),.824,nose,.276,.155,.055);
       box(0xd9dfd7,x(.555),.83,nose-.030,.186,.10,.025);
@@ -157,7 +172,17 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       chassis.beam(steel,[hub*.52,.43,z],[hub,.37,z],.058);
     }
   }
+  // Recovery eyes, exposed tow points and shaded bumper insets pick up light
+  // separately from the painted sheet metal on the front apron.
+  const eye=new THREE.TorusGeometry(.049,.012,7,14);
+  for(const side of [-1,1]){
+    chassis.add(eye,steel,side*.455,.50,nose-.094,1,.80,1);
+    box(rubber,side*.63,.55,nose-.073,.12,.045,.023);
+    chassis.beam(steel,[side*.62,.566,-.52],[side*.83,.49,-.52],.046);
+  }
+  eye.dispose();
   chassis.mesh(root,fieldPaint(),false);
+  brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   glazing.mesh(root,glassMat,false);
   // An original fleet wordmark is legible at the normal third-person distance.
@@ -192,9 +217,13 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     const wheel=wheelBatch.mesh(root,material,false);
     wheel.position.set(side*.70,.368,z);
+    const trimBatch=new Batch(true);
+    trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
+    trimBatch.mesh(wheel,facingMaterial,false);
     wheels.push(wheel);
   }
   tire.dispose(); seatForm.dispose();
+  lensFace.dispose();grilleFace.dispose();rimFace.dispose();
   const cargo=[];
   for(const [cx,cy,cz] of [[-.47,.79,.58],[.47,.79,.58],[-.47,1.01,.58]]) {
     const crate=new Batch();
