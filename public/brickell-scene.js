@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
 import { avenues, streets, coast } from './brickell-map.js';
 
@@ -11,7 +12,7 @@ export function cityStreets(scene,renderer,Batch) {
     map.wrapS=map.wrapT=THREE.RepeatWrapping;
     return new THREE.MeshStandardMaterial({map,roughness:.83,vertexColors:true,...options});
   }
-  const solids=new Batch(), walls=new Batch(true), foliage=new Batch(true);
+  const solids=new Batch(), walls=new Batch(true);
   function ground(name,rectangles,period,options={}) {
     const batch=new Batch(true), plane=new THREE.PlaneGeometry().rotateX(-Math.PI/2);
     for(const [x,y,z,w,d] of rectangles) {
@@ -75,11 +76,7 @@ export function cityStreets(scene,renderer,Batch) {
     }
   });
   walls.mesh(scene,material('facades',{roughness:.53,metalness:.08}));
-  const leaves=[0,1,2].map(i=>atlas(new THREE.PlaneGeometry(1,1),i,0,3,1));
-  MAP.trees.forEach(({x,z,height:h},i)=>{
-    for(const angle of [0,Math.PI/2]) foliage.add(leaves[i%3],0xfafbf0,x,.80+h/2,z,h,h,1,0,angle+i*.91);
-  });
-  foliage.mesh(scene,material('palms',{side:THREE.DoubleSide,alphaTest:.53,roughness:.95}));
+  addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
-  for(const geometry of [box,...faces,...leaves])geometry.dispose();
+  for(const geometry of [box,...faces])geometry.dispose();
 }
