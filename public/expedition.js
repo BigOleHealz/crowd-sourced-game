@@ -94,7 +94,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
+  if (player.state.swimming || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
   const bloom = player.weapon === 2;
   player.fireReady = tick + (bloom ? 21 : 6);
   const { x, y, z } = player.state;

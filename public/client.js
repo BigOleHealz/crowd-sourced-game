@@ -195,7 +195,7 @@ function tick() {
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  const fire = !self.swimming && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
     (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
@@ -294,6 +294,7 @@ function updateEquipment(local) {
   byId('fire-shortcut').hidden = vitals.dead;
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (local.swimming) prompt.textContent='Swimming  ·  WASD / arrows to swim to shore';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
   else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
   else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
