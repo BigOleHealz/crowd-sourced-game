@@ -1,3 +1,4 @@
+import {frontageGlassMaterial} from './frontage-glass-material.js';
 import {furnitureRanges} from './shop-furniture-view.js';
 import {faceAt} from './frontage-glass.js';
 import * as THREE from 'three';
@@ -73,18 +74,7 @@ export function streetShops(scene,renderer,Batch,panorama,windows){
   ambient.fillStyle='white';ambient.fillRect(0,0,contactSheet.width,contactSheet.height);
   const contactMap=new THREE.CanvasTexture(contactSheet);
   const interior=interiorMaterial(signs.map,contactMap,loader,renderer);
-  const glass=new THREE.ShaderMaterial({
-    uniforms:{panorama:{value:panorama}},side:THREE.DoubleSide,transparent:true,depthWrite:false,
-    vertexShader:`varying vec3 pos,norm;void main(){vec4 p=modelMatrix*vec4(position,1.);
-      pos=p.xyz;norm=mat3(modelMatrix)*normal;gl_Position=projectionMatrix*viewMatrix*p;}`,
-    fragmentShader:`uniform sampler2D panorama;varying vec3 pos,norm;void main(){
-      vec3 v=normalize(pos-cameraPosition),n=normalize(norm),r=reflect(v,n);
-      float edge=1.-abs(dot(v,n));
-      vec3 sky=texture2D(panorama,vec2(atan(r.x,-r.z)*.46+.17,clamp((asin(r.y)+.16)/.69,0.,1.))).rgb;
-      gl_FragColor=vec4(sky*vec3(.77,.88,.88),.055+.23*edge*edge);
-      #include <colorspace_fragment>
-    }`,
-  });
+  const glass=frontageGlassMaterial(panorama);
   const box=new THREE.BoxGeometry(), drum=new THREE.CylinderGeometry(1,1,1,12);
   const pot=new THREE.CylinderGeometry(1,.66,1,12), bulb=new THREE.SphereGeometry(1,10,7);
   const shade=new THREE.CylinderGeometry(.13,1,1,14), hoop=new THREE.TorusGeometry(1,.064,6,20);

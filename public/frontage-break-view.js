@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 // Each facade still draws one glass mesh and one frame mesh. Only change their
 // triangle indices when a new snapshot actually removes or restores a bay.
-export function breakableWindows(scene,Batch){
-  const tagged=[], panels=[];
+export function breakableWindows(scene,Batch,debris){
+  const panels=[];
   const box=new THREE.BoxGeometry(),plane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
   const metal=new THREE.MeshLambertMaterial({vertexColors:true});
   function add(face,glass){
@@ -38,7 +38,8 @@ export function breakableWindows(scene,Batch){
         bar(leafX+.044*face.side,1.85,cz+face.side*width*.37,.053,.34,.033,0xb9a783);
         moving={begin,end:[sheets.positions.length/3,frames.positions.length/3],last:0};
       }
-      ranges.push({start,end:[sheets.indices.length,frames.indices.length]});
+      ranges.push({start,end:[sheets.indices.length,frames.indices.length],
+        pane:{widthAxis:'z',x:face.x,z,width:hi-lo,bottom:low,top}});
     }
     const meshes=[sheets.mesh(scene,glass,false),frames.mesh(scene,metal,false)];
     const indices=meshes.map(m=>m.geometry.index), saved=indices.map(idx=>idx.array.slice());
@@ -50,15 +51,7 @@ export function breakableWindows(scene,Batch){
     }
     panels.push({face,ranges,indices,saved,meshes,moving,mask:0});
   }
-  const shards=new THREE.InstancedMesh(new THREE.TetrahedronGeometry(1),new THREE.MeshBasicMaterial({color:0xb9e0df,transparent:true,opacity:.70}),96);
-  shards.count=0;shards.frustumCulled=false;shards.userData.cosmetic=true;scene.add(shards);
-  const matrix=new THREE.Object3D();let initialized=false;
-  function scatter(x,z){
-    for(let i=0;i<14;i++){
-      if(tagged.length>=96)tagged.shift();
-      tagged.push({x,y:1.12+Math.random()*1.6,z:z+(Math.random()-.5)*1.1,vx:(Math.random()-.5)*3.8,vy:Math.random()*2.5,vz:(Math.random()-.5)*2.9,t:0,size:.025+Math.random()*.046});
-    }
-  }
+  let initialized=false;
   function update(doors,dt){
     if(!doors)return;
     for(const panel of panels){
@@ -85,20 +78,11 @@ export function breakableWindows(scene,Batch){
           else data.array.set(panel.saved[n].subarray(r.start[n],r.end[n]),r.start[n]);
           data.needsUpdate=true;
         }
-        if(hide&&initialized){const [lo,hi]=panel.face.spans[i];scatter(panel.face.x,(lo+hi)/2);}
+        debris.setBroken(r.pane,hide,initialized);
       }
       panel.mask=mask;
     }
     initialized=true;
-    if(!tagged.length && shards.count===0)return;
-    for(let i=tagged.length-1;i>=0;i--){
-      const p=tagged[i];p.t+=dt;p.vy-=9*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.z+=p.vz*dt;
-      if(p.t>.72||p.y<.85)tagged.splice(i,1);
-    }
-    shards.count=tagged.length;
-    tagged.forEach((p,i)=>{matrix.position.set(p.x,p.y,p.z);matrix.scale.set(p.size,p.size*1.6,p.size*.18);
-      matrix.rotation.set(p.t*8+i,i+p.t*6,i);matrix.updateMatrix();shards.setMatrixAt(i,matrix.matrix);});
-    shards.instanceMatrix.needsUpdate=true;
   }
-  return {add,update,scatter};
+  return {add,update};
 }

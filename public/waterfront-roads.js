@@ -12,9 +12,9 @@ export function waterfrontRoads(avenues,streets,coast,harbor) {
     mainland.push(apron);
     ends.push({x,z,dx,dz,span,apron});
     // Two gaps maintain pedestrian access to the shore beyond the turning head.
-    const length=(span*2-2.4)/3;
-    for(let i=0;i<3;i++) {
-      const offset=-span+length/2+i*(length+1.2);
+    const gap=span*.63;
+    for(const [start,end] of [[-span,-gap-.65],[-gap+.65,gap-.65],[gap+.65,span]]) {
+      const offset=(start+end)/2,length=end-start;
       curbs.push({x:x+.15*dx+az*offset,z:z+.15*dz+ax*offset,w:ax ? .30 : length,d:az ? .30 : length,h:.53});
     }
   }
