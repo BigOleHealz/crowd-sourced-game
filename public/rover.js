@@ -87,11 +87,13 @@ export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const target = throttle * (throttle<0 ? 2.8 : 5.7);
-  const acceleration = throttle && r.speed*throttle>=0 ? 7.2 : 14;
+  const target = throttle * (throttle<0 ? 2.8 : 10.2);
+  const acceleration = throttle && r.speed*throttle>=0 ? (throttle>0 ? 9.5 : 7.2) : 18;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
   // Low-range steering allows the little utility rover to pivot in the depot.
-  const yaw = r.yaw + steer * (r.speed<-.05 ? -1 : 1) * (1.55+Math.min(.45,Math.abs(r.speed)*.09)) * dt;
+  const pace=Math.abs(r.speed);
+  const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.11;
+  const yaw = r.yaw + steer * (r.speed<-.05 ? -1 : 1) * turnRate * dt;
   if (traversable(world,r.x,r.z,yaw)) r.yaw = Math.atan2(Math.sin(yaw),Math.cos(yaw));
   const x = r.x + Math.sin(r.yaw)*r.speed*dt, z = r.z - Math.cos(r.yaw)*r.speed*dt;
   if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {
