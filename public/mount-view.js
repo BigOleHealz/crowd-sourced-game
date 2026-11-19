@@ -108,11 +108,20 @@ export function turretView(scene,kind,Batch,material) {
   stand.mesh(base,material,false);metal.mesh(cradle,material,false);
   box.dispose();cylinder.dispose();
   const offset=mounts[kind].turret;
+  const aim=new THREE.Quaternion(),desired=new THREE.Euler(0,0,0,'YXZ');
   return v=>{
     const pivot=mountPosition(v,offset);
     base.position.set(pivot.x,pivot.y,pivot.z);
     base.visible=!v.wrecked;
-    swivel.rotation.y=-(v.gunner==null ? v.yaw : v.turretYaw);
+    if(kind==='rover') {
+      base.rotation.set(v.suspension?.pitch ?? 0,-v.yaw,v.suspension?.roll ?? 0,'YXZ');
+      // Keep the pedestal on the deck and the occupied barrel on its world aim.
+      if(v.gunner==null) swivel.quaternion.identity();
+      else {
+        aim.setFromEuler(desired.set(0,-v.turretYaw,0,'YXZ'));
+        swivel.quaternion.copy(base.quaternion).invert().multiply(aim);
+      }
+    } else swivel.rotation.y=-(v.gunner==null ? v.yaw : v.turretYaw);
     cradle.rotation.x=v.gunner==null ? (v.pitch ?? 0) : v.turretPitch;
   };
 }
