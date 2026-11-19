@@ -149,7 +149,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       leg.rotation.set((side===1?.99:.46)*fold,0,side*.12*fold);
       knee.rotation.x=-(side===1?1.57:1.12)*fold;
       ankle.rotation.x=.27*fold;
-      gripPose(arm,forearm,side*.20,mix(1.42,handHeight,reach*release),
+      gripPose(arm,forearm,side*.20,THREE.MathUtils.lerp(1.42,handHeight,reach*release),
         -.14-reach*release*(.17+.08*lift),side);
     } else if(swimming) {
       const wave=stroke+(side===1?Math.PI:0);
