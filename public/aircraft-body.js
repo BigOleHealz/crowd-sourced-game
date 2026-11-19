@@ -35,8 +35,9 @@ export function aircraftBody(hull,glazing) {
     const t=(r+.5)/3,angle=Math.min(j+.5,slices-j-.5)*tau/slices;
     const windscreen=t>2.32 && t<4.67 && angle<1.33 && angle>.055;
     const window=((t>4.67 && t<6.33) || (t>6.67 && t<7.67) || (t>8 && t<9)) && angle>.78 && angle<1.63;
-    const pane=windscreen || window, bucket=pane ? glass : paint;
-    paintTint.setHex(pane ? 0x82959b : angle>2.19 ? 0x3b4039 : 0x515648);
+    const footlight=t>2.33 && t<3.67 && angle>1.57 && angle<2.10;
+    const pane=windscreen || window || footlight, bucket=pane ? glass : paint;
+    paintTint.setHex(pane ? 0x536969 : angle>2.19 ? 0x3b4039 : 0x515648);
     const a=r*(slices+1)+j,b=a+slices+1;
     for(const k of [a,b,b+1,a,b+1,a+1]) {
       bucket.p.push(...points[k].toArray());bucket.n.push(...normals[k].toArray());bucket.c.push(paintTint.r,paintTint.g,paintTint.b);
@@ -62,10 +63,12 @@ export function aircraftBody(hull,glazing) {
       hull.beam(0x373d36,start,tip,width);start=tip;
     }
   }
-  rail(2.33,4.67,0,0,.023);
+  rail(2.33,4.67,0,0,.090);
   for(const sign of [-1,1]) {
-    for(const t of [2.33,4.67]) rail(t,t,0,sign*1.31,.023);
-    rail(2.33,4.67,sign*1.31,sign*1.31,.024);
+    for(const t of [2.33,4.67]) rail(t,t,0,sign*1.31,.042);
+    rail(2.33,4.67,sign*1.31,sign*1.31,.037);
+    for(const t of [2.33,3.67])rail(t,t,sign*1.57,sign*2.10,.028);
+    for(const a of [1.57,2.10])rail(2.33,3.67,sign*a,sign*a,.024);
     for(const [front,rear] of [[4.67,6.33],[6.67,7.67],[8,9]]){
       const roof=sign*.786,sill=sign*1.637;
       rail(front,front,roof,sill,.018);rail(rear,rear,roof,sill,.018);
