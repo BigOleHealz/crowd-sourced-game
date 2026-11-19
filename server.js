@@ -124,7 +124,7 @@ function acceptInput(player, data, binary) {
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
-    aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-1.2, Math.min(0.9, input.aimPitch)) : 0,
+    aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
     fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,

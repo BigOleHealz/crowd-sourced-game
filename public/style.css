@@ -44,7 +44,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .kit-row strong { color: var(--accent); }
 #field-prompt { display: inline-block; margin-top: 6px; padding: 4px 8px; border-radius: 3px; background: var(--panel); color: #f0efda; font-size: 12px; }
 #field-prompt:empty { display: none; }
-#reticle { position: fixed; pointer-events: none; left: 50%; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%); border-radius: 50%; border: 1.5px solid #ffffe9; box-shadow: 0 0 2px 1px #1d2b25ad; }
+#game.armed { cursor: crosshair; }
 #guide { max-height: calc(100% - 75px); overflow-y: auto; }
 
 .health-readout { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11px; font-weight: 600; }

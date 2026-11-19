@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial } from './landscape.js';
@@ -892,11 +893,31 @@ export function createScene(canvas) {
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
   }
+  const cursorRay = new THREE.Raycaster();
+  const cursorNdc = new THREE.Vector2();
+  let displayedWorld, displayedPlayers;
+  function aimAt(pointer, feet, id, range) {
+    if (!ready || !displayedWorld || !pointer) return null;
+    const rect = canvas.getBoundingClientRect();
+    cursorNdc.set(2 * (pointer.x - rect.left) / rect.width - 1, 1 - 2 * (pointer.y - rect.top) / rect.height);
+    cursorRay.setFromCamera(cursorNdc, camera);
+    const {origin, direction} = cursorRay.ray;
+    const actors = [...displayedPlayers, ...displayedWorld.npcs]
+      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot)
+      .map(state => ({id: state.id, state}));
+    const muzzleY = feet.y + 1.3;
+    const cameraOffset = Math.hypot(origin.x-feet.x, origin.y-muzzleY, origin.z-feet.z);
+    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false);
+    const dx = to.x - feet.x, dz = to.z - feet.z;
+    return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
+  }
   function render(local,remotes,view,dt,world) {
     if(!local) return;
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
+    displayedWorld = world;
+    displayedPlayers = remotes;
     updateSupplyView(world);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
@@ -947,7 +968,7 @@ export function createScene(canvas) {
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }
-  return {render,resize,dispose(){scene.traverse(node=>{
+  return {render,resize,aimAt,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }
