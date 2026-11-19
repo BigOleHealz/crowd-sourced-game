@@ -1004,7 +1004,13 @@ export function createScene(canvas) {
     const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
-    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    // An obstruction between the chase camera and the turret cannot be an aim point
+    // for the barrel. Keep its forward sightline while the camera passes that cover.
+    if(station && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
+      const depth=range+cameraOffset;
+      to={x:origin.x+direction.x*depth,y:origin.y+direction.y*depth,z:origin.z+direction.z*depth};
+    }
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
@@ -1059,7 +1065,11 @@ export function createScene(canvas) {
       if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    if(local.id===heli.gunner) desired.set(heli.x,heli.y+.55,heli.z);
+    const localStation=local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    if(localStation) {
+      const pivot=mountPosition(world[localStation],mounts[localStation].turret);
+      desired.set(pivot.x,pivot.y,pivot.z);
+    }
     else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
     else desired.set(local.x,local.y+(local.parachute === 'open' ? 2.1 : 1.43),local.z);
