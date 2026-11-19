@@ -10,16 +10,20 @@ const helicopter = [
 ];
 const pickup = [[.85,-1.73,1.75,.05,1.01],[.67,-.62,.46,1.01,1.66]];
 const jeep = [[.85,-1.55,1.62,.05,.99],[.66,-.60,.38,.99,1.60]];
+const boatHull=[[.57,-2.65,-1.87,-.60,.43],[1.04,-1.87,2.15,-.62,.50],[.86,2.15,2.65,-.50,.45]];
 const radius=.32;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 
 export function vehicleContact(x,y,z,world,city,height=1.8) {
   const result={dx:0,dz:0,depth:0,floor:-Infinity,ceiling:Infinity};
   if(!world) return result;
-  for(const kind of ['heli','rover']) {
-    const vehicle=world[kind];
+  const boats=world.boats??[];
+  for(let index=0;index<2+boats.length;index++) {
+    const kind=index===0?'heli':index===1?'rover':'boat';
+    const vehicle=kind==='boat'?boats[index-2]:world[kind];
+    if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='heli' ? helicopter : city ? pickup : jeep;
+    const shapes=kind==='boat' ? boatHull : kind==='heli' ? helicopter : city ? pickup : jeep;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;

@@ -1,0 +1,125 @@
+import {CITY,MAP,groundHeight,solidTopAt,blocked} from './world.js';
+import {vehicleContact} from './vehicle-contact.js';
+import {mountPosition} from './mounts.js';
+
+const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:66,z:-201}];
+export const helmOffset=[0,.48,-.55];
+const waveClock=new WeakMap();
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+function moored(site) {
+  return {...site,y:MAP.waterY,yaw:0,pitch:0,roll:0,speed:0,throttle:0,driver:null,gunner:null,
+    turretYaw:0,turretPitch:0,hp:300,maxHp:300,wrecked:false,recoverySeconds:0};
+}
+export const patrolFleet=()=>CITY?berths.map(moored):[];
+export const crewBoat=(world,id)=>id==null?null:world?.boats?.find(b=>b.driver===id||b.gunner===id);
+export function nearBoat(world,feet) {
+  if(!feet || (!feet.grounded && !feet.swimming))return null;
+  let best=null,range=3.85;
+  for(const b of world.boats??[]) {
+    const d=Math.hypot(feet.x-b.x,feet.y-b.y,feet.z-b.z);
+    if(!b.wrecked && (b.driver==null||b.gunner==null) && d<range){best=b;range=d;}
+  }
+  return best;
+}
+function disembark(world,b,player) {
+  const c=Math.cos(b.yaw),s=Math.sin(b.yaw);
+  let waterExit=null;
+  for(const [right,along] of [[-2,0],[2,0],[-2.1,1.3],[2.1,1.3],[0,3.4],[0,-3.4],[-3.5,0],[3.5,0]]) {
+    const x=b.x+c*right-s*along,z=b.z+s*right+c*along;
+    if(Math.abs(x)>MAP.bounds||z<MAP.northBound||z>MAP.bounds)continue;
+    const ground=groundHeight(x,z), swimming=ground<MAP.waterY-.72-.03;
+    const y=swimming?MAP.waterY-.72:ground;
+    if(y>b.y+1.35 || blocked(x,y,z,world.hp) || vehicleContact(x,y,z,world,CITY).depth)continue;
+    const exit={x,y,z,vx:0,vy:0,vz:0,grounded:!swimming,...(swimming?{swimming:true}:{})};
+    if(ground>=MAP.waterY){player.state=exit;return true;}
+    waterExit??=exit;
+  }
+  if(waterExit)player.state=waterExit;
+  return !!waterExit;
+}
+export function interactBoat(world,b,player) {
+  if(!b||b.wrecked)return;
+  if(b.driver===player.id || b.gunner===player.id){
+    if(!disembark(world,b,player))return;
+    if(b.driver===player.id){b.driver=null;b.throttle=0;}else b.gunner=null;
+  }else if(nearBoat(world,player.state)===b){
+    if(b.driver==null)b.driver=player.id;
+    else if(b.gunner==null){b.gunner=player.id;b.turretYaw=b.yaw;b.turretPitch=0;}
+  }
+}
+export function damageBoat(world,b,amount,players) {
+  if(b.wrecked||!Number.isFinite(amount)||amount<=0)return;
+  b.hp=Math.max(0,b.hp-amount);if(b.hp)return;
+  for(const id of [b.driver,b.gunner]){
+    const actor=players?.get(id);
+    if(actor && !disembark(world,b,actor)){
+      actor.state={x:b.x,y:MAP.waterY-.72,z:b.z,vx:0,vy:0,vz:0,grounded:false,swimming:true};
+    }
+  }
+  Object.assign(b,{driver:null,gunner:null,speed:0,throttle:0,wrecked:true,recoverySeconds:6});
+}
+// Hull footprints are oriented rectangles; test the four separating axes.
+function overlaps(x,z,yaw,other,halfWidth,halfLength){
+  const dx=other.x-x,dz=other.z-z;
+  if(Math.hypot(dx,dz)>3+Math.hypot(halfWidth,halfLength))return false;
+  const a=Math.cos(yaw),b=Math.sin(yaw),c=Math.cos(other.yaw),d=Math.sin(other.yaw);
+  for(const [nx,nz] of [[a,b],[-b,a],[c,d],[-d,c]]){
+    const span=1.04*Math.abs(nx*a+nz*b)+2.65*Math.abs(-nx*b+nz*a)
+      +halfWidth*Math.abs(nx*c+nz*d)+halfLength*Math.abs(-nx*d+nz*c);
+    if(Math.abs(dx*nx+dz*nz)>=span)return false;
+  }
+  return true;
+}
+export function nearbyHull(boats,vehicle,x,z,yaw,halfWidth,halfLength){
+  return boats?.find(b=>b!==vehicle && !b.wrecked && overlaps(b.x,b.z,b.yaw,{x,z,yaw},halfWidth,halfLength));
+}
+function canFloat(world,b,x,z,yaw) {
+  const c=Math.cos(yaw),s=Math.sin(yaw);
+  for(const dz of [-2.65,0,2.65])for(const dx of [-.95,0,.95]){
+    const px=x+c*dx-s*dz,pz=z+s*dx+c*dz;
+    if(Math.abs(px)>MAP.bounds||pz<MAP.northBound||pz>MAP.bounds||solidTopAt(px,pz,world.hp)>MAP.waterY-.24)return false;
+  }
+  if(nearbyHull(world.boats,b,x,z,yaw,1.04,2.65))return false;
+  return !(world.heli.y<MAP.waterY+1.5 && overlaps(x,z,yaw,world.heli,1.28,3.6))
+    && !(world.rover.y<MAP.waterY+.75 && overlaps(x,z,yaw,world.rover,.86,1.75));
+}
+export function stepBoat(world,b,input,dt,players){
+  if(b.wrecked){
+    b.recoverySeconds=Math.max(0,b.recoverySeconds-dt);
+    if(b.recoverySeconds<.0001){
+      const site=berths.find(p=>p.id===b.id);
+      // Hold recovery if another hull is occupying the berth.
+      if(canFloat(world,b,site.x,site.z,0))Object.assign(b,moored(site));
+    }
+    return;
+  }
+  const t=(waveClock.get(b)??0)+dt;waveClock.set(b,t);
+  const throttle=b.driver==null?0:clamp(input?.throttle||0,-1,1);
+  const steer=b.driver==null?0:clamp(input?.steer||0,-1,1);
+  b.throttle=throttle;
+  const target=throttle*(throttle<0?3.2:12.5);
+  const accel=!throttle?2.4:target*b.speed<0?7.5:4.7;
+  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);
+  const turn=steer*(b.speed<-.08?-1:1)*(.58+Math.min(Math.abs(b.speed),6)*.10)*dt;
+  const proposed=b.yaw+turn;
+  if(turn && canFloat(world,b,b.x,b.z,proposed))b.yaw=Math.atan2(Math.sin(proposed),Math.cos(proposed));
+  if(b.speed){
+    const x=b.x+Math.sin(b.yaw)*b.speed*dt,z=b.z-Math.cos(b.yaw)*b.speed*dt;
+    if(canFloat(world,b,x,z,b.yaw)){b.x=x;b.z=z;}
+    else {
+      const amount=Math.round((Math.abs(b.speed)-5)*4);
+      if(amount>0){
+        const other=nearbyHull(world.boats,b,x,z,b.yaw,1.04,2.65);
+        if(other)damageBoat(world,other,amount,players);
+        damageBoat(world,b,amount,players);
+      }
+      b.speed=0;
+    }
+  }
+  if(b.wrecked)return;
+  const wave=Math.sin(t*1.65+b.z*.18+b.x*.08);
+  b.y=MAP.waterY+.034*wave;
+  b.pitch+=((.013*wave+.035*Math.max(0,b.speed)/12.5)-b.pitch)*Math.min(1,dt*6);
+  b.roll+=((.018*Math.sin(t*1.22+b.x*.17)-steer*b.speed*.012)-b.roll)*Math.min(1,dt*5);
+}
+export function helmFeet(b){return mountPosition(b,helmOffset);}

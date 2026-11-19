@@ -1,3 +1,4 @@
+import {nearBoat,crewBoat,helmFeet} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
@@ -5,7 +6,7 @@ import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
-import { gunnerVehicle, gunnerFeet } from './mounts.js';
+import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { nearestVehicle } from './rover.js';
 import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
@@ -46,7 +47,8 @@ const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
-const isDriving = () => id != null && world?.rover.driver === id;
+const myBoat=()=>crewBoat(world,id);
+const isDriving = () => id != null && (world?.rover.driver === id || myBoat()?.driver===id);
 const gunnerRole=()=>gunnerVehicle(world,id);
 const isPilot = () => id != null && world?.heli.pilot === id;
 
@@ -187,7 +189,7 @@ function connect() {
         roverView = null;
       }
       const gunner=gunnerRole();
-      if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
+      if(gunner && gunner!==wasGunner) {camera.yaw=vehicleById(world,gunner).turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
       const corrected = isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
@@ -198,7 +200,7 @@ function connect() {
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw);
-      samples.push({ time: performance.now(), bullets:world.bullets, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), bullets:world.bullets, boats:world.boats, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -270,7 +272,7 @@ function roundFrame(time) {
 }
 
 function remoteFrame(time) {
-  if (!samples.length) return { players: [], npcs: world.npcs, heli: world.heli, rover: world.rover };
+  if (!samples.length) return { players: [], npcs: world.npcs, boats:world.boats, heli: world.heli, rover: world.rover };
   const target = time - 100;
   let after = samples.findIndex(s => s.time >= target);
   if (after < 0) return samples.at(-1);
@@ -305,7 +307,14 @@ function remoteFrame(time) {
       v.turretPitch=mix(a[kind].turretPitch,b[kind].turretPitch,t);
     }
   }
-  return { players, npcs, heli, rover };
+  const boats=(b.boats??[]).map(boat=>{
+    const old=a.boats?.find(v=>v.id===boat.id);
+    if(!old || old.wrecked!==boat.wrecked)return boat;
+    return {...boat,x:mix(old.x,boat.x,t),y:mix(old.y,boat.y,t),z:mix(old.z,boat.z,t),yaw:angleMix(old.yaw,boat.yaw,t),
+      pitch:mix(old.pitch,boat.pitch,t),roll:mix(old.roll,boat.roll,t),turretYaw:angleMix(old.turretYaw,boat.turretYaw,t),
+      turretPitch:mix(old.turretPitch,boat.turretPitch,t)};
+  });
+  return { players, npcs, heli, rover, boats };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -328,17 +337,18 @@ function updateEquipment(local) {
   const heli = world.heli;
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
+  const boat=myBoat(),nearby=nearBoat(world,local);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
-  byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Patrol sidearm';
+  byId('kit').textContent = boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Patrol sidearm';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
-  const health = pilot ? heli : isDriving() ? world.rover : vitals;
+  const health = boat || (pilot ? heli : isDriving() ? world.rover : vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
-  byId('hp-label').textContent = (pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
-  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+world[gunner].hp+'/'+world[gunner].maxHp : vitals.protected ? 'Spawn shield' : '';
+  byId('hp-label').textContent = (boat ? 'Hull ' : pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
@@ -346,10 +356,12 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
-  byId('fire-shortcut').hidden = local.swimming || vitals.dead;
+  byId('fire-shortcut').hidden = local.swimming || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (boat && !gunner) prompt.textContent='W/S throttle  ·  A/D steer  ·  E disembark';
+  else if (!boat && nearby && !kind) prompt.textContent=nearby.driver!=null?'E  ·  Board patrol boat turret':'E  ·  Take patrol boat helm';
   else if (local.swimming) prompt.textContent='Swimming  ·  WASD / arrows to swim to shore';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
   else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
@@ -402,6 +414,9 @@ function drawMap(player, remotes, yaw) {
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
   ctx.fillStyle = '#ffe085'; ctx.fillText('R',sx(world.rover.x),sy(world.rover.z)-4);
+  for(const b of world.boats??[]){
+    ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
+  }
   drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
@@ -430,15 +445,17 @@ function frame(time) {
     const t = accumulator / step;
     const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const { players: remotes, npcs, heli, rover } = remoteFrame(time);
+    const { players: remotes, npcs, heli, rover, boats=[] } = remoteFrame(time);
+    const boat=boats.find(b=>b.driver===id||b.gunner===id);
     local.weapon = weapon;
     if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
-    if (isDriving()) Object.assign(local, { x: rover.x, y: rover.y, z: rover.z, yaw: rover.yaw });
+    if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
+    else if (isDriving()) Object.assign(local, { x: rover.x, y: rover.y, z: rover.z, yaw: rover.yaw });
     const role=gunnerRole();
-    if(role) Object.assign(local,gunnerFeet(role==='rover' ? rover : heli,role));
-    const view = isDriving() ? drivingView(rover, dt) : camera;
+    if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
+    const view = isDriving() ? drivingView(boat??rover, dt) : camera;
     audio.engines(local,view.yaw,heli,rover);
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs, bullets:roundFrame(time) });
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;

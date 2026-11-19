@@ -63,6 +63,9 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const [kind,w,h,l] of [['rover',1.58,1.58,3.04],['heli',1.85,2.15,3.38]]){
     const v=world[kind];if(v && !v.wrecked && round.source!==kind)accept(box(round,d,v,w,h,l,v.yaw),v,kind);
   }
+  for(const b of world.boats??[]) {
+    if(!b.wrecked && b.id!==round.source)accept(box(round,d,{...b,y:b.y-.5},2.08,1.55,5.30,b.yaw),b,b.id);
+  }
   for(const actor of actors){
     const now=actor.state, prev=previous.get(actor)??now;
     // Respawns are discontinuities; ordinary movers sweep relative to the bullet.

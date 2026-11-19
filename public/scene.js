@@ -1,10 +1,11 @@
+import {crewBoat,helmFeet} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
-import { mounts, mountPosition, gunnerFeet } from './mounts.js';
+import { mounts, mountPosition, gunnerFeet, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
@@ -946,11 +947,11 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.root.position.set(state.x,state.y,state.z);
   avatar.root.scale.setScalar(seated ? .85 : 1);
   if (seated) {
-    const seat=mountPosition(seated,[-.322,.025,-.085]);
+    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,[-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
-    const feet=gunnerFeet(station,'rover');
+    const feet=gunnerFeet(station,station.id??'rover');
     avatar.root.position.set(feet.x,feet.y,feet.z);
   }
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
@@ -1200,9 +1201,9 @@ export function createScene(canvas) {
     cursorRay.setFromCamera(cursorNdc, camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
-    const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
+    const muzzle=station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1261,20 +1262,23 @@ export function createScene(canvas) {
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
-      const seated=state.id===rover.driver;
-      const station=state.id===rover.gunner ? rover : null;
+      const boat=crewBoat(world,state.id);
+      const seated=state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
+      const station=state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
-      if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
+      if(a.root.visible) pose(a,state,dt,seated,station);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    const localStation=local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const boat=crewBoat(world,local.id);
+    const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     if(localStation) {
-      const pivot=mountPosition(world[localStation],mounts[localStation].turret);
+      const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
     }
+    else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
     else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
     else {
@@ -1293,8 +1297,8 @@ export function createScene(canvas) {
     bailoutOrbit = mix(bailoutOrbit,watchCrash ? .31 : 0,1-Math.exp(-dt*6));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=(view.yaw||0)+bailoutOrbit;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const onFoot=!localStation && !piloting && !driving && !local.parachute;
-    const wanted=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : driving ? 1.7 : Math.min(6,separation*.5));
+    const onFoot=!boat && !localStation && !piloting && !driving && !local.parachute;
+    const wanted=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
     const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);
     // Pull in at obstructions, then ease back out as the orbit clears them.
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
