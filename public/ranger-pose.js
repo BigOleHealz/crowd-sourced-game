@@ -12,13 +12,13 @@ export function createRangerRig() {
   const head=joint(upper,0,1.525);
   const limbs=[-1,1].map(side=>{
     const leg=joint(body,side*.108,.975),knee=joint(leg,0,-.405),ankle=joint(knee,0,-.395);
-    const arm=joint(upper,side*.222,1.447),forearm=joint(arm,0,-.275);
+    const arm=joint(upper,side*.203,1.447),forearm=joint(arm,0,-.275);
     return {side,leg,knee,ankle,arm,forearm,foot:newFoot()};
   });
   return {root,body,spine,upper,head,limbs,tools:[new THREE.Group(),new THREE.Group()],cycle:0,gait:null};
 }
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
-const elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
+const grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
 const upperLength=.275, lowerLength=.265;
 
 // Solve the two visible arm segments in body space. An outward elbow bend keeps
@@ -77,8 +77,14 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
-  avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
-    gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
+  avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe : 0,
+    gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
+    gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
+  // Neck counter-rotation steadies the gaze above the shoulders through each
+  // foot strike and lets the head lead the torso into a change of direction.
+  avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
+    gait ? .28*gait.twist-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
+    gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
   avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
@@ -164,17 +170,16 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
     } else if(!seated && !state.parachute && !state.dead) {
       const weapon=avatar.tools[bloom ? 1 : 0];
       const kit=weapon.position;
-      kit.x=bloom ? .073 : .133;
-      kit.y=(bloom ? 1.33 : 1.355)+.005*breathe-.080*run;
-      kit.z=(bloom ? -.345 : -.198)+.042*run;
-      weapon.rotation.x=-.29*run;
+      kit.x=(bloom ? .062 : .122)+.011*swing*weight;
+      kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
+      kit.z=(bloom ? -.322 : -.185)+.037*run;
+      weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
       // Aim each wrist at its own contact on the prop, including during the running tilt.
       const handX=side===1 ? .027 : bloom ? -.028 : -.036;
       const handY=side===1 ? -.048 : bloom ? -.049 : .038;
       const handZ=side===1 ? .037 : bloom ? .031 : -.21;
-      const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
-      gripPose(arm,forearm,kit.x+handX,kit.y+handY*cosine-handZ*sine,
-        kit.z+handY*sine+handZ*cosine,side);
+      grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
+      gripPose(arm,forearm,grip.x,grip.y,grip.z,side);
     } else if(seated) {
       forearm.rotation.x=.42;
     }

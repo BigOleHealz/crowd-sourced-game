@@ -2,10 +2,10 @@ import * as THREE from 'three';
 
 // Clothing and the hood sample the garment panels of the shared ranger atlas.
 export function rangerMaterial(renderer) {
-  const map=new THREE.TextureLoader().load('./ranger-atlas.webp');
+  const map=new THREE.TextureLoader().load('./ranger-field-fabrics.webp');
   map.colorSpace=THREE.SRGBColorSpace;
   map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-  return new THREE.MeshLambertMaterial({map,vertexColors:true});
+  return new THREE.MeshStandardMaterial({map,vertexColors:true,roughness:.87,metalness:0});
 }
 
 export function rangerIdentity(id) {
@@ -14,23 +14,25 @@ export function rangerIdentity(id) {
   return [0,3,2,1][(id-1)%4] ?? 0;
 }
 
-export const skinColors=[0xbd896f,0xc79780,0x91644e,0xc69276];
+
 
 // Each row describes height, half-width and half-depth in metres. A separate
 // UV seam at each side keeps the two shirt panels aligned around the torso.
-function shell(rows,front,back) {
+function shell(rows,front,back,shape=.95) {
   const positions=[],uv=[],indices=[];
-  const first=rows[0][0],height=rows.at(-1)[0]-first,segments=10;
+  const first=rows[0][0],height=rows.at(-1)[0]-first,segments=12;
   for(let panel=0; panel<2; panel++) {
     const tile=panel ? back : front;
     const start=positions.length/3;
-    for(const [y,rx,rz] of rows) for(let j=0;j<=segments;j++) {
+    for(const [y,rx,rz,offsetZ=0,fold=0] of rows) for(let j=0;j<=segments;j++) {
       const a=(-Math.PI/2)+Math.PI*(panel+j/segments),t=(y-first)/height;
-      const x=rx*Math.sin(a);
-      const z=-rz*Math.cos(a);
-      positions.push(x,y,z);
+      const sin=Math.sin(a),cos=Math.cos(a);
+      const x=rx*Math.sign(sin)*Math.abs(sin)**shape;
+      const z=offsetZ-rz*Math.sign(cos)*Math.abs(cos)**shape;
+      // Slightly diagonal folds stop the cloth reading as stacked horizontal rings.
+      positions.push(x,y+fold*(sin+.32*Math.sin(3*a+.7)),z);
       const u=.5+(panel ? 1 : -1)*.47*Math.sin(a);
-      uv.push((tile%4+.012+(tile===7 ? .80 : .976)*u)/4,(1-Math.floor(tile/4)+.012+.976*t)/2);
+      uv.push((tile%2+.012+.976*u)/2,(1-Math.floor(tile/2)+.012+.976*t)/2);
     }
     for(let r=0;r<rows.length-1;r++) for(let j=0;j<segments;j++) {
       const i=start+r*(segments+1)+j,k=i+segments+1;
@@ -72,17 +74,53 @@ export const hood=shell([
   [-.18,.081,.073],[-.135,.077,.086],[-.103,.079,.099],[-.067,.100,.114],
   [-.038,.110,.134],[-.013,.112,.14],[.012,.114,.118],[.044,.116,.113],
   [.078,.109,.110],[.108,.102,.101],[.139,.067,.074],[.15,.018,.02]
-],7,7);
+],1,1);
+
+// A fitted front panel follows the surface of the body; its backing closes the
+// exposed rim. Rows give height, half-width, center projection and cheek/side projection.
+function frontPanel(rows,tile) {
+  const pos=[],uv=[],indices=[],columns=12;
+  for(let layer=0;layer<2;layer++)for(const [y,w,center,edge] of rows) {
+    for(let i=0;i<=columns;i++) {
+      const t=i/columns*2-1,z=THREE.MathUtils.lerp(center,edge,Math.abs(t)**1.65);
+      pos.push(w*t,y,z+layer*.007);
+      const v=(y-rows[0][0])/(rows.at(-1)[0]-rows[0][0]);
+      uv.push((tile%2+.06+.88*i/columns)/2,(1-Math.floor(tile/2)+.06+.88*v)/2);
+    }
+  }
+  const n=columns+1,back=n*rows.length;
+  for(let r=0;r<rows.length-1;r++)for(let i=0;i<columns;i++) {
+    const a=r*n+i,b=a+n;
+    indices.push(a,b,a+1,a+1,b,b+1);
+    if(i===0)indices.push(a,a+back,b,b,a+back,b+back);
+    if(i===columns-1)indices.push(a+1,b+1,a+1+back,b+1,b+1+back,a+1+back);
+    if(r===0)indices.push(a,a+1,a+back,a+1,a+1+back,a+back);
+    if(r===rows.length-2)indices.push(b,b+back,b+1,b+1,b+back,b+1+back);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('batchUv',new THREE.Float32BufferAttribute(uv,2));
+  g.setIndex(indices);g.computeVertexNormals();return g;
+}
+export const fieldBib=frontPanel([
+  [-.151,.101,-.139,-.108],[-.137,.145,-.149,-.098],[-.078,.163,-.163,-.103],
+  [.042,.165,-.176,-.109],[.094,.131,-.162,-.116],[.140,.106,-.136,-.109]
+],0);
+export const maskPanel=frontPanel([
+  [-.099,.035,-.094,-.085],[-.083,.060,-.116,-.085],[-.057,.082,-.137,-.087],
+  [-.036,.090,-.147,-.084],[-.015,.088,-.151,-.081],[-.002,.067,-.151,-.102],
+  [.015,.034,-.146,-.125],[.022,.015,-.139,-.130]
+],1);
 
 // A curved shield with a cutout over the bridge, mirrored into its rubber gasket.
 function visor(gasket) {
   const p=[],idx=[],steps=20;
   for(let r=0;r<4;r++) for(let i=0;i<=steps;i++){
     const t=i/steps*2-1,angle=t*(gasket?1.47:1.37), outer=Math.abs(t);
-    const bottom=.003+.018*Math.exp(-t*t*34)+.012*outer**4;
-    const top=.063-.013*outer**3;
+    const bottom=-.002+.029*Math.exp(-t*t*29)+.016*outer**3;
+    const top=.060-.015*outer**3;
     const y=THREE.MathUtils.lerp(bottom-(gasket?.006:0),top+(gasket?.005:0),r/3);
-    const depth=(gasket?.134:.140)+.004*Math.sin(r*Math.PI/3);
+    const depth=(gasket?.133:.139)+.006*Math.sin(r*Math.PI/3)+.005*(r/3);
     p.push(Math.sin(angle)*(gasket?.122:.124),y,-Math.cos(angle)*depth);
   }
   for(let r=0;r<3;r++)for(let i=0;i<steps;i++){
@@ -93,16 +131,41 @@ function visor(gasket) {
   g.setIndex(idx);g.computeVertexNormals();return g;
 }
 export const visorRim=visor(true), visorLens=visor(false);
-export const fieldJacket=shell([[-.28,.177,.125],[-.24,.196,.143],[-.20,.201,.143],[-.167,.191,.138],[-.12,.195,.141],[.02,.210,.151],[.12,.223,.161],[.17,.218,.158],[.21,.165,.115],[.225,.079,.074]],2,3);
-export const fieldPack=shell([[-.235,.085,.060],[-.216,.145,.075],[-.16,.162,.089],[.07,.156,.100],[.16,.15,.096],[.199,.129,.076],[.223,.089,.05]],6,6);
-export const fieldSleeve=shell([[-.416,.058,.060],[-.37,.068,.070],[-.30,.072,.074],[-.26,.065,.072],[-.23,.082,.077],[-.203,.074,.079],[-.175,.084,.084],[-.10,.086,.089],[-.035,.093,.095],[.013,.085,.086],[.049,.045,.051]],7,7);
-export const fieldTrouser=shell([[-.242,.077,.078],[-.216,.091,.086],[-.17,.09,.091],[-.14,.081,.088],[-.105,.096,.105],[.016,.101,.116],[.134,.11,.128],[.207,.103,.117]],7,7);
+// Cross sections are measured at the waist, ribcage, clavicles and collar.
+export const fieldJacket=shell([
+  [-.28,.164,.122,.018],[-.267,.177,.126,.018,.003],[-.253,.185,.130,.014],
+  [-.213,.176,.117,.007,-.008],[-.189,.187,.129,.014,.010],[-.162,.174,.113,.014],
+  [-.105,.176,.120,.01],[-.046,.189,.130,.004,.008],[.032,.195,.145,-.003],
+  [.102,.215,.148,-.005],[.151,.216,.136,.006],[.178,.192,.116,.012],
+  [.207,.143,.087,.014],[.226,.085,.071,.012]
+],0,0,.80);
+export const fieldCollar=shell([[-.034,.107,.093],[-.018,.100,.086],[.035,.089,.080,.009],[.051,.082,.074,.015]],0,0,.82);
+export const fieldPack=shell([
+  [-.233,.099,.053],[-.216,.138,.078],[-.187,.154,.087],
+  [-.103,.160,.089,-.003],[.036,.149,.096,.003],[.127,.132,.084],
+  [.176,.115,.071,-.003],[.195,.076,.056,-.009]
+],2,2,.53);
+export const pocket=shell([[-.5,.31,.26],[-.43,.47,.42],[-.23,.50,.47],[.29,.48,.46],[.44,.44,.41],[.50,.36,.31]],0,0,.51);
+export const trouserSeat=shell([[-.097,.127,.089,.016],[-.067,.171,.112,.028],[-.014,.186,.132,.023],[.040,.184,.125,.013],[.077,.169,.111,.005]],1,1,.84);
+export const capCrown=shell([[0,.106,.117],[.014,.119,.129],[.038,.115,.125,.004],[.063,.103,.117,.01],[.079,.072,.086,.012],[.087,.026,.034,.015]],1,1);
 
-export const trouserSeat=shell([[-.118,.12,.094],[-.09,.17,.114],[-.04,.195,.130],[.048,.196,.142],[.088,.182,.129]],7,7);
-export const capCrown=shell([[0,.114,.119],[.018,.119,.123],[.044,.109,.112],[.063,.087,.097],[.078,.045,.061],[.08,.012,.014]],7,7);
-export const fieldGaiter=shell([[-.234,.076,.083],[-.215,.087,.088],[-.158,.083,.094],[-.124,.088,.099],[-.100,.082,.091],[.01,.084,.093],[.128,.097,.10],[.193,.098,.106],[.218,.083,.088]],7,7);
-
-
+// These continuous garments share vertices across the joints. Skin weights blend
+// the sleeve through the elbow and the trouser through the knee as the rig moves.
+export const sleeve=shell([
+  [-.498,.043,.044],[-.492,.048,.049],[-.460,.050,.051],[-.448,.057,.054,-.001,.004],
+  [-.422,.051,.050],[-.378,.060,.061,-.006],[-.323,.068,.068,-.004],
+  [-.292,.060,.064,.002,-.012],[-.274,.066,.069,.005,.007],[-.256,.063,.067,.009,-.005],
+  [-.234,.074,.073,.010,.009],[-.211,.074,.073,.003],[-.158,.079,.077,-.003],
+  [-.094,.084,.085,-.004],[-.039,.087,.089],[-.002,.082,.087,.002],[.032,.059,.066,.003],[.051,.027,.038]
+],0,0,.95);
+export const trousers=shell([
+  [-.757,.060,.060,.006],[-.737,.070,.064,.003,.004],[-.711,.068,.066,.008,-.011],
+  [-.683,.082,.074,.003,.014],[-.658,.069,.068,.009,-.006],[-.605,.074,.081,.015],
+  [-.540,.079,.093,.016],[-.491,.082,.086,.009],[-.454,.074,.079,-.002,-.010],
+  [-.431,.082,.088,-.005,.010],[-.408,.079,.085,-.012],[-.381,.084,.092,-.007,-.013],
+  [-.354,.091,.098,.002,.009],[-.293,.093,.102,.005],[-.188,.102,.119,.003],
+  [-.103,.109,.124,.008],[-.023,.102,.119,.011],[.031,.083,.103,.012]
+],1,1,.90);
 // Sections run from the toe to the heel. A flatter underside and fuller toe box
 // give the sole and upper a continuous contour as the foot rolls through a step.
 function footwear(rows) {
@@ -135,3 +198,29 @@ export const bootUpper=footwear([
   [-.104,.089,-.104,-.005],[-.052,.078,-.102,.064],[-.021,.079,-.104,.086],
   [.035,.080,-.103,.084],[.080,.064,-.10,.045],[.085,.044,-.095,.021],
 ]);
+
+// Garments bind to the same groups that drive the server pose and visible equipment.
+export function jointGarment(batch,material,proximal,distal,blendWidth) {
+  const geometry=batch.geometry(), pos=geometry.getAttribute('position');
+  const indices=new Uint16Array(pos.count*4), weights=new Float32Array(pos.count*4);
+  for(let i=0;i<pos.count;i++) {
+    const w=THREE.MathUtils.smoothstep(distal.position.y-pos.getY(i),-blendWidth,blendWidth);
+    indices[4*i+1]=1;weights[4*i]=1-w;weights[4*i+1]=w;
+  }
+  geometry.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(indices,4));
+  geometry.setAttribute('skinWeight',new THREE.Float32BufferAttribute(weights,4));
+  const mesh=new THREE.SkinnedMesh(geometry,material);
+  mesh.receiveShadow=true;
+  proximal.add(mesh);proximal.updateWorldMatrix(true,true);
+  mesh.bind(new THREE.Skeleton([proximal,distal]),mesh.matrixWorld);
+  geometry.computeBoundingBox();
+  mesh.boundingSphere=new THREE.Sphere(new THREE.Vector3(),-geometry.boundingBox.min.y+.20);
+}
+
+// Map the nubuck panel around the toe and heel, with the seam under the sole.
+const leatherUvs=[], leatherPositions=bootUpper.getAttribute('position');
+for(let i=0;i<leatherPositions.count;i++) {
+  const along=THREE.MathUtils.clamp((leatherPositions.getZ(i)+.215)/.30,0,1);
+  leatherUvs.push(.525+.37*along,.04+.42*(i%16)/15);
+}
+bootUpper.setAttribute('batchUv',new THREE.Float32BufferAttribute(leatherUvs,2));

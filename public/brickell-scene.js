@@ -1,11 +1,12 @@
 import {harborSigns,signalPost} from './scenery-layout.js';
+import { avenueFrontage } from './avenue-frontage.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, causeway, bayfrontLawns } from './brickell-map.js';
 
-export function cityStreets(scene,renderer,Batch) {
+export function cityStreets(scene,renderer,Batch,panorama) {
   addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
@@ -97,11 +98,25 @@ export function cityStreets(scene,renderer,Batch) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
+  avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
     const base=.80, podium=3.9;
-    walls.add(faces[2],0xf5eee5,x,base+podium/2,z,w,podium,d);
+    const avenueCorner=x===-17 && z===7;
+    // Recess the block's east podium face for the shop interior, preserving the other three facades.
+    const recess=avenueCorner ? 1.17 : 0;
+    walls.add(faces[2],0xf5eee5,x-recess/2,base+podium/2,z,w-recess,podium,d);
+    if(avenueCorner) {
+      for(let floor=1;floor<=6;floor++) {
+        const level=base+podium+floor*(h-podium)/6;
+        const front=x+w/2;
+        solids.add(box,0xb7b3a3,front+.15,level,z,.71,.125,d+.20);
+        if(floor===6)continue;
+        solids.add(box,0x737f77,front+.465,level+.74,z,.038,.045,d-.2);
+        for(let k=-4;k<=4;k++)solids.add(box,0xa4aba0,front+.46,level+.39,z+2.15*k,.034,.72,.036);
+      }
+    }
     const rows=Math.max(2,Math.round((h-podium)/6)), tier=(h-podium)/rows;
     for(let j=0;j<rows;j++) {
       walls.add(faces[facade],i%3===1?0xd4e0df:0xf6f4ed,x,base+podium+(j+.5)*tier,z,w,tier,d);
@@ -111,6 +126,7 @@ export function cityStreets(scene,renderer,Batch) {
     solids.add(box,0x9caaa9,x+w*.13,base+h+.65,z,w*.45,1.18,d*.46);
     for(const side of [-1,1]) {
       // Porticoes over the ground-floor shopfronts.
+      if(avenueCorner && side===1)continue;
       solids.add(box,i%2?0x637b78:0xc2b49d,x+side*(w/2+.45),base+2.95,z,1.1,.17,d*.79);
     }
   });
