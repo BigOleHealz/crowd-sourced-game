@@ -47,6 +47,7 @@ function placement(listener,yaw,point) {
 }
 
 export function createGameAudio(button,slider,level) {
+  const action=button.querySelector('#sound-action');
   const key='pinewatch.audio.v1';
   let settings={muted:false,volume:.6};
   try {
@@ -58,7 +59,7 @@ export function createGameAudio(button,slider,level) {
   let previousVehicles={};
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
-    button.textContent=settings.muted ? 'Unmute' : 'Mute';
+    action.textContent=settings.muted ? 'Unmute' : 'Mute';
     button.setAttribute('aria-label',settings.muted ? 'Unmute game sound' : 'Mute game sound');
     button.setAttribute('aria-pressed',String(settings.muted));
     slider.value=String(Math.round(settings.volume*100));level.value=slider.value+'%';
@@ -69,7 +70,6 @@ export function createGameAudio(button,slider,level) {
     controls();
   }
   controls();
-  button.onclick=()=>{settings.muted=!settings.muted;save();};
   slider.oninput=()=>{settings.volume=Number(slider.value)/100;save();};
   document.addEventListener('visibilitychange',controls);
   function unlock(event) {
@@ -175,5 +175,9 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
-  return {unlock,reset,events,engines};
+  function toggleMute() {
+    settings.muted=!settings.muted;
+    save();
+  }
+  return {unlock,reset,events,engines,toggleMute};
 }

@@ -86,10 +86,19 @@ function clearInput() {
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function pauseControls() { clearInput(); stopLook(); }
+byId('sound-mute').onclick = e => {
+  audio.toggleMute();
+  if (e.detail && byId('guide').hidden) canvas.focus({ preventScroll: true });
+};
 byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key.toLowerCase() === 'm' && !e.target.closest?.('input, select, textarea, [contenteditable]')) {
+    e.preventDefault();
+    if (!e.repeat) audio.toggleMute();
+    return;
+  }
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') setGuide(false);
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
