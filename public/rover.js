@@ -19,12 +19,12 @@ export function parkedRover() {
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
-export function nearestVehicle(world, feet, includeFull=false) {
+export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
   const {heli, rover} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
-  const flight = (includeFull || heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
-  const road = (includeFull || rover.driver == null || rover.gunner == null) && !rover.wrecked ? distance(rover) : Infinity;
+  const flight = (heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
+  const road = (rover.driver == null || rover.gunner == null) && !rover.wrecked ? distance(rover) : Infinity;
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
   return flight <= BOARD_RANGE ? 'heli' : null;
 }

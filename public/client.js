@@ -81,7 +81,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
   if (e.code === 'Digit1' || e.code === 'Digit2') {
     const number=e.code==='Digit1' ? 1 : 2;
-    const kind=seatVehicle(world,id,self);
+    const kind=seatVehicle(world,id);
     if(kind && !vitals.dead) {queuedSeat=number;queuedSeatKind=kind;}
     else weapon=number;
   }
@@ -311,7 +311,7 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  const kind=seatVehicle(world,id,local);
+  const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('fire-shortcut').hidden = local.swimming || vitals.dead;
@@ -329,12 +329,7 @@ function updateEquipment(local) {
   else if (heli.pilot != null) prompt.textContent = nearestVehicle(world,local)==='heli' ? 'E  ·  Join helicopter turret' : heli.gunner!=null ? 'Helicopter crew full' : 'Helicopter in use';
   else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
   else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
-  if(kind && !vitals.dead) {
-    const v=world[kind],primary=kind==='heli'?'pilot':'driver';
-    if(v[primary]!=null && v.gunner!=null && v[primary]!==id && v.gunner!==id)
-      prompt.textContent = kind==='heli' ? 'Helicopter crew full' : 'Vehicle crew full';
-    prompt.textContent += '  ·  '+seatChoices(world,kind,id);
-  }
+  if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
 }
 
 function drawMap(player, remotes, yaw) {
