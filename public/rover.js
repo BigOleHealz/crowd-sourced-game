@@ -92,9 +92,10 @@ export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const target = throttle * (throttle<0 ? 2.8 : 16);
+  const reverseLimit=CITY ? 5.4 : 2.8;
+  const target = throttle * (throttle<0 ? reverseLimit : 16);
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
-  const power = throttle>0 ? 8.6 - 4.8*clamp(r.speed/16,0,1) : 7.2;
+  const power = throttle>0 ? 8.6 - 4.8*clamp(r.speed/16,0,1) : (CITY ? 9.0 : 7.2);
   const acceleration = throttle && r.speed*throttle>=0 ? power : 18;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
 
