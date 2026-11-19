@@ -1,3 +1,4 @@
+import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -12,7 +13,9 @@ import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
+import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
+
+import { advanceFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -141,6 +144,8 @@ function acceptInput(player, data, binary) {
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
+    seat: input.seat===1 || input.seat===2 ? input.seat : null,
+    seatKind: input.seatKind==='heli' || input.seatKind==='rover' ? input.seatKind : null,
     fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
@@ -200,6 +205,7 @@ function tick() {
   for (const player of players.values()) {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
+    const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       const role=gunnerVehicle(world,player.id);
       if(role) world[role].gunner=null;
@@ -214,6 +220,7 @@ function tick() {
       }
       continue;
     }
+    if (fallingBody) continue;
     if (input) {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
@@ -222,10 +229,12 @@ function tick() {
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
         else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
         else interact(world, player);
-      }
+      } else if (input.seat) selectSeat(world,player,input.seatKind,input.seat);
     }
     if (world.rover.driver === player.id) {
+      const before={...world.rover};
       driveRover(world, input || idle, step, players);
+      vehicleContacts(world,'rover',before,[...players.values(),...npcs],ticks,step);
       if (world.rover.driver !== player.id) continue;
       if (input?.fire) launchMissile(world,'rover',player,ticks);
       const { x,y,z,yaw } = world.rover;
@@ -235,7 +244,9 @@ function tick() {
       continue;
     }
     if (world.heli.pilot === player.id) {
+      const before={...world.heli};
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
+      vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);
       if (world.heli.pilot !== player.id) continue;
       if (input?.fire) launchMissile(world,'heli',player,ticks);
       const { x, y, z, yaw, grounded } = world.heli;
@@ -247,7 +258,7 @@ function tick() {
     }
     const kind=gunnerVehicle(world,player.id);
     if (kind) {
-      if(input && !input.interact) {
+      if(input && !input.interact && !input.seat) {
         world[kind].turretYaw=input.aimYaw;
         world[kind].turretPitch=turretPitch(input.aimPitch);
         if(input.fire) firingGunners.add(player.id);
