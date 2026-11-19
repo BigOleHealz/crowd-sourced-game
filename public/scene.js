@@ -12,6 +12,7 @@ import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPain
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
 import { aircraftWreck } from './aircraft-wreck.js';
+import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
@@ -682,15 +683,15 @@ function fieldEffects(scene) {
   const cloud=new THREE.InstancedMesh(geometry,material,capacity);
   cloud.instanceMatrix.setUsage(THREE.DynamicDrawUsage); cloud.frustumCulled=false;
   cloud.count=0; scene.add(cloud);
-  const dummy=new THREE.Object3D(), shade=new THREE.Color(), along=new THREE.Vector3();
+  const dummy=new THREE.Object3D(), shade=new THREE.Color();
   const rng=random(84927);
   function particle(pos,vel,scale,tint,life) {
     if(particles.length>=capacity) particles.shift();
     particles.push({pos,vel,scale,tint,life,remaining:life});
   }
-  function burst(x,y,z,large) {
-    for(let i=0;i<(large?18:7);i++) {
-      const a=rng()*TAU, s=.6+rng()*(large?3.6:1.7), size=(large?.045:.026)+rng()*.075;
+  function burst(x,y,z) {
+    for(let i=0;i<18;i++) {
+      const a=rng()*TAU, s=.6+rng()*3.6, size=.045+rng()*.075;
       particle(new THREE.Vector3(x,y,z),new THREE.Vector3(Math.cos(a)*s,.6+rng()*2.7,Math.sin(a)*s),
         new THREE.Vector3(size,size*(1+rng()),size),i%3?0x958d78:0xb5ac95,.28+rng()*.29);
     }
@@ -701,15 +702,18 @@ function fieldEffects(scene) {
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
-    for(let i=0;i<(metal?5:4);i++){
-      const v=new THREE.Vector3(rng()-.5,rng()*.8,rng()-.5);
-      v.addScaledVector(normal,Math.max(.25,-v.dot(normal)+.22)).multiplyScalar(metal?2.8:1.45);
-      const size=metal?.016:wood?.023:.045;
-      const scale=new THREE.Vector3(size,(metal?4:wood?2.9:.70)*size,size);
-      particle(point.clone().addScaledVector(normal,.014),v,scale,
-        metal?(i%2?0xffce79:0xffefd2):wood?(i%2?0xb48954:0x866441):(i%2?0xa59c8d:0x8b8377),
-        (metal?.095:wood?.21:.19)+rng()*.10);
-      if(metal || wood) particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,v.clone().normalize());
+    const count=metal ? 2+Math.floor(rng()*3) : 2+Math.floor(rng()*2);
+    for(let i=0;i<count;i++){
+      const v=new THREE.Vector3(rng()-.5,rng()-.22,rng()-.5);
+      v.addScaledVector(normal,.18+1.05*rng()-Math.min(0,v.dot(normal)));
+      v.multiplyScalar((metal?3.4:wood?1.8:1.35)*(.63+.61*rng()));
+      const width=(metal?.009:wood?.015:.021)*(.62+.7*rng());
+      const length=width*(metal ? 3+5*rng() : wood ? 2+2.6*rng() : .8+rng());
+      const scale=new THREE.Vector3(width,length,width*(wood?.43:.7));
+      const tint=metal ? (i===0?0xffdd9e:0xdba66b) : wood ? (i%2?0xb69265:0x846747) : (i%2?0xa49f95:0x6c6963);
+      particle(point.clone().addScaledVector(normal,.012),v,scale,tint,
+        (metal?.074:wood?.15:.12)+rng()*(metal?.053:.082));
+      particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,v.clone().normalize());
     }
   }
   function shot(s,sourceVehicle) {
@@ -730,18 +734,7 @@ function fieldEffects(scene) {
       }
       return;
     }
-    along.subVectors(b,a);
-    const length=along.length();
-    if(length>.01) {
-      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.85 : 1.4);
-      const direction=along.normalize();
-      particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
-        new THREE.Vector3(.022,tracerLength*.5,.022),s.weapon===2 ? 0xedb97c : 0xffe5b3,.135);
-      particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
-      if(!s.traveling)particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
-    }
     if(contact) chips(contact);
-    else if(s.hit) burst(b.x,b.y,b.z,false);
   }
   function update(dt) {
     plume.update(dt);
@@ -1164,9 +1157,7 @@ export function createScene(canvas) {
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
-  const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
-  rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
-  const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
+  const updateRounds=flightRounds(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1245,7 +1236,7 @@ export function createScene(canvas) {
       const {prop,mesh}=stack;
       const hp=world?.hp?.[prop.id] ?? prop.hp;
       if(hp!==stack.hp) {
-        if(hp===0 && stack.hp>0) effects.burst(prop.x,mesh.position.y+prop.height*.48,prop.z,true);
+        if(hp===0 && stack.hp>0) effects.burst(prop.x,mesh.position.y+prop.height*.48,prop.z);
         mesh.visible=hp>0;
         if(hp>0) mesh.scale.y=.78+.22*hp/prop.hp;
         stack.hp=hp;
@@ -1257,18 +1248,7 @@ export function createScene(canvas) {
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
     updateMissiles(world.missiles ?? [],dt);
-    rounds.count=Math.min(world.bullets?.length??0,rounds.instanceMatrix.count);
-    for(let i=0;i<rounds.count;i++){
-      const r=world.bullets[i];
-      roundMesh.position.set(r.x,r.y,r.z);
-      path.set(r.vx,r.vy,r.vz).normalize();
-      roundMesh.position.addScaledVector(path,-.24);
-      roundMesh.quaternion.setFromUnitVectors(up,path);
-      roundMesh.scale.set(.022,r.weapon==='turret'?.58:.36,.022);
-      roundMesh.updateMatrix();rounds.setMatrixAt(i,roundMesh.matrix);
-      rounds.setColorAt(i,roundColor.setHex(r.weapon===2?0xedb97c:0xffe5b3));
-    }
-    if(rounds.count){rounds.instanceMatrix.needsUpdate=true;rounds.instanceColor.needsUpdate=true;}
+    updateRounds(world.bullets);
     effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
