@@ -1,5 +1,5 @@
 import { avenues, streets } from './brickell-map.js';
-import { CITY, MAP, BREAKABLES, groundHeight } from './world.js';
+import { CITY, MAP, BREAKABLES, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
   1:{name:'Field carbine',speed:56,range:78,damage:25,cooldown:6,propDamage:1},
   2:{name:'Patrol sidearm',speed:39,range:49,damage:40,cooldown:21,propDamage:2},
@@ -29,7 +29,7 @@ function column(a,d,c,r,h){
 }
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
-const barriers=(MAP.barriers??[]).map(p=>({...p,y:groundHeight(p.x,p.z)}));
+const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // Match the signal pole, overhead arm and housing drawn at each intersection.
 const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
   {x:x-6.2,y:.75,z:z-5.8,w:.16,h:4.5,d:.16},
