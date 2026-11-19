@@ -155,7 +155,7 @@ function connect() {
       if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       const corrected = isPilot() || isDriving() || gunner || vitals.dead ? authoritative : pending.reduce(
-        (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
+        (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
@@ -214,7 +214,7 @@ function tick() {
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
+  if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp, world);
 }
 
 // Interpolate only live rounds. An impact snapshot immediately retires its tracer.

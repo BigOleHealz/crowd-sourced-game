@@ -1,4 +1,5 @@
-import { MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
+import { vehicleContact } from './vehicle-contact.js';
+import { CITY, MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -189,7 +190,7 @@ export function interact(world, player) {
     for (const side of [1,-1]) {
       const x = heli.x + side * 1.85 * Math.cos(heli.yaw);
       const z = heli.z + side * 1.85 * Math.sin(heli.yaw);
-      if (blocked(x, player.state.y, z, world.hp)) continue;
+      if (blocked(x, player.state.y, z, world.hp) || vehicleContact(x,player.state.y,z,world,CITY).depth>0) continue;
       Object.assign(player.state, {x,z});
       break;
     }
@@ -210,7 +211,7 @@ export function interact(world, player) {
       const x = heli.x + 2.15 * Math.cos(angle);
       const z = heli.z + 2.15 * Math.sin(angle);
       const y = groundHeight(x, z);
-      if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp)) {
+      if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp) && !vehicleContact(x,y,z,world,CITY).depth) {
         exit = { x, y, z, vy: 0, grounded: true };
         break;
       }

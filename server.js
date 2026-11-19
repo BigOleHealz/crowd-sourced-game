@@ -195,7 +195,7 @@ function tick() {
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   if (players.size) {
-    for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
+    for (const npc of npcs) updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
@@ -255,7 +255,7 @@ function tick() {
       continue;
     }
     const falling = player.state;
-    player.state = stepPlayer(falling, input || idle, step, world.hp);
+    player.state = stepPlayer(falling, input || idle, step, world.hp, world);
     if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
       const impact = Math.max(0, Math.round((-falling.vy - 7) * 10));
       if (impact && damageActor(player, impact, ticks)) continue;
