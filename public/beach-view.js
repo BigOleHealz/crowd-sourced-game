@@ -1,3 +1,4 @@
+import {beachSigns} from './scenery-layout.js';
 import * as THREE from 'three';
 import { beach, courts, stations, sandHeight } from './beach-layout.js';
 export function addBeach(scene,Batch) {
@@ -14,7 +15,7 @@ export function addBeach(scene,Batch) {
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
   const box=new THREE.BoxGeometry(), timber=new Batch(), cord=new Batch();
-  for(const [x,z,yaw,label] of [[8,-198,0,'BEACH ACCESS  →'],[33,-198,-Math.PI/2,'HARBOR KEY BEACH  ↑']]){
+  for(const [x,z,yaw,label] of beachSigns){
     const panel=document.createElement('canvas');panel.width=768;panel.height=152;
     const ink=panel.getContext('2d');
     ink.fillStyle='#efe8ce';ink.fillRect(0,0,768,152);ink.fillStyle='#215d62';ink.fillRect(6,6,756,140);

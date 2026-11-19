@@ -1,5 +1,6 @@
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
+import {depotPoint,landingPoint,supplySupports,trailMarkers} from './scenery-layout.js';
 import { brickellMap, cityGround } from './brickell-map.js';
 export const CITY = typeof location === 'object'
   ? new URLSearchParams(location.search).get('map') === 'brickell'
@@ -38,6 +39,15 @@ export const MAP = CITY ? brickellMap : {
 };
 
 export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
+MAP.barriers=[
+  ...(MAP.barriers ?? []),
+  ...supplySupports(depotPoint,2.4),...supplySupports(landingPoint(CITY),3.4),
+];
+if (!CITY) {
+  MAP.barriers.push(...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
+    {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
+}
+
 export const BOARD_RANGE = 3.5;
 export const BREAKABLES = [
   { id: 'trailhead', x: 0, z: 10, radius: 1.15, height: 2.6, hp: 3 },

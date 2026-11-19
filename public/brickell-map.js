@@ -1,3 +1,4 @@
+import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
 import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
 // A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
 // collision dimensions come from the same layout on the server and client.
@@ -31,6 +32,11 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 77, northBound:-289, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...causewayRails,...beachBarriers], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
+  barriers:[...causewayRails,...beachBarriers,
+    ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
+    ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
+    ...beachSigns.flatMap(([x,z,yaw])=>[-1,1].map(side=>({
+      x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,
+    })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
   buildings:towers.map(([x,z,w,d,eave,facade])=>({x,z,w,d,eave,facade,rise:0})),
 };

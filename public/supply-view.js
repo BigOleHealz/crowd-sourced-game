@@ -1,3 +1,4 @@
+import {stationCorners} from './scenery-layout.js';
 import * as THREE from 'three';
 import { CITY, groundHeight } from './world.js';
 import { DEPOT, OUTPOST, supplyGuidance } from './supply-run.js';
@@ -20,7 +21,7 @@ export function createSupplyView(scene) {
     origin.position.set(point.x, groundHeight(point.x, point.z), point.z);
     group.add(origin);
     // Follow the ground at each post so the route remains legible across uneven terrain.
-    for (const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+    for (const [dx,dz] of stationCorners(point)) {
       const x = dx*radius*.8, z = dz*radius*.8;
       const floor = groundHeight(point.x+x,point.z+z) - origin.position.y;
       mesh(origin,new THREE.BoxGeometry(.15,.65,.15),metal,x,floor+.325,z);
