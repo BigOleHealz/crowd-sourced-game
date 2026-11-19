@@ -456,53 +456,53 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
-  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e;
+  const olive=0x59614f, graphite=0x343b36, alloy=0x939489;
   aircraftBody(hull,glazing);
-  // The seats and coaming remain visible behind the curved canopy.
-  for(const side of [-1,1]) {
-    hull.add(round,0x333a32,side*.286,.778,-.28,.212,.075,.23);
-    hull.add(round,0x4f5344,side*.286,1.009,-.12,.201,.247,.075,-.17);
-    hull.add(round,0x464a40,side*.286,1.246,-.09,.103,.088,.062,-.17);
-  }
-  hull.add(round,0x3e463e,0,.976,-1.06,.45,.16,.22);
-  hull.add(round,graphite,0,1.49,.46,.40,.21,.68);
-  hull.add(cube,ivory,0,1.52,.50,.48,.18,.56);
-  for (const side of [-1,1]) {
-    // Cargo sill, exposed fittings, anti-slip boarding step and ventilation.
-    hull.beam(0x9caba5,[side*.78,.49,-.52],[side*.78,.49,.49],.044);
-    for(const z of [-.40,.37])hull.beam(0x606b63,[side*.56,.65,z],[side*.78,.49,z],.030);
-    for(let k=0;k<12;k++)hull.add(round,0x939788,side*.708,.864,-.54+k*.095,.011,.011,.011);
-    for(let k=0;k<6;k++)hull.add(cube,0x434e49,side*.375,1.61,.12+k*.075,.11,.075,.025,.1,0,side*.3);
-    hull.add(round,side===1?0xad302c:0x539b73,side*.747,1.03,.46,.036,.036,.06);
-    hull.add(round,0x51483f,side*.265,1.59,.91,.112,.092,.16,-.08);
-    hull.add(round,0x262e2d,side*.265,1.61,1.023,.079,.067,.067);
-    hull.add(cube,graphite,side*.75,.96,.23,.054,.045,.13);
-    hull.add(cube,graphite,side*.65,.098,.03,.11,.105,1.86);
-    hull.beam(graphite,[side*.65,.095,-.88],[side*.65,.23,-1.12],.094);
-    for (const z of [-.50,.51]) hull.beam(graphite,[side*.48,.65,z],[side*.65,.125,z+.08],.085);
-    hull.add(cube,0xefb966,side*.57,.75,-.94,.12,.10,.15);
-  }
-  const boom=new THREE.CylinderGeometry(.10,.27,2.52,12);
-  hull.add(boom,0x777d65,0,1.21,1.89,1,1,.89,Math.PI/2-.095);
-  boom.dispose();
-  for(const z of [2.51,2.66])hull.add(trunk,0x5a6051,0,1.27+(z-2.51)*.095,z,.152,.08,.141,Math.PI/2-.095);
-  hull.beam(0x656b63,[.17,.76,1.03],[.17,.52,1.44],.021);
-  hull.beam(0x8c9997,[0,1.55,-.34],[0,1.89,-.53],.017);
+  const wheel=new THREE.TorusGeometry(1,.36,8,20);
+  const fairing=new THREE.CylinderGeometry(.12,.27,2.72,8);
+  hull.add(fairing,olive,0,1.48,3.04,1,1,1,Math.PI/2-.14);
+  // Swept tail pylon with thickness and a wide, tapered stabilator.
+  const fin=new THREE.Shape();
+  fin.moveTo(3.85,1.54);fin.lineTo(4.39,1.66);fin.lineTo(4.83,2.77);fin.lineTo(4.49,2.69);fin.closePath();
+  const pylon=new THREE.ExtrudeGeometry(fin,{depth:.13,bevelEnabled:false});
+  pylon.rotateY(-Math.PI/2);hull.add(pylon,olive,.065,0,0);
+  hull.add(cube,olive,0,1.66,3.99,1.92,.075,.45,-.08);
   for(const side of [-1,1]){
-    hull.beam(0x3c4645,[side*.055,1.77,-.047],[side*.14,1.92,.068],.026);
-    hull.add(round,0x76382c,side*.55,1.30,2.77,.031,.035,.05);
+    hull.add(round,graphite,side*.35,.94,-1.04,.23,.16,.26);
+    hull.add(round,0x42473e,side*.35,1.18,-.84,.22,.30,.08,-.12);
+    // Paired turbine nacelles above the cabin with recessed mouths and rear exhausts.
+    hull.add(round,olive,side*.39,1.71,.33,.30,.27,1.05);
+    hull.add(trunk,graphite,side*.39,1.77,-.43,.228,.30,.20,Math.PI/2);
+    hull.add(round,0x222923,side*.39,1.77,-.58,.182,.154,.038);
+    for(let j=-2;j<=2;j++) hull.add(cube,0x737869,side*.39+.058*j,1.77,-.616,.014,.20,.014);
+    hull.add(trunk,0x59564b,side*.48,1.73,1.14,.18,.49,.17,Math.PI/2-.17,side*.18);
+    hull.add(round,0x252924,side*.51,1.77,1.36,.145,.14,.04);
+    hull.beam(graphite,[side*.78,.53,-.52],[side*.78,.53,.94],.039);
+    for(const z of [-.48,.80]){
+      hull.beam(alloy,[side*.67,.64,z],[side*.84,.42,z],.033);
+      hull.add(cube,graphite,side*.797,1.02,z,.035,.042,.14);
+    }
+    hull.beam(olive,[side*.57,.77,-.72],[side*.98,.30,-.69],.094);
+    hull.beam(graphite,[side*.68,.65,-.28],[side*.98,.27,-.69],.059);
+    hull.add(wheel,0x272a26,side*.99,.258,-.69,.19,.19,.23,0,Math.PI/2);
+    hull.add(trunk,alloy,side*.99,.258,-.69,.121,.17,.121,0,0,Math.PI/2);
+    hull.add(round,side<0?0x9e4038:0x558a70,side*.83,1.24,.69,.045,.036,.049);
+    hull.beam(graphite,[side*.31,1.35,-1.74],[side*.48,1.46,-1.57],.014);
   }
-  hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
-  hull.add(cube,olive,0,1.92,3.12,.118,.18,.41,.27);
-  hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
-  hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
-  hull.add(round,ivory,0,1.94,0,.155,.072,.155);
+  hull.beam(graphite,[0,1.41,3.68],[0,.24,3.91],.090);
+  hull.beam(olive,[0,1.39,3.13],[0,.28,3.90],.068);
+  hull.add(wheel,0x272a26,0,.193,3.91,.142,.142,.15,0,Math.PI/2);
+  hull.add(trunk,alloy,0,.193,3.91,.084,.13,.084,0,0,Math.PI/2);
+  wheel.dispose();fairing.dispose();pylon.dispose();
+  hull.add(round,olive,0,1.79,-.06,.36,.28,.51);
+  hull.add(trunk,alloy,0,2.04,-.08,.085,.42,.085);
+  hull.add(round,graphite,0,2.22,-.08,.205,.078,.205);
   missileLaunchers(hull,'heli');
   const paint=fieldPaint();
   hull.mesh(group,paint,false);
   glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
-  const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
+  const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
   const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
@@ -510,28 +510,28 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const placard=new THREE.PlaneGeometry(.69,.105);
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
-    id.position.set(side*.746,.942,-.15);id.rotation.y=side*Math.PI/2;
+    id.position.set(side*.806,.93,.12);id.rotation.y=side*Math.PI/2;
     id.rotation.x=-side*.16;group.add(id);
   }
-  for (let i=0; i<3; i++) {
-    const a = i*TAU/3, s = Math.sin(a), c = Math.cos(a);
+  for (let i=0; i<4; i++) {
+    const a = i*TAU/4, s = Math.sin(a), c = Math.cos(a);
     rotor.add(round,0x777f79,s*.13,0,c*.13,.063,.062,.11);
     rotor.beam(0x8e8e7c,[s*.11,-.069,c*.11],[s*.32,0,c*.32],.025);
-    rotor.add(cube,graphite,s*1.32,0,c*1.32,.132,.044,2.58,0,a);
-    rotor.add(cube,ivory,s*2.43,.001,c*2.43,.137,.048,.28,0,a);
+    rotor.add(cube,graphite,s*1.90,0,c*1.90,.169,.035,3.40,0,a);
+    rotor.add(cube,0x929282,s*3.56,.001,c*3.56,.169,.038,.10,0,a);
   }
-  for (let i=0; i<3; i++) {
-    const a = i*TAU/3;
-    fan.add(cube,graphite,0,Math.cos(a)*.22,Math.sin(a)*.22,.042,.43,.088,a);
+  for (let i=0; i<4; i++) {
+    const a = i*TAU/4;
+    fan.add(cube,graphite,0,Math.cos(a)*.31,Math.sin(a)*.31,.036,.59,.087,a);
   }
   const mainRotor = rotor.mesh(group,material,false);
-  mainRotor.position.set(0,1.96,0);
+  mainRotor.position.set(0,2.24,-.08);
   const tailRotor = fan.mesh(group,material,false);
-  tailRotor.position.set(.14,1.61,3.02);
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
+  tailRotor.position.set(.13,2.49,4.53);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,5.4).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const healthLabel=objectHealthLabel(scene,'TRAIL HELI');
+  const healthLabel=objectHealthLabel(scene,'UTILITY HELICOPTER');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
