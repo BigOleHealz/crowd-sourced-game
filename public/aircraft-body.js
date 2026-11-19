@@ -2,10 +2,10 @@ import * as THREE from 'three';
 
 // Cross sections from the blunt chin through the flight deck and sliding cargo doors.
 const stations=[
-  [-2.05,.04,.76,.04],[-1.99,.39,.78,.20],[-1.85,.56,.86,.32],
-  [-1.59,.68,1.01,.47],[-1.27,.74,1.12,.57],[-.97,.78,1.12,.58],
-  [-.52,.80,1.11,.59],[-.09,.81,1.11,.60],[.46,.80,1.11,.59],
-  [.91,.78,1.12,.55],[1.31,.64,1.14,.45],[1.69,.39,1.22,.31],[1.94,.25,1.29,.23]
+  [-2.53,.13,.80,.13],[-2.43,.39,.81,.23],[-2.18,.57,.84,.30],
+  [-1.90,.65,.98,.42],[-1.55,.71,1.12,.55],[-1.17,.74,1.12,.58],
+  [-.73,.76,1.12,.59],[-.12,.77,1.12,.60],[.52,.77,1.12,.60],
+  [1.06,.74,1.15,.55],[1.53,.59,1.19,.44],[1.87,.37,1.28,.31],[2.10,.24,1.34,.23]
 ];
 const last=stations.length-1, tau=Math.PI*2;
 function skin(t,theta) {
@@ -15,7 +15,7 @@ function skin(t,theta) {
   function at(k) {
     return b[k]+.5*f*((c[k]-a[k])+f*(2*a[k]-5*b[k]+4*c[k]-d[k]+f*(3*b[k]-a[k]-3*c[k]+d[k])));
   }
-  const curve=v=>Math.sign(v)*Math.abs(v)**.57;
+  const curve=v=>Math.sign(v)*Math.abs(v)**.42;
   return new THREE.Vector3(at(1)*curve(Math.sin(theta)),at(2)+at(3)*curve(Math.cos(theta)),at(0));
 }
 function surfaceNormal(t,theta) {
@@ -34,9 +34,9 @@ export function aircraftBody(hull,glazing) {
   for(let r=0;r<rings;r++) for(let j=0;j<slices;j++) {
     const t=(r+.5)/3,angle=Math.min(j+.5,slices-j-.5)*tau/slices;
     const windscreen=t>2.32 && t<4.67 && angle<1.33 && angle>.055;
-    const window=((t>5.0 && t<6.66) || (t>7.0 && t<8.66)) && angle>.59 && angle<1.70;
+    const window=((t>4.67 && t<6.33) || (t>6.67 && t<7.67) || (t>8 && t<9)) && angle>.78 && angle<1.63;
     const pane=windscreen || window, bucket=pane ? glass : paint;
-    paintTint.setHex(pane ? 0x648286 : angle>2.19 ? 0x41483e : 0x555c4a);
+    paintTint.setHex(pane ? 0x82959b : angle>2.19 ? 0x3b4039 : 0x515648);
     const a=r*(slices+1)+j,b=a+slices+1;
     for(const k of [a,b,b+1,a,b+1,a+1]) {
       bucket.p.push(...points[k].toArray());bucket.n.push(...normals[k].toArray());bucket.c.push(paintTint.r,paintTint.g,paintTint.b);
@@ -66,10 +66,17 @@ export function aircraftBody(hull,glazing) {
   for(const sign of [-1,1]) {
     for(const t of [2.33,4.67]) rail(t,t,0,sign*1.31,.023);
     rail(2.33,4.67,sign*1.31,sign*1.31,.024);
-    for(const [front,rear] of [[5,6.67],[7,8.67]]){
-      const roof=sign*.655,sill=sign*1.702;
+    for(const [front,rear] of [[4.67,6.33],[6.67,7.67],[8,9]]){
+      const roof=sign*.786,sill=sign*1.637;
       rail(front,front,roof,sill,.018);rail(rear,rear,roof,sill,.018);
       rail(front,rear,sill,sill,.020);rail(front,rear,roof,roof,.018);
     }
+    // The pilot door and paired sliding cabin windows have independent jambs.
+    for(const [front,rear] of [[4.67,6.38],[6.52,9.18]]){
+      rail(front,front,sign*.73,sign*2.43,.012);
+      rail(rear,rear,sign*.73,sign*2.43,.012);
+      rail(front,rear,sign*2.43,sign*2.43,.013);
+    }
+    rail(6.25,9.60,sign*.71,sign*.71,.030);
   }
 }
