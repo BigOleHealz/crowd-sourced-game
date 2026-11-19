@@ -121,7 +121,9 @@ export function fly(world, input, dt, players) {
   // The rotor disc tips toward the velocity error. Its horizontal thrust
   // accelerates the hull, while drag and the hover assist bleed off airspeed.
   const stick = Math.max(1, Math.hypot(input.x, input.z));
-  const cruise = 8.2, drag = .65;
+  const forwardInput=Math.max(0,(input.x*Math.sin(h.yaw)-input.z*Math.cos(h.yaw))/stick);
+  const atSpeed=clamp((Math.hypot(motion.vx,motion.vz)-3)/4,0,1);
+  const cruise=8.2+forwardInput*atSpeed, drag=.65;
   const demandX = (input.x * cruise / stick - motion.vx) * 2.1 + input.x * cruise * drag / stick;
   const demandZ = (input.z * cruise / stick - motion.vz) * 2.1 + input.z * cruise * drag / stick;
   const tiltScale = Math.min(1, 13 / (Math.hypot(demandX, demandZ) || 1));
