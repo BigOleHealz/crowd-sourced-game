@@ -1,7 +1,6 @@
-import {hasStorefrontRooms,storefrontTopAt} from './storefront-layout.js';
 import {wheelStations} from './road-wheel-layout.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
-import { CITY, MAP, BREAKABLES, groundHeight, terrainHeight } from './world.js';
+import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
   1:{name:'Field carbine',speed:56,range:144,damage:25,cooldown:6,propDamage:1},
   2:{name:'Patrol sidearm',speed:39,range:84,damage:40,cooldown:21,propDamage:2},
@@ -68,21 +67,20 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
-  for(const p of barriers)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+  for(const p of barriers)if(!p.netting && !(p.net!=null && world.doors?.nets?.[p.net]))accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
     const base={x:b.x,y:b.base-2,z:b.z},span=[0,1];
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
-    // The tower podium contains two rooms. Walk its clipped segment through
-    // the same surfaces used for movement, including the current door leaves.
-    if(CITY && hasStorefrontRooms(b)){
+    // Traverse ground-floor rooms using the same furnishings and glass as movement.
+    if(CITY && round.y+Math.min(0,d.y)<4.74){
       const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
       const steps=Math.max(1,Math.ceil(length/.045));
       for(let i=0;i<=steps;i++){
         const f=span[0]+(span[1]-span[0])*i/steps;
         const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-        if(y<=storefrontTopAt(x,z,0,y,b.base+height,world.doors)){
+        if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors)){
           accept(f,null,'scenery');break;
         }
       }

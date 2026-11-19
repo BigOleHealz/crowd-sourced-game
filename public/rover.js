@@ -1,3 +1,4 @@
+import {breakFrontage} from './frontage-glass.js';
 import { roadContact, sweepRoad } from './road-contact.js';
 import {flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -46,7 +47,7 @@ export function interactRover(world, player) {
     const angle = r.yaw + i*Math.PI/4;
     const x = r.x + 1.7*Math.cos(angle), z = r.z + 1.7*Math.sin(angle);
     const y = groundHeight(x,z);
-    if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp)) continue;
+    if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
     if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
     exit = {x,y,z,vy:0,grounded:true};
     break;
@@ -140,6 +141,17 @@ export function driveRover(world, input, dt, players) {
     if(!hit)break;
     contacted=true;
     const incoming=Math.max(0,-(vx*hit.nx+vz*hit.nz));
+    if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r)){
+      registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
+      if(r.wrecked)return;
+      vx*=.8;vz*=.8;remaining*=1-fraction;
+      continue;
+    }
+    if(hit.object.net!=null && world.doors && incoming>.55){
+      (world.doors.nets??={})[hit.object.net]=Math.sign(vz)||1;
+      vx*=.94;vz*=.94;remaining*=1-fraction;
+      continue;
+    }
     registerImpact(world,r,hit,incoming,players);
     if(r.wrecked)return;
     const rebound=incoming>3.5?Math.min(1.35,(incoming-3.5)*.12):0;

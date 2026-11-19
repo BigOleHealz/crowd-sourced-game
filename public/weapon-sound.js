@@ -38,3 +38,21 @@ export function weaponSound(context,name,variant) {
   for(let i=0;i<out.length;i++)out[i]*=.91/peak;
   return buffer;
 }
+
+// One seamless second of mechanical reports, drive whir and alternating metal ticks.
+export function chainGunLoop(context) {
+  const rate=context.sampleRate, buffer=context.createBuffer(1,rate,rate);
+  const out=buffer.getChannelData(0);
+  let seed=7319, previous=0;
+  for(let i=0;i<rate;i++){
+    const t=i/rate, cycle=t*50, beat=Math.floor(cycle), phase=cycle-beat;
+    seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+    const noise=seed/2147483648-1;
+    const strike=Math.min(1,phase*22)*Math.exp(-phase*6);
+    const body=Math.sin(2*Math.PI*(phase*1.7+.18*(1-Math.exp(-7*phase))));
+    const clack=Math.sin(2*Math.PI*phase*(beat%2?19:23));
+    out[i]=.12*Math.sin(2*Math.PI*100*t)+strike*(.64*body+.42*(noise-previous)+.21*clack);
+    previous=noise;
+  }
+  return buffer;
+}

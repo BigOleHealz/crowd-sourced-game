@@ -31,9 +31,9 @@ export function panelCenter(door,side,fraction) {
   return door.z+(side===0 ? -.25 : .25)*door.width+door.travel[side]*fraction;
 }
 
-const furniture=[];
-const rect=(x,z,w,d,top)=>furniture.push({x,z,hw:w/2,hd:d/2,top});
-const round=(x,z,r,top)=>furniture.push({x,z,r,top});
+export const storefrontFurniture=[];
+const rect=(x,z,w,d,top)=>storefrontFurniture.push({x,z,hw:w/2,hd:d/2,top});
+const round=(x,z,r,top)=>storefrontFurniture.push({x,z,r,top});
 for(const [x,z] of diningTables) {
   round(x,z,.398,1.59);
   for(const s of [-1,1])round(x,z+s*.545,.221,1.61);
@@ -51,18 +51,18 @@ for(const [x,z,size] of planters)round(x,z,.235*size,storefrontFloor+.45*size);
 
 // The original tower still owns the upper storeys, west core and roof.
 // Only the approximately seven-metre east recess has pedestrian headroom.
-export function storefrontTopAt(x,z,pad,probe,roof,doors) {
+export function storefrontTopAt(x,z,pad,probe,roof,doors,brokenGlass=false) {
   if(x< -16.515+pad || z< -1.81+pad || z>15.81-pad || probe>storefrontCeiling+.001) return roof;
   if(Math.abs(z-2.41)<.085+pad) return storefrontCeiling;
   let top=-Infinity;
-  if(Math.abs(x-doorX)<.15+pad) {
+  if(!brokenGlass && Math.abs(x-doorX)<.15+pad) {
     const door=storefrontDoors[z>2.41 ? 0 : 1];
     if(Math.abs(z-door.z)>door.width/2-pad || probe>door.head+.001)return storefrontCeiling;
     for(let side=0;side<2;side++){
       if(Math.abs(z-panelCenter(door,side,doors?.[door.id] ?? 0))<door.width/4+.018+pad) return door.head;
     }
   }
-  for(const p of furniture) {
+  for(const p of storefrontFurniture) {
     const dx=Math.abs(x-p.x),dz=Math.abs(z-p.z);
     if(p.r ? dx*dx+dz*dz<(p.r+pad)**2 : dx<p.hw+pad && dz<p.hd+pad)top=Math.max(top,p.top);
   }

@@ -2,7 +2,7 @@ import {CITY,MAP,groundHeight,solidTopAt,blocked} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
 import {mountPosition} from './mounts.js';
 
-const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:66,z:-201}];
+const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:66.2,z:-201}];
 // Hull-local crown of the helm cushion. The ranger's trouser seat is .893 m
 // above its rig origin, before the seated scale is applied.
 export const helmCushion = {z: -.32, top: 1.018};

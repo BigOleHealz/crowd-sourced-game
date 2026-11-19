@@ -1,3 +1,6 @@
+import {shopFloor,shopCeiling} from './street-shop-layout.js';
+import {faceAt,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
+import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
 import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
@@ -68,6 +71,17 @@ export function onBuildingLot(x,z,margin=0) {
   return MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
 }
 
+export function podiumTop(b,x,z,pad,probe,roof,doors){
+  if(!CITY)return roof;
+  const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors);
+  if(gallery!==undefined)return gallery;
+  const face=faceAt(b,x);
+  if(!face)return roof;
+  if(!face.showcase)return retailSurface(face,x,z,pad,probe,roof,doors);
+  const gap=brokenSpan(face,doors?.broken?.[face.id]??0,z,pad);
+  return storefrontTopAt(x,z,pad,probe,roof,doors,gap);
+}
+
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
   let top=CITY ? parapetTop(x,z,padding,maxBottom) : -Infinity;
@@ -75,10 +89,11 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     const roof=b.base+b.eave+b.rise*(1-2*dz/b.d);
-    const surface=CITY && hasStorefrontRooms(b) ? storefrontTopAt(x,z,padding,maxBottom,roof,doors) : roof;
+    const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors);
     top=Math.max(top,surface);
   }
   for(const b of MAP.barriers ?? []){
+    if(b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
     if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
@@ -135,7 +150,9 @@ export function terrainHeight(x, z) {
 
 export function groundHeight(x, z, maxBottom=Infinity) {
   if(CITY) {
+    if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
+    if(retailRoom(x,shopFloor,z))return shopFloor;
     return lookoutFloor(x,z,cityGround(x,z,maxBottom));
   }
   const bridge = MAP.bridge;
@@ -269,7 +286,9 @@ export function stepPlayer(state, input, dt, hp, world) {
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
     let ceiling=contact.ceiling;
+    if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
+    if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
     if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;

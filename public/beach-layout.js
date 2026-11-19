@@ -24,9 +24,9 @@ export function lookoutFloor(x,z,sand) {
   return sand;
 }
 export const beachBarriers=[
-  ...courts.flatMap(({x,z})=>[
-    {x,z,w:8.56,d:.11,h:2.40},
-    ...[-1,1].map(side=>({x:x+side*4.37,z,w:.112,d:.112,h:2.58})),
+  ...courts.flatMap(({x,z},net)=>[
+    {x,z,w:8.56,d:.11,h:2.40,net,netting:true},
+    ...[-1,1].map(side=>({x:x+side*4.37,z,w:.112,d:.112,h:2.58,net})),
   ]),
   ...stations.flatMap(({x,z})=>[
     {x:x-.11,z,w:2.99,d:3.10,bottom:3.31,h:3.65},

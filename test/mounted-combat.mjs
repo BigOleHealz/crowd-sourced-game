@@ -14,16 +14,17 @@ for(const kind of ['rover','heli']){
   fireTurret(world,kind,crew,0,players,[target]);
   assert.equal(target.life.hp,100);
   for(let tick=0;tick<4;tick++)advanceRounds(world,players,[target],tick);
-  assert.equal(target.life.hp,66,'traveling turret round contacts target');
+  const chain=CITY && kind==='heli';
+  assert.equal(target.life.hp,chain ? 32 : 66,'each traveling turret round deals 34 damage');
   target.state.y=pivot.y-1.69;target.life={...newLife(0,false),hp:150};
   for(let tick=4;tick<60;tick++) {
     fireTurret(world,kind,crew,tick,players,[target]);
     advanceRounds(world,players,[target],tick);
-    if(tick===(CITY && kind==='rover' ? 6 : 11))assert.equal(target.life.hp,48);
+    if(tick===(CITY ? 6 : 11))assert.equal(target.life.hp,chain ? 0 : 48);
   }
   assert.equal(target.life.hp,0);
   assert.ok(world.shots.some(s=>s.weapon==='turret' && s.headshot));
-  const schedule=CITY && kind==='rover'
+  const schedule=chain ? [0,...Array.from({length:19},(_,i)=>5+i*3)] : CITY && kind==='rover'
     ? [0,...Array.from({length:19},(_,i)=>4+i*3)]
     : [0,8,15,23,30,38,45,53];
   assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.tick),schedule);

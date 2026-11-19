@@ -13,16 +13,19 @@ for(const [weapon,spec] of Object.entries(firearmSpecs)) {
       Object.assign(world.heli,{x:0,y:180,z:0,gunner:1,turretYaw:.32,turretPitch:pitch});
       fireTurret(world,'heli',player,0,players,[]);
     }else fire(world,player,{aimYaw:.32,aimPitch:pitch},0,players,[]);
-    const round=world.bullets[0], start={...round};
+    const rounds=world.bullets.map(round=>({round,start:{...round}}));
+    const start=rounds[0].start;
     near(Math.hypot(start.vx,start.vy,start.vz),spec.speed);
     near(start.vy,Math.sin(pitch)*spec.speed);
     const ticks=Math.ceil(spec.range/spec.speed*30);
-    for(let tick=1;tick<=ticks;tick++){
+    for(let tick=1;tick<=ticks+1;tick++){
       advanceRounds(world,players,[],tick);
-      const elapsed=Math.min(tick/30,spec.range/spec.speed);
-      for(const axis of ['x','y','z'])near(round[axis],start[axis]+start['v'+axis]*elapsed);
-      near(round.vy,start.vy);
-      assert.equal(world.bullets.length,tick===ticks?0:1);
+      for(const {round,start} of rounds){
+        const elapsed=Math.min((tick-(start.delay ?? 0))/30,spec.range/spec.speed);
+        for(const axis of ['x','y','z'])near(round[axis],start[axis]+start['v'+axis]*elapsed);
+        near(round.vy,start.vy);
+        assert.equal(world.bullets.includes(round),elapsed<spec.range/spec.speed);
+      }
     }
   }
 }

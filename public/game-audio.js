@@ -1,4 +1,4 @@
-import {weaponSound} from './weapon-sound.js';
+import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound} from './road-contact-sound.js';
 
 import {boatLoop,boatMix} from './boat-audio.js';
@@ -8,6 +8,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='chainGun')return chainGunLoop(context);
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
   if(name==='outboard' || name==='wake')return boatLoop(context,name);
   const loop=name==='engine' || name==='rotor';
@@ -117,7 +118,8 @@ export function createGameAudio(button,slider,level) {
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
-      if(shot.weapon==='muzzle')burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
+      if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
+      else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
       else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
@@ -131,8 +133,8 @@ export function createGameAudio(button,slider,level) {
         const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');
         burst(name,bump,listener,yaw,Math.min(1.3,.27+.085*bump.speed));
       }
-      if(prior && vehicle.wrecked && !prior.wrecked)burst('wreck',vehicle,listener,yaw,1.3);
-      else if(prior && !contact && vehicle.hp<prior.hp && !impacts.some(hit=>hit.hitKind===kind ||
+      if(kind==='heli' && prior && vehicle.wrecked && !prior.wrecked)burst('wreck',vehicle,listener,yaw,1.3);
+      else if(prior && !vehicle.wrecked && !contact && vehicle.hp<prior.hp && !impacts.some(hit=>hit.hitKind===kind ||
         (hit.weapon==='missile' && Math.hypot(vehicle.x-hit.to.x,vehicle.y-hit.to.y,vehicle.z-hit.to.z)<5))) {
         burst('metal',vehicle,listener,yaw,.72);
       }
@@ -160,7 +162,8 @@ export function createGameAudio(button,slider,level) {
     track.gain.gain.setTargetAtTime(volume*place.gain,now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
-  function engines(listener,yaw,heli,rover,boats=[]) {
+  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false) {
+    motor('chainGun',heli,chainFiring,1,.94,listener,yaw);
     motor('engine',rover,rover.driver!=null && !rover.wrecked,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
     motor('rotor',heli,(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked,heli.grounded ? .83 : 1.12,.38,listener,yaw);
     const present=new Set();

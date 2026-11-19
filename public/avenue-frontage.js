@@ -1,10 +1,11 @@
+import {faceAt} from './frontage-glass.js';
 import * as THREE from 'three';
 import {storefrontDoors,panelCenter,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
 import {buildStorefrontRooms} from './storefront-rooms.js';
 
 // The low-rise shop and apartment entrance share the slab of the tower at (-17, 7).
 // The shop and lobby open onto the same sidewalk as the tower.
-export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, skyline) {
+export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, skyline, breakables) {
   const loader = new THREE.TextureLoader();
   function texture(path) {
     const image = loader.load(path, () => { renderer.shadowMap.needsUpdate = true; });
@@ -62,12 +63,6 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
   }
   stone(sand,-10.03,2.33,16.0,1.16,3.06,.24);
   const cafeMin=2.61,cafeMax=15.52,cafeMid=(cafeMin+cafeMax)/2;
-  for(const z of [2.68,5.04,7.40,9.76,12.12,13.52,15.40,-1.59,-.78,1.12,2.10]) {
-    metal(dark,front-.075,2.22,z,.105,2.75,.061);
-    metal(0xa58e73,front-.012,2.22,z+.018,.022,2.73,.015);
-  }
-  const windows=[[cafeMin,13.52,3.13],[-1.59,-.78,3.04],[1.12,2.10,3.04]];
-  for(const [lo,hi] of windows)metal(dark,front-.085,.89,(lo+hi)/2,.098,.062,hi-lo);
   for(const [lo,hi,head,top] of [[cafeMin,cafeMax,3.13,3.62],[-1.59,2.10,3.04,3.56]]) {
     for(const y of [head,top])metal(dark,front-.085,y,(lo+hi)/2,.098,.064,hi-lo);
   }
@@ -90,8 +85,8 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     }`
   });
   const fixedGlass=new Batch(), pane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
-  for(const [lo,hi,head] of windows)
-    fixedGlass.add(pane,0xffffff,doorX,(head+.89)/2,(lo+hi)/2,1,head-.89,hi-lo);
+  const showcase=faceAt({x:-17,z:7},doorX);
+  breakables.add(showcase,glass);
   for(const [lo,hi,head,top] of [[cafeMin,cafeMax,3.13,3.62],[-1.59,2.10,3.04,3.56]])
     fixedGlass.add(pane,0xffffff,doorX,(top+head)/2,(lo+hi)/2,1,top-head,hi-lo);
   fixedGlass.mesh(scene,glass,false);
@@ -154,6 +149,8 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
   return function updateDoors(state,dt) {
     if(!state)return;
     for(const {door,side,leaf} of movingLeaves){
+      const bit=showcase.spans.findIndex(span=>span[2]===door.id);
+      leaf.visible=!((state.broken?.[showcase.id]??0)&(1<<bit));
       const z=panelCenter(door,side,state[door.id]);
       leaf.position.z=firstFrame ? z : THREE.MathUtils.damp(leaf.position.z,z,36,dt);
     }

@@ -1,3 +1,4 @@
+import {visitRoadPodium} from './frontage-glass.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
@@ -44,8 +45,12 @@ export function roadContact(world,x,z,yaw,fromX,fromZ){
   const s=Math.sin(yaw),c=Math.cos(yaw),base=groundHeight(x,z);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
-  for(const b of MAP.buildings)consider(boxContact(x,z,s,c,b));
+  for(const b of MAP.buildings){
+    if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>consider(boxContact(x,z,s,c,box)));
+    else consider(boxContact(x,z,s,c,b));
+  }
   for(const b of MAP.barriers){
+    if(b.net!=null && world.doors?.nets?.[b.net])continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16)consider(boxContact(x,z,s,c,b));
   }

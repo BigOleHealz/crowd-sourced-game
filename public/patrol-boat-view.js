@@ -144,7 +144,16 @@ function buildBoat(scene,Batch,material,id) {
     const label=new THREE.Mesh(new THREE.PlaneGeometry(.65,.162),decal);
     label.rotation.y=sign*Math.PI/2;label.position.set(sign*1.084,.462,.13);root.add(label);
   }
-  box.dispose();round.dispose();tube.dispose();ring.dispose();return root;
+  box.dispose();round.dispose();tube.dispose();ring.dispose();
+  const charred=new THREE.MeshStandardMaterial({vertexColors:true,color:0x55514e,roughness:.96,side:THREE.DoubleSide});
+  const shell=[solid,soft,collar],finishes=shell.map(mesh=>mesh.material);
+  let wrecked=false;
+  function setWrecked(next) {
+    if(next===wrecked)return;
+    wrecked=next;shell.forEach((mesh,i)=>{mesh.material=next ? charred : finishes[i];});
+    screen.visible=!next;decal.visible=!next;
+  }
+  return {root,setWrecked};
 }
 
 // Each ribbon retains world-space samples, so its foam stays on the water through a turn.
@@ -203,7 +212,7 @@ function wakeTrail(scene) {
 }
 export function patrolBoatView(scene,Batch,material) {
   const views=patrolFleet().map(site=>({
-    id:site.id,root:buildBoat(scene,Batch,material,site.id),
+    id:site.id,...buildBoat(scene,Batch,material,site.id),
     turret:turretView(scene,'boat',Batch,material),wake:wakeTrail(scene),
   }));
   return (boats,dt)=>{
@@ -211,8 +220,11 @@ export function patrolBoatView(scene,Batch,material) {
       const boat=boats?.find(b=>b.id===view.id);
       view.root.visible=!!boat;
       if(!boat) continue;
-      view.root.position.set(boat.x,boat.y,boat.z);
-      view.root.rotation.set(boat.pitch,-boat.yaw,boat.roll,'YXZ');
+      view.setWrecked(boat.wrecked);
+      const age=boat.wrecked ? Math.max(0,6-boat.recoverySeconds) : 0;
+      const settle=1-Math.exp(-1.20*age);
+      view.root.position.set(boat.x,boat.y-.88*settle,boat.z);
+      view.root.rotation.set(boat.pitch+.20*settle,-boat.yaw,boat.roll-.39*settle,'YXZ');
       view.turret(boat);view.wake(boat,dt);
     }
   };
