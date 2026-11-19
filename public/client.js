@@ -1,5 +1,5 @@
 import { createScene } from './scene.js';
-import { MAP, stepPlayer } from './world.js';
+import { MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
 const canvas = byId('game');
@@ -17,9 +17,12 @@ const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
+let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
+const isPilot = () => id != null && world?.heli.pilot === id;
+
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Digit1','Digit2','KeyF','KeyE']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -33,7 +36,10 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
-function clearInput() { held.clear(); queuedJump = false; }
+function clearInput() {
+  held.clear();
+  queuedJump = queuedInteract = queuedFire = mouseFire = false;
+}
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function pauseControls() { clearInput(); stopLook(); }
 byId('help').onclick = () => setGuide(byId('guide').hidden);
@@ -45,15 +51,27 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button')) return;
   e.preventDefault();
   held.add(e.code);
-  if (e.code === 'Space' && !e.repeat) queuedJump = true;
+  if (e.repeat) return;
+  if (e.code === 'Space' && !isPilot()) queuedJump = true;
+  if (e.code === 'KeyE') queuedInteract = true;
+  if (e.code === 'KeyF') queuedFire = true;
+  if (e.code === 'Digit1') weapon = 1;
+  if (e.code === 'Digit2') weapon = 2;
 });
 window.addEventListener('keyup', e => held.delete(e.code));
 // A visible embedded document can receive pointer events before it has keyboard focus.
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
 document.addEventListener('visibilitychange', pauseControls);
-canvas.addEventListener('pointerleave', stopLook);
-canvas.addEventListener('pointercancel', stopLook);
+function releasePointer() { stopLook(); mouseFire = false; }
+canvas.addEventListener('pointerleave', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
+  canvas.focus({ preventScroll: true });
+  mouseFire = queuedFire = true;
+});
+window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
 
 // An unlocked cursor stops sending deltas at the window boundary. Continue
 // turning gently in the outer band until the cursor moves inward or exits.
@@ -92,6 +110,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       id = m.id; self = previous = m.state; facing = m.state.yaw;
+      world = m.world; vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -99,19 +118,26 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
-      const corrected = pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
+      const wasPilot = isPilot();
+      const changedLife = !!vitals.dead !== !!authoritative.dead;
+      vitals = authoritative;
+      world = m.world;
+      if (changedLife) clearInput();
+      const corrected = isPilot() || vitals.dead ? authoritative : pending.reduce(
+        (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
+      if (wasPilot !== isPilot() || changedLife) previous = corrected;
       self = corrected;
-      samples.push({ time: performance.now(), players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), heli: world.heli, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
     }
   };
   socket.onclose = () => {
-    id = null; pending = []; samples = [];
+    id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
     notice(full ? 'All 16 places are taken. Retrying shortly…' : 'Connection lost. Rejoining the trail…');
@@ -134,29 +160,71 @@ function tick() {
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   moving = Boolean(lateral || forward);
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
-  if (moving) facing = Math.atan2(x, -z);
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint };
-  queuedJump = false;
+  const pilot = isPilot();
+  const fire = !pilot && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  if (fire) facing = camera.yaw;
+  else if (moving) facing = Math.atan2(x, -z);
+  const descending = held.has('ShiftLeft') || held.has('ShiftRight');
+  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot, yaw: facing,
+    sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
+    lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
+    aimYaw: camera.yaw, aimPitch: camera.pitch };
+  queuedJump = queuedInteract = queuedFire = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  self = stepPlayer(self, cmd, step);
+  if (!pilot && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
 }
 
 function remoteFrame(time) {
-  if (!samples.length) return [];
+  if (!samples.length) return { players: [], npcs: world.npcs, heli: world.heli };
   const target = time - 100;
   let after = samples.findIndex(s => s.time >= target);
-  if (after < 0) return samples.at(-1).players;
-  if (after === 0) return samples[0].players;
+  if (after < 0) return samples.at(-1);
+  if (after === 0) return samples[0];
   const a = samples[after - 1], b = samples[after];
   const t = clamp((target - a.time) / Math.max(1, b.time - a.time), 0, 1);
-  return b.players.map(p => {
-    const q = a.players.find(q => p.id === q.id);
-    if (!q || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
-    return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
-  });
+  function interpolateActors(older, newer) {
+    return newer.map(p => {
+      const q = older.find(q => p.id === q.id);
+      if (!q || q.dead !== p.dead || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
+      return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+    });
+  }
+  const players = interpolateActors(a.players,b.players);
+  const npcs = interpolateActors(a.npcs || [],b.npcs || []);
+  let heli = b.heli;
+  if (a.heli.pilot === b.heli.pilot) {
+    heli = { ...b.heli, x: mix(a.heli.x,b.heli.x,t), y: mix(a.heli.y,b.heli.y,t),
+      z: mix(a.heli.z,b.heli.z,t), yaw: angleMix(a.heli.yaw,b.heli.yaw,t) };
+  }
+  return { players, npcs, heli };
+}
+
+function updateEquipment(local) {
+  const heli = world.heli;
+  const pilot = isPilot();
+  const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
+  const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
+  byId('kit').textContent = pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
+  byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
+  byId('reticle').hidden = pilot || vitals.dead;
+  const hp = pilot ? heli.hp : vitals.hp;
+  const maxHp = (pilot ? heli.maxHp : vitals.maxHp) || 100;
+  byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
+  byId('hp-label').textContent = (pilot ? 'Airframe ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : vitals.protected ? 'Spawn shield' : '';
+  byId('space-action').textContent = pilot ? 'Climb' : 'Jump';
+  byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
+  byId('tool-shortcut').hidden = byId('fire-shortcut').hidden = pilot;
+  const prompt = byId('field-prompt');
+  if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (heli.wrecked) prompt.textContent = 'Helicopter recovering · ' + Math.ceil(heli.recoverySeconds) + 's';
+  else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend and land';
+  else if (heli.pilot != null) prompt.textContent = 'Helicopter in use';
+  else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
+  else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
 }
 
 function drawMap(player, remotes) {
@@ -173,6 +241,13 @@ function drawMap(player, remotes) {
   ctx.strokeStyle = '#c1ac7f'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
   ctx.beginPath(); MAP.trail.forEach(([x,z], i) => i ? ctx.lineTo(sx(x),sy(z)) : ctx.moveTo(sx(x),sy(z))); ctx.stroke();
   ctx.fillStyle = '#e8bb71'; ctx.fillRect(sx(MAP.lookout.x)-4,sy(MAP.lookout.z)-4,8,8);
+  for (const piece of BREAKABLES) {
+    if (world.hp[piece.id] === 0) continue;
+    ctx.fillStyle = '#acdbcf'; ctx.fillRect(sx(piece.x)-2,sy(piece.z)-2,4,4);
+  }
+  const heli = world.heli;
+  ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }
@@ -198,10 +273,12 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, id, yaw: facing, moving, sprint,
+    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const remotes = remoteFrame(time);
-    scene.render(local, remotes, camera, dt);
+    const { players: remotes, npcs, heli } = remoteFrame(time);
+    local.weapon = weapon;
+    if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
+    scene.render(local, remotes, camera, dt, { ...world, heli, npcs });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(camera.yaw / (Math.PI / 4)) % 8 + 8) % 8;
@@ -211,6 +288,7 @@ function frame(time) {
       byId('location').textContent = Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
+      updateEquipment(local);
       drawMap(local, remotes);
     }
   }

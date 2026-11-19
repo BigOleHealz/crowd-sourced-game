@@ -8,4 +8,4 @@
 !public/*.css
 !public/*.js
 !test/
-!test/multiplayer.mjs
+!test/*.mjs
