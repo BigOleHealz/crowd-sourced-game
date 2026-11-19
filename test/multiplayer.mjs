@@ -108,7 +108,7 @@ async function checkExpedition(host) {
   await drive(a, { ...aim, weapon: 2 });
   await until(() => hp(world(b), crystal) === 0, 'Bloom clears damaged formation');
   assert.ok(world(b).shots.some(s => s.weapon === 2 && s.hit));
-  assert.ok(BREAKABLES.some(p => p !== crystal && hp(world(b), p) < hp(beforeBloom, p)), 'Bloom affects the nearby cluster');
+  assert.ok(BREAKABLES.every(p => p === crystal || hp(world(b), p) === hp(beforeBloom, p)), 'Sidearm only affects its first target');
   await drive(a, { z: -1 }, 40);
   assert.ok(player(a).z < crystal.z - .5, 'player crosses the cleared collision volume');
   assert.equal(player(b, a.id).weapon, 2, 'observer sees equipped blaster');

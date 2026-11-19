@@ -389,32 +389,29 @@ function makeBlasters(body, material) {
     const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:1,bevelThickness:.003,bevelSize:.004});
     geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
   }
-  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
-    const finish=heavy?0x796b51:stock;
-    profile(kit,finish,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
-    kit.add(cube,charcoal,0,.041,.236,.065,.119,.013);
-    profile(kit,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
-    profile(kit,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
-    profile(kit,finish,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
-    if(heavy) {
-      kit.add(tube,charcoal,0,.059,-.255,.072,.253,.072,Math.PI/2);
-      for(const z of [-.164,-.28,-.37]) kit.add(tube,finish,0,.059,z,.077,.024,.077,Math.PI/2);
-      kit.add(tube,alloy,0,.059,-.395,.061,.046,.061,Math.PI/2);
-    } else {
-      profile(kit,finish,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
-      for(const side of [-1,1]) for(let n=0;n<5;n++)
-        kit.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
-      kit.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
-      kit.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
-    }
-    kit.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
-    kit.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
-    kit.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
-    for(const side of [-1,1]) {
-      kit.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
-      kit.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
-    }
+  profile(pulse,stock,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
+  pulse.add(cube,charcoal,0,.041,.236,.065,.119,.013);
+  profile(pulse,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
+  profile(pulse,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
+  profile(pulse,stock,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
+    profile(pulse,stock,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
+    for(const side of [-1,1]) for(let n=0;n<5;n++)
+      pulse.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
+    pulse.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
+    pulse.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
+  pulse.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
+  pulse.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
+  pulse.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
+  for(const side of [-1,1]) {
+    pulse.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
+    pulse.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
   }
+  profile(bloom,charcoal,[[.088,.085],[-.169,.085],[-.18,.047],[-.10,.025],[.044,.027],[.091,.050]],.043);
+  profile(bloom,alloy,[[.084,.106],[-.184,.106],[-.184,.064],[.080,.064]],.047);
+  profile(bloom,stock,[[.079,.045],[.019,.043],[.036,-.095],[.095,-.089]],.045);
+  bloom.add(tube,charcoal,0,.085,-.188,.014,.02,.014,Math.PI/2);
+  bloom.beam(charcoal,[.0,.019,-.063],[.0,-.014,-.050],.010);
+  bloom.beam(charcoal,[.0,-.014,-.050],[.0,-.013,.021],.010);
   tube.dispose();
   const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
   for (const tool of tools) tool.position.set(.109,1.33,-.19);
@@ -687,6 +684,10 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='muzzle'){
+      particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
+      return;
+    }
     if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     const contact=pickSurface(s,a,b,sourceVehicle);
@@ -699,7 +700,7 @@ function fieldEffects(scene) {
       particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
         new THREE.Vector3(.022,tracerLength*.5,.022),s.weapon===2 ? 0xedb97c : 0xffe5b3,.135);
       particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
-      particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
+      if(!s.traveling)particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
     if(contact) chips(contact);
     else if(s.hit) burst(b.x,b.y,b.z,false);
@@ -975,7 +976,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
       kit.y=1.325+.005*breathe-.085*run;
       kit.z=-.19+.045*run;
       weapon.rotation.x=-.32*run;
-      const gripZ=side===1 ? -.014 : -.226, gripY=side===1 ? -.04 : .018;
+      const gripZ=side===1 ? -.014 : bloom ? .007 : -.226, gripY=side===1 ? -.04 : .018;
       const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
       gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
         kit.z+gripY*sine+gripZ*cosine,side);
@@ -1058,6 +1059,9 @@ export function createScene(canvas) {
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateMissiles=missileView(scene);
+  const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
+  rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
+  const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1133,10 +1137,22 @@ export function createScene(canvas) {
     }
     if(world?.shots) {
       // Ignore recent history on first join. Consume each subsequent event once.
-      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot,shot.weapon==='turret' ? (world.rover.gunner===shot.shooter ? 'rover' : 'heli') : null);
+      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot,shot.source);
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
     updateMissiles(world.missiles ?? [],dt);
+    rounds.count=Math.min(world.bullets?.length??0,rounds.instanceMatrix.count);
+    for(let i=0;i<rounds.count;i++){
+      const r=world.bullets[i];
+      roundMesh.position.set(r.x,r.y,r.z);
+      path.set(r.vx,r.vy,r.vz).normalize();
+      roundMesh.position.addScaledVector(path,-.24);
+      roundMesh.quaternion.setFromUnitVectors(up,path);
+      roundMesh.scale.set(.022,r.weapon==='turret'?.58:.36,.022);
+      roundMesh.updateMatrix();rounds.setMatrixAt(i,roundMesh.matrix);
+      rounds.setColorAt(i,roundColor.setHex(r.weapon===2?0xedb97c:0xffe5b3));
+    }
+    if(rounds.count){rounds.instanceMatrix.needsUpdate=true;rounds.instanceColor.needsUpdate=true;}
     effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {

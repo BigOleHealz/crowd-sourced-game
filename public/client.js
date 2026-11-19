@@ -92,7 +92,7 @@ canvas.addEventListener('pointerdown', e => {
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead)
-    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 18 : 27,gunnerRole());
+    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 49 : 78,gunnerRole());
   mouseFire = queuedFire = true;
 });
 window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
@@ -198,7 +198,7 @@ function tick() {
   const fire = !self.swimming && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
+    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 49 : 78,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -277,7 +277,7 @@ function updateEquipment(local) {
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
-  byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Burst launcher';
+  byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Patrol sidearm';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = pilot ? heli : isDriving() ? world.rover : vitals;

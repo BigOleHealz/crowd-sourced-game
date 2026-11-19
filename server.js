@@ -6,7 +6,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, spawn, stepPlayer } from './public/world.js';
-import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
@@ -274,6 +274,7 @@ function tick() {
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
+  advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
