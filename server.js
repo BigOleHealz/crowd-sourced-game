@@ -1,10 +1,11 @@
+import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import { spawn, stepPlayer } from './public/world.js';
+import { CITY, spawn, stepPlayer } from './public/world.js';
 import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
@@ -24,7 +25,7 @@ const players = new Map();
 let world = newExpedition();
 let npcs = newRivals();
 function worldView() {
-  return { ...world, npcs: npcs.map(actor => rivalView(actor, ticks)) };
+  return { ...world, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -81,15 +82,28 @@ async function serve(request, response) {
 
 const server = createServer(serve);
 const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024 });
+// Each district owns its authoritative timers, vehicles, NPCs and players.
+let cityWorker;
+function accept(request,socket,head) {
+  sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
+}
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
   const validOrigin = !origin || origin === 'http://' + request.headers.host ||
     origin === 'https://' + request.headers.host;
-  if (request.url !== '/world' || !validOrigin) {
+  if ((!['/world','/world?map=brickell'].includes(request.url)) || !validOrigin) {
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     return;
   }
-  sockets.handleUpgrade(request, socket, head, ws => sockets.emit('connection', ws));
+  if(request.url === '/world') return accept(request,socket,head);
+  if(!cityWorker?.connected) {
+    cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell'}});
+    cityWorker.on('error',err=>console.error('City session:',err.message));
+  }
+  socket.pause();
+  cityWorker.send({headers:request.headers,method:request.method,url:request.url,head:head.toString('base64')},socket,err=>{
+    if(err) socket.destroy();
+  });
 });
 
 function playerState(player) {
@@ -288,6 +302,13 @@ setInterval(() => {
   }
 }, 20000).unref();
 
-server.listen(port, host, () => {
+if(CITY && process.send) {
+  process.on('message',(request,socket)=>{
+    if(!socket) return;
+    accept(request,socket,Buffer.from(request.head,'base64'));
+    socket.resume();
+  });
+  process.on('disconnect',()=>process.exit(0));
+} else server.listen(port, host, () => {
   console.log(`Shared world listening at http://${host}:${server.address().port}/`);
 });

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { groundHeight } from './world.js';
+import { CITY, groundHeight } from './world.js';
 import { DEPOT, OUTPOST, supplyGuidance } from './supply-run.js';
 
 export function createSupplyView(scene) {
@@ -40,8 +40,8 @@ export function createSupplyView(scene) {
     const light=mesh(origin,new THREE.CylinderGeometry(.055,.065,.12,8),amber,-radius,1.86,0);
     return light;
   }
-  const depotBeacon = station(DEPOT,2.4,'PINE DEPOT');
-  const outpostBeacon = station(OUTPOST,3.4,'RIDGE OUTPOST');
+  const depotBeacon = station(DEPOT,2.4,CITY ? 'BRICKELL DEPOT' : 'PINE DEPOT');
+  const outpostBeacon = station(OUTPOST,3.4,CITY ? 'BAYFRONT LANDING' : 'RIDGE OUTPOST');
   const ringPoints = [];
   for (let i=0;i<80;i++) {
     const a = i/80*Math.PI*2, x = OUTPOST.x+3.25*Math.cos(a), z = OUTPOST.z+3.25*Math.sin(a);

@@ -70,13 +70,13 @@ export function recoverRover(world,dt) {
 
 function traversable(world, x,z,yaw) {
   const y = groundHeight(x,z);
-  if (Math.max(Math.abs(x),Math.abs(z))>32 || y<MAP.waterY+.2) return false;
+  if (Math.max(Math.abs(x),Math.abs(z))>(MAP.flightLimit ?? 32) || y<MAP.waterY+.2) return false;
   const sx = Math.sin(yaw), cz = Math.cos(yaw);
   for (const along of [-.73,0,.73]) {
     const px=x+along*sx, pz=z-along*cz, floor=groundHeight(px,pz);
     if (Math.abs(floor-y)>.67 || solidTopAt(px,pz,world.hp,.70)>floor+.16) return false;
     // Fit the body between the bridge rails; enter from either end.
-    if (Math.abs(pz)<4.85 && Math.abs(Math.abs(px)-MAP.bridge.width/2)<.72) return false;
+    if (MAP.bridge && Math.abs(pz)<4.85 && Math.abs(Math.abs(px)-MAP.bridge.width/2)<.72) return false;
     if (world.heli.y-floor < 2 && Math.hypot(px-world.heli.x,pz-world.heli.z)<1.55) return false;
   }
   return true;

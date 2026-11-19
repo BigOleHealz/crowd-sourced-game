@@ -2,10 +2,19 @@ import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, turretRange } from './mounts.js';
 import { nearestVehicle } from './rover.js';
-import { MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
+import { avenues, streets, coast } from './brickell-map.js';
+import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
 const canvas = byId('game');
+const selector=byId('map-choice');
+selector.value=CITY ? 'brickell' : 'outpost';
+selector.addEventListener('change',()=>{ location.href=selector.value==='brickell' ? '/?map=brickell' : '/'; });
+if(CITY) {
+  document.title='Brickell · Pinewatch';
+  document.querySelector('.map-title span').textContent='District map';
+  byId('map').setAttribute('aria-label','Brickell streets, waterfront and player locations');
+}
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null;
@@ -57,7 +66,7 @@ window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') setGuide(false);
-  if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button')) return;
+  if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;
@@ -117,7 +126,7 @@ canvas.addEventListener('wheel', e => {
 
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/world');
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell' : '/world'));
   let full = false;
   socket.onmessage = ({data}) => {
     const m = JSON.parse(data);
@@ -227,7 +236,8 @@ function remoteFrame(time) {
   let heli = b.heli;
   if (a.heli.pilot === b.heli.pilot && a.heli.wrecked === b.heli.wrecked) {
     heli = { ...b.heli, x: mix(a.heli.x,b.heli.x,t), y: mix(a.heli.y,b.heli.y,t),
-      z: mix(a.heli.z,b.heli.z,t), yaw: angleMix(a.heli.yaw,b.heli.yaw,t),
+      pitch: mix(a.heli.pitch,b.heli.pitch,t), roll: mix(a.heli.roll,b.heli.roll,t),
+    z: mix(a.heli.z,b.heli.z,t), yaw: angleMix(a.heli.yaw,b.heli.yaw,t),
       abandonedFor: b.heli.abandonedFor == null ? null : mix(a.heli.abandonedFor ?? 0,b.heli.abandonedFor,t) };
   }
   let rover = b.rover;
@@ -297,7 +307,17 @@ function updateEquipment(local) {
 
 function drawMap(player, remotes, yaw) {
   const w = map.width, h = map.height;
-  const sx = x => w / 2 + x * 3.25, sy = z => h * .57 + z * 3.25;
+  const scale=CITY ? 1.34 : 3.25;
+  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + z * scale;
+  if(CITY) {
+    ctx.fillStyle='#467e87';ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
+    ctx.fillStyle='#b1aba0';
+    for(const x of avenues) ctx.fillRect(sx(x-5.7),sy(coast.north),11.4*scale,(coast.south-coast.north)*scale);
+    for(const z of streets) ctx.fillRect(sx(coast.west),sy(z-4.1),(coast.east-coast.west)*scale,8.2*scale);
+    ctx.fillStyle='#3b4b4c';
+    for(const b of MAP.buildings) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
+  } else {
   ctx.fillStyle = '#31473a'; ctx.fillRect(0,0,w,h);
   ctx.strokeStyle = '#a8bdaa25'; ctx.lineWidth = 1;
   ctx.beginPath();
@@ -308,6 +328,7 @@ function drawMap(player, remotes, yaw) {
   ctx.beginPath(); ctx.moveTo(0,sy(0)); ctx.lineTo(w,sy(0)); ctx.stroke();
   ctx.strokeStyle = '#c1ac7f'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
   ctx.beginPath(); MAP.trail.forEach(([x,z], i) => i ? ctx.lineTo(sx(x),sy(z)) : ctx.moveTo(sx(x),sy(z))); ctx.stroke();
+  }
   ctx.fillStyle = '#e8bb71'; ctx.fillRect(sx(MAP.lookout.x)-4,sy(MAP.lookout.z)-4,8,8);
   for (const piece of BREAKABLES) {
     if (world.hp[piece.id] === 0) continue;
@@ -360,7 +381,7 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-      byId('location').textContent = Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = CITY ? (local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);

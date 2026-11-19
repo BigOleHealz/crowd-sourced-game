@@ -1,3 +1,4 @@
+import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
@@ -7,8 +8,9 @@ import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
-import { buildOutpost, meadow } from './outpost.js';
-import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
+import { cityStreets } from './brickell-scene.js';
+import { buildStacks, buildOutpost, meadow } from './outpost.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -197,7 +199,7 @@ function addGround(scene,renderer) {
 }
 
 function addSky(scene) {
-  const panorama=new THREE.TextureLoader().load('./valley-horizon.webp');
+  const panorama=new THREE.TextureLoader().load(CITY ? './brickell-sky.webp' : './valley-horizon.webp');
   panorama.colorSpace=THREE.SRGBColorSpace;panorama.wrapS=THREE.MirroredRepeatWrapping;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
     new THREE.ShaderMaterial({
@@ -217,7 +219,7 @@ function addSky(scene) {
         c=mix(c,vec3(.67,.67,.64),smoothstep(.54,.73,cloud)*smoothstep(.05,.20,d.y)*.6);
         c+=vec3(.18,.145,.09)*pow(sun,22.);
         float elevation=asin(clamp(d.y,-1.,1.));
-        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,(elevation+.44)/.98);
+        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,${CITY ? '(elevation+.16)/.69' : '(elevation+.44)/.98'});
         vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
         c=mix(range,c,smoothstep(.81,1.24,uv.y));
         gl_FragColor=vec4(c,1.);
@@ -456,53 +458,53 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
-  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e;
+  const olive=0x59614f, graphite=0x343b36, alloy=0x939489;
   aircraftBody(hull,glazing);
-  // The seats and coaming remain visible behind the curved canopy.
-  for(const side of [-1,1]) {
-    hull.add(round,0x333a32,side*.286,.778,-.28,.212,.075,.23);
-    hull.add(round,0x4f5344,side*.286,1.009,-.12,.201,.247,.075,-.17);
-    hull.add(round,0x464a40,side*.286,1.246,-.09,.103,.088,.062,-.17);
-  }
-  hull.add(round,0x3e463e,0,.976,-1.06,.45,.16,.22);
-  hull.add(round,graphite,0,1.49,.46,.40,.21,.68);
-  hull.add(cube,ivory,0,1.52,.50,.48,.18,.56);
-  for (const side of [-1,1]) {
-    // Cargo sill, exposed fittings, anti-slip boarding step and ventilation.
-    hull.beam(0x9caba5,[side*.78,.49,-.52],[side*.78,.49,.49],.044);
-    for(const z of [-.40,.37])hull.beam(0x606b63,[side*.56,.65,z],[side*.78,.49,z],.030);
-    for(let k=0;k<12;k++)hull.add(round,0x939788,side*.708,.864,-.54+k*.095,.011,.011,.011);
-    for(let k=0;k<6;k++)hull.add(cube,0x434e49,side*.375,1.61,.12+k*.075,.11,.075,.025,.1,0,side*.3);
-    hull.add(round,side===1?0xad302c:0x539b73,side*.747,1.03,.46,.036,.036,.06);
-    hull.add(round,0x51483f,side*.265,1.59,.91,.112,.092,.16,-.08);
-    hull.add(round,0x262e2d,side*.265,1.61,1.023,.079,.067,.067);
-    hull.add(cube,graphite,side*.75,.96,.23,.054,.045,.13);
-    hull.add(cube,graphite,side*.65,.098,.03,.11,.105,1.86);
-    hull.beam(graphite,[side*.65,.095,-.88],[side*.65,.23,-1.12],.094);
-    for (const z of [-.50,.51]) hull.beam(graphite,[side*.48,.65,z],[side*.65,.125,z+.08],.085);
-    hull.add(cube,0xefb966,side*.57,.75,-.94,.12,.10,.15);
-  }
-  const boom=new THREE.CylinderGeometry(.10,.27,2.52,12);
-  hull.add(boom,0x777d65,0,1.21,1.89,1,1,.89,Math.PI/2-.095);
-  boom.dispose();
-  for(const z of [2.51,2.66])hull.add(trunk,0x5a6051,0,1.27+(z-2.51)*.095,z,.152,.08,.141,Math.PI/2-.095);
-  hull.beam(0x656b63,[.17,.76,1.03],[.17,.52,1.44],.021);
-  hull.beam(0x8c9997,[0,1.55,-.34],[0,1.89,-.53],.017);
+  const wheel=new THREE.TorusGeometry(1,.36,8,20);
+  const fairing=new THREE.CylinderGeometry(.12,.27,2.72,8);
+  hull.add(fairing,olive,0,1.48,3.04,1,1,1,Math.PI/2-.14);
+  // Swept tail pylon with thickness and a wide, tapered stabilator.
+  const fin=new THREE.Shape();
+  fin.moveTo(3.85,1.54);fin.lineTo(4.39,1.66);fin.lineTo(4.83,2.77);fin.lineTo(4.49,2.69);fin.closePath();
+  const pylon=new THREE.ExtrudeGeometry(fin,{depth:.13,bevelEnabled:false});
+  pylon.rotateY(-Math.PI/2);hull.add(pylon,olive,.065,0,0);
+  hull.add(cube,olive,0,1.66,3.99,1.92,.075,.45,-.08);
   for(const side of [-1,1]){
-    hull.beam(0x3c4645,[side*.055,1.77,-.047],[side*.14,1.92,.068],.026);
-    hull.add(round,0x76382c,side*.55,1.30,2.77,.031,.035,.05);
+    hull.add(round,graphite,side*.35,.94,-1.04,.23,.16,.26);
+    hull.add(round,0x42473e,side*.35,1.18,-.84,.22,.30,.08,-.12);
+    // Paired turbine nacelles above the cabin with recessed mouths and rear exhausts.
+    hull.add(round,olive,side*.39,1.71,.33,.30,.27,1.05);
+    hull.add(trunk,graphite,side*.39,1.77,-.43,.228,.30,.20,Math.PI/2);
+    hull.add(round,0x222923,side*.39,1.77,-.58,.182,.154,.038);
+    for(let j=-2;j<=2;j++) hull.add(cube,0x737869,side*.39+.058*j,1.77,-.616,.014,.20,.014);
+    hull.add(trunk,0x59564b,side*.48,1.73,1.14,.18,.49,.17,Math.PI/2-.17,side*.18);
+    hull.add(round,0x252924,side*.51,1.77,1.36,.145,.14,.04);
+    hull.beam(graphite,[side*.78,.53,-.52],[side*.78,.53,.94],.039);
+    for(const z of [-.48,.80]){
+      hull.beam(alloy,[side*.67,.64,z],[side*.84,.42,z],.033);
+      hull.add(cube,graphite,side*.797,1.02,z,.035,.042,.14);
+    }
+    hull.beam(olive,[side*.57,.77,-.72],[side*.98,.30,-.69],.094);
+    hull.beam(graphite,[side*.68,.65,-.28],[side*.98,.27,-.69],.059);
+    hull.add(wheel,0x272a26,side*.99,.258,-.69,.19,.19,.23,0,Math.PI/2);
+    hull.add(trunk,alloy,side*.99,.258,-.69,.121,.17,.121,0,0,Math.PI/2);
+    hull.add(round,side<0?0x9e4038:0x558a70,side*.83,1.24,.69,.045,.036,.049);
+    hull.beam(graphite,[side*.31,1.35,-1.74],[side*.48,1.46,-1.57],.014);
   }
-  hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
-  hull.add(cube,olive,0,1.92,3.12,.118,.18,.41,.27);
-  hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
-  hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
-  hull.add(round,ivory,0,1.94,0,.155,.072,.155);
+  hull.beam(graphite,[0,1.41,3.68],[0,.24,3.91],.090);
+  hull.beam(olive,[0,1.39,3.13],[0,.28,3.90],.068);
+  hull.add(wheel,0x272a26,0,.193,3.91,.142,.142,.15,0,Math.PI/2);
+  hull.add(trunk,alloy,0,.193,3.91,.084,.13,.084,0,0,Math.PI/2);
+  wheel.dispose();fairing.dispose();pylon.dispose();
+  hull.add(round,olive,0,1.79,-.06,.36,.28,.51);
+  hull.add(trunk,alloy,0,2.04,-.08,.085,.42,.085);
+  hull.add(round,graphite,0,2.22,-.08,.205,.078,.205);
   missileLaunchers(hull,'heli');
   const paint=fieldPaint();
   hull.mesh(group,paint,false);
   glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
-  const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
+  const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
   const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
@@ -510,28 +512,28 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const placard=new THREE.PlaneGeometry(.69,.105);
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
-    id.position.set(side*.746,.942,-.15);id.rotation.y=side*Math.PI/2;
+    id.position.set(side*.806,.93,.12);id.rotation.y=side*Math.PI/2;
     id.rotation.x=-side*.16;group.add(id);
   }
-  for (let i=0; i<3; i++) {
-    const a = i*TAU/3, s = Math.sin(a), c = Math.cos(a);
+  for (let i=0; i<4; i++) {
+    const a = i*TAU/4, s = Math.sin(a), c = Math.cos(a);
     rotor.add(round,0x777f79,s*.13,0,c*.13,.063,.062,.11);
     rotor.beam(0x8e8e7c,[s*.11,-.069,c*.11],[s*.32,0,c*.32],.025);
-    rotor.add(cube,graphite,s*1.32,0,c*1.32,.132,.044,2.58,0,a);
-    rotor.add(cube,ivory,s*2.43,.001,c*2.43,.137,.048,.28,0,a);
+    rotor.add(cube,graphite,s*1.90,0,c*1.90,.169,.035,3.40,0,a);
+    rotor.add(cube,0x929282,s*3.56,.001,c*3.56,.169,.038,.10,0,a);
   }
-  for (let i=0; i<3; i++) {
-    const a = i*TAU/3;
-    fan.add(cube,graphite,0,Math.cos(a)*.22,Math.sin(a)*.22,.042,.43,.088,a);
+  for (let i=0; i<4; i++) {
+    const a = i*TAU/4;
+    fan.add(cube,graphite,0,Math.cos(a)*.31,Math.sin(a)*.31,.036,.59,.087,a);
   }
   const mainRotor = rotor.mesh(group,material,false);
-  mainRotor.position.set(0,1.96,0);
+  mainRotor.position.set(0,2.24,-.08);
   const tailRotor = fan.mesh(group,material,false);
-  tailRotor.position.set(.14,1.61,3.02);
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
+  tailRotor.position.set(.13,2.49,4.53);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,5.4).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const healthLabel=objectHealthLabel(scene,'TRAIL HELI');
+  const healthLabel=objectHealthLabel(scene,'UTILITY HELICOPTER');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -554,7 +556,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
     healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
-    group.rotation.set(-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : -Math.min(.48,drift*.15),'YXZ');
+    group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
     smoke.visible=smoking;
     if(smoking) {
@@ -696,6 +698,8 @@ function characterLabel(root, name) {
 function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
+  const spine=new THREE.Group(), upper=new THREE.Group();
+  spine.position.y=1.01;upper.position.y=-1.01;spine.add(upper);body.add(spine);
   const identity=rangerIdentity(id), warm=skinColors[identity];
   const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
   const torso=new Batch(true);
@@ -733,7 +737,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
     torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
   }
-  torso.mesh(body,uniform);
+  torso.mesh(upper,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
     const leg=new THREE.Group(); leg.position.set(side*.108,.975,0); body.add(leg);
@@ -741,13 +745,16 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,uniform);
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
     const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
-    shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
-    shin.add(round,0x584d3d,0,-.433,-.024,.097,.092,.119);
-    shin.add(round,0x5f5344,0,-.462,-.090,.103,.053,.127);
-    shin.add(round,0x373d36,0,-.507,-.065,.11,.022,.166);
-    for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
     shin.mesh(knee,uniform);
-    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
+    const ankle=new THREE.Group();ankle.position.y=-.395;knee.add(ankle);
+    const boot=new Batch(true);
+    boot.add(trunk,0x645743,0,.025,.004,.096,.095,.103);
+    boot.add(round,0x584d3d,0,-.038,-.024,.097,.092,.119);
+    boot.add(round,0x5f5344,0,-.067,-.090,.103,.053,.127);
+    boot.add(round,0x373d36,0,-.112,-.065,.11,.022,.166);
+    for(let j=0;j<3;j++) boot.beam(0x95856c,[-.058,-.013-j*.008,-.115-j*.018],[.058,-.007-j*.008,-.113-j*.018],.008);
+    boot.mesh(ankle,uniform);
+    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); upper.add(arm);
     const sleeve=new Batch(true);
     sleeve.add(fieldSleeve,coat,0,-.014,0,1,.64,1);
     sleeve.add(cube,0xac9b75,side*.084,-.1,.006,.010,.052,.046);
@@ -759,7 +766,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     cuff.add(round,0x5a594e,0,-.252,0,.041,.055,.043);
     cuff.add(round,warm,-side*.029,-.258,-.018,.021,.034,.022);
     cuff.mesh(forearm,uniform);
-    limbs.push({side,leg,knee,arm,forearm});
+    limbs.push({side,leg,knee,ankle,arm,forearm,foot:newFoot()});
   }
   // The mountain sun and static geometry share one cached shadow map.
   // Characters use a soft contact patch that follows their animated pose.
@@ -767,7 +774,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,limbs,material,tools:makeBlasters(body,material),shadow,label:characterLabel(root,name),cycle:0,weight:0};
+  return {root,body,spine,limbs,material,gait:null,tools:makeBlasters(upper,material),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -782,10 +789,20 @@ function makeParachute(root, material) {
 }
 
 function pose(avatar,state,dt,seated=null,station=null) {
-  const active=!station && !state.dead && !!state.moving && state.grounded !== false;
-  avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
-  avatar.cycle+=dt*(state.sprint?13:9);
-  const swing=Math.sin(avatar.cycle)*avatar.weight;
+  const onFoot=!seated && !station && !state.dead && state.grounded!==false && !state.parachute;
+  let gait=avatar.gait;
+  if(onFoot) {
+    if(!gait || Math.hypot(state.x-gait.x,state.z-gait.z)>1.8) {
+      gait=avatar.gait=newGait(state,avatar.initialized ? avatar.root.rotation.y : -state.yaw);
+      for(const limb of avatar.limbs) limb.foot.planted=false;
+    }
+    advanceGait(gait,state,Math.max(.001,dt));
+  } else gait=avatar.gait=null;
+  avatar.initialized=true;
+  const weight=gait?.weight ?? 0, run=gait?.run ?? 0;
+  const swing=gait ? Math.sin(gait.phase*TAU) : 0;
+  const roll=gait ? .046*swing*weight : 0;
+  const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
   const open = state.parachute === 'open' && !state.dead;
   if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
@@ -802,22 +819,37 @@ function pose(avatar,state,dt,seated=null,station=null) {
   }
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
-  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight-(seated || station || airborne ? 0 : .024);
-  avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
+  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
+  avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
+    gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
   avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
-  for(const {leg,arm,forearm,knee,side} of avatar.limbs) {
-    const ready=!station && !seated && !airborne && !state.dead;
-    const stance=ready ? (1-avatar.weight) : 0;
-    leg.position.z=side*.059*stance;
-    leg.rotation.z=side*.066*stance;
-    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : (.14+.058*side)*stance-side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23*stance-Math.max(0,-side*swing)*.77;
+  for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
+    if(gait) {
+      placeFoot(gait,foot,side);
+      const c=Math.cos(gait.yaw),s=Math.sin(gait.yaw);
+      const wx=state.x+c*foot.sideOffset+s*foot.forwardOffset;
+      const wz=state.z-s*foot.sideOffset+c*foot.forwardOffset;
+      const slope=clamp(groundHeight(wx,wz)-groundHeight(state.x,state.z),-.15,.15);
+      const down=leg.position.y+gait.pelvisY-.134-foot.lift-slope;
+      const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
+      const vertical=Math.hypot(down,lateral);
+      const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
+      const hipBend=Math.acos(clamp((.405**2+distance**2-.395**2)/(.81*distance),-1,1));
+      leg.rotation.set(Math.atan2(-foot.forwardOffset,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
+      knee.rotation.x=-Math.acos(clamp((distance**2-.405**2-.395**2)/(2*.405*.395),-1,1));
+      ankle.rotation.x=foot.pitch-leg.rotation.x-knee.rotation.x;
+      ankle.rotation.z=-leg.rotation.z;
+    } else {
+      leg.rotation.set(station ? .08 : seated ? 1.36 : airborne ? .20*side : .14,0,0,'ZXY');
+      knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23;
+      ankle.rotation.set(0,0,0);
+    }
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
@@ -826,10 +858,15 @@ function pose(avatar,state,dt,seated=null,station=null) {
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(!seated && !state.parachute && !state.dead) {
-      const kit=avatar.tools[bloom ? 1 : 0].position;
-      kit.y=1.325+.007*Math.sin(avatar.cycle*.65)-.026*avatar.weight;
-      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+(side===1 ? -.04 : .018),
-        kit.z-(side===1 ? .014 : .226),side);
+      const weapon=avatar.tools[bloom ? 1 : 0];
+      const kit=weapon.position;
+      kit.y=1.325+.005*breathe-.085*run;
+      kit.z=-.19+.045*run;
+      weapon.rotation.x=-.32*run;
+      const gripZ=side===1 ? -.014 : -.226, gripY=side===1 ? -.04 : .018;
+      const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
+      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
+        kit.z+gripY*sine+gripZ*cosine,side);
     } else if(seated) {
       forearm.rotation.x=.42;
     }
@@ -877,7 +914,7 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xa5a9a4,.0125);
+  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
   scene.add(new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74));
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
   sun.position.set(-36,32,-21); sun.castShadow=true;
@@ -885,15 +922,25 @@ export function createScene(canvas) {
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
-  addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
-  const forest=new Batch();
-  conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
-  forest.mesh(scene,material);
-  granite(scene,MAP.rocks,terrainHeight,renderer);
-  addBridge(scene,renderer,rng);
-  const features=new Batch();addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
-  const glints=water(scene,rng,renderer);
+  const features=new Batch();
+  let glints, stacks;
+  if(CITY) {
+    cityStreets(scene,renderer,Batch);
+    stacks=buildStacks(scene,renderer,Batch);
+  } else {
+    addGround(scene,renderer);
+    const forest=new Batch();
+    conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
+    forest.mesh(scene,material);
+    granite(scene,MAP.rocks,terrainHeight,renderer);
+    addBridge(scene,renderer,rng);
+    addDetails(scene,features,rng);
+    glints=water(scene,rng,renderer);
+    stacks=buildOutpost(scene,renderer,Batch);
+    meadow(scene,renderer,rng,trailDistance);
+  }
+  landingMarks(features);features.mesh(scene,material);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
@@ -901,8 +948,7 @@ export function createScene(canvas) {
   const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
-  const stacks=buildOutpost(scene,renderer,Batch);
-  meadow(scene,renderer,rng,trailDistance);
+
   const effects=fieldEffects(scene);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};

@@ -1,12 +1,11 @@
 import * as THREE from 'three';
 
-// Longitudinal stations in model space. The front stations form the bubble
-// canopy, the rear stations taper into the existing animated tail assembly.
+// Cross sections from the blunt chin through the flight deck and sliding cargo doors.
 const stations=[
-  [-1.62,.015,.93,.024],[-1.53,.31,.95,.20],[-1.33,.52,.984,.355],
-  [-1.06,.645,1.025,.468],[-.75,.712,1.06,.53],[-.52,.735,1.07,.552],
-  [-.15,.746,1.074,.555],[.29,.733,1.075,.54],[.59,.68,1.072,.485],
-  [.86,.574,1.066,.414],[1.16,.412,1.07,.32],[1.44,.226,1.086,.208],[1.57,.135,1.09,.145]
+  [-2.05,.04,.76,.04],[-1.99,.39,.78,.20],[-1.85,.56,.86,.32],
+  [-1.59,.68,1.01,.47],[-1.27,.74,1.12,.57],[-.97,.78,1.12,.58],
+  [-.52,.80,1.11,.59],[-.09,.81,1.11,.60],[.46,.80,1.11,.59],
+  [.91,.78,1.12,.55],[1.31,.64,1.14,.45],[1.69,.39,1.22,.31],[1.94,.25,1.29,.23]
 ];
 const last=stations.length-1, tau=Math.PI*2;
 function skin(t,theta) {
@@ -16,7 +15,7 @@ function skin(t,theta) {
   function at(k) {
     return b[k]+.5*f*((c[k]-a[k])+f*(2*a[k]-5*b[k]+4*c[k]-d[k]+f*(3*b[k]-a[k]-3*c[k]+d[k])));
   }
-  const curve=v=>Math.sign(v)*Math.abs(v)**.84;
+  const curve=v=>Math.sign(v)*Math.abs(v)**.57;
   return new THREE.Vector3(at(1)*curve(Math.sin(theta)),at(2)+at(3)*curve(Math.cos(theta)),at(0));
 }
 function surfaceNormal(t,theta) {
@@ -34,10 +33,10 @@ export function aircraftBody(hull,glazing) {
   }
   for(let r=0;r<rings;r++) for(let j=0;j<slices;j++) {
     const t=(r+.5)/3,angle=Math.min(j+.5,slices-j-.5)*tau/slices;
-    const windscreen=t>1.32 && t<4.67 && angle<1.60 && angle>.055;
+    const windscreen=t>2.32 && t<4.67 && angle<1.33 && angle>.055;
     const window=((t>5.0 && t<6.66) || (t>7.0 && t<8.66)) && angle>.59 && angle<1.70;
     const pane=windscreen || window, bucket=pane ? glass : paint;
-    paintTint.setHex(pane ? 0x526560 : angle>2.19 ? 0x41483e : angle>1.86 && angle<1.99 ? 0x929281 : 0x71765e);
+    paintTint.setHex(pane ? 0x648286 : angle>2.19 ? 0x41483e : 0x555c4a);
     const a=r*(slices+1)+j,b=a+slices+1;
     for(const k of [a,b,b+1,a,b+1,a+1]) {
       bucket.p.push(...points[k].toArray());bucket.n.push(...normals[k].toArray());bucket.c.push(paintTint.r,paintTint.g,paintTint.b);
@@ -63,10 +62,10 @@ export function aircraftBody(hull,glazing) {
       hull.beam(0x373d36,start,tip,width);start=tip;
     }
   }
-  rail(1.33,4.67,0,0,.023);
+  rail(2.33,4.67,0,0,.023);
   for(const sign of [-1,1]) {
-    for(const t of [1.33,4.67]) rail(t,t,0,sign*Math.PI/2,.023);
-    rail(1.33,4.67,sign*Math.PI/2,sign*Math.PI/2,.024);
+    for(const t of [2.33,4.67]) rail(t,t,0,sign*1.31,.023);
+    rail(2.33,4.67,sign*1.31,sign*1.31,.024);
     for(const [front,rear] of [[5,6.67],[7,8.67]]){
       const roof=sign*.655,sill=sign*1.702;
       rail(front,front,roof,sill,.018);rail(rear,rear,roof,sill,.018);

@@ -10,10 +10,10 @@ const flightStates = new WeakMap();
 
 export function parkedHelicopter() {
   const heli = {
-    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
+    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
     hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
-  flightStates.set(heli, { vx: 0, vy: 0, vz: 0, sideContact: false, floorContact: false });
+  flightStates.set(heli, { vx: 0, vy: 0, vz: 0, tiltX: 0, tiltZ: 0, yawRate: 0, sideContact: false, floorContact: false });
   return heli;
 }
 
@@ -52,8 +52,8 @@ function driftAfterBailout(world, dt, players) {
   }
   motion.vy = coasting ? approach(motion.vy, -.35, 3*dt) : Math.max(-14, motion.vy-7*dt);
   h.yaw += (coasting ? .09 : .48) * dt;
-  const x = clamp(h.x + motion.vx*dt, -32, 32), z = clamp(h.z + motion.vz*dt, -32, 32);
-  const y = Math.min(23, h.y + motion.vy*dt);
+  const x = clamp(h.x + motion.vx*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32), z = clamp(h.z + motion.vz*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32);
+  const y = Math.min(MAP.flightCeiling ?? 23, h.y + motion.vy*dt);
   const floor = flightFloor(x, z, world.hp);
   if (y <= floor) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
@@ -89,7 +89,7 @@ function landingSite(x, z, hp) {
   const y = groundHeight(x, z);
   if (y < MAP.waterY + 0.45 || solidTopAt(x, z, hp, 1.8) > y + 0.05) return false;
   // Both skids need a reasonably level patch of terrain. Keep the narrow bridge clear.
-  if (Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
+  if (MAP.bridge && Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) =>
     Math.abs(groundHeight(x + dx, z + dz) - y) < 0.45);
 }
@@ -104,7 +104,7 @@ function flightFloor(x, z, hp) {
       floor = Math.max(floor, groundHeight(tree.x, tree.z) + tree.height + 0.2);
     }
   }
-  if (Math.abs(x) <= MAP.bridge.width / 2 + 1.65 && Math.abs(z) <= MAP.bridge.length / 2 + 1.65) {
+  if (MAP.bridge && Math.abs(x) <= MAP.bridge.width / 2 + 1.65 && Math.abs(z) <= MAP.bridge.length / 2 + 1.65) {
     floor = Math.max(floor, MAP.bridge.y + 1.12);
   }
   return floor;
@@ -117,33 +117,48 @@ export function fly(world, input, dt, players) {
   const oldFloor = flightFloor(h.x, h.z, world.hp);
   const landable = landingSite(h.x, h.z, world.hp) && oldFloor <= groundHeight(h.x, h.z) + 0.08;
   const minY = oldFloor + (landable ? 0 : 0.22);
+  // The rotor disc tips toward the velocity error. Its horizontal thrust
+  // accelerates the hull, while drag and the hover assist bleed off airspeed.
+  const stick = Math.max(1, Math.hypot(input.x, input.z));
+  const cruise = 8.2, drag = .65;
+  const demandX = (input.x * cruise / stick - motion.vx) * 2.1 + input.x * cruise * drag / stick;
+  const demandZ = (input.z * cruise / stick - motion.vz) * 2.1 + input.z * cruise * drag / stick;
+  const tiltScale = Math.min(1, 13 / (Math.hypot(demandX, demandZ) || 1));
+  const response = -Math.expm1(-dt * 6);
+  motion.tiltX += (demandX * tiltScale - motion.tiltX) * response;
+  motion.tiltZ += (demandZ * tiltScale - motion.tiltZ) * response;
+  const turn = Math.atan2(Math.sin(input.aimYaw - h.yaw), Math.cos(input.aimYaw - h.yaw));
+  motion.yawRate += (clamp(3 * turn, -2.4, 2.4) - motion.yawRate) * response;
+  h.yaw += motion.yawRate * dt;
+  const forward = motion.tiltX * Math.sin(h.yaw) - motion.tiltZ * Math.cos(h.yaw);
+  const right = motion.tiltX * Math.cos(h.yaw) + motion.tiltZ * Math.sin(h.yaw);
+  h.pitch = -Math.atan2(forward, 21);
+  h.roll = -Math.atan2(right, 21);
   const liftTarget = input.lift * (input.lift < 0 ? 6 : 4.8);
-  motion.vy = approach(motion.vy, liftTarget, (input.lift ? 9 : 22) * dt);
+  const liftFraction = Math.cos(h.pitch) * Math.cos(h.roll);
+  motion.vy = approach(motion.vy, liftTarget * (input.lift > 0 ? liftFraction : 1),
+    (input.lift ? 8 * liftFraction : 10) * dt);
   const nextY = h.y + motion.vy * dt;
   const floorContact = nextY <= minY && motion.vy <= 0;
   if (floorContact && !motion.floorContact) {
     damageHelicopter(world, impactDamage(-motion.vy), players);
   }
   motion.floorContact = floorContact;
-  h.y = clamp(nextY, minY, 23);
-  if (floorContact || h.y === 23) motion.vy = 0;
+  h.y = clamp(nextY, minY, MAP.flightCeiling ?? 23);
+  if (floorContact || h.y === (MAP.flightCeiling ?? 23)) motion.vy = 0;
   h.grounded = landable && floorContact;
   if (h.grounded || h.wrecked) {
     motion.vx = 0;
     motion.vz = 0;
+    motion.tiltX = motion.tiltZ = motion.yawRate = h.pitch = h.roll = 0;
     motion.sideContact = false;
     return;
   }
 
-  const desiredX = input.x * 7.6, desiredZ = input.z * 7.6;
-  // Accelerate into flight and brake quickly when the pilot releases movement.
-  const deltaX = desiredX - motion.vx, deltaZ = desiredZ - motion.vz;
-  const maxChange = (desiredX || desiredZ ? 18 : 40) * dt;
-  const blend = Math.min(1, maxChange / (Math.hypot(deltaX, deltaZ) || 1));
-  motion.vx += deltaX * blend;
-  motion.vz += deltaZ * blend;
-  const x = clamp(h.x + motion.vx * dt, -30, 30);
-  const z = clamp(h.z + motion.vz * dt, -30, 30);
+  motion.vx += (motion.tiltX - drag * motion.vx) * dt;
+  motion.vz += (motion.tiltZ - drag * motion.vz) * dt;
+  const x = clamp(h.x + motion.vx * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
+  const z = clamp(h.z + motion.vz * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
   const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp) + 0.04;
   let stoppedX = 0, stoppedZ = 0;
   if (clear(x, z)) {
@@ -160,8 +175,7 @@ export function fly(world, input, dt, players) {
     damageHelicopter(world, impactDamage(stoppedSpeed), players);
   }
   motion.sideContact = stoppedSpeed > 0;
-  const turn = Math.atan2(Math.sin(input.aimYaw - h.yaw), Math.cos(input.aimYaw - h.yaw));
-  h.yaw += clamp(turn, -2.8 * dt, 2.8 * dt);
+
 }
 
 export function interact(world, player) {

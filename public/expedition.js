@@ -147,13 +147,14 @@ export function launchMissile(world,kind,player,tick) {
   const offset=[...mounts[kind].launcher];
   const id=nextShotId++;
   if(id%2===0) offset[0]*=-1;
-  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,source:kind,shooter:player.id,id,remaining:60});
+  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,remaining:60});
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
   world.missiles=world.missiles.filter(m=>{
     const actors=targets(world,m.shooter,players,npcs,m.source);
-    const direction={x:Math.sin(m.yaw),y:0,z:-Math.cos(m.yaw)};
+    const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
+    const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
     const hit=tracePulse(world,actors,m,direction,1,false,m.source);
     Object.assign(m,hit.to);
     m.remaining--;
