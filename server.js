@@ -1,3 +1,4 @@
+import {sampleRanger} from './public/ragdoll.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -286,6 +287,10 @@ function tick() {
     gunner.state={...gunnerFeet(v,kind),grounded:kind==='rover' || v.grounded,vy:0};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
+  }
+  if(players.size) {
+    for(const player of players.values())sampleRanger(player,step);
+    for(const npc of npcs)sampleRanger(npc,step);
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
