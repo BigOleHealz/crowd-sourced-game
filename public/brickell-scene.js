@@ -47,15 +47,15 @@ export function cityStreets(scene,renderer,Batch) {
   for(let z=harbor.north+2;z<coast.north;z+=4){
     if(Math.abs(z-harbor.crossing)<6)continue;
     solids.add(box,0xe3bc67,0,.718,z,.12,.014,2.25);
-    if(z>harbor.south && (z-(harbor.north+2))%12===0) {
-      for(const side of [-1,1]){
-        solids.add(box,0xc4bfaa,side*5.73,.96,z,.18,.53,.17);
-        solids.add(box,0xc4bfaa,side*5.73,1.20,z,.12,.09,11.9);
-      }
-    }
+  }
+  for(const side of [-1,1]) {
+    const x=side*5.73, length=causeway.south-causeway.north;
+    solids.add(box,0xc4bfaa,x,1.20,(causeway.north+causeway.south)/2,.12,.09,length);
+    const bays=Math.ceil(length/6);
+    for(let i=0;i<=bays;i++)solids.add(box,0xc4bfaa,x,.96,causeway.north+i*length/bays,.18,.53,.17);
   }
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
-  for(const [x,z,label] of [[8.3,-38,'↑  HARBOR KEY'],[8.3,-157,'HARBOR KEY']]) {
+  for(const [x,z,label] of [[8.3,-40,'↑  HARBOR KEY'],[8.3,-157,'HARBOR KEY']]) {
     const face=document.createElement('canvas');face.width=640;face.height=144;
     const ink=face.getContext('2d');
     ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
