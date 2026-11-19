@@ -181,8 +181,8 @@ function tick() {
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !driving && !pilot && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
-  const aim = fire && (pressedAim || scene.aimAt(lastPointer, self, id, weapon === 2 ? 18 : 27)) || camera;
+  const fire = !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  const aim = !driving && !pilot && fire && (pressedAim || scene.aimAt(lastPointer, self, id, weapon === 2 ? 18 : 27)) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -253,7 +253,7 @@ function updateEquipment(local) {
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
-  byId('kit').textContent = isDriving() ? 'Trail rover' : pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
+  byId('kit').textContent = isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
   canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = pilot ? heli : isDriving() ? world.rover : vitals;
@@ -266,7 +266,8 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  byId('tool-shortcut').hidden = byId('fire-shortcut').hidden = pilot || isDriving();
+  byId('tool-shortcut').hidden = pilot || isDriving();
+  byId('fire-shortcut').hidden = vitals.dead;
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';

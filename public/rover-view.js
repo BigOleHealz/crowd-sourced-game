@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
 import { groundHeight } from './world.js';
 
@@ -108,6 +109,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(darkGreen,0,.87,1.496,1.048,.124,.027);
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
+  missileLaunchers(chassis,'rover');
   chassis.mesh(root,fieldPaint(),false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   glazing.mesh(root,glassMat,false);

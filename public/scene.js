@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { missileLaunchers, missileView } from './mount-view.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
@@ -540,6 +541,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
+  missileLaunchers(hull,'heli');
   const paint=fieldPaint();
   hull.mesh(group,paint,false);
   glazing.mesh(group,alpineGlass(panorama),false);
@@ -688,6 +690,7 @@ function fieldEffects(scene) {
     }
   }
   function shot(s) {
+    if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     along.subVectors(b,a);
     const bloom=s.weapon===2, pieces=bloom?12:7;
@@ -936,6 +939,7 @@ export function createScene(canvas) {
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
   const quartz=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x98b9ae,shininess:46});
@@ -1017,6 +1021,7 @@ export function createScene(canvas) {
       for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot);
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
+    updateMissiles(world.missiles ?? [],dt);
     effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {

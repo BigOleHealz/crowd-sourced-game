@@ -6,6 +6,8 @@ import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
 
+import { mounts, mountPosition } from './mounts.js';
+
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
 
@@ -13,7 +15,7 @@ export function newExpedition() {
   return {
     heli: parkedHelicopter(), rover: parkedRover(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
-    shots: [],
+    shots: [], missiles: [],
     mission: newSupplyRun(),
   };
 }
@@ -28,22 +30,22 @@ function withinBurst(center, feet, centerHeight) {
 }
 
 // Also used by the third-person camera to find the depth under the cursor.
-export function tracePulse(world, actors, from, direction, range, assist = true) {
-  let target = null, hitKind = null, to;
+export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null) {
+  let target = null, hitKind = null, to, blocked = false;
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
-    if (to.y <= solidTopAt(to.x, to.z, clearCrystals)) break;
+    if (to.y <= solidTopAt(to.x, to.z, clearCrystals)) { blocked = true; break; }
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
     if (target) { hitKind = 'crystal'; break; }
-    if (!world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
+    if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
       target = world.heli; hitKind = 'heli'; break;
     }
     const r=world.rover;
-    if (r && !r.wrecked && Math.abs(to.y-r.y-.79)<=.79+halo) {
+    if (sourceVehicle !== 'rover' && r && !r.wrecked && Math.abs(to.y-r.y-.79)<=.79+halo) {
       const dx=to.x-r.x, dz=to.z-r.z;
       const side=dx*Math.cos(r.yaw)+dz*Math.sin(r.yaw), along=dx*Math.sin(r.yaw)-dz*Math.cos(r.yaw);
       if (Math.abs(side)<=.79+halo && Math.abs(along)<=1.52+halo) {
@@ -53,7 +55,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true)
     target = actors.find(actor => insideBody(to, actor.state, 0.39, 1.72, halo));
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
-  return { target, hitKind, to };
+  return { target, hitKind, to, blocked };
 }
 
 export function fire(world, player, input, tick, players, npcs) {
@@ -66,29 +68,63 @@ export function fire(world, player, input, tick, players, npcs) {
   const dx = Math.sin(input.aimYaw) * horizontal;
   const dy = Math.sin(input.aimPitch);
   const dz = -Math.cos(input.aimYaw) * horizontal;
-  const actors = [...players.values(), ...npcs].filter(actor =>
-    actor !== player && actor.id !== world.heli.pilot && actor.id !== world.rover?.driver && actor.life.hp > 0);
+  const actors = targets(world,player.id,players,npcs);
   const { target, hitKind, to } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
-  if (hitKind) {
+  applyHit(world,{target,hitKind,to},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
+  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to,
+    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
+}
+
+function targets(world,shooter,players,npcs) {
+  return [...players.values(), ...npcs].filter(actor =>
+    actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.rover?.driver && actor.life.hp > 0);
+}
+
+function applyHit(world,{target,hitKind,to,blocked},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
+  if (hitKind || (bloom && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     for (const crystal of BREAKABLES) {
       if (crystal === target || (bloom && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
-        world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - (bloom ? 2 : 1));
+        world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - (crystalDamage));
       }
     }
     for (const actor of actors) {
       if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
-        damageActor(actor, bloom ? 40 : 25, tick);
+        damageActor(actor, damage, tick);
       }
     }
-    if (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8))) {
-      damageRover(world,bloom ? 40 : 25,players);
+    if (source !== 'rover' && (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8)))) {
+      damageRover(world,damage,players);
     }
-    if (hitKind === 'heli' || (bloom && withinBurst(center, world.heli, 1))) {
-      damageHelicopter(world, bloom ? 40 : 25, players, player.id);
+    if (source !== 'heli' && (hitKind === 'heli' || (bloom && withinBurst(center, world.heli, 1)))) {
+      damageHelicopter(world, damage, players, shooter);
     }
   }
-  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to,
-    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
+}
+
+// Launch direction is captured from the authoritative body heading.
+const launcherReady=new WeakMap();
+export function launchMissile(world,kind,player,tick) {
+  const v=world[kind];
+  if(v.wrecked || (kind==='heli' ? v.pilot : v.driver)!==player.id || tick<(launcherReady.get(v) ?? 0)) return;
+  launcherReady.set(v,tick+30);
+  const offset=[...mounts[kind].launcher];
+  const id=nextShotId++;
+  if(id%2===0) offset[0]*=-1;
+  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,source:kind,shooter:player.id,id,remaining:60});
+}
+
+export function advanceMissiles(world,players,npcs,tick) {
+  world.missiles=world.missiles.filter(m=>{
+    const actors=targets(world,m.shooter,players,npcs);
+    const direction={x:Math.sin(m.yaw),y:0,z:-Math.cos(m.yaw)};
+    const hit=tracePulse(world,actors,m,direction,1,false,m.source);
+    Object.assign(m,hit.to);
+    m.remaining--;
+    if(!hit.hitKind && !hit.blocked) return m.remaining>0;
+    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
+    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,hit:true,hitKind:hit.hitKind,tick});
+    return false;
+  });
 }

@@ -5,7 +5,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
-import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/expedition.js';
+import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles } from './public/expedition.js';
 
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
@@ -199,6 +199,7 @@ function tick() {
     if (world.rover.driver === player.id) {
       driveRover(world, input || idle, step, players);
       if (world.rover.driver !== player.id) continue;
+      if (input?.fire) launchMissile(world,'rover',player,ticks);
       const { x,y,z,yaw } = world.rover;
       player.state = { x,y,z,vy:0,grounded:true };
       player.yaw = yaw;
@@ -208,6 +209,7 @@ function tick() {
     if (world.heli.pilot === player.id) {
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
       if (world.heli.pilot !== player.id) continue;
+      if (input?.fire) launchMissile(world,'heli',player,ticks);
       const { x, y, z, yaw, grounded } = world.heli;
       player.state = { x, y, z, vy: 0, grounded };
       player.yaw = yaw;
@@ -228,6 +230,7 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
