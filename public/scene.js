@@ -1007,7 +1007,7 @@ export function createScene(canvas) {
   landingMarks(features);features.mesh(scene,material);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
-  const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
