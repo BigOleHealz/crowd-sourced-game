@@ -65,6 +65,9 @@ export function buildingTopAt(x,z,padding=0) {
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
   }
+  for(const b of MAP.barriers ?? []){
+    if(Math.abs(x-b.x)<=b.w/2+padding && Math.abs(z-b.z)<=b.d/2+padding) top=Math.max(top,terrainHeight(b.x,b.z)+b.h);
+  }
   return top;
 }
 for(const b of MAP.buildings) {
@@ -201,7 +204,7 @@ export function stepPlayer(state, input, dt, hp) {
       grounded = true;
     }
   }
-  if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
+  if (y < -8 || Math.abs(x)>MAP.bounds || z>MAP.bounds || z<(MAP.northBound ?? -MAP.bounds)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if (parachute && !grounded) next.parachute = parachute;
   return next;

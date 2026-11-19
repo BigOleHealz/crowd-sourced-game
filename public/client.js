@@ -1,8 +1,9 @@
+import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, turretRange } from './mounts.js';
 import { nearestVehicle } from './rover.js';
-import { avenues, streets, coast } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
@@ -308,11 +309,16 @@ function updateEquipment(local) {
 function drawMap(player, remotes, yaw) {
   const w = map.width, h = map.height;
   const scale=CITY ? 1.34 : 3.25;
-  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + z * scale;
+  const centerZ=CITY ? Math.min(0,player.z+36) : 0;
+  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + (z-centerZ) * scale;
   if(CITY) {
     ctx.fillStyle='#467e87';ctx.fillRect(0,0,w,h);
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
+    ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
+    ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
+    ctx.fillRect(sx(-6),sy(harbor.north),12*scale,(causeway.south-harbor.north)*scale);
+    ctx.fillRect(sx(harbor.west),sy(harbor.crossing-4.5),(harbor.east-harbor.west)*scale,9*scale);
     for(const x of avenues) ctx.fillRect(sx(x-5.7),sy(coast.north),11.4*scale,(coast.south-coast.north)*scale);
     for(const z of streets) ctx.fillRect(sx(coast.west),sy(z-4.1),(coast.east-coast.west)*scale,8.2*scale);
     ctx.fillStyle='#3b4b4c';
@@ -381,7 +387,7 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-      byId('location').textContent = CITY ? (local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);

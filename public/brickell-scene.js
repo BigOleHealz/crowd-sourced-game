@@ -1,9 +1,11 @@
+import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
-import { avenues, streets, coast } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch) {
+  addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
     const map=loader.load('./brickell-'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
@@ -25,8 +27,11 @@ export function cityStreets(scene,renderer,Batch) {
     mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  ground('water',[[0,MAP.waterY,0,460,460]],14,{roughness:.28});
-  ground('asphalt',[[cx,.70,cz,w,d]],5);
+  ground('water',[[0,MAP.waterY,-102,730,820]],14,{roughness:.28});
+  const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
+  const harborAvenue={...harbor,west:-6,east:6};
+  const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
+  ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705)],5);
   const lots=[],lawns=[];
   const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
   const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
@@ -35,6 +40,23 @@ export function cityStreets(scene,renderer,Batch) {
     lots.push([x,.80,z,x2-x1,z2-z1]);
     solids.add(box,0xbab4a4,x,.735,z,x2-x1,.12,z2-z1);
     if(x>37) lawns.push([x,.812,z,2.65,z2-z1-2]);
+  }
+  for(const [west,east] of [[harbor.west,-6],[6,harbor.east]]) {
+    for(const [north,south] of [[harbor.north,cross.north],[cross.south,harbor.south]]) {
+      const r={west,east,north,south};lawns.push(patch(r,.80));
+    }
+  }
+  solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
+  solids.add(box,0x989b96,0,.35,(causeway.north+causeway.south)/2,12,.67,causeway.south-causeway.north);
+  for(let z=harbor.north+2;z<coast.north;z+=4){
+    if(Math.abs(z-harbor.crossing)<6)continue;
+    solids.add(box,0xe3bc67,0,.718,z,.12,.014,2.25);
+    if(z>harbor.south && (z-(harbor.north+2))%12===0) {
+      for(const side of [-1,1]){
+        solids.add(box,0xc4bfaa,side*5.73,.96,z,.18,.53,.17);
+        solids.add(box,0xc4bfaa,side*5.73,1.20,z,.12,.09,11.9);
+      }
+    }
   }
   ground('pavers',lots,3);ground('lawn',lawns,3);
   solids.add(box,0xa59f90,cx,.15,cz,w,1,d);
