@@ -5,8 +5,9 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
-import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles } from './public/expedition.js';
+import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
+import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
@@ -155,8 +156,18 @@ sockets.on('connection', ws => {
       world = newExpedition();
       npcs = newRivals();
     }
-    else if (world.heli.pilot === id) world.heli = Object.assign(parkedHelicopter(), {hp: world.heli.hp, cargo: world.heli.cargo});
-    else if (world.rover.driver === id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
+    else if (world.heli.pilot === id) {
+      const gunner=players.get(world.heli.gunner);
+      if (gunner) interact(world,gunner);
+      world.heli=Object.assign(parkedHelicopter(),{hp:world.heli.hp,cargo:world.heli.cargo});
+    } else if (world.rover.driver === id) {
+      const gunner=players.get(world.rover.gunner);
+      if(gunner) interactRover(world,gunner);
+      world.rover={...parkedRover(),hp:world.rover.hp,cargo:world.rover.cargo};
+    } else {
+      const kind=gunnerVehicle(world,id);
+      if(kind) world[kind].gunner=null;
+    }
     publish();
   });
   ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
@@ -166,7 +177,8 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
-  recoverHelicopter(world, step);
+  const firingGunners=new Set();
+  recoverHelicopter(world, step, players);
   recoverRover(world, step);
   if (players.size) {
     for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
@@ -175,6 +187,8 @@ function tick() {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
     if (player.life.hp === 0) {
+      const role=gunnerVehicle(world,player.id);
+      if(role) world[role].gunner=null;
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
@@ -190,8 +204,8 @@ function tick() {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact) {
-        if (world.rover.driver === player.id) interactRover(world, player);
-        else if (world.heli.pilot === player.id) interact(world, player);
+        if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
+        else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
         else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
         else interact(world, player);
       }
@@ -217,6 +231,15 @@ function tick() {
       player.sprint = false;
       continue;
     }
+    const kind=gunnerVehicle(world,player.id);
+    if (kind) {
+      if(input && !input.interact) {
+        world[kind].turretYaw=input.aimYaw;
+        world[kind].turretPitch=turretPitch(input.aimPitch);
+        if(input.fire) firingGunners.add(player.id);
+      }
+      continue;
+    }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp);
     if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
@@ -229,6 +252,13 @@ function tick() {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
+  }
+  for(const kind of ['rover','heli']) {
+    const v=world[kind], gunner=players.get(v.gunner);
+    if(!gunner || !gunner.life.hp) continue;
+    gunner.state={...gunnerFeet(v,kind),grounded:kind==='rover' || v.grounded,vy:0};
+    gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
+    if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);

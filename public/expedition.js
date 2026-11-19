@@ -6,7 +6,7 @@ import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
 
-import { mounts, mountPosition } from './mounts.js';
+import { mounts, mountPosition, turretRange } from './mounts.js';
 
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
@@ -75,9 +75,9 @@ export function fire(world, player, input, tick, players, npcs) {
     hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
 }
 
-function targets(world,shooter,players,npcs) {
+function targets(world,shooter,players,npcs,source=null) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.rover?.driver && actor.life.hp > 0);
+    actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
 function applyHit(world,{target,hitKind,to,blocked},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
@@ -86,7 +86,7 @@ function applyHit(world,{target,hitKind,to,blocked},actors,players,shooter,tick,
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     for (const crystal of BREAKABLES) {
       if (crystal === target || (bloom && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
-        world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - (crystalDamage));
+        world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);
       }
     }
     for (const actor of actors) {
@@ -117,7 +117,7 @@ export function launchMissile(world,kind,player,tick) {
 
 export function advanceMissiles(world,players,npcs,tick) {
   world.missiles=world.missiles.filter(m=>{
-    const actors=targets(world,m.shooter,players,npcs);
+    const actors=targets(world,m.shooter,players,npcs,m.source);
     const direction={x:Math.sin(m.yaw),y:0,z:-Math.cos(m.yaw)};
     const hit=tracePulse(world,actors,m,direction,1,false,m.source);
     Object.assign(m,hit.to);
@@ -127,4 +127,22 @@ export function advanceMissiles(world,players,npcs,tick) {
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
+}
+
+const nextBullet=new WeakMap();
+export function fireTurret(world,kind,player,tick,players,npcs) {
+  const v=world[kind], ready=nextBullet.get(v) ?? tick;
+  if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
+  // The 30 Hz simulation alternates eight and seven ticks between bullets.
+  nextBullet.set(v,(tick-ready<1 ? ready : tick)+7.5);
+  const horizontal=Math.cos(v.turretPitch);
+  const dir={x:Math.sin(v.turretYaw)*horizontal,y:Math.sin(v.turretPitch),z:-Math.cos(v.turretYaw)*horizontal};
+  const pivot=mountPosition(v,mounts[kind].turret);
+  const actors=targets(world,player.id,players,npcs,kind);
+  const hit=tracePulse(world,actors,pivot,dir,turretRange,false,kind);
+  applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind);
+  const d=Math.min(.64,Math.hypot(hit.to.x-pivot.x,hit.to.y-pivot.y,hit.to.z-pivot.z));
+  const from={x:pivot.x+dir.x*d,y:pivot.y+dir.y*d,z:pivot.z+dir.z*d};
+  world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,
+    hit:Boolean(hit.hitKind),hitKind:hit.hitKind,targetId:hit.target?.id ?? hit.hitKind,tick});
 }

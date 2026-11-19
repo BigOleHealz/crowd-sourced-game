@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
-import { missileLaunchers, missileView } from './mount-view.js';
+import { missileLaunchers, missileView, turretView } from './mount-view.js';
+import { mounts, mountPosition, gunnerFeet } from './mounts.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
@@ -101,6 +102,7 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
+const handVector=new THREE.Vector3(), gripVector=new THREE.Vector3();
 
 function trailDistance(x, z) {
   let best = Infinity;
@@ -705,7 +707,7 @@ function fieldEffects(scene) {
     if(!bloom) {
       const delta=b.clone().sub(a), length=delta.length();
       if(length>.01) {
-        particle(a.clone().lerp(b,.5),new THREE.Vector3(),new THREE.Vector3(.033,length/2,.033),0xb6ffdf,.13);
+        particle(a.clone().lerp(b,.5),new THREE.Vector3(),new THREE.Vector3(.033,length/2,.033),s.weapon==='turret' ? 0xffcf72 : 0xb6ffdf,.13);
         particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,delta.normalize());
       }
     }
@@ -844,8 +846,8 @@ function makeParachute(root, material) {
   return canopy.mesh(root,material,false);
 }
 
-function pose(avatar,state,dt,seated=null) {
-  const active=!state.dead && !!state.moving && state.grounded !== false;
+function pose(avatar,state,dt,seated=null,station=null) {
+  const active=!station && !state.dead && !!state.moving && state.grounded !== false;
   avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
   avatar.cycle+=dt*(state.sprint?13:9);
   const swing=Math.sin(avatar.cycle)*avatar.weight;
@@ -859,22 +861,35 @@ function pose(avatar,state,dt,seated=null) {
     const c=Math.cos(seated.yaw), s=Math.sin(seated.yaw);
     avatar.root.position.set(seated.x-.322*c+.085*s,seated.y+.025,seated.z-.322*s-.085*c);
   }
-  const yaw=-(Number.isFinite(state.yaw)?state.yaw:0);
+  if(station) {
+    const feet=gunnerFeet(station,'rover');
+    avatar.root.position.set(feet.x,feet.y,feet.z);
+  }
+  const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
-  avatar.root.rotation.y = seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
   avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !seated && !bloom;
-  avatar.tools[1].visible = !state.dead && !seated && bloom;
+  avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,knee,side} of avatar.limbs) {
-    leg.rotation.x=seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
-    arm.rotation.x=seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
-    arm.rotation.z=side*(seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
+    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
+    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
+    arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
+    arm.scale.setScalar(1);
+    if(station) {
+      const p=station.turretPitch;
+      handVector.set(side*.02,-.466,.028);
+      gripVector.set(side*.177-arm.position.x,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.8-arm.position.y,
+        -.062*Math.sin(p)+.19*Math.cos(p)-.44);
+      arm.scale.setScalar(gripVector.length()/handVector.length());
+      arm.quaternion.setFromUnitVectors(handVector.normalize(),gripVector.normalize());
+    }
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
@@ -939,6 +954,7 @@ export function createScene(canvas) {
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -975,19 +991,20 @@ export function createScene(canvas) {
   const cursorRay = new THREE.Raycaster();
   const cursorNdc = new THREE.Vector2();
   let displayedWorld, displayedPlayers;
-  function aimAt(pointer, feet, id, range) {
+  function aimAt(pointer, feet, id, range, station=null) {
     if (!ready || !displayedWorld || !pointer) return null;
     const rect = canvas.getBoundingClientRect();
     cursorNdc.set(2 * (pointer.x - rect.left) / rect.width - 1, 1 - 2 * (pointer.y - rect.top) / rect.height);
     cursorRay.setFromCamera(cursorNdc, camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
-    const muzzleY = feet.y + 1.3;
-    const cameraOffset = Math.hypot(origin.x-feet.x, origin.y-muzzleY, origin.z-feet.z);
-    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false);
-    const dx = to.x - feet.x, dz = to.z - feet.z;
+    const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
+    const muzzleY=muzzle.y;
+    const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
+    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
   function render(local,remotes,view,dt,world) {
@@ -1002,7 +1019,7 @@ export function createScene(canvas) {
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
     const rover=world.rover, driving=rover.driver===local.id;
-    updateRover(rover,dt);
+    updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
     roverLabel.sprite.visible=!driving;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
@@ -1034,13 +1051,15 @@ export function createScene(canvas) {
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const seated=state.id===rover.driver;
-      a.root.visible=state.id!==heli.pilot;
-      a.shadow.visible=a.root.visible && !seated;
-      if(seated) a.label.sprite.visible=false;
-      if(a.root.visible) pose(a,state,dt,seated ? rover : null);
+      const station=state.id===rover.gunner ? rover : null;
+      a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
+      a.shadow.visible=a.root.visible && !seated && !station;
+      if(seated || station) a.label.sprite.visible=false;
+      if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
+    if(local.id===heli.gunner) desired.set(heli.x,heli.y+.55,heli.z);
+    else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
     else desired.set(local.x,local.y+(local.parachute === 'open' ? 2.1 : 1.43),local.z);
     // Give the jumper and the drifting aircraft room in the same shot.
@@ -1060,7 +1079,7 @@ export function createScene(canvas) {
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && distance>.86;
+    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }
