@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
-import { conifers, granite, floorMaterial, creekMaterial } from './landscape.js';
+import { conifers, granite, floorMaterial, creekMaterial, alpineGlass } from './landscape.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -125,6 +125,7 @@ function addGround(scene,renderer) {
   const size = 164;
   const geo = new THREE.PlaneGeometry(size, size, 172, 172).rotateX(-Math.PI/2);
   const positions = geo.attributes.position;
+  const cover = new Uint8Array(positions.count);
   const colors = [];
   const dark = color(0x4d573f), light = color(0xa2a27c);
   const path = color(0xb2a184), shale = color(0x85877b);
@@ -140,6 +141,9 @@ function addGround(scene,renderer) {
     c.lerp(path, clamp((2.02 - clearing + .67*(patches-.5))*2.3,0,1)*.94);
     const pad=clamp((2.9-Math.hypot(x-HELIPAD.x,z-HELIPAD.z))*2.5,0,1);
     c.lerp(shale,pad*.89);
+    const verge=THREE.MathUtils.smoothstep(clearing+.8*(patches-.5),1.4,3.25);
+    const dry=THREE.MathUtils.smoothstep(y,MAP.waterY+.4,MAP.waterY+1.6);
+    cover[i]=Math.round(255*verge*dry*(1-pad));
     // Dark organic litter gathers at the bases of trees and stones.
     let shade=1;
     if(Math.abs(x)<35 && Math.abs(z)<35) {
@@ -156,6 +160,7 @@ function addGround(scene,renderer) {
     colors.push(c.r,c.g,c.b);
   }
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geo.setAttribute('forestCover',new THREE.Uint8BufferAttribute(cover,1,true));
   geo.computeVertexNormals();
   const mat=floorMaterial(renderer);
   const ground = new THREE.Mesh(geo,mat);
@@ -192,6 +197,7 @@ function addSky(scene) {
         }`
     }));
   sky.renderOrder=-20; scene.add(sky);
+  return panorama;
 }
 
 function addBridge(batch, rng) {
@@ -381,7 +387,7 @@ function landingMarks(batch) {
   stripe(-.46,0,.46,0,.14);
 }
 
-function fieldHelicopter(scene,material,shadowMap) {
+function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
@@ -474,7 +480,7 @@ function fieldHelicopter(scene,material,shadowMap) {
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x393c34,shininess:26});
   hull.mesh(group,paint,false);
-  glazing.mesh(group,new THREE.MeshPhongMaterial({vertexColors:true,specular:0xb3cccd,shininess:82}),false);
+  glazing.mesh(group,alpineGlass(panorama),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('FORESTRY',256,88);
@@ -882,14 +888,15 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xafc1ca,.0024);
-  scene.add(new THREE.HemisphereLight(0xcde3ef,0x9f9276,1.49));
-  const sun=new THREE.DirectionalLight(0xffe3b6,2.34);
+  scene.fog=new THREE.FogExp2(0xaebfc9,.0058);
+  scene.add(new THREE.HemisphereLight(0xc8dfec,0xa09074,1.36));
+  const sun=new THREE.DirectionalLight(0xffe6c7,2.55);
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
-  addSky(scene); addGround(scene,renderer);
+  const panorama=addSky(scene);
+  addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial();
   const forest=new Batch();
   conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
@@ -899,9 +906,20 @@ export function createScene(canvas) {
   const glints=water(scene,rng,renderer);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
-  const updateRover=createRoverView(scene,Batch,material,shadowMap);
-  const helicopter=fieldHelicopter(scene,material,shadowMap);
-  const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
+  const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
+  const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
+  const quartz=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x98b9ae,shininess:46});
+  quartz.onBeforeCompile=shader=>{
+    shader.vertexShader='varying vec3 mineralPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>',
+      '#include <begin_vertex>\n mineralPoint=position;');
+    shader.fragmentShader='varying vec3 mineralPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      float band=mineralPoint.y*44.+mineralPoint.x*3.7+sin(mineralPoint.z*7.);
+      float detail=1.-smoothstep(.15,1.5,fwidth(band));
+      float vein=smoothstep(.80,1.,sin(band+sin(band*.37)));
+      diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*.65+vec3(.22,.26,.23),vein*detail*.45);`);
+  };
+  const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,quartz,prop,6104+i*39));
   const effects=fieldEffects(scene);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};

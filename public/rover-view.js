@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { alpineGlass } from './landscape.js';
 import { groundHeight } from './world.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
-export function createRoverView(scene, Batch, material, shadowMap) {
+export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const root = new THREE.Group(), chassis = new Batch();
   scene.add(root);
   const cube = new THREE.BoxGeometry(1,1,1);
@@ -108,7 +109,7 @@ export function createRoverView(scene, Batch, material, shadowMap) {
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
   chassis.mesh(root,material,false);
-  const glassMat=new THREE.MeshLambertMaterial({vertexColors:true,transparent:true,opacity:.42,depthWrite:false,side:THREE.DoubleSide});
+  const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   glazing.mesh(root,glassMat,false);
   const driver=new Batch();
   driver.add(seatForm,0x8e7561,-.322,1.215,-.085,.16,.19,.096);
