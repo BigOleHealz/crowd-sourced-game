@@ -1,3 +1,4 @@
+import {frontageGlassMaterial} from './frontage-glass-material.js';
 import {faceAt} from './frontage-glass.js';
 import * as THREE from 'three';
 import {storefrontDoors,panelCenter,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
@@ -71,19 +72,7 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     metal(bronze,doorX,door.head+.044,door.z,.19,.092,door.width+.075);
     metal(dark,doorX+.104,door.head+.059,door.z,.046,.059,.155);
   }
-  const glass = new THREE.ShaderMaterial({
-    uniforms:{skyline:{value:skyline}},
-    transparent:true,depthWrite:false,side:THREE.DoubleSide,
-    vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
-    fragmentShader:`uniform sampler2D skyline;varying vec3 vWorld;void main(){
-      vec3 view=normalize(vWorld-cameraPosition),r=reflect(view,vec3(1.,0.,0.));
-      vec2 uv=vec2(atan(r.x,-r.z)*.46+.17,clamp((asin(clamp(r.y,-1.,1.))+.16)/.69,0.,1.));
-      vec3 reflection=texture2D(skyline,uv).rgb*vec3(.68,.82,.81);
-      float grazing=1.-abs(view.x);
-      gl_FragColor=vec4(reflection,min(.32,.055+.35*grazing*grazing));
-      #include <colorspace_fragment>
-    }`
-  });
+  const glass=frontageGlassMaterial(skyline);
   const fixedGlass=new Batch(), pane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
   const showcase=faceAt({x:-17,z:7},doorX);
   breakables.add(showcase,glass);

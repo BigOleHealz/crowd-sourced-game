@@ -210,6 +210,7 @@ canvas.addEventListener('wheel', e => {
   camera.distance = clamp(camera.distance + e.deltaY * 0.006, 2.6, 8.5);
 }, { passive: false });
 
+let connectedBuild;
 function connect() {
   byId('presence').textContent = 'Connecting';
   socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell' : '/world'));
@@ -218,6 +219,8 @@ function connect() {
     const m = JSON.parse(data);
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
+      if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
+      connectedBuild=m.build;
       id = m.id; self = previous = m.state; facing = m.state.yaw;
       world = m.world; roadImpact=null; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;

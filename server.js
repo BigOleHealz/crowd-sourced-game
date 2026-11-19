@@ -1,4 +1,5 @@
 import {stepFurniture} from './public/shop-furniture.js';
+import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
@@ -6,7 +7,8 @@ import {nearBoat,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { stat, readdir, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +27,16 @@ import { advanceFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
+// A reconnect can span a local Docker rebuild. Fingerprint the client and its
+// assets once so an existing tab can recognize a different scene.
+async function clientBuild(){
+  const hash=createHash('sha256');
+  const names=(await readdir(publicDir,{withFileTypes:true})).filter(f=>f.isFile()).map(f=>f.name).sort();
+  for(const name of names)hash.update(name).update('\0').update(await readFile(join(publicDir,name)));
+  hash.update(await readFile(join(root,'package-lock.json')));
+  return hash.digest('hex').slice(0,20);
+}
+const build=await clientBuild();
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
@@ -205,7 +217,7 @@ sockets.on('connection', ws => {
     }
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
+  ws.send(JSON.stringify({ type: 'welcome', build, id, state: playerState(player), world: worldView() }));
   publish();
 });
 
@@ -219,6 +231,7 @@ function tick() {
     }
     stepStorefrontDoors(world.doors,pedestrians,step);
     stepRetailDoors(world.doors,pedestrians,step);
+    stepHotelDoors(world.doors,pedestrians,step);
     stepFurniture(world.doors,step);
   }
   if(CITY)world.heli.chainFiring=false;

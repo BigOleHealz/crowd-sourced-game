@@ -4,10 +4,11 @@ const {stepPlayer,groundHeight,buildingTopAt}=await import('../public/world.js')
 const {galleryPlans,galleryLobbies,galleryPanes,galleryFloor,galleryRoomAt,galleryVehicleRects}=await import('../public/gallery-lobbies.js');
 assert.equal(galleryPlans.length,18);assert.equal(galleryLobbies.length,30);assert.equal(galleryPanes.length,72);
 assert.equal(new Set(galleryPanes.map(p=>p.id)).size,72);
+const {stepHotelDoors}=await import('../public/maravela-hotel.js');
 let entrances=0,windows=0;
 function walk(x,z,heading,distance,doors={}) {
   let p={x,y:groundHeight(x,z),z,grounded:true,vy:0};
-  for(let j=0;j<Math.ceil(distance/4.6*30)+4;j++)p=stepPlayer(p,{x:0,z:heading},1/30,{}, {doors});
+  for(let j=0;j<Math.ceil(distance/4.6*30)+4;j++){stepHotelDoors(doors,[p],1/30);p=stepPlayer(p,{x:0,z:heading},1/30,{}, {doors});}
   return p;
 }
 for(const plan of galleryPlans){
@@ -18,7 +19,7 @@ for(const plan of galleryPlans){
     assert.equal(inside.y,galleryFloor);
     const back=walk(x,inside.z,side,4.5);
     assert(side*(back.z-z)>.5 && !galleryRoomAt(x,back.y,back.z));
-    assert.equal(buildingTopAt(x,z,0,galleryFloor+1.72),-Infinity);
+    assert.equal(buildingTopAt(x,z,0,galleryFloor+1.72,plan.hotel?{hotel:{city:1,quay:1}}:{}),-Infinity);
     assert(buildingTopAt(x,z,0,6.5)>6.5);
     assert(buildingTopAt(front.sofa.x,front.sofa.z,0,galleryFloor+1.72)>=front.sofa.bottom+front.sofa.h-.01);
     if(plan.rooms[0].shared) {

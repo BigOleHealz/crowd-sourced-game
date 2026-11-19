@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {streetPlan,roadway,cityGround,harbor,coast,causeway,within}=await import('../public/brickell-map.js');
 const {verges}=await import('../public/waterfront-roads.js');
+const {blocked}=await import('../public/world.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {driveRover}=await import('../public/rover.js');
 const {roadContact}=await import('../public/road-contact.js');
@@ -35,6 +36,8 @@ for(const e of streetPlan.ends) {
   assert.equal(cityGround(...point(1.1,0)),.80,'dry pedestrian buffer beyond curb');
 }
 assert.equal(streetPlan.ends.length,13);
+const hp=newExpedition().hp;
+for(let x=39;x<=42.7;x+=.15)assert(!blocked(x,cityGround(x,22.3),22.3,hp),'pedestrian berth approach');
 for(const [area,roads] of [[coast,streetPlan.mainland],[harbor,streetPlan.island]]) {
   const plots=verges(area,roads);
   for(let x=area.west+.51;x<area.east;x+=1)for(let z=area.north+.51;z<area.south;z+=1){

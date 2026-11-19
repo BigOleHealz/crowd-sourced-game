@@ -1,10 +1,12 @@
+import {glassBreakDebris} from './glass-break-debris.js';
+import {storefrontFaces} from './frontage-glass.js';
 import {verges} from './waterfront-roads.js';
 import { addBrickellHorizon } from './brickell-horizon.js';
 import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
 import {streetLampView} from './street-lamp-view.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
-import {galleryPlans} from './gallery-lobbies.js';
+import {galleryPlans,galleryPanes} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
 import { streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
@@ -117,11 +119,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
-  const breakables=breakableWindows(scene,Batch);
+  const paneCount=storefrontFaces.reduce((n,face)=>n+face.spans.length,galleryPanes.length);
+  const debris=glassBreakDebris(scene,paneCount);
+  const breakables=breakableWindows(scene,Batch,debris);
   const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
-  const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama);
+  const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama,debris);
   const furnishPortico=streetShops(scene,renderer,Batch,panorama,breakables);
   const base=.80,podium=3.9;
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade,housing},i)=>{
@@ -158,5 +162,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
   const updateLamps=streetLampView(scene,Batch);
-  return (doors,dt,local,remotes)=>{updateDoors(doors,dt);updateShopFurniture(scene,doors);updateLamps(doors,dt);breakables.update(doors,dt);updateGallery(doors,breakables.scatter);updateCourts(doors,dt,local,remotes);};
+  return (doors,dt,local,remotes)=>{
+    updateDoors(doors,dt);
+    updateShopFurniture(scene,doors);
+    updateLamps(doors,dt);
+    breakables.update(doors,dt);
+    updateGallery(doors);
+    debris.update(dt);
+    updateCourts(doors,dt,local,remotes);
+  };
 }

@@ -23,8 +23,10 @@ const color=c=>new THREE.Color(c);
 const glassTints=[0x94c1c3,0x93a7b2,0xa4b9c6,0xb3d0c5,0x88a9bf];
 const stoneTints=[0xeadbc7,0xdab795,0xddbeb2,0xe8e3d0,0xc4d0c8];
 function material(facades){
+  const foliage=new THREE.TextureLoader().load('./coastal-canopies.webp');
+  foliage.colorSpace=THREE.SRGBColorSpace;
   const mat=new THREE.ShaderMaterial({
-    uniforms:{mist:{value:fogColor},sun:{value:skyLight},facades:{value:facades}},
+    uniforms:{mist:{value:fogColor},sun:{value:skyLight},facades:{value:facades},foliage:{value:foliage}},
     vertexShader:`
       attribute vec3 color;
       attribute float style;
@@ -33,7 +35,7 @@ function material(facades){
       gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}
     `,
     fragmentShader:`
-      uniform sampler2D facades;uniform vec3 mist,sun;
+      uniform sampler2D facades,foliage;uniform vec3 mist,sun;
       varying vec2 tile;varying float kind;varying vec3 tint,pos,norm;
       void main(){
         vec3 n=normalize(norm),v=normalize(cameraPosition-pos);
@@ -57,6 +59,11 @@ function material(facades){
         }
         float sunFace=max(0.,dot(n,sun));
         vec3 lit=albedo*(vec3(.48,.57,.63)+vec3(.77,.72,.55)*sunFace);
+        if(kind<-.5){
+          vec4 leaves=texture2D(foliage,tile);
+          if(leaves.a<.38)discard;
+          lit=leaves.rgb*tint;
+        }
         float haze=1.-exp(-.0000067*distanceToEye*distanceToEye);
         lit=mix(lit,mist,min(.94,haze));
         gl_FragColor=vec4(lit,1.);
@@ -75,6 +82,7 @@ export function addBrickellHorizon(scene,facades){
   const oval=Array.from({length:14},(_,i)=>[.5*Math.cos(i*Math.PI/7),.5*Math.sin(i*Math.PI/7)]);
   function district(x0,z0,ix,iz,length,depth,use,seed){
     const random=randFrom(seed),positions=[],normals=[],uv=[],colors=[],style=[],indices=[];
+    const leaves=randFrom(seed*6151+29);
     const alongX=-iz,alongZ=ix, land=use==='key', start=-length/2,end=length/2;
     // Joined shore sections vary in shape and setback as seen from the street
     // and above. Headlands taper naturally back towards the inland edge.
@@ -113,26 +121,43 @@ export function addBrickellHorizon(scene,facades){
     }
     const box=(u,v,w,d,bottom,top,tint,kind=0)=>mass(ring(u,v,w,d,rectangle),bottom,top,tint,kind);
     function tree(u,v,height,radius){
-      const lower=ring(u,v,radius*2,radius*1.71,diamond),upper=ring(u+.19,v,radius*1.68,radius*1.60,diamond);
-      const crown=color([0x5d7356,0x718158,0x677e59,0x4f6a5a][Math.floor(random()*4)]);
-      const hi=crown.clone().lerp(color(0xb4b780),.14);
-      const apex=world(u-.19,height+radius*.40,v);
-      for(let j=0;j<8;j++){
-        const k=(j+1)%8;
-        polygon([world(lower[j][0],height-radius*.61,lower[j][1]),world(lower[k][0],height-radius*.61,lower[k][1]),
-          world(upper[k][0],height,upper[k][1]),world(upper[j][0],height,upper[j][1])],crown);
-        polygon([world(upper[j][0],height,upper[j][1]),world(upper[k][0],height,upper[k][1]),apex],hi);
+      // Keep the architecture RNG sequence independent of added botanical variation.
+      const swatch=Math.floor(random()*4);
+      const rotation=leaves()*Math.PI,spread=land?1.6:1.0;
+      const clump=Math.sin((u-start)*.22+seed);
+      u+=(land?2.8:1.5)*clump+(leaves()-.5)*spread*2;
+      v+=(leaves()-.5)*spread;
+      const base=land?1.02:1.26,tip=height+radius*(.33+leaves()*.37);
+      const width=radius*(1.03+leaves()*.45), lean=(leaves()-.5)*width*.52;
+      // Fixed crossing planes lean away from the same roots. Side and aerial
+      // views retain depth and the crowns move against the distant buildings.
+      const column=swatch%2,row=1-Math.floor(swatch/2);
+      const shade=new THREE.Color().setRGB(.77+leaves()*.24,.84+leaves()*.16,.75+leaves()*.20);
+      for(let j=0;j<3;j++){
+        const angle=rotation+j*Math.PI/3,c=Math.cos(angle),s=Math.sin(angle);
+        const topU=u+lean-s*width*.30,topV=v+c*width*.30;
+        const points=[world(u-c*width,base,v-s*width),world(u+c*width,base,v+s*width),
+          world(topU+c*width,tip,topV+s*width),world(topU-c*width,tip,topV-s*width)];
+        const left=(column+(j%2 ? .992 : .008))/2,right=(column+(j%2 ? .008 : .992))/2;
+        const bottom=(row+.008)/2,top=(row+.992)/2;
+        const coords=[[left,bottom],[right,bottom],[right,top],[left,top]];
+        polygon(points,shade,-1,coords);
+        polygon(points.reverse(),shade,-1,coords.reverse());
       }
     }
     function palm(u,v,h){
       const lean=.20+random()*.57,top=world(u+lean,h,v);
-      const trunk=ring(u,v,.31,.31,diamond);
-      mass(trunk,.45,h-.29,0x867958);
+      const base=ring(u,v,.28,.28,diamond),neck=ring(u+lean,v,.20,.20,diamond);
+      for(let j=0;j<base.length;j++){
+        const k=(j+1)%base.length;
+        polygon([world(base[j][0],.55,base[j][1]),world(base[k][0],.55,base[k][1]),
+          world(neck[k][0],h,neck[k][1]),world(neck[j][0],h,neck[j][1])],0x897b5d);
+      }
       for(let j=0;j<6;j++){
-        const a=j*Math.PI/3+phase,length=h*(.26+.05*(j%2));
+        const a=j*Math.PI/3+phase+(leaves()-.5)*.37,length=h*(.28+.12*leaves());
         const dx=Math.cos(a),dz=Math.sin(a);
         const mid=world(u+lean+dx*length*.48,h+.25,v+dz*length*.48);
-        const leaf=world(u+lean+dx*length,h-.55,v+dz*length);
+        const leaf=world(u+lean+dx*length,h-.32-leaves()*.72,v+dz*length);
         const side=world(u+lean+dx*length*.48-dz*.32,h+.05,v+dz*length*.48+dx*.32);
         const other=world(u+lean+dx*length*.48+dz*.32,h+.05,v+dz*length*.48-dx*.32);
         polygon([top,other,mid],0x647953);polygon([top,mid,side],0x75865a);

@@ -199,12 +199,23 @@ function addGround(scene,renderer) {
 function addSky(scene) {
   const panorama=new THREE.TextureLoader().load(CITY ? './brickell-sky.webp' : './valley-horizon.webp');
   panorama.colorSpace=THREE.SRGBColorSpace;panorama.wrapS=THREE.MirroredRepeatWrapping;
+  // The city sky is a full azimuth-by-elevation hemisphere. The old photo
+  // remains the environment map for the glass and bodywork.
+  const atmosphere=CITY ? new THREE.TextureLoader().load('./biscayne-sky.webp') : panorama;
+  if(CITY){atmosphere.colorSpace=THREE.SRGBColorSpace;atmosphere.wrapS=THREE.RepeatWrapping;}
   const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
     new THREE.ShaderMaterial({
       side:THREE.BackSide,depthWrite:false,
-      uniforms:{panorama:{value:panorama},horizon:{value:color(CITY?0xc7dce3:0xb4b3aa)},zenith:{value:color(CITY?0x629ac4:0x86919a)}},
+      uniforms:{panorama:{value:atmosphere},horizon:{value:color(CITY?0xc7dce3:0xb4b3aa)},zenith:{value:color(CITY?0x629ac4:0x86919a)}},
       vertexShader:`varying vec3 skyDir; void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:`varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith; uniform sampler2D panorama;
+      fragmentShader:CITY ? `varying vec3 skyDir;uniform sampler2D panorama;
+        void main(){
+          vec3 d=normalize(skyDir);
+          float longitude=atan(d.x,-d.z)/6.28318530718+.5;
+          float elevation=asin(clamp(d.y,0.,1.))/1.57079632679;
+          gl_FragColor=vec4(texture2D(panorama,vec2(longitude,elevation)).rgb,1.);
+          #include <colorspace_fragment>
+        }` : `varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith; uniform sampler2D panorama;
         float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.53);}
         float cloudNoise(vec2 p){
           vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
@@ -217,16 +228,9 @@ function addSky(scene) {
         c=mix(c,vec3(.67,.67,.64),smoothstep(.54,.73,cloud)*smoothstep(.05,.20,d.y)*.6);
         c+=vec3(.18,.145,.09)*pow(sun,22.);
         float elevation=asin(clamp(d.y,-1.,1.));
-        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,${CITY ? '(elevation+.16)/.69' : '(elevation+.44)/.98'});
+        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,(elevation+.44)/.98);
         vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
-        ${CITY ? `// Sample only open sky above the tallest waterfront buildings.
-        // Mirror the clear segment end-to-end to form a seamless cloud bank.
-        float azimuth=1.-abs(mod(uv.x*1.32,2.)-1.);
-        float cloudY=mix(.679,.996,clamp((elevation+.008)/.43,0.,1.));
-        vec3 photographed=texture2D(panorama,vec2(.305+.691*azimuth,cloudY)).rgb;
-        float bank=smoothstep(-.018,.11,elevation)*(1.-smoothstep(.36,.64,elevation));
-        c=mix(c,photographed,bank);`
-        : 'c=mix(range,c,smoothstep(.81,1.24,uv.y));'}
+        c=mix(range,c,smoothstep(.81,1.24,uv.y));
         gl_FragColor=vec4(c,1.);
         #include <colorspace_fragment>
         }`

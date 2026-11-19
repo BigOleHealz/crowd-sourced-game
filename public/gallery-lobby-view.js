@@ -1,9 +1,13 @@
+import {maravelaHotelView} from './maravela-hotel-view.js';
+import {furnitureRanges} from './shop-furniture-view.js';
+import {frontageGlassMaterial} from './frontage-glass-material.js';
 import * as THREE from 'three';
-import {galleryPlans,galleryPanes,galleryFloor as floor,galleryCeiling as ceiling,galleryDoorWidth,galleryDoorHead} from './gallery-lobbies.js';
+import {galleryPlans,galleryPanes,galleryFloor as floor,galleryCeiling as ceiling,galleryDoorWidth,galleryDoorHead,galleryStile} from './gallery-lobbies.js';
 
 // A single material and spatially culled architectural batch per building. Real
 // tilted lamps, display tables and overlapping lounge cushions provide parallax.
-export function galleryLobbyView(scene,renderer,Batch,panorama) {
+export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
+  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor);
   const loader=new THREE.TextureLoader();
   function surface(name){
     const tex=loader.load('./'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
@@ -60,7 +64,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
   const travertine=0xc3b49a, limestone=0xd5c9b4,bronze=0x5d5140,black=0x343633;
   const wood=0xa37a50, linen=0xd2c4a9, leather=0xae967b;
   for(const plan of galleryPlans){
-    const batch=new Batch(true);
+    const batch=new Batch(true),motion=furnitureRanges(scene,[batch]);
     const put=(g,mode,c,x,y,z,w,h,d,rx=0,ry=0,rz=0)=>batch.add(marked(g,mode),c,x,y,z,w,h,d,rx,ry,rz);
     const box=(mode,...data)=>put(cube,mode,...data);
     for(const room of plan.rooms){
@@ -79,16 +83,18 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
       trim(1,limestone,0,doorH+.78,.04,w,1.56,.31);
       for(const sign of [-1,1]){
         trim(1,travertine,sign*(half-.10),1.55,.055,.20,3.10,.30);
-        trim(1,limestone,sign*(jamb+.09),1.55,.05,.18,3.10,.30);
-        const edge=half-.21,inner=jamb+.18,paneWidth=edge-inner,mid=sign*(edge+inner)/2;
+        trim(4,bronze,sign*(jamb+galleryStile/2),1.55,.095,galleryStile,3.10,.14);
+        const edge=half-.21,inner=jamb+galleryStile,paneWidth=edge-inner,mid=sign*(edge+inner)/2;
         for(const u of [sign*inner,sign*edge])trim(4,black,u,doorH/2,.103,.034,doorH,.061);
         for(const y of [.075,doorH-.024])trim(4,black,mid,y,.103,paneWidth,.040,.061);
         trim(1,travertine,mid,.033,.09,paneWidth,.066,.25);
         // Fully opened bronze-framed leaves are recessed against the jambs.
-        const leaf=sign*(jamb+.046);
-        for(const v of [.09,.82])trim(4,bronze,leaf,doorH/2,v,.048,doorH,.045);
-        for(const y of [.075,doorH-.037,1.02])trim(4,bronze,leaf,y,.46,.048,.044,.75);
-        trim(4,0xaf9466,leaf-sign*.036,1.10,.71,.046,.23,.024);
+        if(!plan.hotel){
+          const leaf=sign*(jamb+.046);
+          for(const v of [.09,.82])trim(4,bronze,leaf,doorH/2,v,.048,doorH,.045);
+          for(const y of [.075,doorH-.037,1.02])trim(4,bronze,leaf,y,.46,.048,.044,.75);
+          trim(4,0xaf9466,leaf-sign*.036,1.10,.71,.046,.23,.024);
+        }
         trim(1,0xb7a990,sign*(half-.093),1.48,depth/2,.186,2.96,depth);
         trim(2,0x826748,sign*(half-.195),.060,depth/2,.035,.12,depth-.05);
         // Wall-wash strip and individual task lights recede down the ceiling.
@@ -127,6 +133,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
       }
       // Front left: upholstered two-seat gallery lounge, low stone table and dome lamp.
       const {sofa,table,console:consoleTable,shelf}=entry;
+      const seated=motion.start(sofa.piece);
       const su=(sofa.x-x)*side,sv=(z-sofa.z)*side,sw=sofa.w;
       trim(2,0x705c47,su,.21,sv,sw-.05,.20,.68);
       for(const s of [-1,1]){
@@ -134,14 +141,18 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
         orb(cushion,3,s===1?0xc8b798:linen,su+s*sw*.215,.645,sv+.276,sw*.214,.205,.098);
         orb(cushion,3,leather,su+s*(sw/2-.067),.50,sv,.071,.19,.36);
       }
+      motion.end(seated);
+      const coffeeTable=motion.start(table.piece);
       const tu=(table.x-x)*side,tv=(z-table.z)*side;
       trim(1,0xa19781,tu,.16,tv,table.w*.74,.27,.34);
       trim(1,limestone,tu,.32,tv,table.w,.10,.47);
       trim(2,0x755f51,tu+.14,.39,tv,.25,.036,.16);
+      motion.end(coffeeTable);
       const lampU=su-sw*.31,lampV=sv+.61;
       leg(bronze,lampU,.74,lampV,.023,1.20);leg(bronze,lampU,.14,lampV,.16,.075);
       orb(dome,1,0xd6bd93,lampU,1.29,lampV,.268,.178,.268);
       // Front right: a narrow travertine display with ceramic vessels and pin lights.
+      const display=motion.start(consoleTable.piece);
       const cu=(consoleTable.x-x)*side,cv=(z-consoleTable.z)*side;
       for(const s of [-1,1])trim(1,0xc2ac90,cu+s*consoleTable.w*.30,.42,cv,.135,.78,.40);
       trim(1,travertine,cu,.836,cv,consoleTable.w,.068,.57);
@@ -149,6 +160,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
         orb(ball,4,0xe0d4be,cu+du,.995,cv,.102*scale,.133*scale,.10*scale);
         leg(0xe1d7c4,cu+du,1.11,cv,.050*scale,.064*scale);
       }
+      motion.end(display);
       const vu=(shelf.x-x)*side,vv=(z-shelf.z)*side;
       for(const dv of [-1,1])trim(2,wood,vu,.98,vv+dv*(shelf.d/2-.025),.33,1.90,.050);
       for(const y of [.18,.72,1.25,1.85]){
@@ -168,30 +180,26 @@ export function galleryLobbyView(scene,renderer,Batch,panorama) {
       }
     }
     const mesh=batch.mesh(scene,mat,false),points=mesh.geometry.attributes.position;
+    motion.bind([mesh]);
     const local=new Float32Array(points.count*3);
     for(let i=0;i<points.count;i++){local[i*3]=points.getX(i)-plan.x;local[i*3+1]=points.getZ(i)-plan.b.z;local[i*3+2]=plan.b.d/2;}
     mesh.geometry.setAttribute('galleryCoords',new THREE.BufferAttribute(local,3));
     mesh.userData.impactSurface='solid';
   }
-  const glass=new THREE.ShaderMaterial({
-    transparent:true,depthWrite:false,side:THREE.DoubleSide,uniforms:{skyline:{value:panorama}},
-    vertexShader:`varying vec3 wp;void main(){vec4 p=modelMatrix*instanceMatrix*vec4(position,1.);wp=p.xyz;gl_Position=projectionMatrix*viewMatrix*p;}`,
-    fragmentShader:`uniform sampler2D skyline;varying vec3 wp;void main(){vec3 v=normalize(wp-cameraPosition);
-      vec3 r=reflect(v,vec3(0.,0.,1.));vec3 sky=texture2D(skyline,vec2(atan(r.x,-r.z)*.46+.17,clamp((asin(r.y)+.16)/.69,0.,1.))).rgb;
-      gl_FragColor=vec4(sky*vec3(.76,.87,.84),.048+.23*pow(1.-abs(v.z),2.));
-      #include <colorspace_fragment>
-    }`});
+  const glass=frontageGlassMaterial(panorama,'z',true);
+  const shards=galleryPanes.map(p=>({widthAxis:'x',x:p.x,z:p.z,width:p.w,bottom:p.bottom,top:p.bottom+p.h}));
   const windows=new THREE.InstancedMesh(new THREE.PlaneGeometry(),glass,galleryPanes.length);
   windows.userData.impactSurface='glass';scene.add(windows);
   const dummy=new THREE.Object3D(), visible=new Array(galleryPanes.length);
   let prior,received=false;
-  function update(doors,scatter){
+  function update(doors){
+    moveHotelDoors(doors);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;
     galleryPanes.forEach((p,i)=>{
       const show=!broken?.[p.id];if(visible[i]===show)return;
-      if(received && !show && visible[i])scatter?.(p.x,p.z);
+      debris.setBroken(shards[i],!show,received);
       visible[i]=show;dummy.position.set(p.x,p.bottom+p.h/2,p.z);
       dummy.scale.set(show?p.w:0,show?p.h:0,1);dummy.updateMatrix();
       windows.setMatrixAt(i,dummy.matrix);changed=true;

@@ -1,0 +1,26 @@
+// The existing mainland corner block keeps its two independent side shops.
+export const hotel={name:'Hotel Maravela',x:-16,z:-53,fronts:[
+  {id:'quay',z:-57,side:-1},{id:'city',z:-49,side:1},
+],desk:{x:-14.34,z:-53.07,w:.83,d:1.84},cart:{x:-17.91,z:-52.91,w:.61,d:.83}};
+export function hotelPanels(front,fraction,width){
+  return [-1,1].map(s=>({x:hotel.x+s*width*(.25+.51*fraction),z:front.z-.045*front.side,w:width/2,d:.035}));
+}
+export function stepHotelDoors(doors,players,dt){
+  for(const f of hotel.fronts){
+    const old=doors.hotel?.[f.id]??0;
+    const open=players.some(p=>p.y>.45 && p.y<3.1 && Math.abs(p.x-hotel.x)<1.03 && Math.abs(p.z-f.z)<2.1);
+    const amount=open?Math.min(1,old+dt*3.5):Math.max(0,old-dt*1.3);
+    if(amount===old)continue;
+    if(amount)(doors.hotel??={})[f.id]=amount;
+    else delete doors.hotel[f.id];
+  }
+}
+export function hotelDoorTop(x,z,pad,doors,width){
+  for(const f of hotel.fronts){
+    if(Math.abs(z-f.z)>.10+pad)continue;
+    for(const p of hotelPanels(f,doors?.hotel?.[f.id]??0,width)){
+      if(Math.abs(z-p.z)<=p.d/2+pad && Math.abs(x-p.x)<p.w/2+pad)return 3.1;
+    }
+  }
+  return -Infinity;
+}
