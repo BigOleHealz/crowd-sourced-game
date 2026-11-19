@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { rangerMaterial, rangerIdentity, skinColors, heads, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
@@ -749,51 +749,50 @@ function characterLabel(root, name) {
   };
 }
 
-// Pattern-cut jacket, trousers and gaiters have a continuous hem profile.
-function cloth(profile){
-  return new THREE.LatheGeometry(profile.map(([y,r])=>new THREE.Vector2(r,y)),12);
-}
-const gaiter=cloth([[-.235,.078],[-.20,.091],[-.14,.094],[.025,.093],[.14,.104],[.22,.086]]);
-
 // Parts are assembled in model space about real joints. Forward is local -Z.
 function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
   const identity=rangerIdentity(id), warm=skinColors[identity];
-  const coat=tint ?? jacketColor(id), dark=0x263e41;
+  const coat=tint ?? jacketColor(id);
   const torso=new Batch(true);
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
-  torso.add(round,dark,0,.987,.005,.179,.121,.135);
+  torso.add(trouserSeat,0x97a291,0,.995,.004);
   torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
   torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
   for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
-  torso.add(round,0x515a49,0,1.802,.004,.119,.056,.123);
+  torso.add(capCrown,0x9d9b7d,0,1.785,.004);
   torso.add(round,0x454d40,0,1.781,-.096,.114,.013,.103,-.06);
   if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
   torso.add(fieldPack,0xe1d4ba,0,1.302,.172);
   for (const side of [-1,1]) {
-    torso.add(cube,0x575747,side*.113,1.31,-.147,.038,.36,.04,0,0,-side*.08);
+    torso.beam(0x6a6853,[side*.136,1.497,-.110],[side*.127,1.405,-.150],.031,.014);
+    torso.beam(0x6a6853,[side*.127,1.405,-.150],[side*.120,1.193,-.121],.031,.014);
+    torso.add(cube,0x96907b,side*.12,1.216,-.134,.037,.021,.009);
+    torso.beam(0x585844,[side*.120,1.193,-.121],[side*.171,1.12,-.049],.022,.014);
+    torso.beam(0x585844,[side*.171,1.12,-.049],[side*.152,1.17,.166],.022,.014);
     torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
     torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
   }
   torso.mesh(body,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
-    const leg=new THREE.Group(); leg.position.set(side*.122,.975,0); body.add(leg);
+    const leg=new THREE.Group(); leg.position.set(side*.108,.975,0); body.add(leg);
     const thigh=new Batch(true); thigh.add(fieldTrouser,0x97a291,0,-.192,0,1,1,.99);
     thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,uniform);
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
-    const shin=new Batch(); shin.add(gaiter,0x38443a,0,-.188,.004,.97,1,1.05);
+    const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
     shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
     shin.add(round,0x61543f,0,-.446,-.039,.108,.091,.16);
-    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); shin.mesh(knee,material);
-    const arm=new THREE.Group(); arm.position.set(side*.245,1.445,0); body.add(arm);
+    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
+    shin.mesh(knee,uniform);
+    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
     const sleeve=new Batch(true);
     sleeve.add(fieldSleeve,coat,side*.017,-.012,.006,1,1,1,-.10);
-    sleeve.add(trunk,0x454d42,side*.018,-.434,-.035,.061,.035,.059,-.10);
-    sleeve.add(round,warm,side*.02,-.475,-.050,.046,.063,.043,-.15);
-    sleeve.add(round,warm,side*-.013,-.472,-.084,.021,.037,.021,-.38);
+    sleeve.add(trunk,0x454d42,side*.018,-.423,.038,.059,.035,.059,-.10);
+    sleeve.add(round,warm,side*.02,-.466,.028,.041,.060,.037,-.15);
+    sleeve.add(round,warm,side*-.010,-.456,-.002,.019,.033,.019,-.38);
     sleeve.add(cube,0xc3ac75,side*.097,-.107,.004,.012,.059,.048,0,0,side*.06);
     sleeve.mesh(arm,uniform);
     limbs.push({side,leg,knee,arm});
