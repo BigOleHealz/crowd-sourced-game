@@ -829,12 +829,44 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
-  const stroke=avatar.cycle*(state.moving?2.7:1.45);
+  if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
+  const stroke=avatar.stroke ?? 0;
   avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
   if(swimming) {
     avatar.body.position.y=.72-1.34*Math.cos(avatar.body.rotation.x)+.07+.03*Math.sin(stroke);
     avatar.body.position.z=-Math.sin(avatar.body.rotation.x)*1.12;
     avatar.spine.rotation.x=.17;
+    if(!avatar.ripples) {
+      const rings=Array.from({length:2},()=>{
+        const ring=new THREE.Mesh(new THREE.RingGeometry(.95,1,42).rotateX(-Math.PI/2),
+          new THREE.MeshBasicMaterial({color:0xd9f6ec,transparent:true,depthWrite:false}));
+        ring.visible=false;
+        avatar.root.parent.add(ring);
+        return ring;
+      });
+      avatar.ripples={rings,beat:-1};
+    }
+    // Leave each stroke ring where the swimmer disturbed the surface.
+    const beat=Math.floor(stroke/Math.PI);
+    const {rings}=avatar.ripples;
+    if(beat!==avatar.ripples.beat) {
+      const ring=rings[beat%2];
+      ring.userData.beat=beat;
+      ring.position.set(state.x,MAP.waterY+.019,state.z);
+      avatar.ripples.beat=beat;
+    }
+    for(const ring of rings) {
+      const age=(stroke/Math.PI-ring.userData.beat)/2;
+      ring.visible=age>=0 && age<1;
+      if(ring.visible) {
+        const radius=.29+age*.95;
+        ring.scale.set(radius,1,radius);
+        ring.material.opacity=.33*(1-age)**2;
+      }
+    }
+  } else if(avatar.ripples) {
+    avatar.ripples.beat=-1;
+    for(const ring of avatar.ripples.rings) {ring.visible=false;delete ring.userData.beat;}
   }
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
@@ -982,6 +1014,10 @@ export function createScene(canvas) {
   let roverBoom = null, bailoutOrbit = 0;
   function removeAvatar(a) {
     a.label.dispose();
+    for(const ring of a.ripples?.rings ?? []) {
+      scene.remove(ring);
+      ring.geometry.dispose();ring.material.dispose();
+    }
     a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
@@ -1058,7 +1094,8 @@ export function createScene(canvas) {
       const seated=state.id===rover.driver;
       const station=state.id===rover.gunner ? rover : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
-      a.shadow.visible=a.root.visible && !seated && !station;
+      a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
+      if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
       if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
     }
