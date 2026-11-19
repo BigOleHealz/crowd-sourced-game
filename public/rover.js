@@ -1,4 +1,5 @@
-import { MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
+import { vehicleContact } from './vehicle-contact.js';
+import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
 import { impactDamage, RECOVERY_SECONDS } from './airframe.js';
 
@@ -39,7 +40,7 @@ export function interactRover(world, player) {
     const x = r.x + 1.7*Math.cos(angle), z = r.z + 1.7*Math.sin(angle);
     const y = groundHeight(x,z);
     if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp)) continue;
-    if (world.heli.y-y < 2 && Math.hypot(x-world.heli.x,z-world.heli.z)<1.3) continue;
+    if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
     exit = {x,y,z,vy:0,grounded:true};
     break;
   }

@@ -1,6 +1,7 @@
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
 import {depotPoint,landingPoint,supplySupports,trailMarkers} from './scenery-layout.js';
+import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround } from './brickell-map.js';
 export const CITY = typeof location === 'object'
   ? new URLSearchParams(location.search).get('map') === 'brickell'
@@ -178,7 +179,7 @@ export function blocked(x, y, z, hp) {
   return solidTopAt(x, z, hp, PLAYER_RADIUS) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
-export function stepPlayer(state, input, dt, hp) {
+export function stepPlayer(state, input, dt, hp, world) {
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
   const speed = state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
@@ -206,9 +207,22 @@ export function stepPlayer(state, input, dt, hp) {
   if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
   x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
   z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
-  let floor = groundHeight(x, z);
+  const height=state.stance==='prone' ? .54 : state.stance==='crouch' ? 1.28 : 1.8;
+  let contact=vehicleContact(x,y,z,world,CITY,height);
+  // Project out of the hull and remove only the velocity into its surface.
+  // Recheck adjacent sections when a corner touches more than one shape.
+  for(let pass=0; contact.depth>.00001 && pass<5; pass++) {
+    const nx=contact.dx/contact.depth,nz=contact.dz/contact.depth;
+    const px=x+contact.dx, pz=z+contact.dz;
+    if(blocked(px,y,pz,hp)) {x=state.x;z=state.z;vx=vz=0;break;}
+    x=px;z=pz;
+    const inward=Math.min(0,vx*nx+vz*nz);
+    vx-=inward*nx;vz-=inward*nz;
+    contact=vehicleContact(x,y,z,world,CITY,height);
+  }
+  let floor = Math.max(groundHeight(x, z),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
-  if (y >= top) floor = top;
+  if (y >= top) floor = Math.max(floor,top);
   const draft=.72, floatY=MAP.waterY-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
@@ -228,6 +242,7 @@ export function stepPlayer(state, input, dt, hp) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
+    if(y>contact.ceiling) {y=contact.ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;
       vy = 0;
