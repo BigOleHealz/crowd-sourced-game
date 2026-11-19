@@ -1,8 +1,9 @@
+import { depotPoint, landingPoint } from './scenery-layout.js';
 import { ROVER_PAD } from './rover.js';
 import { CITY, HELIPAD } from './world.js';
 
-export const DEPOT = { x: -3, z: 23 };
-export const OUTPOST = CITY ? {x:30,z:-42} : { x: 12, z: -15 };
+export const DEPOT = depotPoint;
+export const OUTPOST = landingPoint(CITY);
 const near = (a, b, radius) => Math.hypot(a.x - b.x, a.z - b.z) <= radius;
 
 export function newSupplyRun() {

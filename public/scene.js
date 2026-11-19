@@ -1,3 +1,4 @@
+import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
@@ -332,10 +333,10 @@ function windsock(batch) {
 
 function addDetails(scene,batch, rng) {
   const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
-  addTrailMarker(batch,2.24,8.1,-.35);
-  addTrailMarker(batch,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,true);
-  signFace(scene,2.24,8.1,-.35,'CREEK TRAIL');
-  signFace(scene,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,'LOOKOUT');
+  for(const marker of trailMarkers) {
+    addTrailMarker(batch,marker.x,marker.z,marker.heading,marker.h>2);
+    signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+  }
   windsock(batch);
   for(let i=0;i<4100;i++) {
     const x=(rng()-.5)*79,z=(rng()-.5)*79,y=terrainHeight(x,z);

@@ -1,3 +1,4 @@
+import {harborSigns,signalPost} from './scenery-layout.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
@@ -60,7 +61,7 @@ export function cityStreets(scene,renderer,Batch) {
     for(let i=0;i<=bays;i++)solids.add(box,0xc4bfaa,x,.96,causeway.north+i*length/bays,.18,.53,.17);
   }
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
-  for(const [x,z,label] of [[8.3,-40,'↑  HARBOR KEY'],[8.3,-157,'HARBOR KEY']]) {
+  for(const [x,z,label] of harborSigns) {
     const face=document.createElement('canvas');face.width=640;face.height=144;
     const ink=face.getContext('2d');
     ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
@@ -84,7 +85,7 @@ export function cityStreets(scene,renderer,Batch) {
     }
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
-      const lx=x-6.2,lz=z-5.8;
+      const {x:lx,z:lz}=signalPost(x,z);
       furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
       furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
       furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
