@@ -887,6 +887,7 @@ export function createScene(canvas) {
     if(w===lastWidth && h===lastHeight) return;
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
+  let roverBoom = null;
   function removeAvatar(a) {
     a.label.dispose();
     a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
@@ -961,7 +962,10 @@ export function createScene(canvas) {
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : 0);
-    const distance=cameraDistance(target,boom,wanted,world?.hp);
+    const clearance=cameraDistance(target,boom,wanted,world?.hp);
+    // Pull in at obstructions, then ease back out as the orbit clears them.
+    roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
+    const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && !driving && distance>.86;
