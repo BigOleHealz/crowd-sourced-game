@@ -11,7 +11,7 @@ export function cityStreets(scene,renderer,Batch) {
     map.wrapS=map.wrapT=THREE.RepeatWrapping;
     return new THREE.MeshStandardMaterial({map,roughness:.83,vertexColors:true,...options});
   }
-  const solids=new Batch(), walls=new Batch(true), foliage=new Batch(true);
+  const furniture=new Batch(), solids=new Batch(), walls=new Batch(true), foliage=new Batch(true);
   function ground(name,rectangles,period,options={}) {
     const batch=new Batch(true), plane=new THREE.PlaneGeometry().rotateX(-Math.PI/2);
     for(const [x,y,z,w,d] of rectangles) {
@@ -20,7 +20,8 @@ export function cityStreets(scene,renderer,Batch) {
       plane.setAttribute('batchUv',uv);
       batch.add(plane,0xffffff,x,y,z,w,1,d);
     }
-    batch.mesh(scene,material(name,options),false);plane.dispose();
+    const mesh=batch.mesh(scene,material(name,options),false);
+    mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
   ground('water',[[0,MAP.waterY,0,460,460]],14,{roughness:.28});
@@ -46,10 +47,10 @@ export function cityStreets(scene,renderer,Batch) {
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
       const lx=x-6.2,lz=z-5.8;
-      solids.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
-      solids.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
-      solids.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
-      for(let k=0;k<3;k++) solids.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
+      furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
+      furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
+      furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
+      for(let k=0;k<3;k++) furniture.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
     }
   }
   // UV islands preserve the scale of windows regardless of each tower's height.
@@ -58,6 +59,7 @@ export function cityStreets(scene,renderer,Batch) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
+  furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
     const base=.80, podium=3.9;
@@ -74,12 +76,12 @@ export function cityStreets(scene,renderer,Batch) {
       solids.add(box,i%2?0x637b78:0xc2b49d,x+side*(w/2+.45),base+2.95,z,1.1,.17,d*.79);
     }
   });
-  walls.mesh(scene,material('facades',{roughness:.53,metalness:.08}));
+  walls.mesh(scene,material('facades',{roughness:.53,metalness:.08})).userData.impactSurface='solid';
   const leaves=[0,1,2].map(i=>atlas(new THREE.PlaneGeometry(1,1),i,0,3,1));
   MAP.trees.forEach(({x,z,height:h},i)=>{
     for(const angle of [0,Math.PI/2]) foliage.add(leaves[i%3],0xfafbf0,x,.80+h/2,z,h,h,1,0,angle+i*.91);
   });
   foliage.mesh(scene,material('palms',{side:THREE.DoubleSide,alphaTest:.53,roughness:.95}));
-  solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
+  solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces,...leaves])geometry.dispose();
 }

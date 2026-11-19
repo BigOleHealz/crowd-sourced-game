@@ -179,7 +179,7 @@ export function granite(scene,rocks,ground,renderer) {
     }
   }
   const g=new THREE.BufferGeometry();for(const [name,arr,n] of [['position',pos,3],['normal',nor,3],['uv',uv,2],['color',col,3]])g.setAttribute(name,new THREE.Float32BufferAttribute(arr,n));
-  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map,vertexColors:true}));mesh.castShadow=mesh.receiveShadow=true;scene.add(mesh);
+  const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map,vertexColors:true}));mesh.castShadow=mesh.receiveShadow=true;mesh.userData.impactSurface='solid';scene.add(mesh);
 }
 
 export function creekMaterial(renderer) {

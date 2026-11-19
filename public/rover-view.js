@@ -110,9 +110,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
   missileLaunchers(chassis,'rover');
-  chassis.mesh(root,fieldPaint(),false);
+  const shellMesh=chassis.mesh(root,fieldPaint(),false);
+  Object.assign(shellMesh.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
-  glazing.mesh(root,glassMat,false);
+  Object.assign(glazing.mesh(root,glassMat,false).userData,{impactSurface:'solid',vehicle:'rover'});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
@@ -145,6 +146,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     const wheel=wheelBatch.mesh(root,material,false);
     wheel.position.set(side*.70,.368,z);
+    Object.assign(wheel.userData,{impactSurface:'solid',vehicle:'rover'});
     wheels.push(wheel);
   }
   tire.dispose(); seatForm.dispose();
