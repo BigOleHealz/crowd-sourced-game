@@ -1,4 +1,3 @@
-import {stationCorners} from './scenery-layout.js';
 import * as THREE from 'three';
 import { CITY, groundHeight } from './world.js';
 import { DEPOT, OUTPOST, supplyGuidance } from './supply-run.js';
@@ -8,7 +7,6 @@ export function createSupplyView(scene) {
   scene.add(group);
   const metal = new THREE.MeshStandardMaterial({ color: 0x38463b, roughness: .9 });
   const paint = new THREE.MeshStandardMaterial({ color: 0xe6ae51, roughness: .8 });
-  const amber = new THREE.MeshBasicMaterial({ color: 0xffdc81, side: THREE.DoubleSide });
   function mesh(parent, geometry, material, x, y, z) {
     const piece = new THREE.Mesh(geometry, material);
     piece.userData.impactSurface = material === metal || material === paint ? 'metal' : 'solid';
@@ -20,13 +18,6 @@ export function createSupplyView(scene) {
     const origin = new THREE.Group();
     origin.position.set(point.x, groundHeight(point.x, point.z), point.z);
     group.add(origin);
-    // Follow the ground at each post so the route remains legible across uneven terrain.
-    for (const [dx,dz] of stationCorners(point)) {
-      const x = dx*radius*.8, z = dz*radius*.8;
-      const floor = groundHeight(point.x+x,point.z+z) - origin.position.y;
-      mesh(origin,new THREE.BoxGeometry(.15,.65,.15),metal,x,floor+.325,z);
-      mesh(origin,new THREE.BoxGeometry(.18,.15,.18),paint,x,floor+.6,z);
-    }
     const canvas = document.createElement('canvas');
     canvas.width = 256; canvas.height = 64;
     const c = canvas.getContext('2d');
@@ -36,11 +27,14 @@ export function createSupplyView(scene) {
     c.fillText(name,128,41);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    const sign=mesh(origin,new THREE.BoxGeometry(1.9,.47,.07),
-      new THREE.MeshLambertMaterial({map:texture}),-radius,1.56,0);
-    for(const offset of [-.61,.61]) mesh(origin,new THREE.BoxGeometry(.07,1.59,.07),metal,sign.position.x+offset,.795,-.03);
-    const light=mesh(origin,new THREE.CylinderGeometry(.055,.065,.12,8),amber,-radius,1.86,0);
-    return light;
+    // Paint the station ID onto the apron, following the slope on rural sites.
+    const patch=new THREE.PlaneGeometry(2.55,.64,8,2).rotateX(-Math.PI/2);
+    const vertices=patch.attributes.position;
+    for(let i=0;i<vertices.count;i++){
+      const x=vertices.getX(i),z=vertices.getZ(i)+radius*.62;
+      vertices.setXYZ(i,x,groundHeight(point.x+x,point.z+z)-origin.position.y+.035,z);
+    }
+    return mesh(origin,patch,new THREE.MeshBasicMaterial({map:texture}),0,0,0);
   }
   const depotBeacon = station(DEPOT,2.4,CITY ? 'BRICKELL DEPOT' : 'PINE DEPOT');
   const outpostBeacon = station(OUTPOST,3.4,CITY ? 'BAYFRONT LANDING' : 'RIDGE OUTPOST');

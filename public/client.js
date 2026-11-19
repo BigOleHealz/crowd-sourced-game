@@ -61,7 +61,7 @@ let queuedSeat=null, queuedSeatKind=null;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -114,11 +114,12 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (e.code === 'Digit1' || e.code === 'Digit2') {
-    const number=e.code==='Digit1' ? 1 : 2;
+  if (['Digit1','Digit2','Digit3'].includes(e.code)) {
+    const number=Number(e.code.at(-1));
     const kind=seatVehicle(world,id);
-    if(kind && !vitals.dead) {queuedSeat=number;queuedSeatKind=kind;}
-    else {weapon=number;if(camera.sighted)showSight(true);}
+    if(kind) {
+      if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
+    } else {weapon=number;if(camera.sighted)showSight(true);}
   }
 });
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -366,7 +367,7 @@ function updateEquipment(local) {
   const boat=myBoat(),nearby=nearBoat(world,local);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
-  byId('kit').textContent = boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Patrol sidearm';
+  byId('kit').textContent = boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+firearmSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = boat || (pilot ? heli : isDriving() ? world.rover : vitals);
@@ -387,6 +388,7 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
+  byId('third-tool-key').hidden=Boolean(kind);
   byId('fire-shortcut').hidden = local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   if (local.climb) prompt.textContent = 'Pulling up…';

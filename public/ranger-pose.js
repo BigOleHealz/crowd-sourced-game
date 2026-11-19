@@ -15,7 +15,7 @@ export function createRangerRig() {
     const arm=joint(upper,side*.203,1.447),forearm=joint(arm,0,-.275);
     return {side,leg,knee,ankle,arm,forearm,foot:newFoot()};
   });
-  return {root,body,spine,upper,head,limbs,tools:[new THREE.Group(),new THREE.Group()],cycle:0,gait:null};
+  return {root,body,spine,upper,head,limbs,tools:[new THREE.Group(),new THREE.Group(),new THREE.Group()],cycle:0,gait:null};
 }
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
 const grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
@@ -130,8 +130,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
     avatar.body.position.y-=.12*tuck;
     avatar.spine.rotation.x=-.40*tuck;
   }
-  avatar.tools[0].visible = !climb && !fall && !swimming && !state.dead && !seated && !station && !bloom;
-  avatar.tools[1].visible = !climb && !fall && !swimming && !state.dead && !seated && !station && bloom;
+  const toolIndex=(state.weapon ?? 1)-1;
+  const carrying=!climb && !fall && !swimming && !state.dead && !seated && !station;
+  avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex;});
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(prone) {
@@ -188,7 +189,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(!seated && !state.parachute && !state.dead) {
-      const weapon=avatar.tools[bloom ? 1 : 0];
+      const weapon=avatar.tools[toolIndex];
       const kit=weapon.position;
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;

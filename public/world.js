@@ -3,7 +3,7 @@ import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
-import {depotPoint,landingPoint,supplySupports,trailMarkers} from './scenery-layout.js';
+import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround } from './brickell-map.js';
 export const CITY = typeof location === 'object'
@@ -43,10 +43,7 @@ export const MAP = CITY ? brickellMap : {
 };
 
 export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
-MAP.barriers=[
-  ...(MAP.barriers ?? []), ...(CITY ? facadePiers : []),
-  ...supplySupports(depotPoint,2.4),...supplySupports(landingPoint(CITY),3.4),
-];
+MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
   MAP.barriers.push(...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
     {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});

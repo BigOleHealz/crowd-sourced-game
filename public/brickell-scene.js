@@ -1,4 +1,5 @@
 import {harborSigns,signalPost} from './scenery-layout.js';
+import { retailRecess, streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
@@ -101,12 +102,15 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
+  const furnishPortico=streetShops(scene,renderer,Batch,panorama);
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
     const base=.80, podium=3.9;
     const avenueCorner=x===-17 && z===7;
-    // Recess the block's east podium face for the shop interior, preserving the other three facades.
-    const recess=avenueCorner ? 7.13 : 0;
-    walls.add(faces[2],0xf5eee5,x-recess/2,base+podium/2,z,w-recess,podium,d);
+    const westDepth=retailRecess(w),eastDepth=avenueCorner?7.13:westDepth;
+    const coreWidth=w-westDepth-eastDepth;
+    walls.add(faces[2],0xf5eee5,x+(westDepth-eastDepth)/2,base+podium/2,z,coreWidth,podium,d);
+    furnishPortico(i,-1,{x,z,w,d},westDepth);
+    if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
     if(avenueCorner) {
       for(let floor=1;floor<=6;floor++) {
         const level=base+podium+floor*(h-podium)/6;
