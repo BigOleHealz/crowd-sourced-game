@@ -978,7 +978,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0) {
   let distance=wanted;
   for(let d=.45;d<wanted;d+=.20) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14,y+.15))>y-.15) {distance=Math.max(.45,d-.18);break;}
+    if(Math.max(groundHeight(x,z,y+.15),buildingTopAt(x,z,.14,y+.15))>y-.15) {distance=Math.max(.45,d-.18);break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {

@@ -74,7 +74,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
-  const above=f=>round.y+f*d.y-Math.max(MAP.waterY,groundHeight(round.x+f*d.x,round.z+f*d.z));
+  const above=f=>round.y+f*d.y-Math.max(MAP.waterY,groundHeight(round.x+f*d.x,round.z+f*d.z,round.y+f*d.y));
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){
     const u=i/steps;if(u-1/steps>=t)break;
