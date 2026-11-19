@@ -3,7 +3,7 @@ import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrow
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
-import { conifers, granite, floorMaterial, creekMaterial, alpineGlass } from './landscape.js';
+import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -205,7 +205,24 @@ function addSky(scene) {
   return panorama;
 }
 
-function addBridge(batch, rng) {
+function addBridge(scene,renderer,rng) {
+  // Project the board finish along the longest local dimension of each beam,
+  // including diagonal braces, before Batch transforms it into world space.
+  const uv=[];
+  class BridgeBatch extends Batch {
+    add(shape,tint,x,y,z,sx,sy,sz,...rotation) {
+      const pos=shape.attributes.position, normal=shape.attributes.normal;
+      for(let i=0;i<pos.count;i++) {
+        const px=pos.getX(i)*sx,py=pos.getY(i)*sy,pz=pos.getZ(i)*sz;
+        const u=sx>=sy && sx>=sz ? px : sy>=sz ? py : pz;
+        const v=sx>=sy && sx>=sz ? (Math.abs(normal.getY(i))>.5 ? pz : py)
+          : sy>=sz ? (Math.abs(normal.getX(i))>.5 ? pz : px) : (Math.abs(normal.getY(i))>.5 ? px : py);
+        uv.push(u*.43+z*.71+x*.15,v*1.2+y*.83+z*.33);
+      }
+      super.add(shape,tint,x,y,z,sx,sy,sz,...rotation);
+    }
+  }
+  const batch=new BridgeBatch();
   const { x,z,width,length,y }=MAP.bridge;
   const boards=[0xa58b60,0xb29973,0x9e815c,0xa68d68];
   for(let i=0;i<32;i++) {
@@ -228,6 +245,13 @@ function addBridge(batch, rng) {
       batch.beam(0x776649,[xx,y+.22,from+.1],[xx,y+.82,from+2.31],.083);
     }
   }
+  const map=new THREE.TextureLoader().load('./sawn-timber.webp');
+  map.wrapS=map.wrapT=THREE.MirroredRepeatWrapping;
+  map.colorSpace=THREE.SRGBColorSpace;
+  map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+  const wood=new THREE.MeshLambertMaterial({map,vertexColors:true});
+  const bridge=batch.mesh(scene,wood);
+  bridge.geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
 }
 
 function addTrailMarker(batch, x,z, heading, flag = false) {
@@ -516,7 +540,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
-  const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x393c34,shininess:26});
+  const paint=fieldPaint();
   hull.mesh(group,paint,false);
   glazing.mesh(group,alpineGlass(panorama),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
@@ -906,7 +930,8 @@ export function createScene(canvas) {
   conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
   forest.mesh(scene,material);
   granite(scene,MAP.rocks,terrainHeight,renderer);
-  const features=new Batch();addBridge(features,rng);addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
+  addBridge(scene,renderer,rng);
+  const features=new Batch();addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng,renderer);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
