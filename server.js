@@ -7,6 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
 import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/expedition.js';
 
+import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
 
@@ -118,6 +119,7 @@ function acceptInput(player, data, binary) {
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
+    replaySupply: input.replaySupply === true,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
@@ -179,6 +181,7 @@ function tick() {
       continue;
     }
     if (input) {
+      if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact) interact(world, player);
     }
@@ -200,6 +203,7 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  updateSupplyRun(world, step);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
 }

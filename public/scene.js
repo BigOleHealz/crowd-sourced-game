@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createSupplyView } from './supply-view.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -817,6 +818,7 @@ export function createScene(canvas) {
   const forest=new Batch(); addForest(forest,rng);forest.mesh(scene,material);
   const features=new Batch();addBridge(features,rng);addDetails(features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng);
+  const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const helicopter=fieldHelicopter(scene,material,shadowMap);
   const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
@@ -842,6 +844,7 @@ export function createScene(canvas) {
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
+    updateSupplyView(world);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
     for(const crystal of crystals) {
