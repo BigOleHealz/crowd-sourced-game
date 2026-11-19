@@ -1,8 +1,9 @@
+import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
-import { gunnerVehicle, gunnerFeet, turretRange } from './mounts.js';
+import { gunnerVehicle, gunnerFeet } from './mounts.js';
 import { nearestVehicle } from './rover.js';
 import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
@@ -99,7 +100,7 @@ canvas.addEventListener('pointerdown', e => {
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
-    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 49 : 78,gunnerRole());
+    pressedAim = scene.aimAt(lastPointer,self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 });
 window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
@@ -205,7 +206,7 @@ function tick() {
   const fire = !self.swimming && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 49 : 78,gunner))) || camera;
+    (pressedAim || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
