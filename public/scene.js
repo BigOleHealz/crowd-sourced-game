@@ -361,8 +361,47 @@ function jacketColor(id) {
   return coats[h%coats.length];
 }
 
+// Text and the HP strip share one texture per hiker. Redraw only when the
+// displayed value changes; depth testing hides labels behind the landscape.
+function characterLabel(root, name) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 60;
+  const ctx = canvas.getContext('2d');
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture, transparent: true, depthWrite: false, sizeAttenuation: false,
+  }));
+  sprite.scale.set(.135, .032, 1);
+  root.add(sprite);
+  let previous;
+  return {
+    sprite,
+    update(state) {
+      const hp = state.hp ?? 100, max = state.maxHp || 100;
+      const status = state.dead ? 'DOWN' : state.protected ? 'SHIELD' : String(hp);
+      const key = status + '/' + hp + '/' + max;
+      sprite.position.y = state.dead ? .95 : 2.26;
+      if (key === previous) return;
+      previous = key;
+      ctx.clearRect(0, 0, 256, 60);
+      ctx.fillStyle = '#16221eeb'; ctx.fillRect(0, 0, 256, 60);
+      ctx.fillStyle = '#fff9df'; ctx.font = 'bold 23px sans-serif'; ctx.textAlign = 'left';
+      ctx.fillText(name, 8, 29, 143);
+      ctx.fillStyle = state.protected ? '#a4e6f1' : '#ffe4a2';
+      ctx.textAlign = 'right'; ctx.fillText(status, 248, 29);
+      ctx.fillStyle = '#52605a'; ctx.fillRect(8, 39, 240, 13);
+      ctx.fillStyle = state.protected ? '#75d9e5' : hp <= 30 ? '#ff8a65' : '#9de3a0';
+      ctx.fillRect(8, 39, 240 * Math.max(0, Math.min(1, hp / max)), 13);
+      texture.needsUpdate = true;
+    },
+    dispose() { texture.dispose(); sprite.material.dispose(); },
+  };
+}
+
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,shadowMap) {
+function hiker(scene,id,tint,material,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
   const coat=tint ?? jacketColor(id), dark=0x263e41, warm=0xc99772;
@@ -404,11 +443,11 @@ function hiker(scene,id,tint,material,shadowMap) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,limbs,shadow,cycle:0,weight:0};
+  return {root,body,limbs,shadow,label:name ? characterLabel(root,name) : null,cycle:0,weight:0};
 }
 
 function pose(avatar,state,dt) {
-  const active=!!state.moving && state.grounded !== false;
+  const active=!state.dead && !!state.moving && state.grounded !== false;
   avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
   avatar.cycle+=dt*(state.sprint?13:9);
   const swing=Math.sin(avatar.cycle)*avatar.weight;
@@ -418,6 +457,8 @@ function pose(avatar,state,dt) {
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y+=delta*(1-Math.exp(-dt*19));
   avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
+  avatar.label?.update(state);
+  avatar.body.rotation.z=mix(avatar.body.rotation.z,state.dead ? 1.45 : 0,1-Math.exp(-dt*12));
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   for(const {leg,arm,knee,side} of avatar.limbs) {
     leg.rotation.x=airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
@@ -486,6 +527,7 @@ export function createScene(canvas) {
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
   function removeAvatar(a) {
+    a.label?.dispose();
     a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
@@ -498,7 +540,7 @@ export function createScene(canvas) {
     for(const state of [local,...remotes]) {
       live.add(state.id);
       let a=avatars.get(state.id);
-      if(!a) {a=hiker(scene,state.id,state.color,material,shadowMap);avatars.set(state.id,a);}
+      if(!a) {a=hiker(scene,state.id,state.color,material,shadowMap,state.name);avatars.set(state.id,a);}
       pose(a,state,dt);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}

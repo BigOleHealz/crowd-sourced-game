@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
 
+import { newRivals, updateRival, rivalView, pulseActors } from './public/rivals.js';
+
+let npcs = newRivals();
+function worldView() { return { npcs: npcs.map(npc => rivalView(npc, ticks)) }; }
+
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
 const threeBuild = join(root, 'node_modules/three/build');
@@ -87,7 +92,7 @@ function playerState(player) {
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState) });
+  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState), world: worldView() });
   for (const { ws } of players.values()) {
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 64 * 1024) ws.send(message);
   }
@@ -109,6 +114,9 @@ function acceptInput(player, data, binary) {
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
+    fire: input.fire === true, weapon: input.weapon === 2 ? 2 : 1,
+    aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw : input.yaw,
+    aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-1.2, Math.min(.9, input.aimPitch)) : 0,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
   });
@@ -124,7 +132,7 @@ sockets.on('connection', ws => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    id, ws, fireReady: 0, state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   players.set(id, player);
@@ -132,20 +140,23 @@ sockets.on('connection', ws => {
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if (!players.size) npcs = newRivals();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player) }));
+  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
   publish();
 });
 
 const idle = { x: 0, z: 0, jump: false, sprint: false };
 let ticks = 0;
 function tick() {
+  if (players.size) for (const npc of npcs) updateRival(npc, ticks, step);
   for (const player of players.values()) {
     const input = player.inputs.shift();
     player.state = stepPlayer(player.state, input || idle, step);
     if (input) {
       player.ack = input.seq;
+      if (input.fire) pulseActors(player, input, ticks, npcs);
       player.yaw = input.yaw;
       player.moving = Math.hypot(input.x, input.z) > 0.01;
       player.sprint = player.moving && input.sprint;

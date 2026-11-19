@@ -6,6 +6,7 @@ const canvas = byId('game');
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 const held = new Set();
+let weapon = 1, queuedFire = false;
 let lastPointer = null;
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
@@ -19,7 +20,7 @@ const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) *
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Digit1','Digit2','KeyF']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -33,7 +34,7 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
-function clearInput() { held.clear(); queuedJump = false; }
+function clearInput() { held.clear(); queuedJump = queuedFire = false; }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function pauseControls() { clearInput(); stopLook(); }
 byId('help').onclick = () => setGuide(byId('guide').hidden);
@@ -45,6 +46,9 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button')) return;
   e.preventDefault();
   held.add(e.code);
+  if (e.code === 'Digit1') weapon = 1;
+  if (e.code === 'Digit2') weapon = 2;
+  if (e.code === 'KeyF' && !e.repeat) queuedFire = true;
   if (e.code === 'Space' && !e.repeat) queuedJump = true;
 });
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -104,7 +108,7 @@ function connect() {
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
       self = corrected;
-      samples.push({ time: performance.now(), players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), players: [...m.players.filter(p => p.id !== id), ...m.world.npcs] });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -135,7 +139,9 @@ function tick() {
   moving = Boolean(lateral || forward);
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   if (moving) facing = Math.atan2(x, -z);
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint };
+  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint, weapon,
+    fire: queuedFire || held.has('KeyF'), aimYaw: camera.yaw, aimPitch: camera.pitch };
+  queuedFire = false;
   queuedJump = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
