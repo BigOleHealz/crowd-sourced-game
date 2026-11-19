@@ -6,6 +6,9 @@ export const streets = [-45, -9, 27, 61];
 export const coast = { west: -76, east: 43, north: -60, south: 76 };
 export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-205};
 export const causeway={west:-6,east:6,north:harbor.south,south:coast.north};
+export const causewayRails=[-1,1].map(side=>({
+  x:side*5.73,z:(causeway.north+causeway.south)/2,w:.18,d:causeway.south-causeway.north,h:.55,
+}));
 export const within=(r,x,z)=>x>=r.west && x<=r.east && z>=r.north && z<=r.south;
 export const waterfront=(x,z)=>![coast,causeway,harbor].some(r=>within(r,x,z));
 export const roadway = (x,z) => z<coast.north
@@ -28,6 +31,6 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 77, northBound:-289, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:beachBarriers, lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
+  barriers:[...causewayRails,...beachBarriers], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
   buildings:towers.map(([x,z,w,d,eave,facade])=>({x,z,w,d,eave,facade,rise:0})),
 };
