@@ -136,6 +136,7 @@ function acceptInput(player, data, binary) {
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
     replaySupply: input.replaySupply === true, deploy: input.deploy === true,
+    stance: input.stance === 'crouch' || input.stance === 'stand' ? input.stance : undefined,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
@@ -261,7 +262,7 @@ function tick() {
       if (impact && damageActor(player, impact, ticks)) continue;
     }
     player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
-    player.sprint = player.moving && input.sprint;
+    player.sprint = player.moving && !player.state.stance && input.sprint;
     if (input) {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
       if (input.fire) fire(world, player, input, ticks, players, npcs);

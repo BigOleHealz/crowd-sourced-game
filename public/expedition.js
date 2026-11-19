@@ -1,5 +1,5 @@
 // The server owns this transient expedition state. It survives individual joins.
-import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { BREAKABLES, stanceDrop, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -34,8 +34,9 @@ function withinBurst(center, feet, centerHeight) {
 function actorIntersection(actor,from,dir) {
   const feet=actor.state;
   const x=from.x-feet.x, y=from.y-feet.y, z=from.z-feet.z;
-  const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
-  const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69)/.161, hz=(z+lean*Math.cos(yaw))/.128;
+  const drop=stanceDrop(feet), yaw=actor.yaw || 0;
+  const lean=actor.moving ? .095 : 0;
+  const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69+drop)/.161, hz=(z+lean*Math.cos(yaw))/.128;
   const dx=dir.x/.128, dy=dir.y/.161, dz=dir.z/.128;
   const a=dx*dx+dy*dy+dz*dz, b=hx*dx+hy*dy+hz*dz;
   const disc=b*b-a*(hx*hx+hy*hy+hz*hz-1);
@@ -50,9 +51,9 @@ function actorIntersection(actor,from,dir) {
     leave=(-dot+Math.sqrt(delta))/radial;
   } else if(radial>1e-9 || c>0) leave=-1;
   if(Math.abs(dir.y)>1e-9) {
-    const low=-y/dir.y, high=(1.54-y)/dir.y;
+    const low=-y/dir.y, high=(1.54-drop-y)/dir.y;
     enter=Math.max(enter,Math.min(low,high));leave=Math.min(leave,Math.max(low,high));
-  } else if(y<0 || y>1.54) leave=-1;
+  } else if(y<0 || y>1.54-drop) leave=-1;
   if(enter<=leave) body=enter;
   return {actor,distance:Math.min(head,body),headshot:head<body};
 }
@@ -86,7 +87,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       target=direct.actor;headshot=direct.headshot;
       to={x:from.x+direction.x*direct.distance,y:from.y+direction.y*direct.distance,z:from.z+direction.z*direct.distance};
     } else if(assist) {
-      target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72,halo))?.actor;
+      target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72-stanceDrop(entry.actor.state),halo))?.actor;
     }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
@@ -98,7 +99,7 @@ export function fire(world, player, input, tick, players, npcs) {
   const bloom = player.weapon === 2;
   player.fireReady = tick + (bloom ? 21 : 6);
   const { x, y, z } = player.state;
-  const from = { x, y: y + 1.3, z };
+  const from = { x, y: y + 1.3 - stanceDrop(player.state), z };
   const horizontal = Math.cos(input.aimPitch);
   const dx = Math.sin(input.aimYaw) * horizontal;
   const dy = Math.sin(input.aimPitch);
@@ -125,7 +126,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
       }
     }
     for (const actor of actors) {
-      if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
+      if (actor === target || (bloom && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
       }
     }
