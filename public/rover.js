@@ -9,7 +9,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function parkedRover() {
   const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, speed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
+  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
@@ -17,21 +17,22 @@ export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
   const {heli, rover} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
-  const flight = heli.pilot == null && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
-  const road = rover.driver == null && !rover.wrecked ? distance(rover) : Infinity;
+  const flight = (heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
+  const road = (rover.driver == null || rover.gunner == null) && !rover.wrecked ? distance(rover) : Infinity;
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
   return flight <= BOARD_RANGE ? 'heli' : null;
 }
 
 export function interactRover(world, player) {
   const r = world.rover;
-  if (r.driver == null) {
-    if (nearestVehicle(world, player.state) === 'rover') r.driver = player.id;
+  if (r.gunner === player.id) r.gunner=null;
+  else if (r.driver === player.id) {r.driver=null;r.speed=0;}
+  else {
+    if (nearestVehicle(world,player.state)!=='rover') return;
+    if (r.driver==null) r.driver=player.id;
+    else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
-  if (r.driver !== player.id) return;
-  r.driver = null;
-  r.speed = 0;
   let exit = spawn(player.id-1);
   for (let i=0; i<8; i++) {
     const angle = r.yaw + i*Math.PI/4;
@@ -55,7 +56,9 @@ export function damageRover(world, amount, players) {
     interactRover(world,driver);
     driver.inputs.length=0;
   }
-  r.driver=null; r.speed=0; r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+  const gunner=players?.get(r.gunner);
+  if (gunner) {interactRover(world,gunner);gunner.inputs.length=0;}
+  r.driver=r.gunner=null; r.speed=0; r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
 export function recoverRover(world,dt) {

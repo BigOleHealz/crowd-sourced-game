@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { missileLaunchers, missileView, turretView } from './mount-view.js';
+import { mounts, mountPosition, gunnerFeet } from './mounts.js';
 import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
@@ -100,6 +102,7 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
+const handVector=new THREE.Vector3(), gripVector=new THREE.Vector3();
 
 function trailDistance(x, z) {
   let best = Infinity;
@@ -363,31 +366,19 @@ function contactShadowMap() {
 // Each loadout costs a single draw call while equipped.
 function makeBlasters(body, material) {
   const pulse = new Batch(), bloom = new Batch();
-  const handle = 0x253b40, shell = 0xd2c6a6, teal = 0x53e7d2, coral = 0xff9664;
-  const ring = new THREE.TorusGeometry(1, .15, 5, 14);
-  pulse.add(cube, handle, 0, -.06, -.02, .10, .20, .13, -.2);
-  pulse.add(round, shell, 0, .015, -.18, .115, .105, .28);
-  pulse.add(cube, handle, 0, .08, -.19, .105, .06, .40);
-  pulse.add(round, teal, 0, .10, -.13, .082, .056, .10);
-  pulse.add(round, teal, .099, .077, -.12, .055, .09, .17);
-  pulse.add(cube, shell, .11, .159, -.12, .07, .035, .22);
-  pulse.add(ring, teal, 0, .008, -.43, .078);
-  pulse.add(round, handle, 0, .00, -.415, .065, .066, .045);
-  bloom.add(cube, handle, 0, -.07, .0, .115, .21, .13, -.20);
-  bloom.add(round, 0xa25140, 0, .035, -.17, .175, .17, .245);
-  bloom.add(round, coral, 0, .16, -.14, .09, .07, .14);
-  bloom.add(ring, coral, .14, .06, -.13, .113, .113, .113, 0,Math.PI/2);
-  bloom.add(round, coral, .154, .06, -.13, .050, .092, .09);
-  bloom.add(ring, shell, 0, .035, -.34, .153);
-  for (let i = 0; i < 3; i++) {
-    const a = i * TAU / 3;
-    const x = .137 * Math.cos(a), y = .035 + .137 * Math.sin(a);
-    bloom.add(round, shell, x, y, -.36, .050, .053, .147);
-    bloom.add(round, coral, x, y, -.468, .037, .038, .060);
+  const steel=0x474c49, polymer=0x4e5042, sand=0x817964;
+  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
+    kit.add(cube,polymer,0,.048,.098,.071,.105,.227,-.055);
+    kit.add(cube,steel,0,.060,-.096,.076,.091,.226);
+    kit.add(cube,polymer,0,-.038,-.014,.053,.136,.055,-.22);
+    kit.add(cube,sand,0,-.030,-.136,.060,.115,.085,.12);
+    kit.add(cube,heavy ? sand : polymer,0,.06,-.255,heavy ? .092 : .077,heavy ? .096 : .074,.19);
+    kit.add(trunk,steel,0,.061,-.407,heavy ? .055 : .022,.18,heavy ? .055 : .022,Math.PI/2);
+    kit.add(cube,steel,0,.129,-.092,.045,.048,.067);
+    kit.add(cube,0x737c73,0,.138,-.128,.022,.020,.004);
   }
-  ring.dispose();
   const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
-  for (const tool of tools) tool.position.set(.43, 1.19, -.31);
+  for (const tool of tools) tool.position.set(.293, 1.14, -.34);
   return tools;
 }
 
@@ -423,7 +414,7 @@ function objectHealthLabel(scene,title) {
   const labelMap=new THREE.CanvasTexture(tag);
   labelMap.colorSpace=THREE.SRGBColorSpace;
   const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(2.9,.58,1);
+  label.scale.set(1.9,.38,1);
   scene.add(label);
   let labelHp, labelMax, labelRecovery, labelUnpiloted;
   function update(hp,maxHp,recovery,unpiloted=false) {
@@ -453,7 +444,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
-  const orange = 0xb15d32, ivory = 0xe0dfc8, graphite = 0x343d3e, glass = 0x284550;
+  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e, glass = 0x284550;
   // A continuous cabin envelope gives each window its own panel and avoids
   // glass/fuselage intersections. Coordinates run from the nose to the tail.
   const sections = [
@@ -485,7 +476,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
       const windshield=row===1 && upper;
       const cabinWindow=(row===3||row===5) && upper && j!==0;
       const stripe=j===3||j===8;
-      let tint=orange;
+      let tint=olive;
       if(windshield||cabinWindow) tint=(j===1||j===10)?0x667e87:glass;
       else if(stripe || j===0 || (row>=7 && j!==5 && j!==6)) tint=ivory;
       else if(j===4||j===7) tint=row<2?0x445052:0x59635d;
@@ -536,16 +527,17 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     hull.add(round,0x76382c,side*.55,1.30,2.77,.031,.035,.05);
   }
   hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
-  hull.add(cube,orange,0,1.92,3.12,.118,.18,.41,.27);
+  hull.add(cube,olive,0,1.92,3.12,.118,.18,.41,.27);
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
+  missileLaunchers(hull,'heli');
   const paint=fieldPaint();
   hull.mesh(group,paint,false);
   glazing.mesh(group,alpineGlass(panorama),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
-  st.font='bold 76px sans-serif';st.fillText('FORESTRY',256,88);
+  st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
   const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-2});
@@ -625,7 +617,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
 
 function crystalOutcrop(scene, material, prop, seed) {
   const rng = random(seed), batch = new Batch();
-  const tints=[0x57988a,0x71a98e,0x487e7f,0x7fae99];
+  const tints=[0x8a9288,0x9f9f91,0x737f7f,0xa6ac9d];
   for(let i=0;i<10;i++){
     const angle=i*2.399,dist=i?(.36+.39*rng())*prop.radius:0;
     const x=Math.cos(angle)*dist,z=Math.sin(angle)*dist;
@@ -676,7 +668,7 @@ function fieldEffects(scene) {
     for(let i=0;i<(large?18:7);i++) {
       const a=rng()*TAU, s=.6+rng()*(large?3.6:1.7), size=(large?.045:.026)+rng()*.075;
       particle(new THREE.Vector3(x,y,z),new THREE.Vector3(Math.cos(a)*s,.6+rng()*2.7,Math.sin(a)*s),
-        new THREE.Vector3(size,size*(1+rng()),size),i%3?0x8cf3cd:0xf4e7a7,.28+rng()*.29);
+        new THREE.Vector3(size,size*(1+rng()),size),i%3?0x958d78:0xb5ac95,.28+rng()*.29);
     }
   }
   function crash(heli) {
@@ -688,23 +680,17 @@ function fieldEffects(scene) {
     }
   }
   function shot(s) {
+    if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     along.subVectors(b,a);
-    const bloom=s.weapon===2, pieces=bloom?12:7;
-    for(let i=1;i<=pieces;i++) {
-      const t=i/pieces, pos=a.clone().addScaledVector(along,t);
-      const radius=bloom ? .18+.23*t : .035;
-      if(bloom) {pos.x+=Math.cos(t*TAU*2)*radius; pos.y+=Math.sin(t*TAU*2)*radius;}
-      particle(pos,new THREE.Vector3(),new THREE.Vector3(radius*.55,radius*.55,radius*.55),
-        bloom?0xffbd83:0x96ffe1,.15+.09*t);
-    }
-    // The thin straight pulse reads from a distance; bloom draws a spiral of motes.
-    if(!bloom) {
-      const delta=b.clone().sub(a), length=delta.length();
-      if(length>.01) {
-        particle(a.clone().lerp(b,.5),new THREE.Vector3(),new THREE.Vector3(.033,length/2,.033),0xb6ffdf,.13);
-        particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,delta.normalize());
-      }
+    const length=along.length();
+    if(length>.01) {
+      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.6 : 1.2);
+      const direction=along.normalize();
+      particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
+        new THREE.Vector3(.018,tracerLength*.5,.018),s.weapon===2 ? 0xdcad73 : 0xffdc9a,.095);
+      particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
+      particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
     if(s.hit) burst(b.x,b.y,b.z,false);
   }
@@ -746,7 +732,7 @@ function characterLabel(root, name) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: texture, transparent: true, depthWrite: false, sizeAttenuation: false,
   }));
-  sprite.scale.set(.135, .032, 1);
+  sprite.scale.set(.102, .024, 1);
   root.add(sprite);
   let previous;
   return {
@@ -778,7 +764,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
   const identity=rangerIdentity(id), warm=skinColors[identity];
-  const coat=tint ?? jacketColor(id);
+  const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
   const torso=new Batch(true);
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
@@ -786,8 +772,15 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
   torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
   for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
-  torso.add(capCrown,0x9d9b7d,0,1.785,.004);
-  torso.add(round,0x454d40,0,1.781,-.096,.114,.013,.103,-.06);
+  torso.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
+  torso.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
+  torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
+  for(const side of [-1,1]) {
+    torso.add(round,0x535648,side*.104,1.728,.028,.025,.041,.065);
+    torso.beam(0x585849,[side*.105,1.731,-.021],[side*.067,1.589,-.046],.012);
+    torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
+    torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
+  }
   if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
   torso.add(fieldPack,0xe1d4ba,0,1.302,.172);
   for (const side of [-1,1]) {
@@ -841,8 +834,8 @@ function makeParachute(root, material) {
   return canopy.mesh(root,material,false);
 }
 
-function pose(avatar,state,dt,seated=null) {
-  const active=!state.dead && !!state.moving && state.grounded !== false;
+function pose(avatar,state,dt,seated=null,station=null) {
+  const active=!station && !state.dead && !!state.moving && state.grounded !== false;
   avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
   avatar.cycle+=dt*(state.sprint?13:9);
   const swing=Math.sin(avatar.cycle)*avatar.weight;
@@ -856,22 +849,35 @@ function pose(avatar,state,dt,seated=null) {
     const c=Math.cos(seated.yaw), s=Math.sin(seated.yaw);
     avatar.root.position.set(seated.x-.322*c+.085*s,seated.y+.025,seated.z-.322*s-.085*c);
   }
-  const yaw=-(Number.isFinite(state.yaw)?state.yaw:0);
+  if(station) {
+    const feet=gunnerFeet(station,'rover');
+    avatar.root.position.set(feet.x,feet.y,feet.z);
+  }
+  const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
-  avatar.root.rotation.y = seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
   avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !seated && !bloom;
-  avatar.tools[1].visible = !state.dead && !seated && bloom;
+  avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,knee,side} of avatar.limbs) {
-    leg.rotation.x=seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
-    arm.rotation.x=seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
-    arm.rotation.z=side*(seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
+    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
+    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
+    arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
+    arm.scale.setScalar(1);
+    if(station) {
+      const p=station.turretPitch;
+      handVector.set(side*.02,-.466,.028);
+      gripVector.set(side*.177-arm.position.x,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.8-arm.position.y,
+        -.062*Math.sin(p)+.19*Math.cos(p)-.44);
+      arm.scale.setScalar(gripVector.length()/handVector.length());
+      arm.quaternion.setFromUnitVectors(handVector.normalize(),gripVector.normalize());
+    }
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
@@ -916,9 +922,9 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xaebfc9,.0058);
-  scene.add(new THREE.HemisphereLight(0xc8dfec,0xa09074,1.36));
-  const sun=new THREE.DirectionalLight(0xffe6c7,2.55);
+  scene.fog=new THREE.FogExp2(0xadb5b3,.0085);
+  scene.add(new THREE.HemisphereLight(0xcbd8dc,0x958d7e,1.44));
+  const sun=new THREE.DirectionalLight(0xffedda,2.30);
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
@@ -936,6 +942,8 @@ export function createScene(canvas) {
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
+  const updateMissiles=missileView(scene);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
   const quartz=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x98b9ae,shininess:46});
@@ -971,19 +979,20 @@ export function createScene(canvas) {
   const cursorRay = new THREE.Raycaster();
   const cursorNdc = new THREE.Vector2();
   let displayedWorld, displayedPlayers;
-  function aimAt(pointer, feet, id, range) {
+  function aimAt(pointer, feet, id, range, station=null) {
     if (!ready || !displayedWorld || !pointer) return null;
     const rect = canvas.getBoundingClientRect();
     cursorNdc.set(2 * (pointer.x - rect.left) / rect.width - 1, 1 - 2 * (pointer.y - rect.top) / rect.height);
     cursorRay.setFromCamera(cursorNdc, camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
-    const muzzleY = feet.y + 1.3;
-    const cameraOffset = Math.hypot(origin.x-feet.x, origin.y-muzzleY, origin.z-feet.z);
-    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false);
-    const dx = to.x - feet.x, dz = to.z - feet.z;
+    const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
+    const muzzleY=muzzle.y;
+    const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
+    const {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
   function render(local,remotes,view,dt,world) {
@@ -998,7 +1007,7 @@ export function createScene(canvas) {
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
     const rover=world.rover, driving=rover.driver===local.id;
-    updateRover(rover,dt);
+    updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
     roverLabel.sprite.visible=!driving;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
@@ -1017,6 +1026,7 @@ export function createScene(canvas) {
       for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot);
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
+    updateMissiles(world.missiles ?? [],dt);
     effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
@@ -1029,13 +1039,15 @@ export function createScene(canvas) {
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const seated=state.id===rover.driver;
-      a.root.visible=state.id!==heli.pilot;
-      a.shadow.visible=a.root.visible && !seated;
-      if(seated) a.label.sprite.visible=false;
-      if(a.root.visible) pose(a,state,dt,seated ? rover : null);
+      const station=state.id===rover.gunner ? rover : null;
+      a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
+      a.shadow.visible=a.root.visible && !seated && !station;
+      if(seated || station) a.label.sprite.visible=false;
+      if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
+    if(local.id===heli.gunner) desired.set(heli.x,heli.y+.55,heli.z);
+    else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
     else desired.set(local.x,local.y+(local.parachute === 'open' ? 2.1 : 1.43),local.z);
     // Give the jumper and the drifting aircraft room in the same shot.
@@ -1055,7 +1067,7 @@ export function createScene(canvas) {
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && distance>.86;
+    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }

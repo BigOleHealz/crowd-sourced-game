@@ -10,7 +10,7 @@ const flightStates = new WeakMap();
 
 export function parkedHelicopter() {
   const heli = {
-    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, grounded: true,
+    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
     hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
   flightStates.set(heli, { vx: 0, vy: 0, vz: 0, sideContact: false, floorContact: false });
@@ -23,14 +23,16 @@ export function damageHelicopter(world, damage, players, shooterId = null) {
   if (shooterId != null && shooterId === heli.pilot) return false;
   heli.hp = Math.max(0, heli.hp - damage);
   if (heli.hp === 0) {
-    const pilot = players?.get(heli.pilot);
-    if (pilot) {
+    for (const id of [heli.pilot,heli.gunner]) {
+      const pilot=players?.get(id);
+      if (!pilot) continue;
       pilot.state = spawn(pilot.id - 1);
       pilot.moving = false;
       pilot.sprint = false;
       pilot.inputs.length = 0;
     }
     heli.pilot = null;
+    heli.gunner = null;
     heli.abandonedFor = null;
     heli.wrecked = true;
     heli.recoverySeconds = RECOVERY_SECONDS;
@@ -39,7 +41,7 @@ export function damageHelicopter(world, damage, players, shooterId = null) {
 }
 
 // Advance the same airframe after the seat is released, even without pilot input.
-function driftAfterBailout(world, dt) {
+function driftAfterBailout(world, dt, players) {
   const h = world.heli, motion = flightStates.get(h);
   h.abandonedFor += dt;
   const coasting = h.abandonedFor <= COAST_SECONDS;
@@ -56,15 +58,15 @@ function driftAfterBailout(world, dt) {
   if (y <= floor) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
     if (h.y >= floor) Object.assign(h, {x, y:floor, z});
-    damageHelicopter(world, h.hp);
+    damageHelicopter(world, h.hp, players);
     return;
   }
   Object.assign(h, {x,y,z});
 }
 
-export function recoverHelicopter(world, dt) {
+export function recoverHelicopter(world, dt, players) {
   const heli = world.heli;
-  if (heli.abandonedFor != null) return driftAfterBailout(world, dt);
+  if (heli.abandonedFor != null) return driftAfterBailout(world, dt, players);
   if (!heli.wrecked) return;
   const ground = Math.max(groundHeight(heli.x, heli.z), MAP.waterY);
   heli.y = Math.max(ground, heli.y - dt * 6);
@@ -165,8 +167,9 @@ export function fly(world, input, dt, players) {
 export function interact(world, player) {
   const heli = world.heli;
   if (heli.wrecked) return;
+  const gunning=heli.gunner===player.id;
   if (!heli.grounded) {
-    if (heli.pilot !== player.id) return;
+    if (!gunning && heli.pilot !== player.id) return;
     player.state = { x: heli.x, y: heli.y + .6, z: heli.z, vy: 0, grounded: false, parachute: 'packed' };
     // Step clear of the cabin so the jumper and aircraft separate visibly.
     for (const side of [1,-1]) {
@@ -176,14 +179,16 @@ export function interact(world, player) {
       Object.assign(player.state, {x,z});
       break;
     }
-    heli.pilot = null;
-    heli.abandonedFor = 0;
+    if (gunning) heli.gunner=null;
+    else {heli.pilot=null;heli.abandonedFor=0;}
     return;
   }
-  if (heli.pilot === null) {
+  if (!gunning && heli.pilot !== player.id) {
     const range = Math.hypot(player.state.x - heli.x, player.state.z - heli.z, player.state.y - heli.y);
-    if (range <= BOARD_RANGE && player.state.grounded) heli.pilot = player.id;
-  } else if (heli.pilot === player.id) {
+    if (range > BOARD_RANGE || !player.state.grounded) return;
+    if (heli.pilot==null) heli.pilot=player.id;
+    else if (heli.gunner==null) {heli.gunner=player.id;heli.turretYaw=heli.yaw;heli.turretPitch=0;}
+  } else {
     // Try both sides and the fore/aft directions before using the safe trailhead.
     let exit = spawn(player.id - 1);
     for (let i = 0; i < 8; i++) {
@@ -196,7 +201,7 @@ export function interact(world, player) {
         break;
       }
     }
-    heli.pilot = null;
+    if (gunning) heli.gunner=null; else heli.pilot=null;
     player.state = exit;
   }
 }
