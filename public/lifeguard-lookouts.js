@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {stations, sandHeight, lookoutSteps} from './beach-layout.js';
 
-export function addLookouts(scene,Batch) {
-  const lumber = new Batch(true), trim = new Batch();
+export function addLookouts(scene,Batch,makeRig) {
+  const grain=new THREE.TextureLoader().load('./sawn-timber.webp');grain.colorSpace=THREE.SRGBColorSpace;
+  const woodMaterial=new THREE.MeshLambertMaterial({map:grain,vertexColors:true});
+  const trimMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
   const box = new THREE.BoxGeometry();
   box.setAttribute('batchUv',box.attributes.uv);
   const ring = new THREE.TorusGeometry(.205,.046,10,48);
@@ -10,6 +12,8 @@ export function addLookouts(scene,Batch) {
   for(const {x,z,number} of stations) {
     const y=sandHeight(x,z), aqua=number==='01';
     const paint=aqua?0x55a69d:0xcc7858, pale=aqua?0x79bcb0:0xe49673;
+    const parts=makeRig(number,x,y,z,true);
+    const lumber=new Batch(true),trim=new Batch();
     const timber=(color,dx,dy,dz,w,h,d,...rot)=>lumber.add(box,color,x+dx,y+dy,z+dz,w,h,d,...rot);
     const piece=(color,dx,dy,dz,w,h,d,...rot)=>trim.add(box,color,x+dx,y+dy,z+dz,w,h,d,...rot);
     const brace=(color,a,b,w,d=w)=>trim.beam(color,[x+a[0],y+a[1],z+a[2]],[x+b[0],y+b[1],z+b[2]],w,d);
@@ -75,10 +79,9 @@ export function addLookouts(scene,Batch) {
     ink.font='bold 33px sans-serif';ink.fillText('H A R B O R   K E Y',320,151);
     const map=new THREE.CanvasTexture(plate);map.colorSpace=THREE.SRGBColorSpace;
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(.98,.30),new THREE.MeshLambertMaterial({map}));
-    sign.position.set(x-.42,y+1.90,z+1.173);scene.add(sign);
+    sign.position.set(x-.42,y+1.90,z+1.173);parts.add(sign);
+    lumber.mesh(parts,woodMaterial).userData.impactSurface='wood';
+    trim.mesh(parts,trimMaterial).userData.impactSurface='solid';
   }
-  const grain=new THREE.TextureLoader().load('./sawn-timber.webp');grain.colorSpace=THREE.SRGBColorSpace;
-  lumber.mesh(scene,new THREE.MeshLambertMaterial({map:grain,vertexColors:true})).userData.impactSurface='wood';
-  trim.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='solid';
   box.dispose();ring.dispose();wrap.dispose();
 }

@@ -1,3 +1,4 @@
+import {lampDown} from './street-lamps.js';
 import {wheelStations} from './road-wheel-layout.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
@@ -67,7 +68,14 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
-  for(const p of barriers)if(!p.netting && !(p.net!=null && world.doors?.nets?.[p.net]))accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+  for(const p of barriers){
+    if(lampDown(world.doors,p) || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
+    if(p.lamp!=null){
+      const head={x:p.x-p.side*.60,y:p.y+4.22,z:p.z};
+      accept(box(round,d,head,.81,.23,.31),p,'lamp');
+    }
+    accept(box(round,d,p,p.w,p.h,p.d),p.lamp!=null?p:null,p.lamp!=null?'lamp':'scenery');
+  }
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
     const base={x:b.x,y:b.base-2,z:b.z},span=[0,1];
@@ -116,7 +124,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   const above=f=>{
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-    return y-Math.max(MAP.waterY,groundHeight(x,z,y),CITY ? parapetTop(x,z,0,y) : -Infinity);
+    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y) : -Infinity);
   };
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){

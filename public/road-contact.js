@@ -1,4 +1,6 @@
 import {visitRoadPodium} from './frontage-glass.js';
+import {stations} from './beach-layout.js';
+import {lampDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
@@ -9,6 +11,7 @@ const props=[...MAP.rocks,...MAP.trees,...BREAKABLES];
 const bridgeRails=MAP.bridge?[-1,1].map(side=>({
   x:MAP.bridge.x+side*MAP.bridge.width/2,z:MAP.bridge.z,w:.10,d:9.6,h:1,
 })):[];
+const stationFootprints=stations.map(s=>({x:s.x-.52,z:s.z,w:4.42,d:3.06,woodId:s.number}));
 const wood=new Set(MAP.trees);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 
@@ -42,15 +45,20 @@ function roundContact(x,z,s,c,prop,radius){
 
 // Outward-facing normal points from the obstacle into free space.
 export function roadContact(world,x,z,yaw,fromX,fromZ){
-  const s=Math.sin(yaw),c=Math.cos(yaw),base=groundHeight(x,z);
+  const s=Math.sin(yaw),c=Math.cos(yaw),base=groundHeight(x,z,Infinity,world.doors);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   for(const b of MAP.buildings){
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>consider(boxContact(x,z,s,c,box)));
     else consider(boxContact(x,z,s,c,b));
   }
+  if(CITY)for(const stand of stationFootprints){
+    if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand));
+  }
   for(const b of MAP.barriers){
+    if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
+    if(lampDown(world.doors,b))continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16)consider(boxContact(x,z,s,c,b));
   }
@@ -67,8 +75,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ){
   if(z<north)return {nx:0,nz:1,depth:north-z,object:'north'};
   const boat=base<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,halfWidth,halfLength);
   // Keep the prior shore/bridge traversal limits as terrain safeguards.
-  const cliff=Math.abs(base-groundHeight(fromX,fromZ))>=.34 || [-.73,.73].some(along=>
-    Math.abs(groundHeight(x+along*s,z-along*c)-base)>.67);
+  const cliff=Math.abs(base-groundHeight(fromX,fromZ,Infinity,world.doors))>=.34 || [-.73,.73].some(along=>
+    Math.abs(groundHeight(x+along*s,z-along*c,Infinity,world.doors)-base)>.67);
   if(boat || base<MAP.waterY+.2 || cliff){
     const dx=boat?x-boat.x:fromX-x,dz=boat?z-boat.z:fromZ-z,len=Math.hypot(dx,dz);
     return {nx:len?dx/len:0,nz:len?dz/len:1,depth:.01,object:boat||'terrain'};

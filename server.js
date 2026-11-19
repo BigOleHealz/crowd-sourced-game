@@ -1,3 +1,4 @@
+import {stepFurniture} from './public/shop-furniture.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
@@ -218,6 +219,7 @@ function tick() {
     }
     stepStorefrontDoors(world.doors,pedestrians,step);
     stepRetailDoors(world.doors,pedestrians,step);
+    stepFurniture(world.doors,step);
   }
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();

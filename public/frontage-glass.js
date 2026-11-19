@@ -1,4 +1,5 @@
 import {galleryVehicleRects,galleryPlans} from './gallery-lobbies.js';
+import {fallenTop} from './shop-furniture.js';
 import {tenants,retailDepths,retailFixtures,shopFloor,shopCeiling} from './street-shop-layout.js';
 import {brickellMap} from './brickell-map.js';
 import {doorX,hasStorefrontRooms,storefrontFurniture} from './storefront-layout.js';
@@ -115,7 +116,12 @@ export function retailSurface(face,x,z,pad,probe,roof,doors){
   }
   let top=-Infinity;
   const candidates=pad<=.4?(face.fixtureRows.get(Math.floor(z))??[]):face.fixtures;
+  for(const p of face.pieces.values()){
+    const f=doors?.furniture?.[p.id];
+    if(f)top=Math.max(top,fallenTop(p,f,x,z,pad));
+  }
   for(const p of candidates){
+    if(p.piece && doors?.furniture?.[p.piece.id])continue;
     if(p.bottom<=probe && Math.abs(x-p.x)<p.w/2+pad && Math.abs(z-p.z)<p.d/2+pad)top=Math.max(top,p.top);
   }
   return top;
@@ -127,7 +133,7 @@ for(const face of storefrontFaces){
   for(const end of [-1,1])face.solids.push({x:(x+rear)/2,z:b.z+end*(b.d/2-.09),w:Math.abs(x-rear),d:.18});
   if(face.showcase){
     face.solids.push({x:(x+rear)/2,z:2.41,w:Math.abs(x-rear),d:.17});
-    for(const p of storefrontFurniture)face.solids.push({x:p.x,z:p.z,w:2*(p.hw??p.r),d:2*(p.hd??p.r)});
+    for(const p of storefrontFurniture)face.solids.push({x:p.x,z:p.z,w:2*(p.hw??p.r),d:2*(p.hd??p.r),piece:p.piece});
   }
   face.panes=face.spans.map(([lo,hi,door],i)=>({x,z:(lo+hi)/2,w:.09,d:hi-lo,face,index:i,door}));
   if(face.entry){
@@ -144,8 +150,9 @@ export function visitRoadPodium(b,x,z,doors,visit){
   for(const rect of galleryVehicleRects(b,doors))visit(rect);
   // Only the near side of the central core can be reached from this face.
   const face=pair[x>b.x?1:0],mask=doors?.broken?.[face.id]??0;
-  for(const box of face.solids)visit(box);
+  for(const box of face.solids)if(!box.piece || !doors?.furniture?.[box.piece.id])visit(box);
   if(face.fixtures)for(const p of face.fixtures){
+    if(p.piece && doors?.furniture?.[p.piece.id])continue;
     if(p.bottom<2.43 && p.top>1.00 && Math.abs(p.x-x)<p.w/2+2.1 && Math.abs(p.z-z)<p.d/2+2.1)visit(p);
   }
   for(const pane of face.panes){

@@ -15,17 +15,27 @@ export function addBeach(scene,Batch) {
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(10,34);
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
-  const box=new THREE.BoxGeometry(), timber=new Batch(), cord=new Batch();
-  for(const [x,z,yaw,label] of beachSigns){
+  const box=new THREE.BoxGeometry(),cord=new Batch();
+  const wrecks=[],timberMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
+  function makeRig(id,x,y,z,stand){
+    const pivot=new THREE.Group(),parts=new THREE.Group();
+    pivot.position.set(x,y,z);parts.position.set(-x,-y,-z);
+    pivot.add(parts);scene.add(pivot);
+    wrecks.push({pivot,id,stand,progress:0});
+    return parts;
+  }
+  for(const [i,[x,z,yaw,label]] of beachSigns.entries()){
+    const parts=makeRig('sign-'+i,x,.8,z,false),timber=new Batch();
     const panel=document.createElement('canvas');panel.width=768;panel.height=152;
     const ink=panel.getContext('2d');
     ink.fillStyle='#efe8ce';ink.fillRect(0,0,768,152);ink.fillStyle='#215d62';ink.fillRect(6,6,756,140);
     ink.textAlign='center';ink.textBaseline='middle';ink.font='bold 62px sans-serif';ink.fillStyle='#fff4cf';ink.fillText(label,384,79);
     const map=new THREE.CanvasTexture(panel);map.colorSpace=THREE.SRGBColorSpace;
     const face=new THREE.Mesh(new THREE.PlaneGeometry(4.6,.91),new THREE.MeshBasicMaterial({map}));
-    face.rotation.y=yaw;face.position.set(x+.075*Math.sin(yaw),3.14,z+.075*Math.cos(yaw));scene.add(face);
+    face.rotation.y=yaw;face.position.set(x+.075*Math.sin(yaw),3.14,z+.075*Math.cos(yaw));parts.add(face);
     timber.add(box,0x637e78,x,3.14,z,4.64,.95,.13,0,yaw);
     for(const side of [-1,1]) timber.add(box,0xac9470,x+side*1.72*Math.cos(yaw),1.84,z-side*1.72*Math.sin(yaw),.14,2.1,.14);
+    timber.mesh(parts,timberMaterial).userData.impactSurface='wood';
   }
   const netViews=[];
   const netMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
@@ -55,12 +65,22 @@ export function addBeach(scene,Batch) {
     posts.mesh(rig,netMaterial);const web=net.mesh(rig,netMaterial);
     netViews.push({rig,web,x,z,angle:0});
   }
-  addLookouts(scene,Batch);
-  const wood=timber.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));wood.userData.impactSurface='wood';
+  addLookouts(scene,Batch,makeRig);
   cord.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='solid';
   box.dispose();
   let first=true;
   return (state,dt,local,remotes)=>{
+    for(const w of wrecks){
+      const heading=state?.beachWood?.[w.id];
+      const next=heading==null?0:first?1:Math.min(1,w.progress+dt*(w.stand?1.75:2.65));
+      if(next===w.progress)continue;
+      w.progress=next;
+      const yaw=(heading??0)/1000,angle=next*next*(w.stand?.51:1.56);
+      // Signs fall flat as one piece. A stand buckles on its piles and its roof settles over the deck.
+      w.pivot.position.y=w.stand?sandHeight(w.pivot.position.x,w.pivot.position.z)+next*.16:.80+next*.085;
+      w.pivot.rotation.set(Math.cos(yaw)*angle,0,-Math.sin(yaw)*angle);
+      w.pivot.scale.y=1-(w.stand?.90:0)*next;
+    }
     for(const [i,view] of netViews.entries()){
       const down=state?.nets?.[i]??0;
       const tilt=down*1.43;

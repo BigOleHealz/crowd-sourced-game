@@ -2,7 +2,7 @@ import {CITY,MAP,groundHeight,solidTopAt,blocked} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
 import {mountPosition} from './mounts.js';
 
-const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:66.2,z:-201}];
+const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:67,z:-201,yaw:.12}];
 // Hull-local crown of the helm cushion. The ranger's trouser seat is .893 m
 // above its rig origin, before the seated scale is applied.
 export const helmCushion = {z: -.32, top: 1.018};
@@ -12,7 +12,7 @@ export const helmOffset = [0, helmCushion.top - .893 * seatedScale, helmCushion.
 const waveClock=new WeakMap();
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 function moored(site) {
-  return {...site,y:MAP.waterY,yaw:0,pitch:0,roll:0,speed:0,throttle:0,driver:null,gunner:null,
+  return {...site,y:MAP.waterY,yaw:site.yaw??0,pitch:0,roll:0,speed:0,throttle:0,driver:null,gunner:null,
     turretYaw:0,turretPitch:0,hp:300,maxHp:300,wrecked:false,recoverySeconds:0};
 }
 export const patrolFleet=()=>CITY?berths.map(moored):[];
@@ -111,7 +111,7 @@ export function stepBoat(world,b,input,dt,players){
     if(b.recoverySeconds<.0001){
       const site=berths.find(p=>p.id===b.id);
       // Hold recovery if another hull is occupying the berth.
-      if(canFloat(world,b,site.x,site.z,0))Object.assign(b,moored(site));
+      if(canFloat(world,b,site.x,site.z,site.yaw??0))Object.assign(b,moored(site));
     }
     return;
   }

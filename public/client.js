@@ -12,7 +12,7 @@ import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { nearestVehicle } from './rover.js';
-import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
+import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
@@ -454,10 +454,8 @@ function drawMap(player, remotes, yaw) {
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
-    ctx.fillRect(sx(-6),sy(harbor.north),12*scale,(causeway.south-harbor.north)*scale);
-    ctx.fillRect(sx(harbor.west),sy(harbor.crossing-4.5),(harbor.east-harbor.west)*scale,9*scale);
-    for(const x of avenues) ctx.fillRect(sx(x-5.7),sy(coast.north),11.4*scale,(coast.south-coast.north)*scale);
-    for(const z of streets) ctx.fillRect(sx(coast.west),sy(z-4.1),(coast.east-coast.west)*scale,8.2*scale);
+    for(const road of [causeway,...streetPlan.roads])
+      ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
     ctx.fillStyle='#3b4b4c';
     for(const b of MAP.buildings) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
   } else {
