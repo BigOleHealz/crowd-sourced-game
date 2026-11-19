@@ -1,8 +1,9 @@
-import {nearbyHull} from './patrol-boats.js';
+import { roadContact, sweepRoad } from './road-contact.js';
+import {flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
+import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
 
-import { impactDamage, RECOVERY_SECONDS } from './airframe.js';
+import { RECOVERY_SECONDS } from './airframe.js';
 
 export const ROVER_HP = 250;
 export const ROVER_PAD = { x: -3, z: 17 };
@@ -16,7 +17,7 @@ export function stopRover(r) {
 
 export function parkedRover() {
   const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
+  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
@@ -75,28 +76,28 @@ export function recoverRover(world,dt) {
   if (r.recoverySeconds < .0001) world.rover=parkedRover();
 }
 
-function traversable(world, x,z,yaw) {
-  const y = groundHeight(x,z);
-  if (Math.abs(x)>(MAP.flightLimit ?? 32) || z>(MAP.flightLimit ?? 32) || z<(MAP.flightNorth ?? -(MAP.flightLimit ?? 32)) || y<MAP.waterY+.2) return false;
-  if(y<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,.86,1.75))return false;
-  const sx = Math.sin(yaw), cz = Math.cos(yaw);
-  for (const along of [-.73,0,.73]) {
-    const px=x+along*sx, pz=z-along*cz, floor=groundHeight(px,pz);
-    if (Math.abs(floor-y)>.67 || solidTopAt(px,pz,world.hp,.70)>floor+.16) return false;
-    // Fit the body between the bridge rails; enter from either end.
-    if (MAP.bridge && Math.abs(pz)<4.85 && Math.abs(Math.abs(px)-MAP.bridge.width/2)<.72) return false;
-    if (world.heli.y-floor < 2 && Math.hypot(px-world.heli.x,pz-world.heli.z)<1.55) return false;
-  }
-  return true;
-}
-
 const bumperContacts=new WeakMap();
 let impactSequence=0;
-function recordBump(world,r,x,z,speed) {
-  if(speed<.20 || bumperContacts.has(r))return;
-  bumperContacts.set(r,{x:r.x,z:r.z});
-  const wood=MAP.trees.some(tree=>Math.hypot(tree.x-x,tree.z-z)<tree.radius+1.5);
-  r.contactSound={id:++impactSequence,speed,wood,x,y:r.y+.55,z};
+
+function registerImpact(world,r,hit,speed,players){
+  if(speed<.4)return;
+  const active=bumperContacts.get(r);
+  if(active?.object===hit.object){
+    active.clearTime=0;return;
+  }
+  bumperContacts.set(r,{object:hit.object,clearTime:0});
+  const c=Math.cos(r.yaw),s=Math.sin(r.yaw);
+  const side=-(c*hit.nx+s*hit.nz),end=s*hit.nx-c*hit.nz;
+  const panel=Math.abs(side)>Math.abs(end)?(side>0?'right':'left'):(end<0?'front':'rear');
+  const excess=Math.max(0,speed-1.65);
+  const damage=Math.round(.60*excess*excess+.6*excess);
+  const reach=Math.abs(side)*.82+Math.abs(end)*(CITY?1.69:1.55);
+  r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-hit.nx*reach,y:r.y+.55,z:r.z-hit.nz*reach,panel,damage};
+  if(damage){
+    r.bodyDamage??={front:0,rear:0,left:0,right:0};
+    r.bodyDamage[panel]=Math.min(1,r.bodyDamage[panel]+damage/135);
+    damageRover(world,damage,players);
+  }
 }
 
 export function driveRover(world, input, dt, players) {
@@ -104,36 +105,54 @@ export function driveRover(world, input, dt, players) {
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
   const reverseLimit=CITY ? 5.4 : 2.8;
-  const target = throttle * (throttle<0 ? reverseLimit : 16);
+  const flats=flatTireCount(r);
+  const mobility=1/(1+.47*flats);
+  const target = throttle * (throttle<0 ? reverseLimit : 16)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? 8.6 - 4.8*clamp(r.speed/16,0,1) : (CITY ? 9.0 : 7.2);
-  const acceleration = throttle && r.speed*throttle>=0 ? power : 18;
+  const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : 18;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
 
   const pace=Math.abs(r.speed);
   const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const turn=steer*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
   const yaw=r.yaw+turn;
-  const rotation=turn && traversable(world,r.x,r.z,yaw) ? turn : 0;
+  const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z) ? turn : 0;
   r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
 
   // Project the previous velocity into the rotated chassis frame. Tire grip
   // dissipates the lateral component; low speeds track the wheels directly.
   const drift=clamp((pace-3)/7,0,1);
   const side=(r.lateralSpeed??0)*Math.cos(rotation)-r.speed*Math.sin(rotation)*drift;
-  r.lateralSpeed=clamp(side*Math.exp(-(5.2+9*(1-drift))*dt),-pace*.20,pace*.20);
-  const sn=Math.sin(r.yaw), cs=Math.cos(r.yaw);
-  const x=r.x+(sn*r.speed+cs*r.lateralSpeed)*dt;
-  const z=r.z+(-cs*r.speed+sn*r.lateralSpeed)*dt;
-  if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {
-    r.x=x; r.z=z; r.y=groundHeight(x,z);
-    const last=bumperContacts.get(r);
-    if(last && Math.hypot(x-last.x,z-last.z)>.20)bumperContacts.delete(r);
-  } else {
-    const speed=Math.hypot(r.speed,r.lateralSpeed);
-    const end=Math.sign(r.speed)*.94;
-    recordBump(world,r,x+sn*end,z-cs*end,speed);
-    damageRover(world,impactDamage(speed),players);
-    stopRover(r);
+  // Retain tire slip after an oblique impact while the suspension settles.
+  const contact=bumperContacts.get(r);
+  const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
+  r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
+  const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
+  let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
+  let remaining=dt,contacted=false;
+  // Preserve tangential motion. The second sweep handles the second wall of
+  // an inside corner and prevents a projected slide from crossing it.
+  for(let pass=0;pass<2 && remaining>1e-7;pass++){
+    const dx=vx*remaining,dz=vz*remaining;
+    const {fraction,hit}=sweepRoad(world,r,dx,dz);
+    r.x+=dx*fraction;r.z+=dz*fraction;r.y=groundHeight(r.x,r.z);
+    if(!hit)break;
+    contacted=true;
+    const incoming=Math.max(0,-(vx*hit.nx+vz*hit.nz));
+    registerImpact(world,r,hit,incoming,players);
+    if(r.wrecked)return;
+    const rebound=incoming>3.5?Math.min(1.35,(incoming-3.5)*.12):0;
+    const tx=vx+incoming*hit.nx,tz=vz+incoming*hit.nz;
+    const scrub=Math.max(.77,1-incoming*.017);
+    vx=tx*scrub+rebound*hit.nx;vz=tz*scrub+rebound*hit.nz;
+    if(Math.hypot(vx,vz)<.12){vx=vz=0;break;}
+    remaining*=1-fraction;
+  }
+  if(contacted){
+    r.speed=vx*sn-vz*cs;r.lateralSpeed=vx*cs+vz*sn;
+  }else if(contact){
+    contact.clearTime+=dt;
+    if(contact.clearTime>.18)bumperContacts.delete(r);
   }
 }

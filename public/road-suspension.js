@@ -1,6 +1,6 @@
 import { groundHeight } from './world.js';
 
-import { wheelStations } from './road-wheel-layout.js';
+import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 const springs=new WeakMap();
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const rounded=v=>Math.round(v*10000)/10000 || 0;
@@ -9,12 +9,12 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
   const s=Math.sin(rover.yaw),c=Math.cos(rover.yaw);
   const forward=rover.speed || 0,side=rover.lateralSpeed || 0;
   const vx=forward*s+side*c,vz=-forward*c+side*s;
-  const ground=wheelStations.map(([width,length])=>{
+  const ground=wheelStations.map(([width,length],i)=>{
     const x=rover.x+width*c-length*s,z=rover.z+width*s+length*c;
     // A 36 cm tire begins climbing a curb before its axle reaches the lip.
     const reach=.22, arc=.36-Math.sqrt(.36**2-reach**2);
     return Math.max(surface(x,z),surface(x+s*reach,z-c*reach)-arc,
-      surface(x-s*reach,z+c*reach)-arc);
+      surface(x-s*reach,z+c*reach)-arc) - (isFlat(rover,i) ? flatWheelDrop : 0);
   });
   let state=springs.get(rover);
   if(!state) {

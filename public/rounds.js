@@ -1,5 +1,6 @@
 import {hasStorefrontRooms,storefrontTopAt} from './storefront-layout.js';
-import { avenues, streets } from './brickell-map.js';
+import {wheelStations} from './road-wheel-layout.js';
+import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
   1:{name:'Field carbine',speed:56,range:144,damage:25,cooldown:6,propDamage:1},
@@ -28,6 +29,29 @@ function column(a,d,c,r,h){
   }
   return span[0]<=span[1] && slab(a.y-c.y,d.y,0,h,span)?span[0]:Infinity;
 }
+const roverBody=[[0,.56,0,1.48,.48,3.12],[0,1.04,-.10,1.35,.55,1.08],
+    [0,.31,0,1.10,.26,2.50],[0,.46,-1.48,1.54,.16,.14],[0,.46,1.49,1.54,.16,.14]];
+
+// Resolve the closest game collider before deciding if the impact belongs
+// to the wheel or the body. Axle-space coordinates rotate with either rover.
+export function roverRoundContact(rover,start,delta){
+  if(!rover || rover.wrecked)return null;
+  const c=Math.cos(rover.yaw),s=Math.sin(rover.yaw),x=start.x-rover.x,z=start.z-rover.z;
+  const point={x:x*c+z*s,y:start.y-rover.y,z:-x*s+z*c};
+  const step={x:delta.x*c+delta.z*s,y:delta.y,z:-delta.x*s+delta.z*c};
+  if(box(point,step,{x:0,y:-.34,z:0},1.84,2.34,3.56)===Infinity)return null;
+  // Sheet metal above the axles, narrower underbody, and the end bumpers.
+  // Their overlaps leave the four visually exposed wheel wells selectable.
+  let t=Infinity,wheel=null;
+  for(const [x,y,z,w,h,d] of roverBody)t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  const across={x:point.y,y:point.x,z:point.z}, travel={x:step.y,y:step.x,z:step.z};
+  for(let i=0;i<wheelStations.length;i++){
+    const [side,length]=wheelStations[i],height=.368+(rover.suspension?.wheels[i] ?? 0);
+    const value=column(across,travel,{x:height,y:side-.14,z:length},.36,.28);
+    if(value<t){t=value;wheel=i;}
+  }
+  return t===Infinity ? null : {t,wheel};
+}
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
@@ -38,9 +62,9 @@ const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
   {x:x+1.5,y:4.265,z:z-5.8,w:.34,h:.87,d:.32},
 ])):[];
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
-  let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity;
-  function accept(value,obj,kind,head=false,part=null,visual=value){
-    if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;}
+  let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
+  function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
+    if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
@@ -75,9 +99,12 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
       accept(box(round,d,{x:b.x+s*b.width/2,y:b.y+height-.065,z:b.z},.15,.13,b.length),null,'scenery');
   }
   for(const c of crates)if(world.hp[c.id]>0)accept(column(round,d,c,c.radius,c.height),c,'crystal');
-  for(const [kind,w,h,l] of [['rover',1.58,1.58,3.04],['heli',1.85,2.15,3.38]]){
-    const v=world[kind];if(v && !v.wrecked && round.source!==kind)accept(box(round,d,v,w,h,l,v.yaw),v,kind);
+  if(round.source!=='rover'){
+    const hit=roverRoundContact(world.rover,round,d);
+    if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
+  const heli=world.heli;
+  if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {
     if(!b.wrecked && b.id!==round.source)accept(box(round,d,{...b,y:b.y-.5},2.08,1.55,5.30,b.yaw),b,b.id);
   }
@@ -89,7 +116,10 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
-  const above=f=>round.y+f*d.y-Math.max(MAP.waterY,groundHeight(round.x+f*d.x,round.z+f*d.z));
+  const above=f=>{
+    const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
+    return y-Math.max(MAP.waterY,groundHeight(x,z,y),CITY ? parapetTop(x,z,0,y) : -Infinity);
+  };
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){
     const u=i/steps;if(u-1/steps>=t)break;
@@ -98,5 +128,5 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     for(let k=0;k<6;k++){const m=(lo+hi)/2;if(above(m)>0)lo=m;else hi=m;}
     accept(hi,null,'scenery');break;
   }
-  return {t,target,hitKind,headshot,hitPart,visualT};
+  return {t,target,hitKind,headshot,hitPart,visualT,wheel};
 }

@@ -187,7 +187,7 @@ sockets.on('connection', ws => {
     } else if (world.rover.driver === id) {
       const gunner=players.get(world.rover.gunner);
       if(gunner) interactRover(world,gunner);
-      world.rover={...parkedRover(),hp:world.rover.hp,cargo:world.rover.cargo};
+      world.rover={...parkedRover(),hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,cargo:world.rover.cargo};
     } else {
       const boat=crewBoat(world,id);
       if(boat?.driver===id){boat.driver=null;boat.throttle=0;}
@@ -225,7 +225,7 @@ function tick() {
       if(role) vehicleById(world,role).gunner=null;
       const boat=crewBoat(world,player.id);
       if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
-      if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
+      if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
         player.life = newLife(ticks);

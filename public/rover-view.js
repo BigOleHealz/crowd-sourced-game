@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import {roverPanelDamage} from './rover-panel-damage.js';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
 import { CITY, groundHeight } from './world.js';
-import { wheelStations } from './road-wheel-layout.js';
+import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
@@ -11,15 +12,30 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const axles=new THREE.Group();
   scene.add(root,axles);
   const cube = new THREE.BoxGeometry(1,1,1);
+  const sheet = new THREE.BoxGeometry(1,1,1,5,2,5);
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
   const pickup=CITY;
   const green=pickup?0x748480:0x696e50, darkGreen=pickup?0x566661:0x4e5543;
   const trim=pickup?0xb2b3a6:0x747861, steel=0x626660, rubber=0x2c302e;
-  const box=(t,x,y,z,w,h,l) => chassis.add(cube,t,x,y,z,w,h,l);
+  const box=(t,x,y,z,w,h,l) => {
+    const widePanel=y<1.1 && (w>.75 || l>.75);
+    chassis.add(widePanel ? sheet : cube,t,x,y,z,w,h,l);
+  };
   function panel(batch,tint,a,b,c,d) {
+    const span=(from,to)=>Math.hypot(...to.map((value,i)=>value-from[i]));
+    const cols=Math.max(1,Math.ceil(span(a,b)/.30)),rows=Math.max(1,Math.ceil(span(a,d)/.30));
+    const vertices=[],indices=[];
+    for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
+      const u=i/cols,v=j/rows;
+      for(let k=0;k<3;k++)vertices.push((a[k]*(1-u)+b[k]*u)*(1-v)+(d[k]*(1-u)+c[k]*u)*v);
+      if(j<rows && i<cols){
+        const n=j*(cols+1)+i;
+        indices.push(n,n+1,n+cols+2,n,n+cols+2,n+cols+1);
+      }
+    }
     const geom=new THREE.BufferGeometry();
-    geom.setAttribute('position',new THREE.Float32BufferAttribute([...a,...b,...c,...a,...c,...d],3));
+    geom.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geom.setIndex(indices);
     geom.computeVertexNormals(); batch.add(geom,tint,0,0,0); geom.dispose();
   }
   // Narrow the end sections and bevel the shoulders, keeping bumpers and wheel wells clear.
@@ -183,18 +199,24 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     chassis.beam(steel,[side*.62,.566,-.52],[side*.83,.49,-.52],.046);
   }
   eye.dispose();
-  Object.assign(chassis.mesh(root,fieldPaint(),false).userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
-  brightwork.mesh(root,facingMaterial,false);
+  const paint=fieldPaint(), body=chassis.mesh(root,paint,false);
+  Object.assign(body.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
+  const trimMesh=brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
-  Object.assign(glazing.mesh(root,glassMat,false).userData,{impactSurface:'solid',vehicle:'rover'});
+  const windows=glazing.mesh(root,glassMat,false);
+  Object.assign(windows.userData,{impactSurface:'solid',vehicle:'rover'});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
   ink.fillStyle='#dcd4b3';ink.font='bold 36px sans-serif';ink.textBaseline='middle';
   ink.fillText(pickup?'BAY SERVICE':'FIELD UNIT',10,35);ink.textAlign='right';ink.fillText(pickup?'07':'04',373,35);
   const tagMap=new THREE.CanvasTexture(tag);tagMap.colorSpace=THREE.SRGBColorSpace;
-  const tailTag=new THREE.Mesh(new THREE.PlaneGeometry(.97,.127),new THREE.MeshLambertMaterial({map:tagMap}));
+  const tailTag=new THREE.Mesh(new THREE.PlaneGeometry(.97,.127,5,2),new THREE.MeshLambertMaterial({map:tagMap}));
   tailTag.scale.setScalar(pickup?.69:.46);tailTag.position.set(pickup?0:.32,pickup?.94:.86,pickup?1.73:1.511);root.add(tailTag);
+  tailTag.updateMatrix();
+  tailTag.geometry.applyMatrix4(tailTag.matrix);
+  tailTag.position.set(0,0,0);tailTag.scale.setScalar(1);
+  const updatePanelDamage=roverPanelDamage([body,trimMesh,windows,tailTag],paint);
   const wheels=[];
   const tireSection=[[.18,-.11],[.245,-.139],[.309,-.136],[.356,-.095],[.36,.087],[.31,.136],[.246,.14],[.18,.111]]
     .map(([r,w])=>new THREE.Vector2(r,w));
@@ -218,7 +240,19 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       const a=i*Math.PI*2/5;
       wheelBatch.add(disc,0x41453f,side*.155,.112*Math.cos(a),.112*Math.sin(a),.021,.019,.021,0,0,Math.PI/2);
     }
-    const wheel=wheelBatch.mesh(axles,material,false);
+    const wheelFinish=material.clone(), rubberState={value:new THREE.Vector3(0,1,0)};
+    wheelFinish.onBeforeCompile=shader=>{
+      shader.uniforms.rubberState=rubberState;
+      shader.vertexShader='uniform vec3 rubberState;\n'+shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        // Flatten the contact patch along axle-space down while the tread rotates.
+        float height=position.y*rubberState.y-position.z*rubberState.z;
+        float fold=step(.01,rubberState.x)*max(0.,-.356+rubberState.x-height);
+        transformed.yz+=vec2(rubberState.y,-rubberState.z)*fold;
+        transformed.x+=sign(position.x)*fold*.32;`);
+    };
+    const wheel=wheelBatch.mesh(axles,wheelFinish,false);
+    wheel.userData.rubberState=rubberState;
     wheel.position.set(x,.368,z);
     const trimBatch=new Batch(true);
     trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
@@ -247,8 +281,9 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const footprint=new THREE.Object3D();
   if(contact){contact.frustumCulled=false;contact.visible=false;scene.add(contact);}
 
-  cube.dispose(); disc.dispose();
+  sheet.dispose(); cube.dispose(); disc.dispose();
   return function update(r,dt) {
+    updatePanelDamage(r.bodyDamage);
     const pose=r.suspension;
     axles.position.set(r.x,r.y,r.z);axles.rotation.y=-r.yaw;
     root.position.set(r.x,r.y+(pose?.heave ?? 0),r.z);
@@ -270,6 +305,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     wheels.forEach((wheel,i)=>{
       wheel.position.y=.368+(pose?.wheels[i] ?? 0);
       wheel.rotation.x-=r.speed*dt/.36;
+      wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
     });
     for(let i=0;i<cargo.length;i++) cargo[i].visible=i<(r.cargo||0);
   };

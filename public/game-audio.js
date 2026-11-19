@@ -5,7 +5,7 @@ import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
   impact:[.13,270,3000,25], metal:[.27,470,3300,16],
-  explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
+  headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
@@ -27,6 +27,9 @@ function synth(context,name) {
       const motor=Math.sin(2*Math.PI*t*(rotor ? 53 : 64))+.33*Math.sin(2*Math.PI*t*(rotor ? 106 : 96));
       samples[i]=rotor ? .30*motor+.57*thump*(.8*Math.sin(2*Math.PI*72*t)+.7*low)
         : .37*motor+.48*thump*(Math.sin(2*Math.PI*32*t)+low);
+    } else if(name==='headPop') {
+      phase+=2*Math.PI*bass*(1+2*Math.exp(-37*t))/rate;
+      samples[i]=Math.min(1,t*950)*Math.exp(-decay*t)*(.83*Math.sin(phase)+.17*low);
     } else {
       phase+=2*Math.PI*bass*(.55+1.6*Math.exp(-22*t))/rate;
       const tail=Math.min(1,(length-t)*45);
@@ -55,7 +58,7 @@ export function createGameAudio(button,slider,level) {
     if(saved && typeof saved.muted==='boolean' && Number.isFinite(saved.volume))
       settings={muted:saved.muted,volume:Math.max(0,Math.min(1,saved.volume))};
   } catch {}
-  let context,master,limiter,lastId=0;
+  let context,master,limiter;
   let previousVehicles={};
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
@@ -108,19 +111,17 @@ export function createGameAudio(button,slider,level) {
   function reset(world) {
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();
-    lastId=world?.shots.at(-1)?.id ?? 0;
     previousVehicles=world ? {rover:world.rover,heli:world.heli} : {};
   }
-  function events(world,listener,yaw) {
+  function events(world,listener,yaw,shots) {
     const impacts=[];
-    for(const shot of world.shots) {
-      if(shot.id<=lastId)continue;
-      lastId=shot.id;
+    for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
       if(shot.weapon==='muzzle')burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
-      else if(shot.hit)burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
+      else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
+      if(shot.injury==='headPop')burst('headPop',shot.injuryPoint ?? shot.to,listener,yaw,.84,shot.id);
     }
     for(const kind of ['rover','heli']) {
       const vehicle=world[kind],prior=previousVehicles[kind];
