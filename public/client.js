@@ -100,7 +100,6 @@ function pressButton(e) {
     if (canAim()) {
       canvas.focus({ preventScroll: true });
       showSight(true);
-      pressedAim = null;
     }
     return;
   }
