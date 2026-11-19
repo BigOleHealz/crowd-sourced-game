@@ -1,5 +1,6 @@
 // The server owns this transient expedition state. It survives individual joins.
 import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { parkedRover } from './rover.js';
 import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
@@ -9,7 +10,7 @@ let nextShotId = 1;
 
 export function newExpedition() {
   return {
-    heli: parkedHelicopter(),
+    heli: parkedHelicopter(), rover: parkedRover(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [],
   };

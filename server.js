@@ -7,6 +7,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
 import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/expedition.js';
 
+import { parkedRover, nearestVehicle, driveRover, interactRover } from './public/rover.js';
 import { recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
 
@@ -124,6 +125,8 @@ function acceptInput(player, data, binary) {
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-1.2, Math.min(0.9, input.aimPitch)) : 0,
     weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
     fire: input.fire === true, interact: input.interact === true,
+    throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
+    steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     lift: input.lift === 1 || input.lift === -1 ? input.lift : 0,
   });
 }
@@ -151,6 +154,7 @@ sockets.on('connection', ws => {
       npcs = newRivals();
     }
     else if (world.heli.pilot === id) world.heli = parkedHelicopter();
+    else if (world.rover.driver === id) world.rover = parkedRover();
     publish();
   });
   ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
@@ -168,6 +172,7 @@ function tick() {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
     if (player.life.hp === 0) {
+      if (world.rover.driver === player.id) world.rover = parkedRover();
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
         player.life = newLife(ticks);
@@ -180,7 +185,20 @@ function tick() {
     }
     if (input) {
       if (input.weapon) player.weapon = input.weapon;
-      if (input.interact) interact(world, player);
+      if (input.interact) {
+        if (world.rover.driver === player.id) interactRover(world, player);
+        else if (world.heli.pilot === player.id) interact(world, player);
+        else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
+        else interact(world, player);
+      }
+    }
+    if (world.rover.driver === player.id) {
+      driveRover(world, input || idle, step);
+      const { x,y,z,yaw } = world.rover;
+      player.state = { x,y,z,vy:0,grounded:true };
+      player.yaw = yaw;
+      player.moving = player.sprint = false;
+      continue;
     }
     if (world.heli.pilot === player.id) {
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);

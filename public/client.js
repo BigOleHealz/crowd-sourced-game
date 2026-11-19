@@ -1,4 +1,5 @@
 import { createScene } from './scene.js';
+import { nearestVehicle } from './rover.js';
 import { MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
@@ -18,6 +19,7 @@ const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
+const isDriving = () => id != null && world?.rover.driver === id;
 const isPilot = () => id != null && world?.heli.pilot === id;
 
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
@@ -52,7 +54,7 @@ window.addEventListener('keydown', e => {
   e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;
-  if (e.code === 'Space' && !isPilot()) queuedJump = true;
+  if (e.code === 'Space' && !isPilot() && !isDriving()) queuedJump = true;
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'Digit1') weapon = 1;
@@ -118,19 +120,24 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
-      const wasPilot = isPilot();
+      const wasPilot = isPilot(), wasDriving = isDriving();
+      const oldRoverYaw = world.rover.yaw;
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       vitals = authoritative;
       world = m.world;
+      if (isDriving()) {
+        if (wasDriving) camera.yaw += Math.atan2(Math.sin(world.rover.yaw-oldRoverYaw),Math.cos(world.rover.yaw-oldRoverYaw));
+        else camera.yaw = world.rover.yaw;
+      }
       if (changedLife) clearInput();
-      const corrected = isPilot() || vitals.dead ? authoritative : pending.reduce(
+      const corrected = isPilot() || isDriving() || vitals.dead ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
-      if (wasPilot !== isPilot() || changedLife) previous = corrected;
+      if (wasPilot !== isPilot() || wasDriving !== isDriving() || changedLife) previous = corrected;
       self = corrected;
-      samples.push({ time: performance.now(), heli: world.heli, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -161,12 +168,14 @@ function tick() {
   moving = Boolean(lateral || forward);
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
-  const fire = !pilot && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  const driving = isDriving();
+  const fire = !driving && !pilot && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
   if (fire) facing = camera.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot, yaw: facing,
+  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
+    throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
     aimYaw: camera.yaw, aimPitch: camera.pitch };
   queuedJump = queuedInteract = queuedFire = false;
@@ -174,11 +183,11 @@ function tick() {
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  if (!pilot && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
+  if (!pilot && !driving && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
 }
 
 function remoteFrame(time) {
-  if (!samples.length) return { players: [], npcs: world.npcs, heli: world.heli };
+  if (!samples.length) return { players: [], npcs: world.npcs, heli: world.heli, rover: world.rover };
   const target = time - 100;
   let after = samples.findIndex(s => s.time >= target);
   if (after < 0) return samples.at(-1);
@@ -199,7 +208,12 @@ function remoteFrame(time) {
     heli = { ...b.heli, x: mix(a.heli.x,b.heli.x,t), y: mix(a.heli.y,b.heli.y,t),
       z: mix(a.heli.z,b.heli.z,t), yaw: angleMix(a.heli.yaw,b.heli.yaw,t) };
   }
-  return { players, npcs, heli };
+  let rover = b.rover;
+  if(a.rover.driver===b.rover.driver) {
+    rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
+      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t) };
+  }
+  return { players, npcs, heli, rover };
 }
 
 function updateEquipment(local) {
@@ -207,19 +221,22 @@ function updateEquipment(local) {
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
-  byId('kit').textContent = pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
+  byId('kit').textContent = isDriving() ? 'Trail rover' : pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
-  byId('reticle').hidden = pilot || vitals.dead;
+  byId('reticle').hidden = pilot || isDriving() || vitals.dead;
   const hp = pilot ? heli.hp : vitals.hp;
   const maxHp = (pilot ? heli.maxHp : vitals.maxHp) || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (pilot ? 'Airframe ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : vitals.protected ? 'Spawn shield' : '';
+  byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = isDriving();
   byId('space-action').textContent = pilot ? 'Climb' : 'Jump';
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  byId('tool-shortcut').hidden = byId('fire-shortcut').hidden = pilot;
+  byId('tool-shortcut').hidden = byId('fire-shortcut').hidden = pilot || isDriving();
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (isDriving()) prompt.textContent = 'W/S drive  ·  A/D steer  ·  E park and exit';
+  else if (!pilot && nearestVehicle(world,local)==='rover') prompt.textContent = 'E  ·  Drive trail rover';
   else if (heli.wrecked) prompt.textContent = 'Helicopter recovering · ' + Math.ceil(heli.recoverySeconds) + 's';
   else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend and land';
   else if (heli.pilot != null) prompt.textContent = 'Helicopter in use';
@@ -248,6 +265,7 @@ function drawMap(player, remotes) {
   const heli = world.heli;
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
+  ctx.fillStyle = '#ffe085'; ctx.fillText('R',sx(world.rover.x),sy(world.rover.z)-4);
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }
@@ -275,10 +293,11 @@ function frame(time) {
     const t = accumulator / step;
     const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const { players: remotes, npcs, heli } = remoteFrame(time);
+    const { players: remotes, npcs, heli, rover } = remoteFrame(time);
     local.weapon = weapon;
     if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
-    scene.render(local, remotes, camera, dt, { ...world, heli, npcs });
+    if (isDriving()) Object.assign(local, { x: rover.x, y: rover.y, z: rover.z, yaw: rover.yaw });
+    scene.render(local, remotes, camera, dt, { ...world, heli, rover, npcs });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(camera.yaw / (Math.PI / 4)) % 8 + 8) % 8;

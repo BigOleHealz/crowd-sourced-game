@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createRoverView } from './rover-view.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -818,6 +819,7 @@ export function createScene(canvas) {
   const features=new Batch();addBridge(features,rng);addDetails(features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng);
   const shadowMap=contactShadowMap();
+  const updateRover=createRoverView(scene,Batch,material,shadowMap);
   const helicopter=fieldHelicopter(scene,material,shadowMap);
   const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
   const effects=fieldEffects(scene);
@@ -844,6 +846,8 @@ export function createScene(canvas) {
     const heli=world?.heli ?? parked;
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
+    const rover=world.rover, driving=rover.driver===local.id;
+    updateRover(rover,dt);
     for(const crystal of crystals) {
       const {prop,mesh}=crystal;
       const hp=world?.hp?.[prop.id] ?? prop.hp;
@@ -870,21 +874,22 @@ export function createScene(canvas) {
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
-      a.root.visible=a.shadow.visible=state.id!==heli.pilot;
+      a.root.visible=a.shadow.visible=state.id!==heli.pilot && state.id!==rover.driver;
       if(a.root.visible) pose(a,state,dt);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
+    if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
+    else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
     else desired.set(local.x,local.y+1.43,local.z);
     if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : 0);
+    const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : 0);
     const distance=cameraDistance(target,boom,wanted,world?.hp);
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && distance>.86;
+    avatars.get(local.id).root.visible=!piloting && !driving && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }
