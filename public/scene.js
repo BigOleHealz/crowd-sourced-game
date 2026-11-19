@@ -789,7 +789,8 @@ function makeParachute(root, material) {
 }
 
 function pose(avatar,state,dt,seated=null,station=null) {
-  const onFoot=!seated && !station && !state.dead && state.grounded!==false && !state.parachute;
+  const fall = state.fall;
+  const onFoot=!fall && !seated && !station && !state.dead && state.grounded!==false && !state.parachute;
   let gait=avatar.gait;
   if(onFoot) {
     if(!gait || Math.hypot(state.x-gait.x,state.z-gait.z)>1.8) {
@@ -824,10 +825,22 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
   const bloom = state.weapon === 2;
-  // Defeated hikers slump to the ground until the authoritative respawn.
-  avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
-  avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
+  avatar.body.rotation.set(0,0,0);
+  let collapse = 0, flail = 0;
+  if (fall) {
+    avatar.root.rotation.y = -fall.yaw;
+    const progress = Math.min(1, fall.age * (2.9 + Math.min(10,fall.speed)*.23));
+    const recovery = fall.recovery || 0;
+    collapse = Math.sin(progress * Math.PI/2) * (1 - recovery*recovery*(3-2*recovery));
+    flail = Math.sin(progress*Math.PI) * Math.min(1,.32 + fall.speed*.12);
+    avatar.body.rotation.x = -1.53 * collapse;
+    avatar.body.rotation.z = .21*flail;
+    avatar.body.position.y += .21*collapse;
+    avatar.spine.rotation.x = -.13*collapse + .19*flail;
+    avatar.spine.rotation.y = .12*collapse;
+  }
+  avatar.tools[0].visible = !fall && !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !fall && !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(gait) {
@@ -853,7 +866,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
-    if(station) {
+    if (fall) {
+      leg.rotation.set((side < 0 ? -.16 : -.32)*collapse + side*.34*flail,0,side*.24*collapse,'ZXY');
+      knee.rotation.x = -.38*collapse - (side < 0 ? .78 : .20)*flail;
+      ankle.rotation.set(.19*collapse,0,0);
+      arm.rotation.set(-.18*collapse + side*.48*flail,0,side*(.88*collapse + .73*flail));
+      forearm.rotation.x = (.33 + .29*side)*collapse + .65*flail;
+    } else if(station) {
       const p=station.turretPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
@@ -873,7 +892,12 @@ function pose(avatar,state,dt,seated=null,station=null) {
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
-  avatar.shadow.scale.set(.37+height*.05,1,.30+height*.04);
+  avatar.shadow.rotation.y = fall ? -fall.yaw : 0;
+  if (collapse) {
+    avatar.shadow.position.x += .75*collapse*Math.sin(fall.yaw);
+    avatar.shadow.position.z -= .75*collapse*Math.cos(fall.yaw);
+  }
+  avatar.shadow.scale.set(.37+height*.05,1,.30+height*.04+.7*collapse);
   avatar.shadow.material.opacity=.4-height*.12;
 }
 

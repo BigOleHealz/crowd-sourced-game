@@ -105,7 +105,7 @@ export function fire(world, player, input, tick, players, npcs) {
   const dz = -Math.cos(input.aimYaw) * horizontal;
   const actors = targets(world,player.id,players,npcs);
   const { target, hitKind, to, headshot } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
-  applyHit(world,{target,hitKind,to,headshot},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
+  applyHit(world,{target,hitKind,to,headshot},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom,null,{x:dx,z:dz});
   world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to, headshot,
     hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
 }
@@ -115,7 +115,7 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
+function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,bloom,source,direction) {
   if (hitKind || (bloom && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
@@ -126,7 +126,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
     }
     for (const actor of actors) {
       if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
-        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
+        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick, direction);
       }
     }
     if (source !== 'rover' && (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8)))) {
@@ -159,7 +159,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
+    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction);
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
@@ -176,7 +176,7 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const pivot=mountPosition(v,mounts[kind].turret);
   const actors=targets(world,player.id,players,npcs,kind);
   const hit=tracePulse(world,actors,pivot,dir,turretRange,false,kind);
-  applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind);
+  applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind,dir);
   const d=Math.min(.64,Math.hypot(hit.to.x-pivot.x,hit.to.y-pivot.y,hit.to.z-pivot.z));
   const from={x:pivot.x+dir.x*d,y:pivot.y+dir.y*d,z:pivot.z+dir.z*d};
   world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,headshot:hit.headshot,

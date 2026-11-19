@@ -90,7 +90,7 @@ canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
-  if (self && !isDriving() && !isPilot() && !vitals.dead)
+  if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 18 : 27,gunnerRole());
   mouseFire = queuedFire = true;
 });
@@ -153,7 +153,7 @@ function connect() {
       const gunner=gunnerRole();
       if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
-      const corrected = isPilot() || isDriving() || gunner || vitals.dead ? authoritative : pending.reduce(
+      const corrected = isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
@@ -194,7 +194,7 @@ function tick() {
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  const fire = !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
     (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
@@ -213,7 +213,7 @@ function tick() {
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
+  if (!pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp);
 }
 
 function remoteFrame(time) {
@@ -292,7 +292,8 @@ function updateEquipment(local) {
   byId('tool-shortcut').hidden = pilot || isDriving() || !!gunner;
   byId('fire-shortcut').hidden = vitals.dead;
   const prompt = byId('field-prompt');
-  if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  if (vitals.fall && !vitals.dead) prompt.textContent = 'Knocked down · Getting back up…';
+  else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
   else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
   else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
@@ -364,7 +365,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: facing, moving, sprint,
+    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const { players: remotes, npcs, heli, rover } = remoteFrame(time);
     local.weapon = weapon;

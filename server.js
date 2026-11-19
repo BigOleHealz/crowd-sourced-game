@@ -12,7 +12,9 @@ import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
+import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
+
+import { advanceFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -197,9 +199,11 @@ function tick() {
   if (players.size) {
     for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
   }
+  const before = Object.fromEntries(['rover','heli'].map(kind => [kind,{ ...world[kind] }]));
   for (const player of players.values()) {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
+    const fallingBody = advanceFall(player, ticks, step, world.hp);
     if (player.life.hp === 0) {
       const role=gunnerVehicle(world,player.id);
       if(role) world[role].gunner=null;
@@ -214,6 +218,7 @@ function tick() {
       }
       continue;
     }
+    if (fallingBody) continue;
     if (input) {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
@@ -273,6 +278,10 @@ function tick() {
     gunner.state={...gunnerFeet(v,kind),grounded:kind==='rover' || v.grounded,vy:0};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
+  }
+  for (const kind of ['rover','heli']) {
+    if (world[kind].driver != null || world[kind].pilot != null)
+      vehicleContacts(world,kind,before[kind],[...players.values(),...npcs],ticks,step);
   }
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
