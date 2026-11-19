@@ -281,7 +281,9 @@ function remoteFrame(time) {
     return newer.map(p => {
       const q = older.find(q => p.id === q.id);
       if (!q || q.dead !== p.dead || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
-      return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const fall=p.fall?.joints && q.fall?.started===p.fall.started ? {...p.fall,
+        joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
+      return { ...p, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
@@ -428,7 +430,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
+    const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const { players: remotes, npcs, heli, rover } = remoteFrame(time);
     local.weapon = weapon;
