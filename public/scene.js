@@ -372,8 +372,8 @@ function contactShadowMap() {
 
 // Field equipment uses the same vertex-colored batches as the hikers.
 // Each loadout costs a single draw call while equipped.
-function makeBlasters(body, material) {
-  const pulse = new Batch(), bloom = new Batch();
+function makeFirearms(body, material) {
+  const carbine = new Batch(), sidearm = new Batch();
   const alloy=0x4f5452, charcoal=0x343a39, stock=0x686655, accent=0x858578;
   const tube=new THREE.CylinderGeometry(1,1,1,14);
   // Bevelled side profiles give the two field props distinct silhouettes.
@@ -382,31 +382,31 @@ function makeBlasters(body, material) {
     const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:1,bevelThickness:.003,bevelSize:.004});
     geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
   }
-  profile(pulse,stock,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
-  pulse.add(cube,charcoal,0,.041,.236,.065,.119,.013);
-  profile(pulse,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
-  profile(pulse,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
-  profile(pulse,stock,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
-    profile(pulse,stock,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
+  profile(carbine,stock,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
+  carbine.add(cube,charcoal,0,.041,.236,.065,.119,.013);
+  profile(carbine,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
+  profile(carbine,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
+  profile(carbine,stock,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
+    profile(carbine,stock,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
     for(const side of [-1,1]) for(let n=0;n<5;n++)
-      pulse.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
-    pulse.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
-    pulse.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
-  pulse.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
-  pulse.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
-  pulse.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
+      carbine.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
+    carbine.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
+    carbine.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
+  carbine.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
+  carbine.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
+  carbine.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
   for(const side of [-1,1]) {
-    pulse.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
-    pulse.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
+    carbine.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
+    carbine.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
   }
-  profile(bloom,charcoal,[[.088,.085],[-.169,.085],[-.18,.047],[-.10,.025],[.044,.027],[.091,.050]],.043);
-  profile(bloom,alloy,[[.084,.106],[-.184,.106],[-.184,.064],[.080,.064]],.047);
-  profile(bloom,stock,[[.079,.045],[.019,.043],[.036,-.095],[.095,-.089]],.045);
-  bloom.add(tube,charcoal,0,.085,-.188,.014,.02,.014,Math.PI/2);
-  bloom.beam(charcoal,[.0,.019,-.063],[.0,-.014,-.050],.010);
-  bloom.beam(charcoal,[.0,-.014,-.050],[.0,-.013,.021],.010);
+  profile(sidearm,charcoal,[[.088,.085],[-.169,.085],[-.18,.047],[-.10,.025],[.044,.027],[.091,.050]],.043);
+  profile(sidearm,alloy,[[.084,.106],[-.184,.106],[-.184,.064],[.080,.064]],.047);
+  profile(sidearm,stock,[[.079,.045],[.019,.043],[.036,-.095],[.095,-.089]],.045);
+  sidearm.add(tube,charcoal,0,.085,-.188,.014,.02,.014,Math.PI/2);
+  sidearm.beam(charcoal,[.0,.019,-.063],[.0,-.014,-.050],.010);
+  sidearm.beam(charcoal,[.0,-.014,-.050],[.0,-.013,.021],.010);
   tube.dispose();
-  const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
+  const tools = [carbine.mesh(body,material,false), sidearm.mesh(body,material,false)];
   for (const tool of tools) tool.position.set(.109,1.33,-.19);
   return tools;
 }
@@ -799,7 +799,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,spine,limbs,material,gait:null,tools:makeBlasters(upper,material),shadow,label:characterLabel(root,name),cycle:0};
+  return {root,body,spine,limbs,material,gait:null,tools:makeFirearms(upper,material),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {

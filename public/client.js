@@ -160,7 +160,7 @@ function connect() {
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
-      samples.push({ time: performance.now(), heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), bullets:world.bullets, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -214,6 +214,19 @@ function tick() {
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
   if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
+}
+
+// Interpolate only live rounds. An impact snapshot immediately retires its tracer.
+function roundFrame(time) {
+  const newest=samples.at(-1),older=samples.at(-2);
+  if(!older || !newest?.bullets?.length) return world.bullets;
+  const duration=Math.max(1,newest.time-older.time),blend=clamp((time-newest.time)/duration,0,1);
+  return newest.bullets.map(r=>{
+    const old=older.bullets?.find(v=>v.id===r.id);
+    const back=Math.min(r.age/30,duration/1000);
+    return {...r,x:mix(old?.x ?? r.x-r.vx*back,r.x,blend),
+      y:mix(old?.y ?? r.y-r.vy*back,r.y,blend),z:mix(old?.z ?? r.z-r.vz*back,r.z,blend)};
+  });
 }
 
 function remoteFrame(time) {
@@ -373,7 +386,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='rover' ? rover : heli,role));
     const view = isDriving() ? drivingView(rover, dt) : camera;
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs });
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;

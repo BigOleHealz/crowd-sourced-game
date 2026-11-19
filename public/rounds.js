@@ -1,4 +1,5 @@
-import { MAP, BREAKABLES, groundHeight } from './world.js';
+import { avenues, streets } from './brickell-map.js';
+import { CITY, MAP, BREAKABLES, groundHeight } from './world.js';
 export const firearmSpecs={
   1:{name:'Field carbine',speed:56,range:78,damage:25,cooldown:6,propDamage:1},
   2:{name:'Patrol sidearm',speed:39,range:49,damage:40,cooldown:21,propDamage:2},
@@ -29,12 +30,19 @@ function column(a,d,c,r,h){
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:groundHeight(p.x,p.z)}));
+// Match the signal pole, overhead arm and housing drawn at each intersection.
+const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
+  {x:x-6.2,y:.75,z:z-5.8,w:.16,h:4.5,d:.16},
+  {x:x-2.2,y:5.03,z:z-5.8,w:8,h:.12,d:.12},
+  {x:x+1.5,y:4.265,z:z-5.8,w:.34,h:.87,d:.32},
+])):[];
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false;
   function accept(value,obj,kind,head=false){
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;}
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
+  for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   for(const p of barriers)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
