@@ -69,6 +69,7 @@ try {
   assert(dead.dead && dead.respawnIn > 0);
   const late = await join(url);
   assert(actor(late,b.id).dead && actor(late,b.id).hp === 0);
+  assert(actor(late,b.id).fall.joints.length>40,'late join receives the active player skeleton');
   const lastDeathZ = dead.z;
   await input(b,{z:1, fire:true, jump:true, interact:true});
   assert.equal(actor(b,b.id).z,lastDeathZ, 'input cannot steer the defeated body perpendicular to the shot');
@@ -76,6 +77,7 @@ try {
   await shoot(a,b.id); // cannot restart a dead player's timer
   await until(() => !actor(b,b.id).dead && actor(b,b.id).protected, 'player respawn');
   assert.equal(actor(b,b.id).hp,100);
+  assert.equal(actor(b,b.id).fall,null);
   await shoot(a,b.id);
   assert.equal(actor(b,b.id).hp,100, 'respawn shield absorbs pulse');
 
@@ -85,6 +87,7 @@ try {
     await until(() => actor(a,fern).hp===expected && actor(b,fern).hp===expected,'shared NPC damage');
   }
   assert(actor(b,fern).dead && !actor(b,fern).moving);
+  assert(actor(b,fern).fall.joints.length>40,'patrol uses the same physical rig');
   const joined = await join(url);
   assert(joined.welcome.world.npcs.find(n=>n.id===fern).dead,'welcome includes current NPC defeat');
   await until(()=>actor(joined,fern).protected && actor(joined,fern).hp === 100,'NPC respawn');

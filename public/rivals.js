@@ -1,3 +1,4 @@
+import {packedJoints,releaseJoints} from './ragdoll.js';
 // The server advances every actor's lifecycle on the same 30 Hz clock.
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, groundHeight, stepPlayer } from './world.js';
@@ -20,6 +21,7 @@ export function healthView(actor, tick) {
   const life = actor.life;
   const f = life.fall;
   const fall = f ? { cause: f.cause, yaw: f.yaw, speed: f.speed, age: (tick-f.started)/30,
+    ...(f.ragdoll ? {joints:packedJoints(f.ragdoll),started:f.started} : {}),
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
   return { fall, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
@@ -32,9 +34,11 @@ export function damageActor(actor, amount, tick, direction) {
   life.hp = Math.max(0, life.hp - amount);
   if (life.hp !== 0) return false;
   life.returnAt = tick + RESPAWN_TICKS;
+  const released=direction && !life.fall ? releaseJoints(actor,tick,direction) : null;
   actor.moving = actor.sprint = false;
   if (!life.fall) startFall(actor, tick, { x: (direction?.x ?? Math.sin(actor.yaw || 0)) * 1.5,
     z: (direction?.z ?? -Math.cos(actor.yaw || 0)) * 1.5, y: 1.2 }, 'defeat');
+  if(released)life.fall.ragdoll=released;
   return true;
 }
 

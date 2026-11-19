@@ -274,7 +274,9 @@ function remoteFrame(time) {
     return newer.map(p => {
       const q = older.find(q => p.id === q.id);
       if (!q || q.dead !== p.dead || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
-      return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const fall=p.fall?.joints && q.fall?.started===p.fall.started ? {...p.fall,
+        joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
+      return { ...p, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
