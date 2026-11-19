@@ -8,6 +8,13 @@ export function sandHeight(x,z) {
   return Math.max(-2.8,Math.min(dry,.78-.16*(x-swash+5.75)));
 }
 export const beachBarriers=[
-  ...courts.flatMap(({x,z})=>[{x,z,w:8.5,d:.11,h:2.43}]),
-  ...stations.map(({x,z})=>({x,z,w:2.76,d:3.00,h:3.94})),
+  ...courts.flatMap(({x,z})=>[
+    {x,z,w:8.56,d:.11,h:2.40},
+    ...[-1,1].map(side=>({x:x+side*4.37,z,w:.112,d:.112,h:2.58})),
+  ]),
+  ...stations.flatMap(({x,z})=>[
+    {x,z,w:2.91,d:3.04,h:3.30},
+    {x:x+1.53,z,w:.27,d:2.76,h:2.42},
+    {x:x-1.64,z,w:.55,d:.77,h:.59},
+  ]),
 ];

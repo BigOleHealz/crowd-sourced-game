@@ -14,6 +14,17 @@ export function addBeach(scene,Batch) {
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
   const box=new THREE.BoxGeometry(), timber=new Batch(), cord=new Batch();
+  for(const [x,z,yaw,label] of [[8,-198,0,'BEACH ACCESS  →'],[33,-198,-Math.PI/2,'HARBOR KEY BEACH  ↑']]){
+    const panel=document.createElement('canvas');panel.width=768;panel.height=152;
+    const ink=panel.getContext('2d');
+    ink.fillStyle='#efe8ce';ink.fillRect(0,0,768,152);ink.fillStyle='#215d62';ink.fillRect(6,6,756,140);
+    ink.textAlign='center';ink.textBaseline='middle';ink.font='bold 62px sans-serif';ink.fillStyle='#fff4cf';ink.fillText(label,384,79);
+    const map=new THREE.CanvasTexture(panel);map.colorSpace=THREE.SRGBColorSpace;
+    const face=new THREE.Mesh(new THREE.PlaneGeometry(4.6,.91),new THREE.MeshBasicMaterial({map}));
+    face.rotation.y=yaw;face.position.set(x+.075*Math.sin(yaw),3.14,z+.075*Math.cos(yaw));scene.add(face);
+    timber.add(box,0x637e78,x,3.14,z,4.64,.95,.13,0,yaw);
+    for(const side of [-1,1]) timber.add(box,0xac9470,x+side*1.72*Math.cos(yaw),1.84,z-side*1.72*Math.sin(yaw),.14,2.1,.14);
+  }
   for(const {x,z} of courts){
     const h=sandHeight(x,z);
     for(const sign of [-1,1]){
@@ -38,7 +49,7 @@ export function addBeach(scene,Batch) {
   for(const {x,z,number} of stations){
     const h=sandHeight(x,z),paint=number==='01'?0x4ba9aa:0xe27955;
     for(const s of [-1,1]) for(const t of [-1,1]){
-      const a=[x+s*1.13,h+.05,z+t*1.25],b=[x+s*.94,h+1.64,z+t*1.04];
+      const a=[x+s*1.13,sandHeight(x+s*1.13,z+t*1.25)-.04,z+t*1.25],b=[x+s*.94,h+1.64,z+t*1.04];
       timber.beam(0xa58967,a,b,.16);
     }
     timber.add(box,0xc2ab87,x+.25,h+1.58,z,2.84,.16,2.76);
