@@ -6,6 +6,7 @@ import { tracePulse } from './expedition.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
+import { aircraftBody } from './aircraft-body.js';
 import { buildOutpost, meadow } from './outpost.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
@@ -419,7 +420,13 @@ function objectHealthLabel(scene,title) {
   const labelMap=new THREE.CanvasTexture(tag);
   labelMap.colorSpace=THREE.SRGBColorSpace;
   const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(1.9,.38,1);
+  const labelPosition=new THREE.Vector3();
+  label.onBeforeRender=(_renderer,_scene,camera)=>{
+    label.getWorldPosition(labelPosition);
+    const width=Math.min(1.9,labelPosition.distanceTo(camera.position)*.14);
+    label.scale.set(width,width*.2,1);
+    label.updateMatrixWorld();
+  };
   scene.add(label);
   let labelHp, labelMax, labelRecovery, labelUnpiloted;
   function update(hp,maxHp,recovery,unpiloted=false) {
@@ -449,61 +456,15 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
-  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e, glass = 0x284550;
-  // A continuous cabin envelope gives each window its own panel and avoids
-  // glass/fuselage intersections. Coordinates run from the nose to the tail.
-  const sections = [
-    [-1.39,.15,.94,.14],[-1.16,.49,1.00,.32],[-.60,.71,1.08,.53],
-    [-.51,.73,1.08,.54],[.04,.75,1.08,.53],[.12,.75,1.08,.52],
-    [.57,.73,1.06,.49],[.71,.67,1.06,.45],[1.13,.38,1.05,.30],[1.30,.18,1.05,.17],
-  ];
-  const profile=[[-.67,1],[.67,1],[.98,.48],[1,-.09],[.95,-.23],[.72,-.86],
-    [0,-1],[-.72,-.86],[-.95,-.23],[-1,-.09],[-.98,.48]];
-  const rings=sections.map(([z,w,y,h])=>profile.map(([cx,cy])=>[cx*w,y+cy*h,z]));
-  function panel(a,b,c,d,tint,batch=hull) {
-    const face=new THREE.BufferGeometry();
-    face.setAttribute('position',new THREE.Float32BufferAttribute([...a,...b,...c,...d],3));
-    face.setIndex([0,1,2,0,2,3]);face.computeVertexNormals();
-    const offset=batch.colors.length;
-    batch.add(face,tint,0,0,0);face.dispose();
-    if(batch===glazing){
-      for(const [i,p] of [a,b,c,d].entries()){
-        const t=clamp((p[1]-1.02)/.54,0,1);
-        const reflection=color(tint).lerp(color(0xacc1c2),t*t*.42);
-        batch.colors.splice(offset+i*3,3,reflection.r,reflection.g,reflection.b);
-      }
-    }
+  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e;
+  aircraftBody(hull,glazing);
+  // The seats and coaming remain visible behind the curved canopy.
+  for(const side of [-1,1]) {
+    hull.add(round,0x333a32,side*.286,.778,-.28,.212,.075,.23);
+    hull.add(round,0x4f5344,side*.286,1.009,-.12,.201,.247,.075,-.17);
+    hull.add(round,0x464a40,side*.286,1.246,-.09,.103,.088,.062,-.17);
   }
-  for(let row=0;row+1<rings.length;row++) {
-    const a=rings[row],b=rings[row+1];
-    for(let j=0;j<a.length;j++) {
-      const n=(j+1)%a.length,upper=j<=2||j>=9;
-      const windshield=row===1 && upper;
-      const cabinWindow=(row===3||row===5) && upper && j!==0;
-      const stripe=j===3||j===8;
-      let tint=olive;
-      if(windshield||cabinWindow) tint=(j===1||j===10)?0x667e87:glass;
-      else if(stripe || j===0 || (row>=7 && j!==5 && j!==6)) tint=ivory;
-      else if(j===4||j===7) tint=row<2?0x445052:0x59635d;
-      else if(j===5||j===6) tint=graphite;
-      if(windshield||cabinWindow) {
-        panel(a[j],b[j],b[n],a[n],tint,glazing);
-        // Glazing runs in inset rubber channels with perimeter posts.
-        if(j===2 || j===9){
-          hull.beam(0x363f3c,a[j],a[n],.027);
-          hull.beam(0x475553,b[j],b[n],.028);
-          hull.beam(0x45504a,a[n],b[n],.024);
-        }
-      } else panel(a[j],b[j],b[n],a[n],tint);
-    }
-  }
-  for(const [ring,section,front] of [[rings[0],sections[0],true],[rings.at(-1),sections.at(-1),false]]) {
-    const middle=[0,section[2],section[0]];
-    for(let i=0;i<ring.length;i++) {
-      const a=ring[i],b=ring[(i+1)%ring.length];
-      panel(middle,front?a:b,front?b:a,middle,ivory);
-    }
-  }
+  hull.add(round,0x3e463e,0,.976,-1.06,.45,.16,.22);
   hull.add(round,graphite,0,1.49,.46,.40,.21,.68);
   hull.add(cube,ivory,0,1.52,.50,.48,.18,.56);
   for (const side of [-1,1]) {
@@ -522,9 +483,9 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     hull.add(cube,0xefb966,side*.57,.75,-.94,.12,.10,.15);
   }
   const boom=new THREE.CylinderGeometry(.10,.27,2.52,12);
-  hull.add(boom,0xd9d7bf,0,1.21,1.89,1,1,.89,Math.PI/2-.095);
+  hull.add(boom,0x777d65,0,1.21,1.89,1,1,.89,Math.PI/2-.095);
   boom.dispose();
-  for(const z of [2.51,2.66])hull.add(trunk,0x9d5839,0,1.27+(z-2.51)*.095,z,.152,.08,.141,Math.PI/2-.095);
+  for(const z of [2.51,2.66])hull.add(trunk,0x5a6051,0,1.27+(z-2.51)*.095,z,.152,.08,.141,Math.PI/2-.095);
   hull.beam(0x656b63,[.17,.76,1.03],[.17,.52,1.44],.021);
   hull.beam(0x8c9997,[0,1.55,-.34],[0,1.89,-.53],.017);
   for(const side of [-1,1]){
@@ -539,7 +500,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   missileLaunchers(hull,'heli');
   const paint=fieldPaint();
   hull.mesh(group,paint,false);
-  glazing.mesh(group,alpineGlass(panorama),false);
+  glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
@@ -781,8 +742,10 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
     const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
     shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
-    shin.add(round,0x61543f,0,-.446,-.039,.108,.091,.16);
-    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
+    shin.add(round,0x584d3d,0,-.433,-.024,.097,.092,.119);
+    shin.add(round,0x5f5344,0,-.462,-.090,.103,.053,.127);
+    shin.add(round,0x373d36,0,-.507,-.065,.11,.022,.166);
+    for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
     shin.mesh(knee,uniform);
     const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
     const sleeve=new Batch(true);
@@ -840,7 +803,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
+  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight-(seated || station || airborne ? 0 : .024);
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
@@ -849,8 +812,12 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,side} of avatar.limbs) {
-    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
+    const ready=!station && !seated && !airborne && !state.dead;
+    const stance=ready ? (1-avatar.weight) : 0;
+    leg.position.z=side*.059*stance;
+    leg.rotation.z=side*.066*stance;
+    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : (.14+.058*side)*stance-side*swing*(state.sprint?.80:.59);
+    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23*stance-Math.max(0,-side*swing)*.77;
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
