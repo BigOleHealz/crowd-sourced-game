@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
-import { CITY } from './world.js';
+import { CITY, groundHeight } from './world.js';
 import { wheelStations } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
@@ -238,6 +238,15 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.3,3.5).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x28352a,transparent:true,opacity:.36,depthWrite:false}));
   scene.add(shadow);
+  // Short contact shadows under the four individual tires anchor the pickup on the avenue's
+  // asphalt and raised sidewalk, including when part of the axle is still below the curb.
+  const contact=CITY ? new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(.46,.72).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({map:shadowMap,color:0x332e26,transparent:true,opacity:.66,depthWrite:false}),
+    wheelStations.length) : null;
+  const footprint=new THREE.Object3D();
+  if(contact){contact.frustumCulled=false;contact.visible=false;scene.add(contact);}
+
   cube.dispose(); disc.dispose();
   return function update(r,dt) {
     const pose=r.suspension;
@@ -245,6 +254,19 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     root.position.set(r.x,r.y+(pose?.heave ?? 0),r.z);
     root.rotation.set(pose?.pitch ?? 0,-r.yaw,(pose?.roll ?? 0)+(r.wrecked ? -.22 : 0),'YXZ');
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
+    if(contact){
+      contact.visible=r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;
+      if(contact.visible) {
+        shadow.rotation.set(0,-r.yaw,0);
+        const c=Math.cos(r.yaw),s=Math.sin(r.yaw);
+        for(let i=0;i<wheelStations.length;i++) {
+          const [width,length]=wheelStations[i],x=r.x+c*width-s*length,z=r.z+s*width+c*length;
+          footprint.position.set(x,groundHeight(x,z)+.013,z);footprint.rotation.y=-r.yaw;
+          footprint.updateMatrix();contact.setMatrixAt(i,footprint.matrix);
+        }
+        contact.instanceMatrix.needsUpdate=true;
+      }
+    }
     wheels.forEach((wheel,i)=>{
       wheel.position.y=.368+(pose?.wheels[i] ?? 0);
       wheel.rotation.x-=r.speed*dt/.36;

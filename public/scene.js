@@ -993,7 +993,7 @@ export function createScene(canvas) {
   const features=new Batch();
   let glints, stacks;
   if(CITY) {
-    cityStreets(scene,renderer,Batch);
+    cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
   } else {
     addGround(scene,renderer);
