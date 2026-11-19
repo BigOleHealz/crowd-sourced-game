@@ -1,8 +1,10 @@
+import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch) {
+  addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
     const map=loader.load('./brickell-'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});

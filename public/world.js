@@ -65,6 +65,9 @@ export function buildingTopAt(x,z,padding=0) {
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
   }
+  for(const b of MAP.barriers ?? []){
+    if(Math.abs(x-b.x)<=b.w/2+padding && Math.abs(z-b.z)<=b.d/2+padding) top=Math.max(top,terrainHeight(b.x,b.z)+b.h);
+  }
   return top;
 }
 for(const b of MAP.buildings) {
