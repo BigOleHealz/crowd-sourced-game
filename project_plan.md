@@ -10,6 +10,18 @@ Use grounded realism for the player and environment. Keep the third-person contr
 
 **Working assumptions.** Start with desktop browsers, keyboard and mouse, a single hosting region and a pilot capacity of 16 concurrent players in the shared world. At capacity, show a full-world message and let players retry. Matt sets the voting and release policy and can pause automation or roll back. Exploration remains the starting activity. The local arcade build also supports blaster duels between hikers and two patrolling NPC rivals. Device coverage, player cap, voting rules and operating budget are pilot decisions to validate.
 
+## Buildings at street level
+
+Start with Mangle Café and the 810 Brickell Avenue lobby on the spawn block. A player walking along the glass should see a nearby chair pass in front of the counter, then reveal the back wall. Give each space a floor, walls, ceiling, furniture and light sources at believable distances. Check the result from the normal player camera and measure frame intervals on the same walk before expanding it.
+
+After Matt reviews this block, use the following order for later art passes.
+
+1. Extend the approach along the rest of Brickell Avenue and around the nearest intersections, where players spend the most time on foot.
+2. Apply it to waterfront and Harbor Key destinations approached by road or boat.
+3. Revisit the Rural Outpost depot and other buildings along the supply route.
+
+Reuse chairs, doors, counters and materials across buildings. Give shops and homes different layouts and silhouettes. Plan for eventual entry by aligning finished floors with the sidewalk, sizing openings for people, and leaving navigable routes between furnishings. When a building opens for play, update its collision and test entry and exit with two clients.
+
 ## Architecture and hosting
 
 ### Local prototype with Docker

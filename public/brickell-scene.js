@@ -105,7 +105,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     const base=.80, podium=3.9;
     const avenueCorner=x===-17 && z===7;
     // Recess the block's east podium face for the shop interior, preserving the other three facades.
-    const recess=avenueCorner ? 1.17 : 0;
+    const recess=avenueCorner ? 7.13 : 0;
     walls.add(faces[2],0xf5eee5,x-recess/2,base+podium/2,z,w-recess,podium,d);
     if(avenueCorner) {
       for(let floor=1;floor<=6;floor++) {
