@@ -485,6 +485,15 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const olive=0x59614f, graphite=0x343b36, alloy=0x939489;
   aircraftBody(hull,glazing);
   const wheel=new THREE.TorusGeometry(1,.36,8,20);
+  hull.add(round,graphite,0,1.03,-1.87,.50,.13,.22);
+  hull.add(cube,0x414840,0,1.07,-1.72,.95,.16,.24,-.30);
+  for(const side of [-1,1]) {
+    hull.add(cube,0x303833,side*.765,.973,-.83,.025,.069,.172);
+    hull.add(cube,alloy,side*.785,.983,-.83,.029,.024,.116);
+    hull.add(cube,0x303833,side*.763,.928,.80,.036,.073,.185);
+    hull.add(cube,alloy,side*.787,.938,.80,.031,.024,.118);
+    for(let k=0;k<9;k++) hull.add(round,0x8f9281,side*.757,.894,-.56+k*.122,.009,.010,.010);
+  }
   // An upswept boom, fin and low stabilator form the distinctive tail silhouette.
   const fairing=new THREE.CylinderGeometry(.13,.31,3.05,10);
   hull.add(fairing,olive,0,1.54,3.40,1,1,.94,Math.PI/2-.13);
@@ -501,7 +510,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const stabilator=aerofoil([[-1.34,4.72],[1.34,4.72],[1.34,4.29],[.33,4.00],[-.33,4.00],[-1.34,4.29]],.055);
   hull.add(stabilator,olive,0,1.66,0);stabilator.dispose();
   for(const side of [-1,1]){
-    hull.add(round,graphite,side*.35,.94,-1.04,.23,.16,.26);
+    hull.add(round,graphite,side*.35,.94,-1.28,.23,.16,.26);
     hull.add(round,0x42473e,side*.35,1.18,-.84,.22,.30,.08,-.12);
     // Paired turbine nacelles above the cabin with recessed mouths and rear exhausts.
     hull.add(round,olive,side*.45,1.70,.46,.316,.262,1.14);
@@ -553,7 +562,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const placard=new THREE.PlaneGeometry(.69,.105);
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
-    id.position.set(side*.766,.912,.15);id.rotation.y=side*Math.PI/2;
+    id.position.set(side*.773,.928,.12);id.rotation.y=side*Math.PI/2;
     airframe.add(id);
   }
   const blade=aerofoil([[-.06,.28],[.08,.28],[.13,.62],[.135,3.98],[-.035,4.40],[-.21,4.39],[-.11,3.92],[-.11,.62]],.026);
