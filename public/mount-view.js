@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mounts } from './mounts.js';
+import { mounts, mountPosition } from './mounts.js';
 
 export function missileLaunchers(batch,kind) {
   const [side,y,z]=mounts[kind].launcher;
@@ -26,10 +26,11 @@ export function missileView(scene) {
       if(!mesh) {
         mesh=new THREE.Mesh(body,finish);live.set(m.id,mesh);scene.add(mesh);
         mesh.position.set(m.x,m.y,m.z);
-        mesh.rotation.set(-Math.PI/2,-m.yaw,0,'YXZ');
+        mesh.rotation.set(-Math.PI/2+(m.pitch ?? 0),-m.yaw,0,'YXZ');
       }
       const factor=1-Math.exp(-dt*35);
       mesh.position.x+=(m.x-mesh.position.x)*factor;
+      mesh.position.y+=(m.y-mesh.position.y)*factor;
       mesh.position.z+=(m.z-mesh.position.z)*factor;
     }
     for(const [id,mesh] of live) if(!ids.has(id)){scene.remove(mesh);live.delete(id);}
@@ -57,12 +58,12 @@ export function turretView(scene,kind,Batch,material) {
   }
   stand.mesh(base,material,false);metal.mesh(cradle,material,false);
   box.dispose();cylinder.dispose();
-  const [x,y,z]=mounts[kind].turret;
+  const offset=mounts[kind].turret;
   return v=>{
-    const c=Math.cos(v.yaw),s=Math.sin(v.yaw);
-    base.position.set(v.x+c*x-s*z,v.y+y,v.z+s*x+c*z);
+    const pivot=mountPosition(v,offset);
+    base.position.set(pivot.x,pivot.y,pivot.z);
     base.visible=!v.wrecked;
     swivel.rotation.y=-(v.gunner==null ? v.yaw : v.turretYaw);
-    cradle.rotation.x=v.gunner==null ? 0 : v.turretPitch;
+    cradle.rotation.x=v.gunner==null ? (v.pitch ?? 0) : v.turretPitch;
   };
 }
