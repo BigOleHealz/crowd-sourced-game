@@ -52,6 +52,13 @@ export function turretView(scene,kind,Batch,material) {
   metal.add(cylinder,0x444e4b,0,.026,-.36,.066,.33,.066,Math.PI/2);
   metal.add(cylinder,0x303b39,0,.026,-.55,.032,.29,.032,Math.PI/2);
   metal.add(box,0x82947b,-.153,-.012,-.012,.11,.13,.16);
+  metal.add(box,0x626861,0,.112,-.071,.177,.045,.298);
+  for(let j=0;j<5;j++){
+    metal.add(box,0x535b55,0,.026,-.28-.042*j,.115,.110,.018);
+    metal.add(box,0x999079,-.123,-.028,.038-.024*j,.036,.028,.015);
+  }
+  metal.add(cylinder,0x49504b,0,.026,-.673,.043,.064,.043,Math.PI/2);
+  metal.add(box,0x434a42,-.167,.06,-.008,.125,.022,.18);
   for(const side of [-1,1]){
     metal.beam(0x49524d,[side*.073,0,.095],[side*.177,-.004,.19],.038);
     metal.add(cylinder,0x423c33,side*.177,-.062,.19,.032,.13,.032);
