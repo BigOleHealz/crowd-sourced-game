@@ -44,8 +44,10 @@ export function poseRagdoll(a,s,dt){
     if(r.handoff<1)p.lerp(r.live[i],1-r.handoff);
   }
   const p=r.points;
-  a.root.position.set(s.x,s.y,s.z);a.root.rotation.set(0,0,0);a.root.scale.setScalar(1);a.root.updateWorldMatrix(true,false);
   const hips=origin.addVectors(p[J.hipL],p[J.hipR]).multiplyScalar(.5);
+  // Keep the crew label with the resting body as the physics separates it from the gameplay anchor.
+  a.root.position.set(hips.x,Math.max(groundHeight(hips.x,hips.z),hips.y-.975),hips.z);
+  a.root.rotation.set(0,0,0);a.root.scale.setScalar(1);a.root.updateWorldMatrix(true,false);
   const shoulders=new THREE.Vector3().addVectors(p[J.shoulderL],p[J.shoulderR]).multiplyScalar(.5);
   const torsoUp=new THREE.Vector3().subVectors(shoulders,hips).normalize();
   const hipRight=new THREE.Vector3().subVectors(p[J.hipR],p[J.hipL]);

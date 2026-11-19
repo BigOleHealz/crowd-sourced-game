@@ -294,8 +294,8 @@ function tick() {
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
   if(players.size) {
-    for(const player of players.values())sampleRanger(player,step);
-    for(const npc of npcs)sampleRanger(npc,step);
+    for(const player of players.values())sampleRanger(player,step,world);
+    for(const npc of npcs)sampleRanger(npc,step,world);
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
