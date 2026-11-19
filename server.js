@@ -1,4 +1,5 @@
 import {sampleRanger} from './public/ragdoll.js';
+import {nearBoat,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -10,7 +11,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, spawn, stepPlayer } from './public/world.js';
 import { newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
-import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
+import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
@@ -147,7 +148,7 @@ function acceptInput(player, data, binary) {
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
-    seatKind: input.seatKind==='heli' || input.seatKind==='rover' ? input.seatKind : null,
+    seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
@@ -186,8 +187,10 @@ sockets.on('connection', ws => {
       if(gunner) interactRover(world,gunner);
       world.rover={...parkedRover(),hp:world.rover.hp,cargo:world.rover.cargo};
     } else {
+      const boat=crewBoat(world,id);
+      if(boat?.driver===id){boat.driver=null;boat.throttle=0;}
       const kind=gunnerVehicle(world,id);
-      if(kind) world[kind].gunner=null;
+      if(kind) vehicleById(world,kind).gunner=null;
     }
     publish();
   });
@@ -198,7 +201,7 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
-  const firingGunners=new Set();
+  const firingGunners=new Set(), boatInputs=new Map();
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   if (players.size) {
@@ -210,7 +213,9 @@ function tick() {
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       const role=gunnerVehicle(world,player.id);
-      if(role) world[role].gunner=null;
+      if(role) vehicleById(world,role).gunner=null;
+      const boat=crewBoat(world,player.id);
+      if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, cargo: world.rover.cargo};
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
@@ -227,8 +232,11 @@ function tick() {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact && !player.state.climb) {
-        if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
+        const boat=crewBoat(world,player.id);
+        if(boat)interactBoat(world,boat,player);
+        else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
+        else if (nearBoat(world,player.state)) interactBoat(world,nearBoat(world,player.state),player);
         else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
         else interact(world, player);
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
@@ -258,11 +266,13 @@ function tick() {
       player.sprint = false;
       continue;
     }
+    const boat=crewBoat(world,player.id);
+    if(boat?.driver===player.id){boatInputs.set(boat.id,input);continue;}
     const kind=gunnerVehicle(world,player.id);
     if (kind) {
       if(input && !input.interact && !input.seat) {
-        world[kind].turretYaw=input.aimYaw;
-        world[kind].turretPitch=turretPitch(input.aimPitch);
+        const vehicle=vehicleById(world,kind);
+        vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
         if(input.fire) firingGunners.add(player.id);
       }
       continue;
@@ -286,10 +296,15 @@ function tick() {
     }
   }
   stepSuspension(world.rover,step);
-  for(const kind of ['rover','heli']) {
-    const v=world[kind], gunner=players.get(v.gunner);
+  for(const b of world.boats){
+    stepBoat(world,b,boatInputs.get(b.id),step,players);
+    const driver=players.get(b.driver);
+    if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
+  }
+  for(const kind of ['rover','heli',...world.boats.map(b=>b.id)]) {
+    const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
-    gunner.state={...gunnerFeet(v,kind),grounded:kind==='rover' || v.grounded,vy:0};
+    gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }

@@ -1,5 +1,7 @@
 // Offsets in game units from the centre of the vehicle, facing local -Z.
+const boatMount={turret:[0,1.68,1.12]};
 export const mounts = {
+  boat:boatMount,'bay-rhib':boatMount,'key-rhib':boatMount,
   heli: { launcher: [2.05,.86,-.21], turret: [0,.49,-.97] },
   rover: { launcher: [.84,.82,-1.16], turret: [0,2.04,.96] },
 };
@@ -17,15 +19,19 @@ export function mountPosition(vehicle, [side,height,z]) {
 
 export const turretPitch=pitch=>Math.max(-.95,Math.min(.65,pitch));
 
+export function vehicleById(world,id){
+  if(id==='rover'||id==='heli')return world?.[id];
+  return world?.boats?.find(b=>b.id===id);
+}
 export function gunnerVehicle(world,id) {
   if(id==null || !world) return null;
   if(world.rover.gunner===id) return 'rover';
-  return world.heli.gunner===id ? 'heli' : null;
+  return world.heli.gunner===id ? 'heli' : world.boats?.find(b=>b.gunner===id)?.id??null;
 }
 
 export function gunnerFeet(vehicle,kind) {
   if(kind==='heli') return mountPosition(vehicle,[0,.52,0]);
-  const feet=mountPosition(vehicle,[0,.80,mounts.rover.turret[2]]);
+  const feet=mountPosition(vehicle,[0,kind==='rover'?.80:.45,mounts[kind].turret[2]]);
   feet.x-=.44*Math.sin(vehicle.turretYaw);
   feet.z+=.44*Math.cos(vehicle.turretYaw);
   return feet;

@@ -1,4 +1,5 @@
 import {posedHit} from './hit-zones.js';
+import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
 import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt } from './world.js';
@@ -8,14 +9,14 @@ import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
 
-import { mounts, mountPosition } from './mounts.js';
+import { mounts, mountPosition, vehicleById } from './mounts.js';
 
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
 
 export function newExpedition() {
   return {
-    heli: parkedHelicopter(), rover: parkedRover(),
+    heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
@@ -94,6 +95,12 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
         target=r; hitKind='rover'; break;
       }
     }
+    const boat=world.boats?.find(b=>{
+      if(b.wrecked||b.id===sourceVehicle||to.y<b.y-.50-halo||to.y>b.y+1.05+halo)return false;
+      const dx=to.x-b.x,dz=to.z-b.z,c=Math.cos(b.yaw),s=Math.sin(b.yaw);
+      return Math.abs(dx*c+dz*s)<=1.04+halo && Math.abs(-dx*s+dz*c)<=2.65+halo;
+    });
+    if(boat){target=boat;hitKind=boat.id;break;}
     const direct=intersections[0];
     if(direct && direct.distance<=d+.00001) {
       target=direct.actor;headshot=direct.headshot;hitPart=direct.hitPart;
@@ -118,7 +125,7 @@ export function fire(world, player, input, tick, players, npcs) {
 
 function targets(world,shooter,players,npcs,source=null) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
+    actor.id !== shooter && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
@@ -144,6 +151,9 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint}
           }
         }
       }
+    }
+    for(const b of world.boats??[]){
+      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,damage,players);
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       damageRover(world,damage,players);
@@ -189,7 +199,7 @@ export function advanceMissiles(world,players,npcs,tick) {
 
 const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
-  const v=world[kind], ready=nextBullet.get(v) ?? tick;
+  const v=vehicleById(world,kind), ready=nextBullet.get(v) ?? tick;
   if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
@@ -201,7 +211,7 @@ function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick){
   const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
   world.bullets.push({...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
     vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0});
-  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,from,to:from,tick});
+  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,source,from,to:from,tick});
 }
 
 const lastPosition=new WeakMap();

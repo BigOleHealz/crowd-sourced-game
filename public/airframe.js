@@ -1,3 +1,4 @@
+import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
@@ -55,7 +56,7 @@ function driftAfterBailout(world, dt, players) {
   h.yaw += (coasting ? .09 : .48) * dt;
   const x = clamp(h.x + motion.vx*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32), z = clamp(h.z + motion.vz*dt, MAP.flightNorth ?? -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32);
   const y = Math.min(MAP.flightCeiling ?? 23, h.y + motion.vy*dt);
-  const floor = flightFloor(x, z, world.hp);
+  const floor = flightFloor(x, z, world.hp,world);
   if (y <= floor) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
     if (h.y >= floor) Object.assign(h, {x, y:floor, z});
@@ -95,8 +96,9 @@ function landingSite(x, z, hp) {
     Math.abs(groundHeight(x + dx, z + dz) - y) < 0.45);
 }
 
-function flightFloor(x, z, hp) {
-  const surface = Math.max(groundHeight(x, z), MAP.waterY + 0.6);
+function flightFloor(x, z, hp,world) {
+  const boat=nearbyHull(world?.boats,null,x,z,world?.heli.yaw??0,1.28,3.6);
+  const surface = Math.max(groundHeight(x, z), MAP.waterY + 0.6, boat ? boat.y+1.45 : -Infinity);
   const clearance = solidTopAt(x, z, hp, 1.8);
   // The woodland has low-poly canopies broader than the trunks used for walkers.
   let floor = Math.max(surface, clearance);
@@ -115,7 +117,7 @@ export function fly(world, input, dt, players) {
   const h = world.heli;
   if (h.wrecked || (h.grounded && input.lift <= 0)) return;
   const motion = flightStates.get(h);
-  const oldFloor = flightFloor(h.x, h.z, world.hp);
+  const oldFloor = flightFloor(h.x, h.z, world.hp,world);
   const landable = landingSite(h.x, h.z, world.hp) && oldFloor <= groundHeight(h.x, h.z) + 0.08;
   const minY = oldFloor + (landable ? 0 : 0.22);
   // The rotor disc tips toward the velocity error. Its horizontal thrust
@@ -162,7 +164,7 @@ export function fly(world, input, dt, players) {
   motion.vz += (motion.tiltZ - drag * motion.vz) * dt;
   const x = clamp(h.x + motion.vx * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
   const z = clamp(h.z + motion.vz * dt, MAP.flightNorth ?? -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
-  const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp) + 0.04;
+  const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp,world) + 0.04;
   let stoppedX = 0, stoppedZ = 0;
   if (clear(x, z)) {
     h.x = x;
