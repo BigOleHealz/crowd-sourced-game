@@ -1,0 +1,36 @@
+name: pinewatch-local
+x-runtime: &runtime
+  image: pinewatch-local:dev
+  user: node
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  init: true
+  pids_limit: 64
+services:
+  game:
+    <<: *runtime
+    build: .
+    ports:
+      - "127.0.0.1:4173:4173"
+    cpus: "${GAME_CPUS:-0.50}"
+    mem_limit: "${GAME_MEMORY:-192m}"
+    memswap_limit: "${GAME_MEMORY:-192m}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_interval: 2s
+      start_period: 10s
+  smoke:
+    <<: *runtime
+    profiles: [test]
+    cpus: "${TEST_CPUS:-0.25}"
+    mem_limit: "${TEST_MEMORY:-128m}"
+    memswap_limit: "${TEST_MEMORY:-128m}"
+    environment:
+      GAME_URL: http://game:4173
+    depends_on:
+      game:
+        condition: service_healthy
+    command: ["node", "test/multiplayer.mjs"]

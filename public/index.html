@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#28382e">
+  <title>Pinewatch · Matt’s world</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+</head>
+<body>
+  <canvas id="game" tabindex="0" aria-label="Pinewatch multiplayer hiking world"></canvas>
+  <header class="mast">
+    <div class="world-name"><span class="crest" aria-hidden="true">▲</span><div><span class="subhead">Matt’s world</span><h1>Pinewatch</h1></div></div>
+    <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="right-bearing">NE</span></div>
+    <span class="presence" role="status"><i></i><span id="presence">Connecting</span></span>
+  </header>
+  <main class="hud">
+    <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2></div>
+    <aside class="map-panel" aria-label="Live trail map"><div class="map-title"><span>Trail map</span><b>N ↑</b></div><canvas id="map" width="288" height="208" aria-label="Trail loop, creek and player locations"></canvas></aside>
+    <div id="notice" role="alert" hidden></div>
+  </main>
+  <footer>
+    <div class="shortcuts"><span><kbd>WASD</kbd> / <kbd>Arrows</kbd> Move</span><span><kbd>Space</kbd> Jump</span><span><kbd>Shift</kbd> Sprint</span><span><kbd>Mouse</kbd> Look</span></div>
+    <button id="help" aria-expanded="false" aria-controls="guide">Controls <kbd>?</kbd></button>
+  </footer>
+  <section id="guide" hidden aria-label="Controls">
+    <div class="guide-heading"><h2>Field controls</h2><button id="close-guide" aria-label="Close controls">×</button></div>
+    <dl><dt>Forward / back</dt><dd>W / S or ↑ / ↓</dd><dt>Strafe left / right</dt><dd>A / D or ← / →</dd><dt>Sprint</dt><dd>Hold Shift</dd><dt>Jump</dt><dd>Space</dd><dt>Look around</dt><dd>Move the cursor over the world</dd><dt>Keep turning</dt><dd>Hold the cursor near an edge</dd><dt>Camera distance</dt><dd>Scroll</dd></dl>
+  </section>
+  <script type="module" src="/client.js"></script>
+</body>
+</html>

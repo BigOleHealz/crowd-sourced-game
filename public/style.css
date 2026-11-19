@@ -1,0 +1,41 @@
+:root { color-scheme: dark; font-family: "Avenir Next", Avenir, "Helvetica Neue", sans-serif; color: #f8f4e3; --line: #eee8c438; --ink: #172922; --panel: #152720e6; --accent: #efd58c; }
+* { box-sizing: border-box; }
+body { margin: 0; overflow: hidden; background: #a7b7ac; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; outline: none; touch-action: none; }
+.mast, .hud, footer { position: fixed; inset-inline: 0; pointer-events: none; }
+.mast { top: 0; padding: 24px 30px 44px; display: flex; align-items: flex-start; justify-content: space-between; background: linear-gradient(#17291f85,transparent); }
+.world-name, .presence, #compass, .map-title, footer, .shortcuts, .guide-heading { display: flex; align-items: center; }
+.world-name { gap: 12px; text-shadow: 0 1px 6px #17291f70; }
+.crest { display: grid; place-items: center; width: 39px; height: 43px; background: var(--accent); color: #2b3e30; clip-path: polygon(0 0,100% 0,100% 72%,50% 100%,0 72%); font-size: 22px; padding-bottom: 5px; }
+.subhead, .map-title, #compass { text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 700; }
+h1,h2 { margin: 0; font-family: "Iowan Old Style", Georgia, serif; font-weight: 500; }
+h1 { font-size: 29px; letter-spacing: -.035em; line-height: 1.07; }
+#compass { position: absolute; left: 50%; transform: translateX(-50%); width: 166px; justify-content: space-around; padding: 5px 0 10px; color: #fffbee; text-shadow: 0 1px 4px #112018; background: linear-gradient(90deg,transparent,#18261d55,transparent); border-bottom: 1px solid #f6f5db82; }
+#compass b { color: #ffdda0; }
+#compass:after { content: ''; position: absolute; left: calc(50% - 3px); bottom: -6px; border: 3px solid transparent; border-top-color: var(--accent); }
+.presence { gap: 8px; padding: 8px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; font-weight: 600; font-size: 12px; }
+.presence i { width: 7px; height: 7px; border-radius: 50%; background: #e8c478; }
+.presence.online i { background: #a8d693; }
+.hud { bottom: 74px; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 30px; }
+.location { text-shadow: 0 1px 9px #132419, 0 2px 3px #182820; }
+.location h2 { font-size: clamp(32px,4vw,54px); letter-spacing: -.05em; line-height: 1.1; }
+.map-panel { width: 146px; border: 1px solid #c5ceaa70; border-radius: 5px; overflow: hidden; background: var(--panel); box-shadow: 0 3px 14px #1e251b44; }
+.map-title { justify-content: space-between; padding: 7px 9px; letter-spacing: .12em; font-size: 9px; }
+.map-title b { color: var(--accent); }
+#map { display: block; width: 100%; height: auto; }
+footer { bottom: 0; justify-content: space-between; padding: 12px 30px; background: #13231eeb; border-top: 1px solid var(--line); font-size: 12px; }
+.shortcuts { gap: 18px; }
+kbd { font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: .04em; background: #ffffff0d; border: 1px solid #c9d0bd63; border-radius: 3px; padding: 2px 5px; margin-right: 3px; }
+button { font: inherit; color: inherit; cursor: pointer; border: none; background: transparent; }
+.world-name, #compass, .presence, .map-panel, .location, #notice, footer, #guide { pointer-events: auto; }
+footer button { padding: 4px; }
+footer button kbd { margin: 0 0 0 4px; }
+#guide, #notice { position: fixed; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 32px #13201955; border-radius: 6px; }
+#guide { right: 30px; bottom: 60px; padding: 18px 20px; width: min(330px,94vw); }
+.guide-heading { justify-content: space-between; }
+.guide-heading button { font-size: 24px; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 8px; font-size: 13px; margin-bottom: 0; }
+dd { text-align: right; color: var(--accent); margin: 0; }
+#notice { left: 50%; top: 32%; transform: translateX(-50%); padding: 12px 18px; font-size: 14px; text-align: center; }
+@media(max-width:700px) { .mast { padding: 14px; } .hud { padding: 0 14px; bottom: 60px; } footer { padding: 10px 14px; } .shortcuts { gap: 8px; } #compass { width: 96px; } .map-panel { width: 105px; } }
+@media(max-width:520px) { #compass, .shortcuts span:nth-child(n+3) { display: none; } }
