@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
 import { groundHeight } from './world.js';
 
@@ -108,6 +109,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(darkGreen,0,.87,1.496,1.048,.124,.027);
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
+  missileLaunchers(chassis,'rover');
   chassis.mesh(root,fieldPaint(),false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   glazing.mesh(root,glassMat,false);
@@ -147,10 +149,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   }
   tire.dispose(); seatForm.dispose();
   const cargo=[];
-  for(const [cx,cy,cz] of [[-.32,.80,.75],[.32,.80,.79],[0,1.13,.77]]) {
+  for(const [cx,cy,cz] of [[-.47,.79,.58],[.47,.79,.58],[-.47,1.01,.58]]) {
     const crate=new Batch();
-    crate.add(cube,0xba8b55,cx,cy+.16,cz,.54,.31,.52);
-    for (const off of [-.16,.16]) crate.add(cube,0x4a6352,cx+off,cy+.164,cz,.043,.337,.535);
+    crate.add(cube,0xba8b55,cx,cy+.11,cz,.30,.21,.26);
+    for (const off of [-.09,.09]) crate.add(cube,0x4a6352,cx+off,cy+.112,cz,.024,.22,.27);
     cargo.push(crate.mesh(root,material,false));
   }
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.3,3.5).rotateX(-Math.PI/2),
