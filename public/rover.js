@@ -88,6 +88,15 @@ function traversable(world, x,z,yaw) {
   return true;
 }
 
+const bumperContacts=new WeakMap();
+let impactSequence=0;
+function recordBump(world,r,x,z,speed) {
+  if(speed<.20 || bumperContacts.has(r))return;
+  bumperContacts.set(r,{x:r.x,z:r.z});
+  const wood=MAP.trees.some(tree=>Math.hypot(tree.x-x,tree.z-z)<tree.radius+1.5);
+  r.contactSound={id:++impactSequence,speed,wood,x,y:r.y+.55,z};
+}
+
 export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
@@ -116,8 +125,13 @@ export function driveRover(world, input, dt, players) {
   const z=r.z+(-cs*r.speed+sn*r.lateralSpeed)*dt;
   if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {
     r.x=x; r.z=z; r.y=groundHeight(x,z);
+    const last=bumperContacts.get(r);
+    if(last && Math.hypot(x-last.x,z-last.z)>.20)bumperContacts.delete(r);
   } else {
-    damageRover(world,impactDamage(Math.hypot(r.speed,r.lateralSpeed)),players);
+    const speed=Math.hypot(r.speed,r.lateralSpeed);
+    const end=Math.sign(r.speed)*.94;
+    recordBump(world,r,x+sn*end,z-cs*end,speed);
+    damageRover(world,impactDamage(speed),players);
     stopRover(r);
   }
 }

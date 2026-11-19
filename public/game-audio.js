@@ -1,4 +1,5 @@
 import {weaponSound} from './weapon-sound.js';
+import {roadContactSound} from './road-contact-sound.js';
 
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
@@ -6,6 +7,7 @@ const shapes={
   explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
   const loop=name==='engine' || name==='rotor';
   const [length,bass,cutoff,decay]=shapes[name] ?? [1,0,0,0];
   const rate=context.sampleRate,buffer=context.createBuffer(1,Math.round(length*rate),rate);
@@ -120,8 +122,14 @@ export function createGameAudio(button,slider,level) {
     }
     for(const kind of ['rover','heli']) {
       const vehicle=world[kind],prior=previousVehicles[kind];
+      const bump=kind==='rover' && vehicle.contactSound;
+      const contact=prior && bump && bump.id!==prior.contactSound?.id;
+      if(contact) {
+        const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');
+        burst(name,bump,listener,yaw,Math.min(1.3,.27+.085*bump.speed));
+      }
       if(prior && vehicle.wrecked && !prior.wrecked)burst('wreck',vehicle,listener,yaw,1.3);
-      else if(prior && vehicle.hp<prior.hp && !impacts.some(hit=>hit.hitKind===kind ||
+      else if(prior && !contact && vehicle.hp<prior.hp && !impacts.some(hit=>hit.hitKind===kind ||
         (hit.weapon==='missile' && Math.hypot(vehicle.x-hit.to.x,vehicle.y-hit.to.y,vehicle.z-hit.to.z)<5))) {
         burst('metal',vehicle,listener,yaw,.72);
       }
