@@ -7,5 +7,6 @@
 !public/*.html
 !public/*.css
 !public/*.js
+!public/*.webp
 !test/
 !test/*.mjs

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { conifers, granite, floorMaterial, creekMaterial } from './landscape.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -108,39 +109,13 @@ function sceneryHeight(x,z) {
   return terrainHeight(x,z) + rise * (18 + 9*noise(x*.059,z*.059));
 }
 
-// A small seeded albedo tile adds grains, leaf litter and hairline stones
-// between terrain vertices. Its low contrast keeps repeated tiles unobtrusive.
-function detailTexture(renderer) {
-  const canvas=document.createElement('canvas');
-  canvas.width=canvas.height=256;
-  const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(256,256),rng=random(183);
-  for(let i=0;i<256*256;i++) {
-    const v=207+Math.floor(rng()*46);
-    pixels.data.set([v,v,v,255],i*4);
-  }
-  ctx.putImageData(pixels,0,0);
-  for(let i=0;i<1600;i++) {
-    const u=rng()*256,v=rng()*256,len=.5+rng()*3.9;
-    ctx.beginPath();ctx.moveTo(u,v);ctx.lineTo(u+len,v+(rng()-.5)*3);
-    ctx.lineWidth=.4+rng();
-    ctx.strokeStyle=i%3?'rgba(104,100,88,.26)':'rgba(255,253,237,.63)';
-    ctx.stroke();
-  }
-  const tile=new THREE.CanvasTexture(canvas);
-  tile.colorSpace=THREE.SRGBColorSpace;
-  tile.wrapS=tile.wrapT=THREE.RepeatWrapping;
-  tile.repeat.set(64,64);
-  tile.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-  return tile;
-}
-
 function addGround(scene,renderer) {
   const size = 164;
-  const geo = new THREE.PlaneGeometry(size, size, 220, 220).rotateX(-Math.PI/2);
+  const geo = new THREE.PlaneGeometry(size, size, 172, 172).rotateX(-Math.PI/2);
   const positions = geo.attributes.position;
   const colors = [];
-  const dark = color(0x515e37), light = color(0xa7a96c);
-  const path = color(0xbfaa83), shale = color(0x878c79);
+  const dark = color(0x4d573f), light = color(0xa2a27c);
+  const path = color(0xb2a184), shale = color(0x85877b);
   const c = new THREE.Color();
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i), z = positions.getZ(i);
@@ -151,115 +126,60 @@ function addGround(scene,renderer) {
     c.lerp(shale, clamp((MAP.waterY + 1.95 - y)*.65,0,.9));
     const clearing = Math.min(trailDistance(x,z), Math.hypot(x,z-15)*.56);
     c.lerp(path, clamp((2.02 - clearing + .67*(patches-.5))*2.3,0,1)*.94);
-    c.multiplyScalar(.88 + .19*noise(x*.93,z*.93));
+    const pad=clamp((2.9-Math.hypot(x-HELIPAD.x,z-HELIPAD.z))*2.5,0,1);
+    c.lerp(shale,pad*.89);
+    // Dark organic litter gathers at the bases of trees and stones.
+    let shade=1;
+    if(Math.abs(x)<35 && Math.abs(z)<35) {
+      for(const tree of MAP.trees) {
+        const dx=x-tree.x,dz=z-tree.z;
+        if(dx*dx+dz*dz<5)shade=Math.min(shade,.66+.34*clamp((dx*dx+dz*dz)/5,0,1));
+      }
+      for(const rock of MAP.rocks){
+        const dx=x-rock.x,dz=z-rock.z,r=rock.radius+1.05;
+        if(dx*dx+dz*dz<r*r)shade=Math.min(shade,.58+.42*clamp((dx*dx+dz*dz)/(r*r),0,1));
+      }
+    }
+    c.multiplyScalar(shade*(.76+.24*noise(x*.93,z*.93)+.12*noise(x*3,z*3)));
     colors.push(c.r,c.g,c.b);
   }
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geo.computeVertexNormals();
-  const mat=vertexMaterial();
-  mat.map=detailTexture(renderer);
+  const mat=floorMaterial(renderer);
   const ground = new THREE.Mesh(geo,mat);
   ground.receiveShadow = true;
   scene.add(ground);
 }
 
-// The serrated rings follow a shared height profile, with radial folds running
-// from each summit into the foothills. Snow grows on the upper, gentler faces.
-function mountains(scene, radius, height, seed, shades) {
-  const count = 176, rows = 12;
-  const vertices=[], colors=[];
-  const at = (i,j) => {
-    const a = TAU*(i%count)/count;
-    const t=j/rows;
-    const crest = .42 + .35*Math.abs(Math.sin(3*a+seed)) + .22*Math.abs(Math.sin(7*a+seed*.3))
-      + .09*Math.sin(15*a+seed) + .09*noise(i*.43,seed);
-    const fold = .78*Math.sin(15*a+seed)+.3*Math.sin(37*a-seed);
-    const d = radius*(.67 + .38*t) + (1-t)*fold*13 + 2*Math.sin(a*9+seed);
-    const y = -9 + height*t*crest + Math.sin(Math.PI*t)*(fold*6-1);
-    return [Math.sin(a)*d,y,Math.cos(a)*d];
-  };
-  const shade = shades.map(color), snow = color(0xe5e8de);
-  function face(a,b,c,k) {
-    const n = new THREE.Vector3().subVectors(new THREE.Vector3(...b),new THREE.Vector3(...a))
-      .cross(new THREE.Vector3().subVectors(new THREE.Vector3(...c),new THREE.Vector3(...a))).normalize();
-    const y=(a[1]+b[1]+c[1])/3;
-    const tint=shade[0].clone().lerp(shade[1],clamp(.45+.4*n.x+.18*k,0,1));
-    const snowy = y/height > .49 + .11*k - n.y*.13;
-    if(snowy) tint.lerp(snow,clamp(.34 + .46*n.y + .12*k,.2,.95));
-    for (const v of [a,b,c]) { vertices.push(...v); colors.push(tint.r,tint.g,tint.b); }
-  }
-  for (let i=0;i<count;i++) for(let j=0;j<rows;j++) {
-    const a=at(i,j),b=at(i+1,j),c=at(i+1,j+1),d=at(i,j+1);
-    const k=noise(i*.5,j*.5);
-    face(a,d,c,k); face(a,c,b,k);
-  }
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-  geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  const mat=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide});
-  scene.add(new THREE.Mesh(geo,mat));
-}
-
 function addSky(scene) {
+  const panorama=new THREE.TextureLoader().load('./alpine-range.webp');
+  panorama.colorSpace=THREE.SRGBColorSpace;panorama.wrapS=THREE.MirroredRepeatWrapping;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
     new THREE.ShaderMaterial({
       side:THREE.BackSide,depthWrite:false,
-      uniforms:{horizon:{value:color(0xe3dfbf)},zenith:{value:color(0x5996ba)}},
+      uniforms:{panorama:{value:panorama},horizon:{value:color(0xe9e7d3)},zenith:{value:color(0x5288b6)}},
       vertexShader:`varying vec3 skyDir; void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:`varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith;
-        void main(){vec3 d=normalize(skyDir); float t=pow(clamp(d.y,0.,1.),.55);
+      fragmentShader:`varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith; uniform sampler2D panorama;
+        float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.53);}
+        float cloudNoise(vec2 p){
+          vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+          return mix(mix(cloudHash(i),cloudHash(i+vec2(1.,0.)),f.x),mix(cloudHash(i+vec2(0.,1.)),cloudHash(i+1.),f.x),f.y);
+        }
+        void main(){vec3 d=normalize(skyDir); float t=pow(clamp(d.y,0.,1.),.46);
         vec3 c=mix(horizon,zenith,t);float sun=max(dot(d,normalize(vec3(-.54,.65,-.64))),0.);
+        vec2 p=d.xz/max(.085,d.y+.035)*vec2(2.4,4.1);
+        float cloud=.55*cloudNoise(p)+.28*cloudNoise(2.*p)+.12*cloudNoise(4.*p)+.05*cloudNoise(8.*p);
+        c=mix(c,vec3(.89,.86,.79),smoothstep(.54,.73,cloud)*smoothstep(.05,.20,d.y)*.6);
         c+=vec3(.38,.25,.09)*pow(sun,22.)+vec3(.94,.82,.55)*smoothstep(.99945,.9998,sun);
+        float elevation=asin(clamp(d.y,-1.,1.));
+        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,(elevation+.19)/.72);
+        vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
+        c=mix(range,c,smoothstep(.81,1.24,uv.y));
         gl_FragColor=vec4(c,1.);
         #include <colorspace_fragment>
         }`
     }));
   sky.renderOrder=-20; scene.add(sky);
-  mountains(scene, 234, 108, 9, [0x899fa6,0xc0ccc6]);
-  mountains(scene, 144, 57, 2, [0x637c7e,0x9aa796]);
-}
-
-function needleGeometry(seed) {
-  const rng=random(seed), positions=[],indices=[];
-  const n=20;
-  // Each crown tier has a ragged lower skirt and drooping bough tips.
-  for(let j=0;j<4;j++) for(let i=0;i<n;i++) {
-    const a=TAU*i/n;
-    const edge=i%2 ? 1 : .61+rng()*.11;
-    const radius=[.49,edge,.56,.03][j] * (.88+rng()*.17);
-    positions.push(Math.cos(a)*radius,[.05,.19,.46,1][j]+(j===1 ? (i%2 ? -.19:.01) : .025*rng()),Math.sin(a)*radius);
-  }
-  for(let j=0;j<3;j++) for(let i=0;i<n;i++) {
-    const a=j*n+i,b=j*n+(i+1)%n,c=b+n,d=a+n;
-    indices.push(a,d,b,b,d,c);
-  }
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3)); geo.setIndex(indices);
-  geo.computeVertexNormals(); return geo;
-}
-
-function addForest(batch, rng) {
-  const tiers=Array.from({length:5},(_,i)=>needleGeometry(91+i*79));
-  const palette=[0x2c5144,0x3d614d,0x466e56,0x597660];
-  function spruce(x,z,height,radius) {
-    const y=sceneryHeight(x,z)-.08, twist=rng()*TAU;
-    batch.add(trunk,0x63513b,x,y+height*.37,z,radius,height*.74,radius,0,twist);
-    const tint=palette[Math.floor(rng()*palette.length)];
-    const spread=height*(.18+rng()*.044);
-    for(let k=0;k<5;k++) {
-      const t=k/5;
-      const w=spread*(1-.83*t);
-      const tierColor=color(tint).multiplyScalar(.84+.25*t+.09*rng());
-      batch.add(tiers[k],tierColor,x,y+height*(.16+.15*k),z,w,height*(.35-.026*k),w,0,twist+k*.82);
-    }
-  }
-  for(const tree of MAP.trees) spruce(tree.x,tree.z,tree.height,tree.radius);
-  for(let i=0;i<260;i++) {
-    const a=rng()*TAU,d=MAP.bounds*1.52+rng()*24;
-    const x=Math.sin(a)*d,z=Math.cos(a)*d;
-    if(sceneryHeight(x,z)<MAP.waterY+.4) continue;
-    spruce(x,z,5+rng()*9,.18+rng()*.24);
-  }
 }
 
 function addBridge(batch, rng) {
@@ -280,6 +200,10 @@ function addBridge(batch, rng) {
     }
     batch.add(cube,0xa78c63,xx,y+.90,z,.15,.12,length-.28);
     batch.add(cube,0x867153,xx,y+.39,z,.08,.08,length-.30);
+    for(let i=0;i<4;i++){
+      const from=z+(i-2)*2.4;
+      batch.beam(0x776649,[xx,y+.22,from+.1],[xx,y+.82,from+2.31],.083);
+    }
   }
 }
 
@@ -296,15 +220,45 @@ function addTrailMarker(batch, x,z, heading, flag = false) {
   }
 }
 
-function addDetails(batch, rng) {
-  const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
-  for(const r of MAP.rocks) {
-    const y=terrainHeight(r.x,r.z);
-    batch.add(stone,granite[Math.floor(rng()*4)],r.x,y+r.height*.37,r.z,
-      r.radius*1.12,r.height*.72,r.radius*1.13,.19,rng()*TAU,.14);
+function signFace(scene,x,z,heading,text) {
+  const board=document.createElement('canvas');board.width=384;board.height=104;
+  const ink=board.getContext('2d');
+  ink.fillStyle='#4b4531';ink.fillRect(0,0,384,104);
+  for(let k=0;k<21;k++){
+    const y=(k*39)%104;
+    ink.fillStyle=k%3?'#514a36':'#413e30';ink.fillRect((k*109)%350,y,40+(k*71)%250,1+k%2);
   }
+  ink.strokeStyle='#a59c7a';ink.lineWidth=3;ink.strokeRect(7,7,370,90);
+  ink.fillStyle='#e3d9ab';ink.font='bold 42px sans-serif';ink.textAlign='center';ink.fillText(text,192,70);
+  const map=new THREE.CanvasTexture(board);map.colorSpace=THREE.SRGBColorSpace;
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.13,.31),new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}));
+  sign.position.set(x+.091*Math.sin(heading),terrainHeight(x,z)+1.55,z+.091*Math.cos(heading));
+  sign.rotation.y=heading;scene.add(sign);
+}
+
+function windsock(batch) {
+  const x=HELIPAD.x+3.20,z=HELIPAD.z-2.85,y=groundHeight(x,z),mast=3.18;
+  batch.add(trunk,0x727a73,x,y+mast/2,z,.042,mast,.042);
+  batch.add(trunk,0x756f5b,x,y+.073,z,.20,.146,.20);
+  const marks=[0xb65f37,0xd6ccb1,0xb65f37,0xd6ccb1,0xb65f37];
+  const angle=.26;
+  for(let k=0;k<5;k++){
+    const fabric=new THREE.CylinderGeometry(.24-.026*k,.214-.026*k,.246,12,1,true);
+    batch.add(fabric,marks[k],x+.13+.238*k,y+mast-.018*k*k,z,.99,1,1,0,0,Math.PI/2-angle*k*.24);
+    fabric.dispose();
+  }
+  const rim=new THREE.TorusGeometry(.24,.011,5,16);
+  batch.add(rim,0x7b7e6d,x+.007,y+mast,z,1,1,1,0,Math.PI/2);
+  rim.dispose();
+}
+
+function addDetails(scene,batch, rng) {
+  const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
   addTrailMarker(batch,2.24,8.1,-.35);
   addTrailMarker(batch,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,true);
+  signFace(scene,2.24,8.1,-.35,'CREEK TRAIL');
+  signFace(scene,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,'LOOKOUT');
+  windsock(batch);
   const grass = new THREE.BufferGeometry();
   grass.setAttribute('position',new THREE.Float32BufferAttribute([
     -.08,0,0,.08,0,0,.10,.92,.15,
@@ -317,27 +271,31 @@ function addDetails(batch, rng) {
     const x=(rng()-.5)*79,z=(rng()-.5)*79,y=terrainHeight(x,z);
     if(y<MAP.waterY+.22 || Math.max(Math.abs(x),Math.abs(z))>34) continue;
     const d=trailDistance(x,z);
-    if(d<1.7 && rng()>.12) continue;
+    if(d<1.7 && rng()>.12 || Math.hypot(x-HELIPAD.x,z-HELIPAD.z)<2.45) continue;
     if(d<1.7 || rng()<.08) {
       const size=(d<1.7 ? .03:.07)*(1+2*rng());
       batch.add(stone,granite[i%4],x,y+.008,z,size*1.12,size*.36,size*.8,0,rng()*TAU);
     } else {
       const size=.15+.28*rng();
-      batch.add(grass,grassColors[i%5],x,y-.025,z,size*.85,size,size*.85,0,rng()*TAU);
+      const tufts=1+Math.floor(3*rng());
+      for(let k=0;k<tufts;k++){
+        const a=rng()*TAU,spread=.18*rng();
+        batch.add(grass,grassColors[(i+k)%5],x+spread*Math.cos(a),y-.025,z+spread*Math.sin(a),size,size,size,0,a);
+      }
     }
   }
 }
 
-function water(scene, rng) {
-  const geometry=new THREE.PlaneGeometry(125,6).rotateX(-Math.PI/2);
-  const material=new THREE.MeshPhongMaterial({color:0x45888a,specular:0xb3cbc0,shininess:38,transparent:true,opacity:.9});
+function water(scene,rng,renderer) {
+  const geometry=new THREE.PlaneGeometry(125,10).rotateX(-Math.PI/2);
+  const material=creekMaterial(renderer);
   const surface=new THREE.Mesh(geometry,material);
   surface.position.y=MAP.waterY; surface.receiveShadow=true; scene.add(surface);
   const ripples=new Batch();
   for(let i=0;i<420;i++) {
     const x=(rng()-.5)*108,z=(rng()-.5)*4.5;
     if(terrainHeight(x,z)>MAP.waterY-.07) continue;
-    ripples.add(cube, i%4 ? 0x72aaad:0xb6cac1,x,MAP.waterY+.012,z,.12+rng()*.54,.005,.012+rng()*.024,0,(rng()-.5)*.18);
+    ripples.add(cube, i%4 ? 0x739294:0xa2b5ac,x,MAP.waterY+.012,z,.09+rng()*.35,.005,.007+rng()*.014,0,(rng()-.5)*.18);
   }
   return ripples.mesh(scene,new THREE.MeshBasicMaterial({vertexColors:true}),false);
 }
@@ -414,8 +372,8 @@ function landingMarks(batch) {
 function fieldHelicopter(scene,material,shadowMap) {
   const group = new THREE.Group();
   scene.add(group);
-  const hull = new Batch(), rotor = new Batch(), fan = new Batch();
-  const orange = 0xe8783d, ivory = 0xe9ddbb, graphite = 0x273a3d, glass = 0x35636f;
+  const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
+  const orange = 0xb15d32, ivory = 0xe0dfc8, graphite = 0x343d3e, glass = 0x284550;
   // A continuous cabin envelope gives each window its own panel and avoids
   // glass/fuselage intersections. Coordinates run from the nose to the tail.
   const sections = [
@@ -426,11 +384,19 @@ function fieldHelicopter(scene,material,shadowMap) {
   const profile=[[-.67,1],[.67,1],[.98,.48],[1,-.09],[.95,-.23],[.72,-.86],
     [0,-1],[-.72,-.86],[-.95,-.23],[-1,-.09],[-.98,.48]];
   const rings=sections.map(([z,w,y,h])=>profile.map(([cx,cy])=>[cx*w,y+cy*h,z]));
-  function panel(a,b,c,d,tint) {
+  function panel(a,b,c,d,tint,batch=hull) {
     const face=new THREE.BufferGeometry();
     face.setAttribute('position',new THREE.Float32BufferAttribute([...a,...b,...c,...d],3));
     face.setIndex([0,1,2,0,2,3]);face.computeVertexNormals();
-    hull.add(face,tint,0,0,0);face.dispose();
+    const offset=batch.colors.length;
+    batch.add(face,tint,0,0,0);face.dispose();
+    if(batch===glazing){
+      for(const [i,p] of [a,b,c,d].entries()){
+        const t=clamp((p[1]-1.02)/.54,0,1);
+        const reflection=color(tint).lerp(color(0xacc1c2),t*t*.42);
+        batch.colors.splice(offset+i*3,3,reflection.r,reflection.g,reflection.b);
+      }
+    }
   }
   for(let row=0;row+1<rings.length;row++) {
     const a=rings[row],b=rings[row+1];
@@ -440,10 +406,19 @@ function fieldHelicopter(scene,material,shadowMap) {
       const cabinWindow=(row===3||row===5) && upper && j!==0;
       const stripe=j===3||j===8;
       let tint=orange;
-      if(windshield||cabinWindow) tint=(j===1||j===10)?0x62939c:glass;
-      else if(stripe||row===7) tint=ivory;
+      if(windshield||cabinWindow) tint=(j===1||j===10)?0x667e87:glass;
+      else if(stripe || j===0 || (row>=7 && j!==5 && j!==6)) tint=ivory;
+      else if(j===4||j===7) tint=row<2?0x445052:0x59635d;
       else if(j===5||j===6) tint=graphite;
-      panel(a[j],b[j],b[n],a[n],tint);
+      if(windshield||cabinWindow) {
+        panel(a[j],b[j],b[n],a[n],tint,glazing);
+        // Glazing runs in inset rubber channels with perimeter posts.
+        if(j===2 || j===9){
+          hull.beam(0x363f3c,a[j],a[n],.027);
+          hull.beam(0x475553,b[j],b[n],.028);
+          hull.beam(0x45504a,a[n],b[n],.024);
+        }
+      } else panel(a[j],b[j],b[n],a[n],tint);
     }
   }
   for(const [ring,section,front] of [[rings[0],sections[0],true],[rings.at(-1),sections.at(-1),false]]) {
@@ -456,22 +431,54 @@ function fieldHelicopter(scene,material,shadowMap) {
   hull.add(round,graphite,0,1.49,.46,.40,.21,.68);
   hull.add(cube,ivory,0,1.52,.50,.48,.18,.56);
   for (const side of [-1,1]) {
+    // Cargo sill, exposed fittings, anti-slip boarding step and ventilation.
+    hull.beam(0x9caba5,[side*.78,.49,-.52],[side*.78,.49,.49],.044);
+    for(const z of [-.40,.37])hull.beam(0x606b63,[side*.56,.65,z],[side*.78,.49,z],.030);
+    for(let k=0;k<12;k++)hull.add(round,0x939788,side*.708,.864,-.54+k*.095,.011,.011,.011);
+    for(let k=0;k<6;k++)hull.add(cube,0x434e49,side*.375,1.61,.12+k*.075,.11,.075,.025,.1,0,side*.3);
+    hull.add(round,side===1?0xad302c:0x539b73,side*.747,1.03,.46,.036,.036,.06);
+    hull.add(round,0x51483f,side*.265,1.59,.91,.112,.092,.16,-.08);
+    hull.add(round,0x262e2d,side*.265,1.61,1.023,.079,.067,.067);
     hull.add(cube,graphite,side*.75,.96,.23,.054,.045,.13);
     hull.add(cube,graphite,side*.65,.098,.03,.11,.105,1.86);
     hull.beam(graphite,[side*.65,.095,-.88],[side*.65,.23,-1.12],.094);
     for (const z of [-.50,.51]) hull.beam(graphite,[side*.48,.65,z],[side*.65,.125,z+.08],.085);
     hull.add(cube,0xefb966,side*.57,.75,-.94,.12,.10,.15);
   }
-  hull.add(trunk,orange,0,1.14,1.90,.123,2.72,.255,Math.PI/2-.09);
+  const boom=new THREE.CylinderGeometry(.10,.27,2.52,12);
+  hull.add(boom,0xd9d7bf,0,1.21,1.89,1,1,.89,Math.PI/2-.095);
+  boom.dispose();
+  for(const z of [2.51,2.66])hull.add(trunk,0x9d5839,0,1.27+(z-2.51)*.095,z,.152,.08,.141,Math.PI/2-.095);
+  hull.beam(0x656b63,[.17,.76,1.03],[.17,.52,1.44],.021);
+  hull.beam(0x8c9997,[0,1.55,-.34],[0,1.89,-.53],.017);
+  for(const side of [-1,1]){
+    hull.beam(0x3c4645,[side*.055,1.77,-.047],[side*.14,1.92,.068],.026);
+    hull.add(round,0x76382c,side*.55,1.30,2.77,.031,.035,.05);
+  }
   hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
   hull.add(cube,orange,0,1.92,3.12,.118,.18,.41,.27);
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
-  const paint = material.clone();
+  const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x393c34,shininess:26});
   hull.mesh(group,paint,false);
+  glazing.mesh(group,new THREE.MeshPhongMaterial({vertexColors:true,specular:0xb3cccd,shininess:82}),false);
+  const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
+  const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
+  st.font='bold 76px sans-serif';st.fillText('FORESTRY',256,88);
+  const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
+  const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
+    polygonOffset:true,polygonOffsetFactor:-2});
+  const placard=new THREE.PlaneGeometry(.69,.105);
+  for(const side of [-1,1]){
+    const id=new THREE.Mesh(placard,lettering);
+    id.position.set(side*.746,.942,-.15);id.rotation.y=side*Math.PI/2;
+    id.rotation.x=-side*.16;group.add(id);
+  }
   for (let i=0; i<3; i++) {
     const a = i*TAU/3, s = Math.sin(a), c = Math.cos(a);
+    rotor.add(round,0x777f79,s*.13,0,c*.13,.063,.062,.11);
+    rotor.beam(0x8e8e7c,[s*.11,-.069,c*.11],[s*.32,0,c*.32],.025);
     rotor.add(cube,graphite,s*1.32,0,c*1.32,.132,.044,2.58,0,a);
     rotor.add(cube,ivory,s*2.43,.001,c*2.43,.137,.048,.28,0,a);
   }
@@ -565,23 +572,33 @@ function fieldHelicopter(scene,material,shadowMap) {
 
 function crystalOutcrop(scene, material, prop, seed) {
   const rng = random(seed), batch = new Batch();
-  const shaft = new THREE.CylinderGeometry(.86,1,1,5,1,false).toNonIndexed();
-  shaft.computeVertexNormals();
-  const point = new THREE.ConeGeometry(.86,1,5).toNonIndexed();
-  point.computeVertexNormals();
-  const tints = [0x40c6b2,0x60d6c8,0x369b9e,0x9be7c8];
-  for (let i=0; i<7; i++) {
-    const a = i*TAU/6;
-    const d = i ? (.40+.22*rng())*prop.radius : 0;
-    const x = Math.cos(a)*d, z = Math.sin(a)*d;
-    const h = prop.height*(i ? .40+.36*rng() : 1);
-    const r = prop.radius*(i ? .21+.09*rng() : .39);
-    const twist = rng()*TAU, tint = tints[i%4];
-    batch.add(shaft,tint,x,h*.32,z,r,h*.69,r,0,twist);
-    batch.add(point,color(tint).lerp(color(0xd4ffe8),.33),x,h*.835,z,r,h*.37,r,0,twist);
+  const tints=[0x57988a,0x71a98e,0x487e7f,0x7fae99];
+  for(let i=0;i<10;i++){
+    const angle=i*2.399,dist=i?(.36+.39*rng())*prop.radius:0;
+    const x=Math.cos(angle)*dist,z=Math.sin(angle)*dist;
+    const h=prop.height*(i?.3+.46*rng():1),r=prop.radius*(i?.13+.10*rng():.30);
+    const lean=i?.10+.31*rng():.045,twist=rng()*TAU;
+    const positions=[],colors=[],cap=.74+.12*rng();
+    const mineral=color(tints[i%tints.length]);
+    for(let k=0;k<6;k++){
+      const a=twist+k*TAU/6,b=twist+(k+1)*TAU/6;
+      const at=(theta,y,scale)=>[x+Math.cos(theta)*r*scale+lean*y*Math.cos(angle),y,z+Math.sin(theta)*r*scale+lean*y*Math.sin(angle)];
+      const low=at(a,.04,rng()*.05+1),next=at(b,.04,1);
+      const shoulder=at(a,h*cap,.86),end=at(b,h*cap,.86),tip=at(twist,h,.035);
+      positions.push(...low,...shoulder,...end,...low,...end,...next,...shoulder,...tip,...end);
+      const base=mineral.clone().multiplyScalar(.75+.21*rng());
+      const upper=mineral.clone().lerp(color(0xc4d6c1),.16+.14*rng());
+      const bright=upper.clone().lerp(color(0xd2dfc8),.32);
+      for(const c of [base,upper,upper,base,upper,base,upper,bright,upper]) colors.push(c.r,c.g,c.b);
+    }
+    const quartz=new THREE.BufferGeometry();
+    quartz.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));quartz.computeVertexNormals();
+    const start=batch.colors.length;batch.add(quartz,0xffffff,0,0,0);
+    for(let j=0;j<colors.length;j++)batch.colors[start+j]=colors[j];
+    quartz.dispose();
+    batch.add(stone,0x596b63,x,prop.height*.065,z,r*1.55,h*.16,r*1.65,0,twist);
   }
-  batch.add(stone,0x315e65,0,prop.height*.07,0,prop.radius*.88,prop.height*.24,prop.radius*.87);
-  shaft.dispose(); point.dispose();
+  batch.add(stone,0x465d58,0,prop.height*.055,0,prop.radius*.86,prop.height*.13,prop.radius*.82);
   const mesh = batch.mesh(scene,material,false);
   mesh.position.set(prop.x,groundHeight(prop.x,prop.z),prop.z);
   return {prop,mesh,hp:null};
@@ -695,13 +712,28 @@ function characterLabel(root, name) {
   };
 }
 
+// Pattern-cut jacket, trousers and gaiters have a continuous hem profile.
+function cloth(profile){
+  return new THREE.LatheGeometry(profile.map(([y,r])=>new THREE.Vector2(r,y)),12);
+}
+const jacket=cloth([[-.29,.19],[-.255,.22],[-.12,.212],[.10,.246],[.185,.247],[.235,.18],[.25,.104]]);
+const trouser=cloth([[-.25,.085],[-.21,.097],[-.10,.108],[.02,.12],[.18,.12],[.225,.098]]);
+const gaiter=cloth([[-.235,.078],[-.20,.091],[-.14,.094],[.025,.093],[.14,.104],[.22,.086]]);
+const pack=cloth([[-.244,.105],[-.21,.161],[.12,.176],[.204,.158],[.237,.114]]);
+
 // Parts are assembled in model space about real joints. Forward is local -Z.
 function hiker(scene,id,tint,material,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
   const coat=tint ?? jacketColor(id), dark=0x263e41, warm=0xc99772;
   const torso=new Batch();
-  torso.add(round,coat,0,1.25,0,.27,.37,.18);
+  torso.add(jacket,coat,0,1.30,.005,1,1,.75);
+  torso.add(trunk,0x505549,0,1.075,.008,.208,.039,.145);
+  torso.add(trunk,0x5e6351,0,1.53,.008,.12,.079,.096);
+  torso.add(cube,0x555d4f,.002,1.316,-.17,.013,.36,.009);
+  torso.add(cube,0xb3aa80,.101,1.36,-.151,.088,.035,.016);
+  torso.add(round,0x4b473a,-.139,1.677,.002,.021,.041,.027);
+  torso.add(round,warm,.132,1.674,.002,.019,.035,.025);
   torso.add(round,dark,0,.99,0,.22,.13,.155);
   torso.add(trunk,warm,0,1.56,0,.082,.15,.083);
   torso.add(round,warm,0,1.68,-.011,.134,.17,.132);
@@ -709,26 +741,33 @@ function hiker(scene,id,tint,material,shadowMap,name) {
   torso.add(round,0x504b3a,0,1.73,.040,.133,.121,.116);
   torso.add(round,0x586350,0,1.795,-.005,.145,.093,.14);
   torso.add(round,0x4a5b4c,0,1.762,-.106,.143,.020,.107);
-  torso.add(round,0x655e40,0,1.30,.155,.192,.255,.12);
-  torso.add(cube,0x8b784e,0,1.32,.213,.29,.33,.095);
-  torso.add(cube,0xa89b69,0,1.47,.224,.31,.09,.11);
-  torso.add(cube,0x5d5942,0,1.24,.27,.20,.095,.04);
+  torso.add(pack,0x4e5541,0,1.315,.189,1,1,.73);
+  torso.add(cube,0x756a4e,0,1.32,.273,.267,.27,.064);
+  torso.add(cube,0x82795a,0,1.50,.236,.30,.08,.12);
+  torso.add(cube,0x475046,0,1.20,.296,.20,.085,.055);
   for (const side of [-1,1]) {
     torso.add(cube,0x575747,side*.113,1.31,-.147,.038,.36,.04,0,0,-side*.08);
-    torso.add(cube,0x555746,side*.12,1.31,.268,.032,.32,.02);
+    torso.add(cube,0x555746,side*.098,1.32,.312,.020,.34,.014);
+    torso.add(cube,0xabaa89,side*.098,1.29,.323,.030,.031,.013);
+    torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
+    torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
   }
   torso.mesh(body,material);
   const limbs=[];
   for(const side of [-1,1]) {
     const leg=new THREE.Group(); leg.position.set(side*.122,.975,0); body.add(leg);
-    const thigh=new Batch(); thigh.add(round,dark,0,-.205,0,.116,.254,.125); thigh.mesh(leg,material);
+    const thigh=new Batch(); thigh.add(trouser,0x475549,0,-.192,0,1,1,.99);
+    thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,material);
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
-    const shin=new Batch(); shin.add(round,0x364b49,0,-.205,.006,.09,.245,.102);
+    const shin=new Batch(); shin.add(gaiter,0x38443a,0,-.188,.004,.97,1,1.05);
+    shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
     shin.add(round,0x61543f,0,-.446,-.039,.108,.091,.16);
     shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); shin.mesh(knee,material);
     const arm=new THREE.Group(); arm.position.set(side*.245,1.445,0); body.add(arm);
     const sleeve=new Batch(); sleeve.add(round,coat,side*.025,-.15,.013,.092,.20,.098);
-    sleeve.add(round,coat,side*.035,-.35,-.016,.077,.135,.082,-.32);
+    sleeve.add(round,coat,side*.035,-.35,-.016,.077,.145,.082,-.32);
+    sleeve.add(trunk,0x5b6150,side*.035,-.443,-.043,.065,.051,.069,-.27);
+    sleeve.add(cube,0xafaa7d,side*.109,-.116,.018,.012,.060,.058,0,0,side*.1);
     sleeve.add(round,warm,side*.035,-.49,-.058,.058,.092,.068,-.25); sleeve.mesh(arm,material);
     limbs.push({side,leg,knee,arm});
   }
@@ -805,18 +844,21 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xc2ccbd,.0042);
-  scene.add(new THREE.HemisphereLight(0xf1f6ff,0xb5ae7b,1.62));
-  const sun=new THREE.DirectionalLight(0xffe4b7,2.15);
-  sun.position.set(-31,46,-24); sun.castShadow=true;
+  scene.fog=new THREE.FogExp2(0xafc1ca,.0024);
+  scene.add(new THREE.HemisphereLight(0xcde3ef,0x9f9276,1.49));
+  const sun=new THREE.DirectionalLight(0xffe3b6,2.34);
+  sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   addSky(scene); addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial();
-  const forest=new Batch(); addForest(forest,rng);forest.mesh(scene,material);
-  const features=new Batch();addBridge(features,rng);addDetails(features,rng);landingMarks(features);features.mesh(scene,material);
-  const glints=water(scene,rng);
+  const forest=new Batch();
+  conifers(scene,forest,MAP.trees,sceneryHeight,renderer);
+  forest.mesh(scene,material);
+  granite(scene,MAP.rocks,terrainHeight,renderer);
+  const features=new Batch();addBridge(features,rng);addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);
+  const glints=water(scene,rng,renderer);
   const shadowMap=contactShadowMap();
   const helicopter=fieldHelicopter(scene,material,shadowMap);
   const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
