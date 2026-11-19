@@ -437,8 +437,35 @@ function makeFirearms(body) {
   }
   sidearm.add(cube,enamel,0,.140,-.196,.009,.020,.018);
   endCap(sidearm,-.237,.086,.023,.025,graphite);
+  // The Meridian has a long triangular forebody, ivory spine, and a large
+  // open teal optic. Its two silhouettes share one model in and out of ADS.
+  const meridian=new Batch(), slate=0x3e545b, ivory=0xd7d4ad, teal=0x3c9993;
+  profile(meridian,slate,[[.32,.12],[.22,.138],[.08,.11],[-.11,.09],[-.11,.052],[.09,.052],[.23,-.03],[.32,-.024]],.059);
+  profile(meridian,ivory,[[.08,.142],[-.12,.156],[-.50,.129],[-.62,.103],[-.52,.080],[-.20,.068],[.08,.086]],.073);
+  profile(meridian,slate,[[.069,.08],[.003,.066],[-.009,.028],[.022,-.079],[.072,-.061]],.048);
+  profile(meridian,teal,[[-.12,.07],[-.53,.096],[-.47,.054],[-.20,.028]],.064);
+  endCap(meridian,-.654,.101,.020,.21,graphite);
+  endCap(meridian,-.756,.101,.027,.079,slate);
+  for(const z of [-.174,-.047])meridian.add(cube,graphite,0,.17,z,.045,.068,.033);
+  const opticalHeight=.216;
+  for(const [z,r,tint] of [[.008,.052,slate],[-.027,.050,teal],[-.139,.046,slate],[-.237,.062,slate],[-.249,.061,ivory]]){
+    const rim=new THREE.TorusGeometry(r,.006,6,32);
+    meridian.add(rim,tint,0,opticalHeight,z);rim.dispose();
+  }
+  // An annular shell keeps the view through the optic clear on its -Z axis.
+  const contour=[[.050,.009],[.050,-.031],[.039,-.058],[.039,-.149],[.059,-.213],[.059,-.249]];
+  const shell=new THREE.LatheGeometry(contour.map(([r,z])=>new THREE.Vector2(r,-z)),32);
+  meridian.add(shell,graphite,0,opticalHeight,0,1,1,1,-Math.PI/2);
+  shell.dispose();
+  // Fine in-world crosshairs remain attached to the optic as it follows the cursor.
+  for(const sign of [-1,1]){
+    meridian.add(cube,graphite,.019*sign,opticalHeight,-.055,.033,.0014,.0014);
+    meridian.add(cube,graphite,0,opticalHeight+.019*sign,-.055,.0014,.033,.0014);
+  }
+  meridian.add(cube,0xdfaa70,0,opticalHeight,-.055,.0021,.0021,.0014);
   tube.dispose();
-  const tools = [carbine.mesh(body,handheldFinish,false), sidearm.mesh(body,handheldFinish,false)];
+  const tools=[carbine,sidearm,meridian].map(batch=>batch.mesh(body,handheldFinish,false));
+  tools[2].name='Meridian scoped rifle';
   for(const tool of tools) tool.position.set(.12,1.33,-.20);
   return tools;
 }
@@ -516,6 +543,18 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const wheel=new THREE.TorusGeometry(1,.36,8,20);
   hull.add(round,graphite,0,1.03,-1.87,.50,.13,.22);
   hull.add(cube,0x414840,0,1.07,-1.72,.95,.16,.24,-.30);
+  // A glare shield below the pilots' sightline and an aft cabin lining give
+  // the transparent flight-deck windows a recessed opaque interior.
+  hull.add(round,0x252b29,0,1.16,-1.74,.57,.047,.236);
+  const lining=new THREE.Shape();
+  lining.moveTo(-.68,.77);lining.lineTo(.68,.77);lining.lineTo(.68,1.42);
+  lining.quadraticCurveTo(.66,1.63,.42,1.66);lining.lineTo(-.42,1.66);
+  lining.quadraticCurveTo(-.66,1.63,-.68,1.42);lining.closePath();
+  const bulkhead=new THREE.ShapeGeometry(lining,4);
+  hull.add(bulkhead,0x343a34,0,0,-.69,1,1,1,0,Math.PI);
+  bulkhead.dispose();
+  hull.add(cube,0x42483f,0,1.18,-.70,.30,.77,.024);
+  hull.add(cube,0x72766a,.113,1.18,-.718,.033,.065,.017);
   for(const side of [-1,1]) {
     hull.add(cube,0x303833,side*.765,.973,-.83,.025,.069,.172);
     hull.add(cube,alloy,side*.785,.983,-.83,.029,.024,.116);
@@ -1059,6 +1098,7 @@ export function createScene(canvas) {
   const sightModels=makeFirearms(sightPivot);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
+  sightModels[2].position.set(0,-.216,-.37);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   let lastShot=null;
@@ -1231,7 +1271,8 @@ export function createScene(canvas) {
     const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
-    const fov = sighted ? 32 : 55+6*roomBlend;
+    sightModels[2].visible=sighted && local.weapon===3;
+    const fov = sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();

@@ -43,6 +43,25 @@ export function aircraftBody(hull,glazing) {
       bucket.p.push(...points[k].toArray());bucket.n.push(...normals[k].toArray());bucket.c.push(paintTint.r,paintTint.g,paintTint.b);
     }
   }
+  // Continue the first skin ring into a shallow domed chin. Sharing the
+  // ring's positions and normals keeps the cowling continuous at the seam.
+  const noseCenter=new THREE.Vector3(0,stations[0][2],stations[0][0]);
+  const forward=new THREE.Vector3(0,0,-1);
+  const nosePaint=new THREE.Color(0x515648);
+  function noseVertex(j,band) {
+    const f=band/3, radius=1-f;
+    const p=points[j].clone().lerp(noseCenter,f);
+    p.z-=.030*(1-radius*radius);
+    const n=normals[j].clone().lerp(forward,f).normalize();
+    const tint=paintTint.clone().lerp(nosePaint,f);
+    paint.p.push(p.x,p.y,p.z);paint.n.push(n.x,n.y,n.z);paint.c.push(tint.r,tint.g,tint.b);
+  }
+  for(let band=0;band<3;band++) for(let j=0;j<slices;j++) {
+    const angle=Math.min(j+.5,slices-j-.5)*tau/slices;
+    paintTint.setHex(angle>2.19 ? 0x3b4039 : 0x515648);
+    noseVertex(j,band);noseVertex(j+1,band);noseVertex(j+1,band+1);
+    if(band<2){noseVertex(j,band);noseVertex(j+1,band+1);noseVertex(j,band+1);}
+  }
   function append(bucket,batch){
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute(bucket.p,3));
