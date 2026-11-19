@@ -13,7 +13,9 @@ import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
+import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
+
+import { advanceFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -203,6 +205,7 @@ function tick() {
   for (const player of players.values()) {
     const input = player.inputs.shift();
     if (input) player.ack = input.seq;
+    const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       const role=gunnerVehicle(world,player.id);
       if(role) world[role].gunner=null;
@@ -217,6 +220,7 @@ function tick() {
       }
       continue;
     }
+    if (fallingBody) continue;
     if (input) {
       if (input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
@@ -228,7 +232,9 @@ function tick() {
       } else if (input.seat) selectSeat(world,player,input.seatKind,input.seat);
     }
     if (world.rover.driver === player.id) {
+      const before={...world.rover};
       driveRover(world, input || idle, step, players);
+      vehicleContacts(world,'rover',before,[...players.values(),...npcs],ticks,step);
       if (world.rover.driver !== player.id) continue;
       if (input?.fire) launchMissile(world,'rover',player,ticks);
       const { x,y,z,yaw } = world.rover;
@@ -238,7 +244,9 @@ function tick() {
       continue;
     }
     if (world.heli.pilot === player.id) {
+      const before={...world.heli};
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
+      vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);
       if (world.heli.pilot !== player.id) continue;
       if (input?.fire) launchMissile(world,'heli',player,ticks);
       const { x, y, z, yaw, grounded } = world.heli;
