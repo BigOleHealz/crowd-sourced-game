@@ -1,6 +1,7 @@
 import {weaponSound} from './weapon-sound.js';
 import {roadContactSound} from './road-contact-sound.js';
 
+import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
   impact:[.13,270,3000,25], metal:[.27,470,3300,16],
@@ -8,6 +9,7 @@ const shapes={
 };
 function synth(context,name) {
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
+  if(name==='outboard' || name==='wake')return boatLoop(context,name);
   const loop=name==='engine' || name==='rotor';
   const [length,bass,cutoff,decay]=shapes[name] ?? [1,0,0,0];
   const rate=context.sampleRate,buffer=context.createBuffer(1,Math.round(length*rate),rate);
@@ -136,27 +138,42 @@ export function createGameAudio(button,slider,level) {
       previousVehicles[kind]=vehicle;
     }
   }
-  function motor(name,v,active,rate,volume,listener,yaw) {
-    let track=loops.get(name);
+  function stopMotor(key) {
+    const track=loops.get(key);
+    if(!track)return;
+    const now=context.currentTime;
+    track.gain.gain.setTargetAtTime(0,now,.04);
+    track.source.stop(now+.18);loops.delete(key);
+  }
+  function motor(name,v,active,rate,volume,listener,yaw,key=name) {
     if(!active || !audible()) {
-      if(track) {
-        const now=context.currentTime;
-        track.gain.gain.setTargetAtTime(0,now,.04);
-        track.source.stop(now+.18);loops.delete(name);
-      }
+      stopMotor(key);
       return;
     }
+    let track=loops.get(key);
     if(!track) {
-      track=voice(name,true);track.gain.gain.value=0;track.source.start();loops.set(name,track);
+      track=voice(name,true);track.gain.gain.value=0;track.source.start();loops.set(key,track);
     }
     const now=context.currentTime,place=placement(listener,yaw,v);
     track.source.playbackRate.setTargetAtTime(rate,now,.13);
     track.gain.gain.setTargetAtTime(volume*place.gain,now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
-  function engines(listener,yaw,heli,rover) {
+  function engines(listener,yaw,heli,rover,boats=[]) {
     motor('engine',rover,rover.driver!=null && !rover.wrecked,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
     motor('rotor',heli,(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked,heli.grounded ? .83 : 1.12,.38,listener,yaw);
+    const present=new Set();
+    for(const boat of boats) {
+      if(boat.driver==null || boat.wrecked)continue;
+      const mix=boatMix(boat), motorKey='boat/motor/'+boat.id, wakeKey='boat/wake/'+boat.id;
+      present.add(motorKey);
+      motor('outboard',boat,true,mix.motorRate,mix.motorVolume,listener,yaw,motorKey);
+      if(mix.wakeVolume>.001) {
+        present.add(wakeKey);
+        motor('wake',boat,true,mix.wakeRate,mix.wakeVolume,listener,yaw,wakeKey);
+      }
+    }
+    for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
   return {unlock,reset,events,engines};
 }

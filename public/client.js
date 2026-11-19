@@ -458,7 +458,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
     const view = isDriving() ? drivingView(boat??rover, dt) : camera;
-    audio.engines(local,view.yaw,heli,rover);
+    audio.engines(local,view.yaw,heli,rover,boats);
     scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
