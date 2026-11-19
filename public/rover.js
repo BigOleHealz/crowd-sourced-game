@@ -8,9 +8,14 @@ export const ROVER_PAD = { x: -3, z: 17 };
 export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
+export function stopRover(r) {
+  r.speed=0;
+  r.lateralSpeed=0;
+}
+
 export function parkedRover() {
   const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
+  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
@@ -27,7 +32,7 @@ export function nearestVehicle(world, feet, includeFull=false) {
 export function interactRover(world, player) {
   const r = world.rover;
   if (r.gunner === player.id) r.gunner=null;
-  else if (r.driver === player.id) {r.driver=null;r.speed=0;}
+  else if (r.driver === player.id) {r.driver=null;stopRover(r);}
   else {
     if (nearestVehicle(world,player.state)!=='rover') return;
     if (r.driver==null) r.driver=player.id;
@@ -59,7 +64,7 @@ export function damageRover(world, amount, players) {
   }
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner);gunner.inputs.length=0;}
-  r.driver=r.gunner=null; r.speed=0; r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+  r.driver=r.gunner=null; stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
 export function recoverRover(world,dt) {
@@ -87,19 +92,31 @@ export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const target = throttle * (throttle<0 ? 2.8 : 10.2);
-  const acceleration = throttle && r.speed*throttle>=0 ? (throttle>0 ? 9.5 : 7.2) : 18;
+  const target = throttle * (throttle<0 ? 2.8 : 16);
+  // Torque tapers as speed builds. Reverse remains a low-range depot gear.
+  const power = throttle>0 ? 8.6 - 4.8*clamp(r.speed/16,0,1) : 7.2;
+  const acceleration = throttle && r.speed*throttle>=0 ? power : 18;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
-  // Low-range steering allows the little utility rover to pivot in the depot.
+
   const pace=Math.abs(r.speed);
-  const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.11;
-  const yaw = r.yaw + steer * (r.speed<-.05 ? -1 : 1) * turnRate * dt;
-  if (traversable(world,r.x,r.z,yaw)) r.yaw = Math.atan2(Math.sin(yaw),Math.cos(yaw));
-  const x = r.x + Math.sin(r.yaw)*r.speed*dt, z = r.z - Math.cos(r.yaw)*r.speed*dt;
+  const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
+  const turn=steer*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const yaw=r.yaw+turn;
+  const rotation=turn && traversable(world,r.x,r.z,yaw) ? turn : 0;
+  r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
+
+  // Project the previous velocity into the rotated chassis frame. Tire grip
+  // dissipates the lateral component; low speeds track the wheels directly.
+  const drift=clamp((pace-3)/7,0,1);
+  const side=(r.lateralSpeed??0)*Math.cos(rotation)-r.speed*Math.sin(rotation)*drift;
+  r.lateralSpeed=clamp(side*Math.exp(-(5.2+9*(1-drift))*dt),-pace*.20,pace*.20);
+  const sn=Math.sin(r.yaw), cs=Math.cos(r.yaw);
+  const x=r.x+(sn*r.speed+cs*r.lateralSpeed)*dt;
+  const z=r.z+(-cs*r.speed+sn*r.lateralSpeed)*dt;
   if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {
     r.x=x; r.z=z; r.y=groundHeight(x,z);
   } else {
-    damageRover(world,impactDamage(Math.abs(r.speed)),players);
-    r.speed=0;
+    damageRover(world,impactDamage(Math.hypot(r.speed,r.lateralSpeed)),players);
+    stopRover(r);
   }
 }

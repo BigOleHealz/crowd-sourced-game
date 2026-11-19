@@ -1,4 +1,4 @@
-import {nearestVehicle} from './rover.js';
+import {nearestVehicle,stopRover} from './rover.js';
 
 export function seatVehicle(world,id,feet) {
   if(!world || id==null || !feet) return null;
@@ -14,7 +14,7 @@ export function selectSeat(world,player,kind,seat) {
   if(v.wrecked || v[to]!=null) return false;
   if(v[from]===player.id) {
     v[from]=null;
-    if(from==='driver') v.speed=0;
+    if(from==='driver') stopRover(v);
     if(from==='pilot' && !v.grounded) v.abandonedFor=0;
   }
   v[to]=player.id;
