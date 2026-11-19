@@ -1,7 +1,8 @@
+import {weaponSound} from './weapon-sound.js';
+
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
-  carbine:[.24,135,2150,12], sidearm:[.18,175,2800,17], turret:[.30,98,1700,11],
-  launch:[.46,112,1300,6], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
+  impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
@@ -80,21 +81,24 @@ export function createGameAudio(button,slider,level) {
     }
     if(context.state!=='running')context.resume().catch(()=>{});
   }
-  function voice(name,loop=false) {
-    if(!buffers.has(name))buffers.set(name,synth(context,name));
+  function voice(name,loop=false,variant=0) {
+    const designed=['carbine','sidearm','turret','launch'].includes(name);
+    const key=designed ? name+variant : name;
+    if(!buffers.has(key))buffers.set(key,designed ? weaponSound(context,name,variant) : synth(context,name));
     const source=context.createBufferSource(),gain=context.createGain(),pan=context.createStereoPanner();
-    source.buffer=buffers.get(name);source.loop=loop;
+    source.buffer=buffers.get(key);source.loop=loop;
     source.connect(gain);gain.connect(pan);pan.connect(limiter);
     const v={source,gain,pan};voices.add(v);
     source.onended=()=>{voices.delete(v);source.disconnect();gain.disconnect();pan.disconnect();};
     return v;
   }
   const audible=()=>context?.state==='running' && !settings.muted && settings.volume>0 && !document.hidden;
-  function burst(name,point,listener,yaw,volume) {
+  function burst(name,point,listener,yaw,volume,eventId=0) {
     if(!audible() || !point || voices.size>=32)return;
     const place=placement(listener,yaw,point);
     if(place.gain<.006)return;
-    const v=voice(name);v.gain.gain.value=volume*place.gain;v.pan.pan.value=place.pan;
+    const v=voice(name,false,eventId%3);
+    v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain;v.pan.pan.value=place.pan;
     v.source.start();
   }
   function reset(world) {
@@ -109,8 +113,8 @@ export function createGameAudio(button,slider,level) {
       if(shot.id<=lastId)continue;
       lastId=shot.id;
       if(shot.hit)impacts.push(shot);
-      if(shot.weapon==='muzzle')burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.75);
-      else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.8);
+      if(shot.weapon==='muzzle')burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
+      else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
       else if(shot.hit)burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
     }
