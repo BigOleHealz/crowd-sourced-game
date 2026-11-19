@@ -1,12 +1,15 @@
 import { MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
+import { impactDamage, RECOVERY_SECONDS } from './airframe.js';
+
+export const ROVER_HP = 250;
 export const ROVER_PAD = { x: -3, z: 17 };
 export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function parkedRover() {
   const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, speed: 0, cargo: 0 };
+  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, speed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, wrecked: false, recoverySeconds: 0 };
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
@@ -15,7 +18,7 @@ export function nearestVehicle(world, feet) {
   const {heli, rover} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
   const flight = heli.pilot == null && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
-  const road = rover.driver == null ? distance(rover) : Infinity;
+  const road = rover.driver == null && !rover.wrecked ? distance(rover) : Infinity;
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
   return flight <= BOARD_RANGE ? 'heli' : null;
 }
@@ -42,6 +45,26 @@ export function interactRover(world, player) {
   player.state = exit;
 }
 
+export function damageRover(world, amount, players) {
+  const r=world.rover;
+  if (r.wrecked || !Number.isFinite(amount) || amount<=0) return;
+  r.hp=Math.max(0,r.hp-amount);
+  if (r.hp>0) return;
+  const driver=players?.get(r.driver);
+  if (driver) {
+    interactRover(world,driver);
+    driver.inputs.length=0;
+  }
+  r.driver=null; r.speed=0; r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+}
+
+export function recoverRover(world,dt) {
+  const r=world.rover;
+  if (!r.wrecked) return;
+  r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
+  if (r.recoverySeconds < .0001) world.rover=parkedRover();
+}
+
 function traversable(world, x,z,yaw) {
   const y = groundHeight(x,z);
   if (Math.max(Math.abs(x),Math.abs(z))>32 || y<MAP.waterY+.2) return false;
@@ -56,7 +79,7 @@ function traversable(world, x,z,yaw) {
   return true;
 }
 
-export function driveRover(world, input, dt) {
+export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
@@ -69,5 +92,8 @@ export function driveRover(world, input, dt) {
   const x = r.x + Math.sin(r.yaw)*r.speed*dt, z = r.z - Math.cos(r.yaw)*r.speed*dt;
   if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {
     r.x=x; r.z=z; r.y=groundHeight(x,z);
-  } else r.speed=0;
+  } else {
+    damageRover(world,impactDamage(Math.abs(r.speed)),players);
+    r.speed=0;
+  }
 }

@@ -1,7 +1,7 @@
 import { MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
-export const AIRFRAME_HP = 100;
+export const AIRFRAME_HP = 500;
 export const RECOVERY_SECONDS = 6;
 const COAST_SECONDS = 1.5;
 

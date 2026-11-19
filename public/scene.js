@@ -387,6 +387,39 @@ function landingMarks(batch) {
   stripe(-.46,0,.46,0,.14);
 }
 
+function objectHealthLabel(scene,title) {
+  const tag = document.createElement('canvas');
+  tag.width=320; tag.height=64;
+  const ink=tag.getContext('2d');
+  const labelMap=new THREE.CanvasTexture(tag);
+  labelMap.colorSpace=THREE.SRGBColorSpace;
+  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
+  label.scale.set(2.9,.58,1);
+  scene.add(label);
+  let labelHp, labelMax, labelRecovery, labelUnpiloted;
+  function update(hp,maxHp,recovery,unpiloted=false) {
+    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery && unpiloted===labelUnpiloted) return;
+    labelHp=hp; labelMax=maxHp; labelRecovery=recovery; labelUnpiloted=unpiloted;
+    const condition=hp/maxHp;
+    ink.clearRect(0,0,320,64);
+    ink.fillStyle='rgba(21,37,36,.90)';
+    ink.fillRect(0,0,320,64);
+    ink.font='bold 23px sans-serif';
+    ink.textAlign='left';
+    ink.fillStyle='#f8f5e8';
+    ink.fillText(recovery!==null ? 'WRECKED' : unpiloted ? 'UNPILOTED' : title,12,28);
+    ink.textAlign='right';
+    ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
+    ink.fillStyle='#53615d';
+    ink.fillRect(12,40,296,12);
+    ink.fillStyle=condition<=.30 ? '#ff8b61' : condition<=.60 ? '#f1c46b' : '#98dfad';
+    ink.fillRect(12,40,296*condition,12);
+    labelMap.needsUpdate=true;
+  }
+
+  return {sprite:label,update};
+}
+
 function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
@@ -511,35 +544,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const tag = document.createElement('canvas');
-  tag.width=320; tag.height=64;
-  const ink=tag.getContext('2d');
-  const labelMap=new THREE.CanvasTexture(tag);
-  labelMap.colorSpace=THREE.SRGBColorSpace;
-  const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(2.9,.58,1);
-  scene.add(label);
-  let labelHp, labelMax, labelRecovery, labelUnpiloted;
-  function healthLabel(hp,maxHp,recovery,unpiloted) {
-    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery && unpiloted===labelUnpiloted) return;
-    labelHp=hp; labelMax=maxHp; labelRecovery=recovery; labelUnpiloted=unpiloted;
-    const condition=hp/maxHp;
-    ink.clearRect(0,0,320,64);
-    ink.fillStyle='rgba(21,37,36,.90)';
-    ink.fillRect(0,0,320,64);
-    ink.font='bold 23px sans-serif';
-    ink.textAlign='left';
-    ink.fillStyle='#f8f5e8';
-    ink.fillText(recovery!==null ? 'WRECKED' : unpiloted ? 'UNPILOTED' : 'TRAIL HELI',12,28);
-    ink.textAlign='right';
-    ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
-    ink.fillStyle='#53615d';
-    ink.fillRect(12,40,296,12);
-    ink.fillStyle=condition<=.30 ? '#ff8b61' : condition<=.60 ? '#f1c46b' : '#98dfad';
-    ink.fillRect(12,40,296*condition,12);
-    labelMap.needsUpdate=true;
-  }
-
+  const healthLabel=objectHealthLabel(scene,'TRAIL HELI');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -552,14 +557,14 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
   return { group, update(heli,dt) {
-    const maxHp=Math.max(1,heli.maxHp??100);
+    const maxHp=Math.max(1,heli.maxHp??500);
     const hp=clamp(heli.hp??maxHp,0,maxHp);
     const wrecked=heli.wrecked===true;
     const smoking=hp>0 && hp/maxHp<=.30;
     const recovery=wrecked ? Math.max(0,Math.ceil(heli.recoverySeconds??0)) : null;
     const drift = heli.abandonedFor ?? 0;
-    healthLabel(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
-    label.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
+    healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
+    healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set(-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : -Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
@@ -906,6 +911,7 @@ export function createScene(canvas) {
   const glints=water(scene,rng,renderer);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
+  const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
   const quartz=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x98b9ae,shininess:46});
@@ -948,7 +954,7 @@ export function createScene(canvas) {
     cursorRay.setFromCamera(cursorNdc, camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot)
+      .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.rover.driver)
       .map(state => ({id: state.id, state}));
     const muzzleY = feet.y + 1.3;
     const cameraOffset = Math.hypot(origin.x-feet.x, origin.y-muzzleY, origin.z-feet.z);
@@ -969,6 +975,9 @@ export function createScene(canvas) {
     helicopter.update(heli,dt);
     const rover=world.rover, driving=rover.driver===local.id;
     updateRover(rover,dt);
+    roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
+    roverLabel.sprite.visible=!driving;
+    roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const crystal of crystals) {
       const {prop,mesh}=crystal;
       const hp=world?.hp?.[prop.id] ?? prop.hp;
