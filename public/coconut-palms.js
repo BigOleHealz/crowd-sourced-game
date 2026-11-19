@@ -81,6 +81,6 @@ export function addPalms(scene) {
       transform.scale.setScalar(height/6.9);transform.updateMatrix();
       palms.setMatrixAt(i,transform.matrix);
     });
-    palms.castShadow=true;palms.receiveShadow=true;scene.add(palms);
+    palms.userData.impactSurface='palm';palms.castShadow=true;palms.receiveShadow=true;scene.add(palms);
   }
 }

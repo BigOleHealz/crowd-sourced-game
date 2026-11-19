@@ -181,10 +181,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     chassis.beam(steel,[side*.62,.566,-.52],[side*.83,.49,-.52],.046);
   }
   eye.dispose();
-  chassis.mesh(root,fieldPaint(),false);
+  Object.assign(chassis.mesh(root,fieldPaint(),false).userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
   brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
-  glazing.mesh(root,glassMat,false);
+  Object.assign(glazing.mesh(root,glassMat,false).userData,{impactSurface:'solid',vehicle:'rover'});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
@@ -220,6 +220,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     const trimBatch=new Batch(true);
     trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
     trimBatch.mesh(wheel,facingMaterial,false);
+    Object.assign(wheel.userData,{impactSurface:'solid',vehicle:'rover'});
     wheels.push(wheel);
   }
   tire.dispose(); seatForm.dispose();

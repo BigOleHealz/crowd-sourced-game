@@ -9,6 +9,7 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
 import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
@@ -276,6 +277,7 @@ function addBridge(scene,renderer,rng) {
   map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   const wood=new THREE.MeshLambertMaterial({map,vertexColors:true});
   const bridge=batch.mesh(scene,wood);
+  bridge.userData.impactSurface='wood';
   bridge.geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
 }
 
@@ -550,9 +552,9 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   airframe.scale.setScalar(1.23);group.add(airframe);
   const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
-  hull.mesh(airframe,paint,false);
+  Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   launchers.mesh(group,paint,false);
-  glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false);
+  Object.assign(glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false).userData,{impactSurface:'solid',vehicle:'heli'});
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
@@ -664,9 +666,26 @@ function fieldEffects(scene) {
         new THREE.Vector3(size,size,size),i%4 ? 0x8b7b65 : 0xffb066,.5+rng()*.6);
     }
   }
-  function shot(s) {
+  const pickSurface=surfacePicker(scene);
+  function chips(contact) {
+    const {point,normal,surface}=contact;
+    const metal=surface==='metal', wood=surface==='wood';
+    for(let i=0;i<(metal?5:4);i++){
+      const v=new THREE.Vector3(rng()-.5,rng()*.8,rng()-.5);
+      v.addScaledVector(normal,Math.max(.25,-v.dot(normal)+.22)).multiplyScalar(metal?2.8:1.45);
+      const size=metal?.016:wood?.023:.045;
+      const scale=new THREE.Vector3(size,(metal?4:wood?2.9:.70)*size,size);
+      particle(point.clone().addScaledVector(normal,.014),v,scale,
+        metal?(i%2?0xffce79:0xffefd2):wood?(i%2?0xb48954:0x866441):(i%2?0xa59c8d:0x8b8377),
+        (metal?.095:wood?.21:.19)+rng()*.10);
+      if(metal || wood) particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,v.clone().normalize());
+    }
+  }
+  function shot(s,sourceVehicle) {
     if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
+    const contact=pickSurface(s,a,b,sourceVehicle);
+    if(contact) b.copy(contact.point);
     along.subVectors(b,a);
     const length=along.length();
     if(length>.01) {
@@ -677,7 +696,8 @@ function fieldEffects(scene) {
       particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
       particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
-    if(s.hit) burst(b.x,b.y,b.z,false);
+    if(contact) chips(contact);
+    else if(s.hit) burst(b.x,b.y,b.z,false);
   }
   function update(dt) {
     let write=0;
@@ -1005,7 +1025,7 @@ export function createScene(canvas) {
     addGround(scene,renderer);
     const forest=new Batch();
     conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
-    forest.mesh(scene,material);
+    forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
     addDetails(scene,features,rng);
@@ -1094,7 +1114,7 @@ export function createScene(canvas) {
     }
     if(world?.shots) {
       // Ignore recent history on first join. Consume each subsequent event once.
-      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot);
+      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot,shot.weapon==='turret' ? (world.rover.gunner===shot.shooter ? 'rover' : 'heli') : null);
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
     updateMissiles(world.missiles ?? [],dt);
