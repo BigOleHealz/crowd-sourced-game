@@ -1,7 +1,9 @@
+import { addBrickellHorizon } from './brickell-horizon.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
 import { retailRecess, streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import {addCauseway} from './causeway-view.js';
+import { addApartmentBalconies, hasApartmentBalconies } from './apartment-balconies.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
@@ -32,7 +34,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  ground('water',[[0,MAP.waterY,-102,730,820]],14,{roughness:.28});
+  ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.28});
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   const harborAvenue={...harbor,west:-6,east:6};
   const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
@@ -98,38 +100,34 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   const furnishPortico=streetShops(scene,renderer,Batch,panorama);
-  MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
-    const base=.80, podium=3.9;
+  const base=.80, podium=3.9;
+  MAP.buildings.forEach(({x,z,w,d,eave:h,facade,housing},i)=>{
     const avenueCorner=x===-17 && z===7;
     const westDepth=retailRecess(w),eastDepth=avenueCorner?7.13:westDepth;
     const coreWidth=w-westDepth-eastDepth;
     walls.add(faces[2],0xf5eee5,x+(westDepth-eastDepth)/2,base+podium/2,z,coreWidth,podium,d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
-    if(avenueCorner) {
-      for(let floor=1;floor<=6;floor++) {
-        const level=base+podium+floor*(h-podium)/6;
-        const front=x+w/2;
-        solids.add(box,0xb7b3a3,front+.15,level,z,.71,.125,d+.20);
-        if(floor===6)continue;
-        solids.add(box,0x737f77,front+.465,level+.74,z,.038,.045,d-.2);
-        for(let k=-4;k<=4;k++)solids.add(box,0xa4aba0,front+.46,level+.39,z+2.15*k,.034,.72,.036);
+    if (!hasApartmentBalconies(facade)) {
+      const rows=Math.max(2,Math.round((h-podium)/6)), tier=(h-podium)/rows;
+      for(let j=0;j<rows;j++) {
+        walls.add(faces[facade],i%3===1?0xd4e0df:0xf6f4ed,x,base+podium+(j+.5)*tier,z,w,tier,d);
+        if(facade!==1 || j%3===0) solids.add(box,0xd1cec2,x,base+podium+j*tier,z,w+.32,.15,d+.32);
       }
     }
-    const rows=Math.max(2,Math.round((h-podium)/6)), tier=(h-podium)/rows;
-    for(let j=0;j<rows;j++) {
-      walls.add(faces[facade],i%3===1?0xd4e0df:0xf6f4ed,x,base+podium+(j+.5)*tier,z,w,tier,d);
-      if(facade!==1 || j%3===0) solids.add(box,0xd1cec2,x,base+podium+j*tier,z,w+.32,.15,d+.32);
-    }
     solids.add(box,0xd9d8cc,x,base+h,z,w+.35,.24,d+.35);
-    solids.add(box,0x9caaa9,x+w*.13,base+h+.65,z,w*.45,1.18,d*.46);
+    solids.add(box,0x9caaa9,housing.x,base+(housing.bottom+housing.h)/2,housing.z,
+      housing.w,housing.h-housing.bottom,housing.d);
     for(const side of [-1,1]) {
       // Porticoes over the ground-floor shopfronts.
       if(avenueCorner && side===1)continue;
       solids.add(box,i%2?0x637b78:0xc2b49d,x+side*(w/2+.45),base+2.95,z,1.1,.17,d*.79);
     }
   });
-  walls.mesh(scene,material('facades',{roughness:.53,metalness:.08})).userData.impactSurface='solid';
+  const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
+  walls.mesh(scene,facadeMaterial).userData.impactSurface='solid';
+  addBrickellHorizon(scene,facadeMaterial.map);
+  addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings,base,podium);
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();

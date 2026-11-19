@@ -152,7 +152,7 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
+function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3) {
   let injury=null;
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
@@ -165,7 +165,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     for (const actor of actors) {
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
-        const defeated=damageActor(actor,actor===target && headshot ? damage*3 : damage,tick,direction);
+        const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
         if(actor===target && hitPart && actor.life.hp<priorHP) {
           if(hitPart==='head' && !defeated)continue;
           if(actor.life.lostParts?.[hitPart])continue;
@@ -179,14 +179,14 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       }
     }
     for(const b of world.boats??[]){
-      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,damage,players);
+      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       if(!areaImpact && Number.isInteger(wheel))world.rover.flatTires=(world.rover.flatTires ?? 0)|(1<<wheel);
-      else damageRover(world,damage,players);
+      else damageRover(world,vehicleDamage,players);
     }
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
-      damageHelicopter(world, damage, players, shooter);
+      damageHelicopter(world, vehicleDamage, players, shooter);
     }
   }
   return injury;
@@ -256,7 +256,7 @@ export function advanceRounds(world,players,npcs,tick){
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
-    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)});
+    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage);
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
     return false;

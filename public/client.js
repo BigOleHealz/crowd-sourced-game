@@ -32,6 +32,8 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null, roadImpact=null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
+let lookPaused=false;
+const locked=()=>document.pointerLockElement===canvas;
 const canAim = () => self && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
@@ -71,6 +73,7 @@ function notice(message = '') {
 
 function setGuide(open) {
   byId('guide').hidden = !open;
+  if(open)releaseLook();
   byId('help').setAttribute('aria-expanded', String(open));
   clearInput();
   stopLook();
@@ -86,7 +89,18 @@ function clearInput() {
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
-function pauseControls() { clearInput(); stopLook(); }
+function releaseLook(){
+  lookPaused=true;
+  canvas.classList.add('look-paused');
+  if(locked())document.exitPointerLock();
+  clearInput();stopLook();
+}
+document.addEventListener('pointerlockchange',()=>{
+  canvas.classList.toggle('captured',locked());
+  if(locked()){lookPaused=false;canvas.classList.remove('look-paused');stopLook();}
+  else releaseLook();
+});
+function pauseControls() { releaseLook(); }
 byId('sound-mute').onclick = e => {
   audio.toggleMute();
   if (e.detail && byId('guide').hidden) canvas.focus({ preventScroll: true });
@@ -101,7 +115,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
-  if (e.code === 'Escape') setGuide(false);
+  if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   e.preventDefault();
   held.add(e.code);
@@ -127,14 +141,19 @@ window.addEventListener('keyup', e => held.delete(e.code));
 // A visible embedded document can receive pointer events before it has keyboard focus.
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
-document.addEventListener('visibilitychange', pauseControls);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseControls();});
 function releasePointer() { stopLook(); mouseFire = false; }
 canvas.addEventListener('pointerleave', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 function pressButton(e) {
   if (!byId('guide').hidden || (e.button !== 0 && e.button !== 2)) return;
-  lastPointer = {x: e.clientX, y: e.clientY};
+  lookPaused=false;canvas.classList.remove('look-paused');
+  // Embedded browsers may reject capture. Canvas movement and edge turning
+  // still control the same view in that case.
+  if(!locked() && canvas.requestPointerLock){
+    try{canvas.requestPointerLock()?.catch(()=>{});}catch{}
+  }
   if (e.button === 2) {
     if (canAim()) {
       canvas.focus({ preventScroll: true });
@@ -144,7 +163,7 @@ function pressButton(e) {
   }
   canvas.focus({ preventScroll: true });
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
-    pressedAim = scene.aimAt(lastPointer,self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
+    pressedAim = scene.aimAt(self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
 // Mouse events report each button in a chord (pointerdown only reports the first).
@@ -165,8 +184,13 @@ function edgeRate(position, extent) {
 }
 
 canvas.addEventListener('pointermove', e => {
-  if (e.pointerType === 'touch' || windowBlurred || document.hidden || !byId('guide').hidden) {
+  if (lookPaused || e.pointerType === 'touch' || windowBlurred || document.hidden || !byId('guide').hidden) {
     stopLook();
+    return;
+  }
+  if(locked()){
+    camera.yaw+=e.movementX*.0028;
+    camera.pitch=clamp(camera.pitch-e.movementY*.0024,-.95,.48);
     return;
   }
   const x = e.clientX, y = e.clientY;
@@ -266,10 +290,10 @@ function tick() {
   const driving = isDriving();
   const fire = !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
-  const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
+  const aim=(!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
+    (pressedAim || scene.aimAt(self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
-  if (fire) facing = aim.yaw;
+  if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
@@ -498,7 +522,7 @@ function frame(time) {
     if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
     const view = isDriving() ? drivingView(boat??rover, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats);
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) }, lastPointer);
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;

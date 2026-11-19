@@ -3,7 +3,12 @@ import {vehicleContact} from './vehicle-contact.js';
 import {mountPosition} from './mounts.js';
 
 const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:66,z:-201}];
-export const helmOffset=[0,.48,-.55];
+// Hull-local crown of the helm cushion. The ranger's trouser seat is .893 m
+// above its rig origin, before the seated scale is applied.
+export const helmCushion = {z: -.32, top: 1.018};
+export const helmWheel = {y: 1.215, z: -.675, radius: .13, tilt: -.48};
+export const seatedScale = .85;
+export const helmOffset = [0, helmCushion.top - .893 * seatedScale, helmCushion.z];
 const waveClock=new WeakMap();
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 function moored(site) {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { patrolFleet } from './patrol-boats.js';
+import { helmCushion, helmWheel, patrolFleet } from './patrol-boats.js';
 import { turretView } from './mount-view.js';
 
 const dark=0x2c3839, steel=0x84958e, bone=0xc7c9b6, orange=0xd47d42;
@@ -91,9 +91,16 @@ function buildBoat(scene,Batch,material,id) {
   block(0x63746d,0,.75,-1.02,.71,.62,.42);block(bone,0,1.03,-1.07,.74,.18,.51,-.12);
   block(dark,0,1.126,-.97,.56,.036,.26,-.15);
   block(0x637e7b,-.06,1.152,-.972,.22,.022,.11,-.15);
-  fittings.add(ring,dark,0,1.06,-.773,.130,.130,.13,-.48);
-  for(const side of [-1,1])fittings.beam(steel,[0,1.055,-.779],[side*.105,1.075,-.775],.015);
-  fittings.beam(dark,[0,1.05,-.78],[0,.952,-.74],.018);
+  const {y:wheelY,z:wheelZ,radius,tilt}=helmWheel;
+  fittings.beam(dark,[0,1.04,-.82],[0,wheelY,wheelZ],.052);
+  fittings.add(ring,dark,0,wheelY,wheelZ,radius,radius,radius,tilt);
+  for(const angle of [Math.PI/6,5*Math.PI/6,-Math.PI/2]){
+    const up=radius*Math.sin(angle);
+    fittings.beam(steel,[0,wheelY,wheelZ],
+      [radius*Math.cos(angle),wheelY+up*Math.cos(tilt),wheelZ+up*Math.sin(tilt)],.015);
+  }
+  block(dark,0,.576,-.716,.47,.03,.23,.06);
+  for(const x of [-.17,.17]) fittings.beam(steel,[x,.48,-.72],[x,.57,-.72],.035);
   for(const x of [-.32,.32]) fittings.beam(steel,[x,1.09,-1.19],[x,1.49,-1.125],.026);
   fittings.beam(steel,[-.32,1.49,-1.125],[.32,1.49,-1.125],.026);
   const screen=new THREE.Mesh(new THREE.BoxGeometry(.60,.35,.023),new THREE.MeshStandardMaterial({
@@ -102,7 +109,7 @@ function buildBoat(scene,Batch,material,id) {
   screen.userData.impactSurface='solid';screen.userData.target=id;
   // Helm bolster, storage benches, grab rails and the aft gun station under its shared turret.
   block(dark,0,.70,-.37,.37,.43,.33);
-  rubber.add(round,0x505b51,0,.919,-.32,.28,.099,.25);
+  rubber.add(round,0x505b51,0,helmCushion.top-.099,helmCushion.z,.28,.099,.25);
   rubber.add(round,0x4e594e,0,1.075,-.143,.265,.207,.067,-.12);
   for(const side of [-1,1]){
     block(0x768479,side*.56,.616,.56,.32,.32,.78);

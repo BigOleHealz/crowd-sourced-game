@@ -199,7 +199,7 @@ function addSky(scene) {
   const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
     new THREE.ShaderMaterial({
       side:THREE.BackSide,depthWrite:false,
-      uniforms:{panorama:{value:panorama},horizon:{value:color(0xb4b3aa)},zenith:{value:color(0x86919a)}},
+      uniforms:{panorama:{value:panorama},horizon:{value:color(CITY?0xc7dce3:0xb4b3aa)},zenith:{value:color(CITY?0x629ac4:0x86919a)}},
       vertexShader:`varying vec3 skyDir; void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
       fragmentShader:`varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith; uniform sampler2D panorama;
         float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.53);}
@@ -216,7 +216,14 @@ function addSky(scene) {
         float elevation=asin(clamp(d.y,-1.,1.));
         vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,${CITY ? '(elevation+.16)/.69' : '(elevation+.44)/.98'});
         vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
-        c=mix(range,c,smoothstep(.81,1.24,uv.y));
+        ${CITY ? `// Sample only open sky above the tallest waterfront buildings.
+        // Mirror the clear segment end-to-end to form a seamless cloud bank.
+        float azimuth=1.-abs(mod(uv.x*1.32,2.)-1.);
+        float cloudY=mix(.679,.996,clamp((elevation+.008)/.43,0.,1.));
+        vec3 photographed=texture2D(panorama,vec2(.305+.691*azimuth,cloudY)).rgb;
+        float bank=smoothstep(-.018,.11,elevation)*(1.-smoothstep(.36,.64,elevation));
+        c=mix(c,photographed,bank);`
+        : 'c=mix(range,c,smoothstep(.81,1.24,uv.y));'}
         gl_FragColor=vec4(c,1.);
         #include <colorspace_fragment>
         }`
@@ -1051,7 +1058,7 @@ export function createScene(canvas) {
   renderer.shadowMap.autoUpdate=false;
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,400);
+  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
   scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
   scene.add(new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74));
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
@@ -1092,10 +1099,7 @@ export function createScene(canvas) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
-  const sightPivot=new THREE.Group();
-  camera.add(sightPivot);
-  const sightForward=new THREE.Vector3(0,0,-1), sightRay=new THREE.Vector3();
-  const sightModels=makeFirearms(sightPivot);
+  const sightModels=makeFirearms(camera);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
   sightModels[2].position.set(0,-.216,-.37);
@@ -1125,13 +1129,9 @@ export function createScene(canvas) {
   const cursorRay = new THREE.Raycaster();
   const cursorNdc = new THREE.Vector2();
   let displayedWorld, displayedPlayers;
-  function pointerNdc(pointer,rect) {
-    return cursorNdc.set(2*(pointer.x-rect.left)/rect.width-1,1-2*(pointer.y-rect.top)/rect.height);
-  }
-  function aimAt(pointer, feet, id, range, station=null) {
-    if (!ready || !displayedWorld || !pointer) return null;
-    const rect = canvas.getBoundingClientRect();
-    cursorRay.setFromCamera(pointerNdc(pointer,rect), camera);
+  function aimAt(feet,id,range,station=null) {
+    if (!ready || !displayedWorld) return null;
+    cursorRay.setFromCamera(cursorNdc,camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
@@ -1142,15 +1142,14 @@ export function createScene(canvas) {
     let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
     // An obstruction between the chase camera and the turret cannot be an aim point
     // for the barrel. Keep its forward sightline while the camera passes that cover.
-    const edgeOrbit=Math.abs(cursorNdc.x)>1-2*Math.min(48/rect.width,.07);
-    if(station && (edgeOrbit || Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1)) {
+    if(station && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
       const depth=range+cameraOffset;
       to={x:origin.x+direction.x*depth,y:origin.y+direction.y*depth,z:origin.z+direction.z*depth};
     }
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  function render(local,remotes,view,dt,world,pointer) {
+  function render(local,remotes,view,dt,world) {
     if(!local) return;
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
@@ -1272,10 +1271,6 @@ export function createScene(canvas) {
       camera.updateProjectionMatrix();
     }
     if (sighted) {
-      // Keep the optic on the same screen ray used for picking, even at the edges.
-      const ndc=pointer ? pointerNdc(pointer,canvas.getBoundingClientRect()) : cursorNdc.set(0,0);
-      sightRay.set(ndc.x,ndc.y,-1).applyMatrix4(camera.projectionMatrixInverse).normalize();
-      sightPivot.quaternion.setFromUnitVectors(sightForward,sightRay);
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
       camera.lookAt(desired.copy(camera.position).sub(boom));

@@ -38,6 +38,11 @@ const towers = [
   [-18,69,15,7,22,3],[17,69,16,7,27,0],
 ];
 towers.push([-28,-240,13,19,8,3],[-36,-184,15,18,10,3],[19,-246,10,17,17,1],[18,-177,12,15,9,0]);
+const buildings=towers.map(([x,z,w,d,eave,facade])=>({
+  x,z,w,d,eave,facade,rise:0,
+  // Raised housing on the roof. Barrier heights are relative to the ground.
+  housing:{x:x+w*.13,z,w:w*.45,d:d*.46,bottom:eave+.06,h:eave+1.24},
+}));
 const palms=[];
 for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
   palms.push({x,z,height:6.4+1.1*Math.abs(Math.sin(x+z)), radius:.22});
@@ -45,11 +50,11 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 77, northBound:-289, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...beachBarriers,
+  barriers:[...beachBarriers,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw])=>[-1,1].map(side=>({
       x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:palms,
-  buildings:towers.map(([x,z,w,d,eave,facade])=>({x,z,w,d,eave,facade,rise:0})),
+  buildings,
 };

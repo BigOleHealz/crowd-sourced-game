@@ -52,7 +52,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .kit-row strong { color: var(--accent); }
 #field-prompt { display: inline-block; margin-top: 6px; padding: 4px 8px; border-radius: 3px; background: var(--panel); color: #f0efda; font-size: 12px; }
 #field-prompt:empty { display: none; }
-#game.armed { cursor: crosshair; }
+
 #guide { max-height: calc(100% - 75px); overflow-y: auto; }
 
 .health-readout { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11px; font-weight: 600; }
@@ -74,6 +74,14 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #map-choice { color: #f1eee0; background: #27332deb; border: 1px solid var(--line); padding: 5px; border-radius: 2px; cursor: pointer; }
 @media(max-width:700px) { .world-name { flex-direction:column;align-items:flex-start;gap:4px } }
 
-/* The browser composites this hotspot at the OS pointer between WebGL frames. */
-#game.sighted { cursor: url("/sight-cursor.svg") 7 7, crosshair; }
-#notice { pointer-events: none; }
+#game:not(.look-paused):hover,#game.captured {cursor:none}
+#play-reticle {
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:13px;height:13px;pointer-events:none;display:none;
+  background:linear-gradient(#fff8e6,#fff8e6) center/1px 100% no-repeat,
+    linear-gradient(#fff8e6,#fff8e6) center/100% 1px no-repeat;
+  filter:drop-shadow(0 0 1px #231f18);
+}
+#game.armed:not(.look-paused):hover + #play-reticle,#game.armed.captured + #play-reticle {display:block}
+#game.sighted + #play-reticle {width:3px;height:3px;border-radius:50%;background:#fc876c}
+#notice { pointer-events:none }
