@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
 
-import { newRivals, updateRival, rivalView, pulseActors } from './public/rivals.js';
+import { newLife, healthView, respawnDue, newRivals, updateRival, rivalView, pulseActors } from './public/rivals.js';
 
 let npcs = newRivals();
 function worldView() { return { npcs: npcs.map(npc => rivalView(npc, ticks)) }; }
@@ -87,7 +87,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   return { ...player.state, id: player.id, yaw: player.yaw, moving: player.moving,
-    sprint: player.sprint, ack: player.ack };
+    sprint: player.sprint, ack: player.ack, ...healthView(player, ticks) };
 }
 
 function publish() {
@@ -132,7 +132,7 @@ sockets.on('connection', ws => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, fireReady: 0, state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    id, ws, life: newLife(ticks), fireReady: 0, state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   players.set(id, player);
@@ -153,10 +153,20 @@ function tick() {
   if (players.size) for (const npc of npcs) updateRival(npc, ticks, step);
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if (input) player.ack = input.seq;
+    if (player.life.hp === 0) {
+      if (respawnDue(player, ticks)) {
+        player.state = spawn(player.id - 1);
+        player.life = newLife(ticks);
+        player.yaw = 0;
+        player.ack = player.lastSeq;
+        player.inputs.length = 0;
+      }
+      continue;
+    }
     player.state = stepPlayer(player.state, input || idle, step);
     if (input) {
-      player.ack = input.seq;
-      if (input.fire) pulseActors(player, input, ticks, npcs);
+      if (input.fire) pulseActors(player, input, ticks, [...players.values(), ...npcs]);
       player.yaw = input.yaw;
       player.moving = Math.hypot(input.x, input.z) > 0.01;
       player.sprint = player.moving && input.sprint;

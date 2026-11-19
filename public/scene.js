@@ -540,8 +540,9 @@ export function createScene(canvas) {
     for(const state of [local,...remotes]) {
       live.add(state.id);
       let a=avatars.get(state.id);
-      if(!a) {a=hiker(scene,state.id,state.color,material,shadowMap,state.name);avatars.set(state.id,a);}
+      if(!a) {a=hiker(scene,state.id,state.color,material,shadowMap,state.name || 'Hiker ' + state.id);avatars.set(state.id,a);}
       pose(a,state,dt);
+      a.label.sprite.visible = state.id !== local.id;
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     desired.set(local.x,local.y+1.43,local.z);

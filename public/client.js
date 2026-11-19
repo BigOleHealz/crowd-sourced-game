@@ -6,7 +6,15 @@ const canvas = byId('game');
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 const held = new Set();
-let weapon = 1, queuedFire = false;
+let weapon = 1, queuedFire = false, vitals = {};
+function updateVitals(state) {
+  vitals = state;
+  const hp = state.hp ?? 100, maxHp = state.maxHp || 100;
+  byId('hp-meter').max = maxHp;
+  byId('hp-meter').value = hp;
+  byId('hp-label').textContent = 'Health ' + hp + '/' + maxHp;
+  byId('life-status').textContent = state.dead ? 'Down · Respawning in ' + Math.ceil(state.respawnIn) + 's' : state.protected ? 'Spawn shield' : '';
+}
 let lastPointer = null;
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
@@ -96,6 +104,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       id = m.id; self = previous = m.state; facing = m.state.yaw;
+      updateVitals(m.state);
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -103,10 +112,13 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
-      const corrected = pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
+      const changedLife = !!vitals.dead !== !!authoritative.dead;
+      updateVitals(authoritative);
+      const corrected = vitals.dead ? authoritative : pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
+      if (changedLife) previous = corrected;
       self = corrected;
       samples.push({ time: performance.now(), players: [...m.players.filter(p => p.id !== id), ...m.world.npcs] });
       if (samples.length > 8) samples.shift();
@@ -140,14 +152,14 @@ function tick() {
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   if (moving) facing = Math.atan2(x, -z);
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint, weapon,
-    fire: queuedFire || held.has('KeyF'), aimYaw: camera.yaw, aimPitch: camera.pitch };
+    fire: !vitals.dead && (queuedFire || held.has('KeyF')), aimYaw: camera.yaw, aimPitch: camera.pitch };
   queuedFire = false;
   queuedJump = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  self = stepPlayer(self, cmd, step);
+  if (!vitals.dead) self = stepPlayer(self, cmd, step);
 }
 
 function remoteFrame(time) {
@@ -160,7 +172,7 @@ function remoteFrame(time) {
   const t = clamp((target - a.time) / Math.max(1, b.time - a.time), 0, 1);
   return b.players.map(p => {
     const q = a.players.find(q => p.id === q.id);
-    if (!q || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
+    if (!q || q.dead !== p.dead || Math.hypot(q.x - p.x, q.z - p.z) > 5) return p;
     return { ...p, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
   });
 }
@@ -204,7 +216,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, id, yaw: facing, moving, sprint,
+    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const remotes = remoteFrame(time);
     scene.render(local, remotes, camera, dt);

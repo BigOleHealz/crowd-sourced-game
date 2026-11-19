@@ -17,7 +17,7 @@
     <span class="presence" role="status"><i></i><span id="presence">Connecting</span></span>
   </header>
   <main class="hud">
-    <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2></div>
+    <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2><div class="health"><span id="hp-label">Health 100/100</span> <meter id="hp-meter" min="0" max="100" value="100" aria-label="Your health"></meter> <span id="life-status"></span></div></div>
     <aside class="map-panel" aria-label="Live trail map"><div class="map-title"><span>Trail map</span><b>N ↑</b></div><canvas id="map" width="288" height="208" aria-label="Trail loop, creek and player locations"></canvas></aside>
     <div id="notice" role="alert" hidden></div>
   </main>
@@ -27,7 +27,7 @@
   </footer>
   <section id="guide" hidden aria-label="Controls">
     <div class="guide-heading"><h2>Field controls</h2><button id="close-guide" aria-label="Close controls">×</button></div>
-    <dl><dt>Forward / back</dt><dd>W / S or ↑ / ↓</dd><dt>Strafe left / right</dt><dd>A / D or ← / →</dd><dt>Sprint</dt><dd>Hold Shift</dd><dt>Jump</dt><dd>Space</dd><dt>Look around</dt><dd>Move the cursor over the world</dd><dt>Keep turning</dt><dd>Hold the cursor near an edge</dd><dt>Pulse / Bloom</dt><dd>1 / 2</dd><dt>Fire at a trail rival</dt><dd>F</dd><dt>Camera distance</dt><dd>Scroll</dd></dl>
+    <dl><dt>Forward / back</dt><dd>W / S or ↑ / ↓</dd><dt>Strafe left / right</dt><dd>A / D or ← / →</dd><dt>Sprint</dt><dd>Hold Shift</dd><dt>Jump</dt><dd>Space</dd><dt>Look around</dt><dd>Move the cursor over the world</dd><dt>Keep turning</dt><dd>Hold the cursor near an edge</dd><dt>Pulse / Bloom</dt><dd>1 / 2</dd><dt>Fire at a rival or hiker</dt><dd>F</dd><dt>Camera distance</dt><dd>Scroll</dd></dl>
   </section>
   <script type="module" src="/client.js"></script>
 </body>
