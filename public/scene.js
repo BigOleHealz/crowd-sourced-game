@@ -991,7 +991,7 @@ export function createScene(canvas) {
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
-      .map(state => ({id: state.id, state}));
+      .map(state => ({id: state.id, state, yaw: state.yaw, moving: state.moving}));
     const muzzle=station ? mountPosition(displayedWorld[station],mounts[station].turret) : {x:feet.x,y:feet.y+1.3-.78*stanceDrop(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
