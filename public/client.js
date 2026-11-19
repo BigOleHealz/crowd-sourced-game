@@ -23,7 +23,7 @@ window.addEventListener('keydown',audio.unlock,{capture:true});
 window.addEventListener('pagehide',()=>audio.reset());
 const selector=byId('map-choice');
 selector.value=CITY ? 'brickell' : 'outpost';
-selector.addEventListener('change',()=>{ location.href=selector.value==='brickell' ? '/?map=brickell' : '/'; });
+selector.addEventListener('change',()=>{ const url=new URL(location.href);url.searchParams.set('map',selector.value);location.assign(url); });
 if(CITY) {
   document.title='Brickell · Pinewatch';
   document.querySelector('.map-title span').textContent='District map';
