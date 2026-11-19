@@ -2,7 +2,9 @@
 
 ## Git workflow
 
-- Develop and commit on a feature branch. Use the `codex/` prefix for Codex feature branches.
+- Create a separate Git worktree and a dedicated feature branch for every new feature before editing it. Use the `codex/` prefix for Codex feature branches.
+- Keep each feature’s source edits, tests and local commits in its own worktree. Give independently introduced enhancements their own worktrees and branches, even when they depend on earlier features.
+- Combine and test features on a separate non-main integration branch. Never edit files on `main`.
 - Never push directly to `main`.
 - Never merge `main` into a feature branch, including through a pull that merges `origin/main`.
 - Use a pull request for any change targeting `main`.
