@@ -23,10 +23,12 @@ for(const kind of ['rover','heli']){
   assert.equal(target.life.hp,0);
   assert.ok(world.shots.some(s=>s.weapon==='turret' && s.headshot));
   assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.tick),[0,8,15,23,30,38,45,53]);
+  assert.ok(world.shots.filter(s=>s.weapon==='muzzle').every(s=>s.firedWeapon==='turret'));
   assert.equal(v.hp,v.maxHp);
   launchMissile(world,kind,{id:2},60);assert.equal(world.missiles.length,0);
   launchMissile(world,kind,{id:1},60);
   const m=world.missiles[0],start={...m};v.yaw=0;
+  assert.deepEqual(world.shots.filter(s=>s.weapon==='launch').map(s=>s.id),[m.id]);
   advanceMissiles(world,players,[],61);assert.equal(m.x,start.x+1);assert.ok(Math.abs(m.z-start.z)<1e-9);
   target.state={x:m.x+2,y:m.y-1.3,z:m.z};target.life=newLife(0,false);
   advanceMissiles(world,players,[target],62);advanceMissiles(world,players,[target],63);
@@ -66,4 +68,5 @@ const nearby={id:3,state:{x:1.3,y:15,z:-8},life:newLife(0,false)};players.set(3,
 fire(world,shooter,{aimYaw:0,aimPitch:pitch},30,players,[]);
 for(let tick=30;tick<40;tick++)advanceRounds(world,players,[],tick);
 assert.equal(target.life.hp,0);assert.equal(nearby.life.hp,100,'sidearm never damages a bystander');
+assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.firedWeapon),[1,2]);
 console.log('PASS: both forward missiles, independent turret direction, four shots per second, direct headshots and single-target sidearm impacts.');

@@ -1,3 +1,4 @@
+import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
@@ -10,6 +11,10 @@ import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
 const canvas = byId('game');
+const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
+window.addEventListener('pointerdown',audio.unlock,{capture:true});
+window.addEventListener('keydown',audio.unlock,{capture:true});
+window.addEventListener('pagehide',()=>audio.reset());
 const selector=byId('map-choice');
 selector.value=CITY ? 'brickell' : 'outpost';
 selector.addEventListener('change',()=>{ location.href=selector.value==='brickell' ? '/?map=brickell' : '/'; });
@@ -163,7 +168,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       id = m.id; self = previous = m.state; facing = m.state.yaw;
-      world = m.world; vitals = m.state; weapon = m.state.weapon;
+      world = m.world; audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -191,6 +196,7 @@ function connect() {
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
+      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw);
       samples.push({ time: performance.now(), bullets:world.bullets, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
@@ -200,6 +206,7 @@ function connect() {
   socket.onclose = () => {
     canvas.classList.remove('armed');
     roverView = null;
+    audio.reset();
     id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
@@ -428,6 +435,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='rover' ? rover : heli,role));
     const view = isDriving() ? drivingView(rover, dt) : camera;
+    audio.engines(local,view.yaw,heli,rover);
     scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;

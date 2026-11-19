@@ -712,6 +712,7 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
       particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
       return;
