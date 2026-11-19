@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import {hotel,hotelPanels} from './maravela-hotel.js';
+import {hotel,hotelPanels,hotelGlass} from './maravela-hotel.js';
 
 // Both marquees, the reception joinery and the bell cart share one static
 // architectural mesh. Only the two pairs of glazed leaves move.
-export function maravelaHotelView(scene,Batch,doorWidth,floor){
+export function maravelaHotelView(scene,Batch,doorWidth,floor,debris){
   const batch=new Batch(),cube=new THREE.BoxGeometry(),column=new THREE.CylinderGeometry(1,1,1,18);
   const orb=new THREE.SphereGeometry(1,16,10),rim=new THREE.TorusGeometry(1,.075,8,32);
   const emerald=0x24473e,walnut=0x72513b,flute=0x987455,brass=0xbd975e;
@@ -64,16 +64,18 @@ export function maravelaHotelView(scene,Batch,doorWidth,floor){
     for(let i=-5;i<=5;i++)box(walnut,x+i*.405,2.55,z+side*.43,.027,.028,.97);
     for(const u of [-1.19,1.19])cylinder(ivory,x+u,2.52,z+side*.46,.061,.018);
     // Two glazed sliders share the authoritative trigger and width.
+    const sliders=hotelGlass(front,0,doorWidth,floor);
     const pair=hotelPanels(front,0,doorWidth).map((p,i)=>{
       const group=new THREE.Group();group.position.set(p.x,floor,p.z);
-      const pane=new THREE.Mesh(cube,glass);pane.position.y=1.105;pane.scale.set(p.w,2.21,.015);
+      const shard=sliders[i],pane=new THREE.Mesh(cube,glass);
+      pane.position.y=(shard.bottom+shard.top)/2-floor;pane.scale.set(shard.width,shard.top-shard.bottom,.015);
       group.add(pane);
       const rails=new Batch(),edge=(x,y,w,h,d)=>rails.add(cube,0x967a52,x,y,0,w,h,d);
       for(const s of [-1,1])edge(s*(p.w/2-.014),1.105,.028,2.21,.032);
       for(const y of [.063,1.01,2.19])edge(0,y,p.w,.034,.033);
       edge((i===0?1:-1)*p.w*.32,1.16,.026,.18,.048);
       rails.mesh(group,framing,false);
-      scene.add(group);return group;
+      scene.add(group);return {group,pane,shard};
     });
     moving.push({front,pair,old:-1});
     sign(side<0?2:3,x,2.32,z-side*.22,1.40,.175,side<0?0:Math.PI);
@@ -137,11 +139,22 @@ export function maravelaHotelView(scene,Batch,doorWidth,floor){
   const staticMesh=batch.mesh(scene,surfaces,false);staticMesh.userData.impactSurface='solid';
   // Cube geometry is shared by the live sliding leaves.
   for(const g of [column,orb,rim])g.dispose();
+  let synced=false;
   return doors=>{
+    if(!doors)return;
     for(const f of moving){
-      const value=doors?.hotel?.[f.front.id]??0;if(value===f.old)continue;
-      f.old=value;const panels=hotelPanels(f.front,value,doorWidth);
-      f.pair.forEach((group,i)=>{group.position.x=panels[i].x;});
+      const value=doors.hotel?.[f.front.id]??0;
+      if(value!==f.old){
+        f.old=value;const panels=hotelPanels(f.front,value,doorWidth);
+        f.pair.forEach((part,i)=>{part.group.position.x=panels[i].x;});
+      }
+      for(const {group,pane,shard} of f.pair){
+        const broken=doors.brokenPanes?.[shard.id];
+        pane.visible=!broken;
+        if(broken)shard.x=broken.x??group.position.x;
+        debris.setBroken(shard,Boolean(broken),synced);
+      }
     }
+    synced=true;
   };
 }

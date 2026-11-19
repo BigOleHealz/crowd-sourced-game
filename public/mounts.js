@@ -17,7 +17,7 @@ export function mountPosition(vehicle, [side,height,z]) {
     z:vehicle.z+lateral*s+longitudinal*c};
 }
 
-export const turretPitch=pitch=>Math.max(-.95,Math.min(.65,pitch));
+export {viewPitch as turretPitch} from './view-pitch.js';
 
 export function vehicleById(world,id){
   if(id==='rover'||id==='heli')return world?.[id];

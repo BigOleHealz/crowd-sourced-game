@@ -60,6 +60,8 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #life-status { color: #baf1f4; }
 
 #supply-card { position: fixed; left: 30px; top: 90px; width: 232px; max-width: 45vw; padding: 10px 12px; background: var(--panel); border-left: 3px solid #e2b15f; border-radius: 0 4px 4px 0; pointer-events: none; }
+.match-score { display:flex;gap:14px;border-top:1px solid var(--line);margin-top:7px;padding-top:5px;font-size:11px;font-variant-numeric:tabular-nums; }
+.match-score b {margin-left:3px;}
 #supply-step { color: #ebcb8c; font-size: 9px; }
 .supply-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; margin: 3px 0; }
 #supply-name { font-size: 15px; }
@@ -85,3 +87,17 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #game.armed:not(.look-paused):hover + #play-reticle,#game.armed.captured + #play-reticle {display:block}
 #game.sighted + #play-reticle {width:3px;height:3px;border-radius:50%;background:#fc876c}
 #notice { pointer-events:none }
+
+#damage-edges {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(128, 15, 18, .16) 68%, rgba(142, 16, 19, .55) 88%, rgba(105, 9, 15, .80) 100%);
+  opacity: 0;
+  transition: opacity 460ms ease-out;
+}
+#damage-edges.struck { opacity: .85; transition-duration: 90ms; }
+@media (prefers-reduced-motion: reduce) {
+  #damage-edges { transition-duration: 230ms; }
+  #damage-edges.struck { opacity: .44; transition-duration: 80ms; }
+}

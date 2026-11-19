@@ -1,3 +1,6 @@
+import {keyShores} from './offshore-keys.js';
+import {viewPitch} from './view-pitch.js';
+import {shotDamageVignette} from './shot-damage-vignette.js';
 import {liveShots} from './shot-events.js';
 import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt} from './gallery-lobbies.js';
@@ -13,9 +16,10 @@ import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { nearestVehicle } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
-import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
+import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
+const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
@@ -192,13 +196,13 @@ canvas.addEventListener('pointermove', e => {
   }
   if(locked()){
     camera.yaw+=e.movementX*.0028;
-    camera.pitch=clamp(camera.pitch-e.movementY*.0024,-.95,.48);
+    camera.pitch=viewPitch(camera.pitch-e.movementY*.0024);
     return;
   }
   const x = e.clientX, y = e.clientY;
   if (lastPointer) {
     camera.yaw += (x - lastPointer.x) * 0.0028;
-    camera.pitch = clamp(camera.pitch - (y - lastPointer.y) * 0.0024, -0.95, 0.48);
+    camera.pitch = viewPitch(camera.pitch - (y - lastPointer.y) * 0.0024);
   }
   lastPointer = { x, y };
   const rect = canvas.getBoundingClientRect();
@@ -210,7 +214,9 @@ canvas.addEventListener('wheel', e => {
   camera.distance = clamp(camera.distance + e.deltaY * 0.006, 2.6, 8.5);
 }, { passive: false });
 
-let connectedBuild;
+let connectedBuild,previousScoreKey;
+const scoreStorage=CITY?'brickell-match-score':'outpost-match-score';
+try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
   socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell' : '/world'));
@@ -221,7 +227,11 @@ function connect() {
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
       connectedBuild=m.build;
+      if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
+      previousScoreKey=m.scoreKey;
+      try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = previous = m.state; facing = m.state.yaw;
+      damageEdges.reset();
       world = m.world; roadImpact=null; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
@@ -232,6 +242,8 @@ function connect() {
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
       const wasPilot = isPilot(), wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
+      if(vitals.dead && !authoritative.dead)damageEdges.reset();
+      else damageEdges.update(vitals,authoritative);
       vitals = authoritative;
       const bump=m.world.rover.contactSound;
       if(world.rover.driver===id && bump?.damage>0 && bump.id!==world.rover.contactSound?.id){
@@ -264,6 +276,7 @@ function connect() {
     }
   };
   socket.onclose = () => {
+    damageEdges.reset();
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
@@ -403,6 +416,8 @@ function updateEquipment(local) {
   const boat=myBoat(),nearby=nearBoat(world,local);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
+  byId('match-kills').textContent=vitals.score?.kills??0;
+  byId('match-deaths').textContent=vitals.score?.deaths??0;
   byId('kit').textContent = boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+firearmSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
@@ -449,10 +464,19 @@ function updateEquipment(local) {
 function drawMap(player, remotes, yaw) {
   const w = map.width, h = map.height;
   const scale=CITY ? 1.34 : 3.25;
-  const centerZ=CITY ? Math.min(0,player.z+36) : 0;
-  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + (z-centerZ) * scale;
+  const centerX=CITY ? player.x-clamp(player.x,-67,67) : 0;
+  const centerZ=CITY ? Math.min(0,player.z+36)+Math.max(0,player.z-48) : Math.min(0,player.z+16);
+  const sx = x => w / 2 + (x-centerX) * scale, sy = z => h * (CITY ? .48 : .57) + (z-centerZ) * scale;
   if(CITY) {
     ctx.fillStyle='#467e87';ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#82a6aa';ctx.lineWidth=1;
+    ctx.strokeRect(sx(travelBounds.west),sy(travelBounds.north),
+      (travelBounds.east-travelBounds.west)*scale,(travelBounds.south-travelBounds.north)*scale);
+    ctx.fillStyle='#899676';
+    for(const {chart} of keyShores){
+      ctx.beginPath();chart.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));
+      ctx.closePath();ctx.fill();
+    }
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
@@ -471,7 +495,9 @@ function drawMap(player, remotes, yaw) {
   ctx.strokeStyle = '#638e8b'; ctx.lineWidth = 10;
   ctx.beginPath(); ctx.moveTo(0,sy(0)); ctx.lineTo(w,sy(0)); ctx.stroke();
   ctx.strokeStyle = '#c1ac7f'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
-  ctx.beginPath(); MAP.trail.forEach(([x,z], i) => i ? ctx.lineTo(sx(x),sy(z)) : ctx.moveTo(sx(x),sy(z))); ctx.stroke();
+  for(const path of [MAP.trail,MAP.northTrail]){
+    ctx.beginPath();path.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
+  }
   }
   ctx.fillStyle = '#e8bb71'; ctx.fillRect(sx(MAP.lookout.x)-4,sy(MAP.lookout.z)-4,8,8);
   for (const piece of BREAKABLES) {
@@ -502,7 +528,7 @@ function frame(time) {
   if (edgeYaw || edgePitch) {
     if (!windowBlurred && !document.hidden && canvas.matches(':hover')) {
       camera.yaw += edgeYaw * dt;
-      camera.pitch = clamp(camera.pitch + edgePitch * dt, -0.95, 0.48);
+      camera.pitch = viewPitch(camera.pitch + edgePitch * dt);
     } else {
       stopLook();
     }
@@ -536,7 +562,7 @@ function frame(time) {
   const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z));
       byId('location').textContent = interior ? interior.name : CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
-        : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
+        : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);
       updateSupplyHud(world,local,id);
       drawMap(local, remotes, view.yaw);

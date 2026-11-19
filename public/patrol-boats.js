@@ -1,4 +1,4 @@
-import {CITY,MAP,groundHeight,solidTopAt,blocked} from './world.js';
+import {CITY,MAP,insideTravelArea,groundHeight,solidTopAt,blocked} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
 import {mountPosition} from './mounts.js';
 
@@ -46,7 +46,7 @@ function disembark(world,b,player) {
   let waterExit=null;
   for(const [right,along] of [[-2,0],[2,0],[-2.1,1.3],[2.1,1.3],[0,3.4],[0,-3.4],[-3.5,0],[3.5,0]]) {
     const x=b.x+c*right-s*along,z=b.z+s*right+c*along;
-    if(Math.abs(x)>MAP.bounds||z<MAP.northBound||z>MAP.bounds)continue;
+    if(!insideTravelArea(x,z))continue;
     const ground=groundHeight(x,z,b.y+1.35), swimming=ground<MAP.waterY-.72-.03;
     const y=swimming?MAP.waterY-.72:ground;
     if(y>b.y+1.35 || blocked(x,y,z,world.hp) || vehicleContact(x,y,z,world,CITY).depth)continue;
@@ -93,13 +93,19 @@ function overlaps(x,z,yaw,other,halfWidth,halfLength){
 export function nearbyHull(boats,vehicle,x,z,yaw,halfWidth,halfLength){
   return boats?.find(b=>b!==vehicle && !b.wrecked && overlaps(b.x,b.z,b.yaw,{x,z,yaw},halfWidth,halfLength));
 }
+function insideChart(x,z,yaw) {
+  const c=Math.abs(Math.cos(yaw)),s=Math.abs(Math.sin(yaw));
+  const halfX=1.10*c+2.75*s,halfZ=1.10*s+2.75*c;
+  return insideTravelArea(x,z,halfX,halfZ);
+}
 function canFloat(world,b,x,z,yaw) {
+  if(!insideChart(x,z,yaw))return false;
   const c=Math.cos(yaw),s=Math.sin(yaw);
   // Enclose the collar, outboard, crew and stern aerial through pitch and roll.
   const clearance=b.y+2.5;
   for(const dz of [-2.75,0,2.75])for(const dx of [-1.10,0,1.10]){
     const px=x+c*dx-s*dz,pz=z+s*dx+c*dz;
-    if(Math.abs(px)>MAP.bounds||pz<MAP.northBound||pz>MAP.bounds||solidTopAt(px,pz,world.hp,0,clearance)>MAP.waterY-.24)return false;
+    if(solidTopAt(px,pz,world.hp,0,clearance)>MAP.waterY-.24)return false;
   }
   if(nearbyHull(world.boats,b,x,z,yaw,1.04,2.65))return false;
   return !(world.heli.y<MAP.waterY+1.5 && overlaps(x,z,yaw,world.heli,1.28,3.6))
@@ -130,7 +136,7 @@ export function stepBoat(world,b,input,dt,players){
     if(canFloat(world,b,x,z,b.yaw)){b.x=x;b.z=z;}
     else {
       const amount=Math.round((Math.abs(b.speed)-5)*4);
-      if(amount>0){
+      if(amount>0 && insideChart(x,z,b.yaw)){
         const other=nearbyHull(world.boats,b,x,z,b.yaw,1.04,2.65);
         if(other)damageBoat(world,other,amount,players);
         damageBoat(world,b,amount,players);

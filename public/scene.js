@@ -1,3 +1,7 @@
+import {viewPitch,zenith} from './view-pitch.js';
+import {routeDistance,ridgeBench} from './north-ridge.js';
+import {distantResidents} from './resident-distance-view.js';
+import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
 import {vehicleWreckBurst} from './vehicle-wreck-view.js';
@@ -125,19 +129,12 @@ class Batch {
 
 const up = new THREE.Vector3(0,1,0);
 function trailDistance(x, z) {
-  let best = Infinity;
-  for (let i = 0; i < MAP.trail.length; i++) {
-    const [ax, az] = MAP.trail[i], [bx, bz] = MAP.trail[(i + 1) % MAP.trail.length];
-    const dx = bx - ax, dz = bz - az;
-    const t = clamp(((x-ax)*dx + (z-az)*dz)/(dx*dx + dz*dz || 1), 0, 1);
-    best = Math.min(best, Math.hypot(x - ax - t*dx, z - az - t*dz));
-  }
-  return best;
+  return Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z));
 }
 
 function sceneryHeight(x,z) {
   const base=terrainHeight(x,z);
-  const beyond=Math.hypot(Math.max(0,Math.abs(x)-MAP.bounds),Math.max(0,Math.abs(z)-MAP.bounds));
+  const beyond=Math.hypot(Math.max(0,Math.abs(x)-MAP.bounds),Math.max(0,z-MAP.bounds,MAP.northBound-z));
   if(!beyond) return base;
   // Continue the actual drop-off into wooded draws. Ridge crests depend on
   // world-space drainage and outcrops, so they do not trace the map perimeter.
@@ -151,7 +148,11 @@ function sceneryHeight(x,z) {
 
 function addGround(scene,renderer) {
   const size = 164;
-  const geo = new THREE.PlaneGeometry(size, size, 172, 172).rotateX(-Math.PI/2);
+  const extra=-MAP.northBound-MAP.bounds;
+  const geo=new THREE.PlaneGeometry(size,size+extra,172,172+Math.round(extra*172/size))
+    .rotateX(-Math.PI/2).translate(0,0,-extra/2);
+  const terrainUV=geo.attributes.uv;
+  for(let i=0;i<terrainUV.count;i++)terrainUV.setY(i,terrainUV.getY(i)*(size+extra)/size);
   const positions = geo.attributes.position;
   const cover = new Uint8Array(positions.count);
   const colors = [];
@@ -174,7 +175,7 @@ function addGround(scene,renderer) {
     cover[i]=Math.round(255*verge*dry*(1-pad));
     // Dark organic litter gathers at the bases of trees and stones.
     let shade=1;
-    if(Math.abs(x)<35 && Math.abs(z)<35) {
+    if(Math.abs(x)<35 && z<35 && z>MAP.northBound+2) {
       for(const tree of MAP.trees) {
         const dx=x-tree.x,dz=z-tree.z;
         if(dx*dx+dz*dz<5)shade=Math.min(shade,.66+.34*clamp((dx*dx+dz*dz)/5,0,1));
@@ -199,46 +200,30 @@ function addGround(scene,renderer) {
 function addSky(scene) {
   const panorama=new THREE.TextureLoader().load(CITY ? './brickell-sky.webp' : './valley-horizon.webp');
   panorama.colorSpace=THREE.SRGBColorSpace;panorama.wrapS=THREE.MirroredRepeatWrapping;
-  // The city sky is a full azimuth-by-elevation hemisphere. The old photo
-  // remains the environment map for the glass and bodywork.
-  const atmosphere=CITY ? new THREE.TextureLoader().load('./biscayne-sky.webp') : panorama;
-  if(CITY){atmosphere.colorSpace=THREE.SRGBColorSpace;atmosphere.wrapS=THREE.RepeatWrapping;}
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(278,48,22),
-    new THREE.ShaderMaterial({
-      side:THREE.BackSide,depthWrite:false,
-      uniforms:{panorama:{value:atmosphere},horizon:{value:color(CITY?0xc7dce3:0xb4b3aa)},zenith:{value:color(CITY?0x629ac4:0x86919a)}},
-      vertexShader:`varying vec3 skyDir; void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-      fragmentShader:CITY ? `varying vec3 skyDir;uniform sampler2D panorama;
-        void main(){
-          vec3 d=normalize(skyDir);
-          float longitude=atan(d.x,-d.z)/6.28318530718+.5;
-          float elevation=asin(clamp(d.y,0.,1.))/1.57079632679;
-          gl_FragColor=vec4(texture2D(panorama,vec2(longitude,elevation)).rgb,1.);
-          #include <colorspace_fragment>
-        }` : `varying vec3 skyDir; uniform vec3 horizon; uniform vec3 zenith; uniform sampler2D panorama;
-        float cloudHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.53);}
-        float cloudNoise(vec2 p){
-          vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-          return mix(mix(cloudHash(i),cloudHash(i+vec2(1.,0.)),f.x),mix(cloudHash(i+vec2(0.,1.)),cloudHash(i+1.),f.x),f.y);
-        }
-        void main(){vec3 d=normalize(skyDir); float t=pow(clamp(d.y,0.,1.),.46);
-        vec3 c=mix(horizon,zenith,t);float sun=max(dot(d,normalize(vec3(-.54,.65,-.64))),0.);
-        vec2 p=d.xz/max(.085,d.y+.035)*vec2(2.4,4.1);
-        float cloud=.55*cloudNoise(p)+.28*cloudNoise(2.*p)+.12*cloudNoise(4.*p)+.05*cloudNoise(8.*p);
-        c=mix(c,vec3(.67,.67,.64),smoothstep(.54,.73,cloud)*smoothstep(.05,.20,d.y)*.6);
-        c+=vec3(.18,.145,.09)*pow(sun,22.);
-        float elevation=asin(clamp(d.y,-1.,1.));
-        vec2 uv=vec2(atan(d.x,-d.z)*.46+.17,(elevation+.44)/.98);
-        vec3 range=texture2D(panorama,vec2(uv.x,clamp(uv.y,0.,1.))).rgb;
-        c=mix(range,c,smoothstep(.81,1.24,uv.y));
-        gl_FragColor=vec4(c,1.);
+  // The reflection photographs stay on glass; the sky itself spans a full
+  // revolution. The outpost hemisphere includes the hills below the horizon.
+  const atmosphere=new THREE.TextureLoader().load(CITY?'./biscayne-sky.webp':'./outpost-sky.webp');
+  atmosphere.colorSpace=THREE.SRGBColorSpace;
+  atmosphere.wrapS=THREE.RepeatWrapping;
+  const sky=new THREE.Mesh(new THREE.SphereGeometry(278,48,22),new THREE.ShaderMaterial({
+    side:THREE.BackSide,depthWrite:false,
+    uniforms:{panorama:{value:atmosphere}},
+    vertexShader:`varying vec3 skyDir;void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;
+      void main(){
+        vec3 d=normalize(skyDir);
+        float longitude=atan(d.x,-d.z)/6.28318530718+.5;
+        float latitude=asin(clamp(d.y,-1.,1.));
+        float elevation=${CITY?'max(0.,latitude)/1.57079632679':'(degrees(latitude)+26.)/116.'};
+        gl_FragColor=vec4(texture2D(panorama,vec2(longitude,elevation)).rgb,1.);
         #include <colorspace_fragment>
-        }`
-    }));
-  if(CITY) {
-    sky.frustumCulled=false;
-    sky.onBeforeRender=(_r,_s,camera)=>{sky.matrixWorld.setPosition(camera.position);sky.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse,sky.matrixWorld);};
-  }
+      }`
+  }));
+  sky.frustumCulled=false;
+  sky.onBeforeRender=(_r,_s,camera)=>{
+    sky.matrixWorld.setPosition(camera.position);
+    sky.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse,sky.matrixWorld);
+  };
   sky.renderOrder=-20; scene.add(sky);
   return panorama;
 }
@@ -344,6 +329,11 @@ function addDetails(scene,batch, rng) {
     addTrailMarker(batch,marker.x,marker.z,marker.heading,marker.h>2);
     signFace(scene,marker.x,marker.z,marker.heading,marker.text);
   }
+  const {x,z}=ridgeBench,y=terrainHeight(x,z);
+  for(const side of [-1,1])batch.add(cube,0x6b6555,x+side*.82,y+.21,z,.19,.45,.42);
+  for(const dz of [-.14,.14])batch.add(cube,0x886741,x,y+.47,z+dz,2.35,.12,.24);
+  batch.add(cube,0x805e3e,x,y+.70,z-.23,2.35,.16,.09);
+  for(const side of [-1,1])batch.add(cube,0x655744,x+side*.83,y+.52,z-.23,.09,.47,.09);
   windsock(batch);
   for(let i=0;i<4100;i++) {
     const x=(rng()-.5)*79,z=(rng()-.5)*79,y=terrainHeight(x,z);
@@ -359,7 +349,8 @@ function addDetails(scene,batch, rng) {
 }
 
 function water(scene,rng,renderer) {
-  const geometry=new THREE.PlaneGeometry(125,125).rotateX(-Math.PI/2);
+  const extra=-MAP.northBound-MAP.bounds;
+  const geometry=new THREE.PlaneGeometry(125,125+extra).rotateX(-Math.PI/2).translate(0,0,-extra/2);
   const material=creekMaterial(renderer);
   material.map.repeat.set(28,28);
   const surface=new THREE.Mesh(geometry,material);
@@ -1073,6 +1064,11 @@ export function createScene(canvas) {
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});
+  if(!CITY){
+    const centerZ=(MAP.northBound+MAP.bounds)/2;
+    sun.position.z+=centerZ;sun.target.position.z=centerZ;scene.add(sun.target);
+    Object.assign(sun.shadow.camera,{left:-72,right:72,top:61,bottom:-61});
+  }
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
@@ -1086,7 +1082,7 @@ export function createScene(canvas) {
   } else {
     addGround(scene,renderer);
     const forest=new Batch();
-    conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
+    conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds,MAP.northBound);
     forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
@@ -1122,6 +1118,7 @@ export function createScene(canvas) {
     if(w===lastWidth && h===lastHeight) return;
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
+  const distant=CITY ? distantResidents(scene,Batch) : null;
   let roverBoom = null, bailoutOrbit = 0, indoorAngle=0;
   function removeAvatar(a) {
     clearLostParts(a);
@@ -1136,18 +1133,27 @@ export function createScene(canvas) {
   }
   const cursorRay = new THREE.Raycaster();
   const cursorNdc = new THREE.Vector2();
-  let displayedWorld, displayedPlayers;
+  let displayedWorld, displayedPlayers,viewHeading=0;
+  const overheadEye=new THREE.Vector3();
   function aimAt(feet,id,range,station=null) {
     if (!ready || !displayedWorld) return null;
     cursorRay.setFromCamera(cursorNdc,camera);
     const {origin, direction} = cursorRay.ray;
+    // At the pole there is no horizontal bearing to recover from atan2.
+    // Keep the input heading so lowering the view returns along the same plane.
+    if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
     const muzzle=station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
-    let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    let {to}=aimHit;
+    if(CITY && to){
+      const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);
+      to=aimGlassPoint(displayedWorld,origin,direction,depth+(aimHit.blocked ? .205 : 0))??to;
+    }
     // An obstruction between the chase camera and the turret cannot be an aim point
     // for the barrel. Keep its forward sightline while the camera passes that cover.
     if(station && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
@@ -1190,9 +1196,19 @@ export function createScene(canvas) {
     updateRounds(world.bullets);
     effects.update(dt);
     const live=new Set();
+    distant?.begin();
+    const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
+      if(typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+        if(a){
+          a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
+          if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
+          for(const ring of a.ripples?.rings??[])ring.visible=false;
+        }
+        continue;
+      }
       if(!a) {
         const rival = typeof state.id === 'string';
         a=hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || 'Hiker ' + state.id);
@@ -1209,6 +1225,7 @@ export function createScene(canvas) {
       if(a.root.visible) pose(a,state,dt,seated,station);
       applyLostParts(a,state,scene,world.hp,dt);
     }
+    distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
     const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
@@ -1239,7 +1256,8 @@ export function createScene(canvas) {
     else target.lerp(desired,1-Math.exp(-dt*24));
     // A slight shoulder view separates the canopy from the aircraft ahead.
     bailoutOrbit = mix(bailoutOrbit,watchCrash ? .31 : 0,1-Math.exp(-dt*6));
-    const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=(view.yaw||0)+bailoutOrbit;
+    const pitch=viewPitch(view.pitch??-.12),yaw=(view.yaw||0)+bailoutOrbit;
+    viewHeading=yaw;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const onFoot=!boat && !localStation && !piloting && !driving && !local.parachute;
     const outdoorDistance=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
@@ -1270,8 +1288,22 @@ export function createScene(canvas) {
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
-    camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86);
+    // At steep angles transition from the ground-limited chase boom to an
+    // unobstructed vertical sightline directly above the person or station.
+    const overhead=THREE.MathUtils.smoothstep(pitch,.79,zenith);
+    if(zenith-pitch<1e-5)camera.rotation.set(pitch,-yaw,0,'YXZ');
+    else camera.lookAt(target);
+    if(overhead>0){
+      if(localStation){
+        const p=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
+        overheadEye.set(p.x,localStation==='heli' ? Math.max(p.y+2.05,heli.y+3.65) : p.y+2.05,p.z);
+      }else if(piloting)overheadEye.set(heli.x,heli.y+3.65,heli.z);
+      else if(driving)overheadEye.set(rover.x,rover.y+2.60,rover.z);
+      else if(boat)overheadEye.set(boat.x,boat.y+2.50,boat.z);
+      else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
+      camera.position.lerp(overheadEye,overhead);
+    }
+    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86) && (!onFoot || overhead<.48);
     const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
@@ -1283,8 +1315,7 @@ export function createScene(canvas) {
     }
     if (sighted) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
-      boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-      camera.lookAt(desired.copy(camera.position).sub(boom));
+      camera.rotation.set(pitch,-yaw,0,'YXZ');
       avatars.get(local.id).root.visible = false;
     }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;

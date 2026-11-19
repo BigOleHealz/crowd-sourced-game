@@ -1,3 +1,4 @@
+import {shatterPane} from './frontage-glass.js';
 import {damageLamp} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
@@ -155,7 +156,7 @@ export function fire(world, player, input, tick, players, npcs) {
   const spec=firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
-  sendRound(world,player.id,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
+  sendRound(world,player,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
 
 }
 
@@ -164,8 +165,12 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3) {
+function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
   let injury=null;
+  if(hitKind==='glass'){
+    shatterPane(world.doors,target);
+    return null;
+  }
   if(hitKind==='lamp')damageLamp(world.doors,target.lamp,damage);
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
@@ -179,6 +184,8 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
+        if(actor.id!==shooter && actor.life.hp<priorHP)actor.life.lastShotTick=tick;
+        if(defeated && score && score!==actor.score)score.kills++;
         if(actor===target && hitPart && actor.life.hp<priorHP) {
           if(hitPart==='head' && !defeated)continue;
           if(actor.life.lostParts?.[hitPart])continue;
@@ -205,6 +212,8 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
   return injury;
 }
 
+const scoreAtLaunch=new WeakMap();
+
 // Launch direction is captured from the authoritative body heading.
 const launchState=new WeakMap();
 export function launchMissile(world,kind,player,tick) {
@@ -219,6 +228,7 @@ export function launchMissile(world,kind,player,tick) {
   const from=mountPosition(v,offset);
   world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
   world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
+  if(player.score)scoreAtLaunch.set(world.missiles.at(-1),player.score);
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
@@ -231,7 +241,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    const injury=applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction);
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
@@ -249,7 +259,7 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
     for(;slot<end;slot+=3) {
       v.chainRounds=(v.chainRounds ?? 0)+1;
       const tracer=(v.chainRounds-1)%5===0;
-      sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick,tracer,(slot-start)/5);
+      sendRound(world,player,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick,tracer,(slot-start)/5);
     }
     nextBullet.set(v,slot);
     v.chainFiring=true;
@@ -260,16 +270,18 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
-  sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
+  sendRound(world,player,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
 
-function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){
+function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){
+  const shooter=player.id;
   const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
   const round={...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
     vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0};
   if(!tracer)round.hidden=true;
   if(delay)round.delay=delay;
   world.bullets.push(round);
+  if(player.score)scoreAtLaunch.set(round,player.score);
   if(tracer)world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,source,from,to:from,tick});
 }
 
@@ -290,7 +302,7 @@ export function advanceRounds(world,players,npcs,tick){
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
-    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage);
+    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r));
     if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});

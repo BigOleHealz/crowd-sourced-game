@@ -12,6 +12,7 @@
 <body>
   <canvas id="game" tabindex="0" aria-label="Pinewatch multiplayer hiking world"></canvas>
   <div id="play-reticle" aria-hidden="true"></div>
+  <div id="damage-edges" aria-hidden="true"></div>
   <header class="mast">
     <div class="world-name"><h1>Pinewatch</h1><select id="map-choice" aria-label="Playable map"><option value="brickell">Brickell · Miami</option><option value="outpost">Rural Outpost</option></select></div>
     <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="degrees">000°</span><span id="right-bearing">NE</span></div>
@@ -26,6 +27,7 @@
     <span id="supply-step" class="subhead"></span>
     <div class="supply-heading"><strong id="supply-name"></strong><span id="supply-bearing"></span></div>
     <span id="supply-action"></span><progress id="supply-hold" max="1" aria-label="Cargo handling" hidden></progress>
+    <div class="match-score" aria-label="Your match score"><span>Kills <b id="match-kills">0</b></span><span>Deaths <b id="match-deaths">0</b></span></div>
   </aside>
   <main class="hud">
     <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2>

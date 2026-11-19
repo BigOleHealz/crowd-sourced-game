@@ -91,10 +91,12 @@ export function meadow(scene,renderer,rng,trailDistance) {
       .replace('#include <uv_vertex>','#include <uv_vertex>\n vMapUv.x=(plantTile+.006+vMapUv.x*.988)/3.;');
   };
   const matrix=new THREE.Object3D(),tint=new THREE.Color(),tiles=[];
-  const plants=new THREE.InstancedMesh(geometry,material,10000);
+  const plants=new THREE.InstancedMesh(geometry,material,15000);
   let count=0;
-  for(let i=0;i<5000;i++) {
-    const x=(rng()-.5)*70,z=(rng()-.5)*70,y=terrainHeight(x,z);
+  for(let i=0;i<7500;i++) {
+    const x=(rng()-.5)*70;
+    const z=i<5000 ? (rng()-.5)*70 : -35+rng()*(MAP.northBound+MAP.bounds);
+    const y=terrainHeight(x,z);
     const path=trailDistance(x,z);
     if(y<MAP.waterY+.27 || onBuildingLot(x,z,.18) || path<1.28 || Math.hypot(x-HELIPAD.x,z-HELIPAD.z)<2.75) continue;
     const verge=Math.min(1,(path-1.25)*.65),size=(.28+rng()*.48)*(.68+.32*verge);

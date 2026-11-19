@@ -1,3 +1,4 @@
+import {keyGround} from './offshore-keys.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
 import {causewayArch} from './causeway-arch.js';
@@ -21,7 +22,7 @@ export function cityGround(x,z,maxBottom=Infinity) {
   if (within(causeway,x,z)) {
     return maxBottom >= causeway.height(z,'soffit') ? causeway.height(z,'road') : -2.8;
   }
-  return onBeach(x,z) ? sandHeight(x,z) : waterfront(x,z) ? -2.8 : roadway(x,z) ? .70 : .80;
+  return onBeach(x,z) ? sandHeight(x,z) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
 }
 
 export function parapetTop(x,z,padding,maxBottom) {
@@ -50,7 +51,7 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 }
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
-  bounds: 77, northBound:-289, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
+  bounds: 109, westBound:-94, northBound:-319, flightNorth:-285, flightLimit: 73, flightCeiling: 73, waterY: -.14,
   barriers:[...streetPlan.curbs,...beachBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),

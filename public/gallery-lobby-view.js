@@ -2,12 +2,12 @@ import {maravelaHotelView} from './maravela-hotel-view.js';
 import {furnitureRanges} from './shop-furniture-view.js';
 import {frontageGlassMaterial} from './frontage-glass-material.js';
 import * as THREE from 'three';
-import {galleryPlans,galleryPanes,galleryFloor as floor,galleryCeiling as ceiling,galleryDoorWidth,galleryDoorHead,galleryStile} from './gallery-lobbies.js';
+import {galleryPlans,galleryPanes,galleryDoorPanes,galleryFloor as floor,galleryCeiling as ceiling,galleryDoorWidth,galleryDoorHead,galleryStile} from './gallery-lobbies.js';
 
 // A single material and spatially culled architectural batch per building. Real
 // tilted lamps, display tables and overlapping lounge cushions provide parallax.
 export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
-  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor);
+  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris);
   const loader=new THREE.TextureLoader();
   function surface(name){
     const tex=loader.load('./'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
@@ -186,22 +186,24 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
     mesh.geometry.setAttribute('galleryCoords',new THREE.BufferAttribute(local,3));
     mesh.userData.impactSurface='solid';
   }
-  const glass=frontageGlassMaterial(panorama,'z',true);
-  const shards=galleryPanes.map(p=>({widthAxis:'x',x:p.x,z:p.z,width:p.w,bottom:p.bottom,top:p.bottom+p.h}));
-  const windows=new THREE.InstancedMesh(new THREE.PlaneGeometry(),glass,galleryPanes.length);
+  const glass=frontageGlassMaterial(panorama,true);
+  const panes=[...galleryPanes,...galleryDoorPanes];
+  const windows=new THREE.InstancedMesh(new THREE.PlaneGeometry(),glass,panes.length);
   windows.userData.impactSurface='glass';scene.add(windows);
-  const dummy=new THREE.Object3D(), visible=new Array(galleryPanes.length);
+  const dummy=new THREE.Object3D(), visible=new Array(panes.length);
   let prior,received=false;
   function update(doors){
     moveHotelDoors(doors);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;
-    galleryPanes.forEach((p,i)=>{
+    panes.forEach((p,i)=>{
       const show=!broken?.[p.id];if(visible[i]===show)return;
-      debris.setBroken(shards[i],!show,received);
-      visible[i]=show;dummy.position.set(p.x,p.bottom+p.h/2,p.z);
-      dummy.scale.set(show?p.w:0,show?p.h:0,1);dummy.updateMatrix();
+      debris.setBroken(p,!show,received);
+      const height=p.top-p.bottom;
+      visible[i]=show;dummy.position.set(p.x,p.bottom+height/2,p.z);
+      dummy.rotation.y=p.widthAxis==='x'?0:Math.PI/2;
+      dummy.scale.set(show?p.width:0,show?height:0,1);dummy.updateMatrix();
       windows.setMatrixAt(i,dummy.matrix);changed=true;
     });
     if(doors)received=true;

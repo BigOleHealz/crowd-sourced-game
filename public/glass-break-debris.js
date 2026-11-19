@@ -63,7 +63,7 @@ export function glassBreakDebris(scene,paneCapacity) {
 
   function rebuildRemnants() {
     let count=0;
-    for(const {widthAxis,x,z,width,top} of broken){
+    for(const {widthAxis,x,z,width,top,edge=true} of broken){
       const isX=widthAxis==='x', yaw=isX?0:Math.PI/2;
       const seed=x*.457+z*.191;
       const unit=i=>{
@@ -79,13 +79,13 @@ export function glassBreakDebris(scene,paneCapacity) {
       }
       const edgeWidth=Math.min(.245,width*.27);
       // Only hang from the lintel and sill. Adjacent missing bays share no mullion.
-      for(let i=0;i<3;i++){
+      for(let i=0;edge&&i<3;i++){
         const u=width*((i+.54)/3-.5)+(unit(i)-.5)*width*.08;
         place(u,.009,top-.012,edgeWidth*(.74+.4*unit(i+3)),.065+unit(i+6)*.128,0,yaw,Math.PI);
       }
-      for(const edge of [-1,1]){
-        const u=edge*(width/2-edgeWidth*.57);
-        place(u,.012,groundHeight(x+(isX?u:0),z+(isX?0:u))+.015,edgeWidth,.043+unit(edge+12)*.10,0,yaw,0);
+      for(const side of edge?[-1,1]:[]){
+        const u=side*(width/2-edgeWidth*.57);
+        place(u,.012,groundHeight(x+(isX?u:0),z+(isX?0:u))+.015,edgeWidth,.043+unit(side+12)*.10,0,yaw,0);
       }
       for(let i=5;i<fragmentsPerPane;i++){
         const u=(unit(i*3)-.5)*width*.93, n=(unit(i*3+1)-.48)*1.20;

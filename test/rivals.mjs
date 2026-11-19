@@ -92,7 +92,7 @@ try {
   assert(joined.welcome.world.npcs.find(n=>n.id===fern).dead,'welcome includes current NPC defeat');
   await until(()=>actor(joined,fern).protected && actor(joined,fern).hp === 100,'NPC respawn');
   assert.equal(actor(joined,a.id).hp,100);
-  console.log('PASS: two people and two patrolling NPCs, both blasters, single-hit damage, shooter immunity, replicated death, dead controls, late joins, timed respawns and shields.');
+  console.log('PASS: two people and patrolling NPCs, both blasters, single-hit damage, shooter immunity, replicated death, dead controls, late joins, timed respawns and shields.');
 } finally {
   for (const ws of sockets) ws.terminate();
   server.kill();

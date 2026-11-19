@@ -1,6 +1,6 @@
 import {advanceJoints} from './ragdoll.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { CITY, MAP, blocked, groundHeight, solidTopAt } from './world.js';
+import { CITY, MAP, travelBounds, blocked, groundHeight, solidTopAt } from './world.js';
 
 // Movement and contact are resolved on the server. The pose uses the same clock on every client.
 export function startFall(actor, tick, impulse, cause) {
@@ -30,8 +30,8 @@ export function advanceFall(actor, tick, dt, hp, world) {
   const jointsResting=!f.ragdoll || f.ragdoll.quiet>=7 || advanceJoints(f.ragdoll,hp,world);
   for (const [axis, velocity] of [['x', 'vx'], ['z', 'vz']]) {
     const next = s[axis] + s[velocity] * dt;
-    const limit=axis==='z' ? (MAP.northBound ?? -MAP.bounds) : -MAP.bounds;
-    if (next<limit || next>MAP.bounds || blocked(axis === 'x' ? next : s.x, s.y, axis === 'z' ? next : s.z, hp,world?.doors)) s[velocity] = 0;
+    const limit=axis==='z' ? travelBounds.north : travelBounds.west;
+    if (next<limit || next>(axis==='z'?travelBounds.south:travelBounds.east) || blocked(axis === 'x' ? next : s.x, s.y, axis === 'z' ? next : s.z, hp,world?.doors)) s[velocity] = 0;
     else s[axis] = next;
   }
   // Keep a falling body outside nearby hulls and let it settle on the roof,
