@@ -513,10 +513,10 @@ function fieldHelicopter(scene,material,shadowMap) {
   const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
   label.scale.set(2.9,.58,1);
   scene.add(label);
-  let labelHp, labelMax, labelRecovery;
-  function healthLabel(hp,maxHp,recovery) {
-    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery) return;
-    labelHp=hp; labelMax=maxHp; labelRecovery=recovery;
+  let labelHp, labelMax, labelRecovery, labelUnpiloted;
+  function healthLabel(hp,maxHp,recovery,unpiloted) {
+    if (hp===labelHp && maxHp===labelMax && recovery===labelRecovery && unpiloted===labelUnpiloted) return;
+    labelHp=hp; labelMax=maxHp; labelRecovery=recovery; labelUnpiloted=unpiloted;
     const condition=hp/maxHp;
     ink.clearRect(0,0,320,64);
     ink.fillStyle='rgba(21,37,36,.90)';
@@ -524,7 +524,7 @@ function fieldHelicopter(scene,material,shadowMap) {
     ink.font='bold 23px sans-serif';
     ink.textAlign='left';
     ink.fillStyle='#f8f5e8';
-    ink.fillText(recovery===null ? 'TRAIL HELI' : 'WRECKED',12,28);
+    ink.fillText(recovery!==null ? 'WRECKED' : unpiloted ? 'UNPILOTED' : 'TRAIL HELI',12,28);
     ink.textAlign='right';
     ink.fillText(recovery===null ? hp+' / '+maxHp : 'RESET '+recovery+'s',308,28);
     ink.fillStyle='#53615d';
@@ -551,10 +551,11 @@ function fieldHelicopter(scene,material,shadowMap) {
     const wrecked=heli.wrecked===true;
     const smoking=hp>0 && hp/maxHp<=.30;
     const recovery=wrecked ? Math.max(0,Math.ceil(heli.recoverySeconds??0)) : null;
-    healthLabel(Math.ceil(hp),maxHp,recovery);
+    const drift = heli.abandonedFor ?? 0;
+    healthLabel(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
     label.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
-    group.rotation.set(0,-heli.yaw,wrecked ? -.29 : 0,'YXZ');
+    group.rotation.set(-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : -Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
     smoke.visible=smoking;
     if(smoking) {
@@ -572,7 +573,7 @@ function fieldHelicopter(scene,material,shadowMap) {
       phase=0;
     }
     mainRotor.rotation.z=wrecked ? -.18 : 0;
-    speed = wrecked ? 0 : mix(speed,heli.pilot != null ? 20 : 0,1-Math.exp(-dt*4));
+    speed = wrecked ? 0 : mix(speed,heli.pilot != null ? 20 : heli.abandonedFor != null ? Math.max(5,18-3*drift) : 0,1-Math.exp(-dt*4));
     mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
     const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
     shadow.position.set(heli.x,floor+.07,heli.z);
@@ -638,6 +639,14 @@ function fieldEffects(scene) {
         new THREE.Vector3(size,size*(1+rng()),size),i%3?0x8cf3cd:0xf4e7a7,.28+rng()*.29);
     }
   }
+  function crash(heli) {
+    for(let i=0;i<26;i++) {
+      const a=rng()*TAU, speed=1+rng()*4.8, size=.08+rng()*.15;
+      particle(new THREE.Vector3(heli.x,heli.y+.45,heli.z),
+        new THREE.Vector3(Math.cos(a)*speed,1+rng()*3,Math.sin(a)*speed),
+        new THREE.Vector3(size,size,size),i%4 ? 0x8b7b65 : 0xffb066,.5+rng()*.6);
+    }
+  }
   function shot(s) {
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     along.subVectors(b,a);
@@ -675,7 +684,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,update};
+  return {shot,burst,crash,update};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -934,6 +943,7 @@ export function createScene(canvas) {
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
+    if (heli.wrecked && displayedWorld?.heli.abandonedFor != null) effects.crash(heli);
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
@@ -974,11 +984,15 @@ export function createScene(canvas) {
     if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
     else desired.set(local.x,local.y+(local.parachute === 'open' ? 2.1 : 1.43),local.z);
+    // Give the jumper and the drifting aircraft room in the same shot.
+    const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
+    const separation = watchCrash ? Math.hypot(heli.x-local.x,heli.y-local.y,heli.z-local.z) : 0;
+    if (watchCrash) desired.lerp(helicopter.group.position, Math.min(.40,5/Math.max(1,separation)));
     if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : 0);
+    const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : Math.min(6,separation*.5));
     const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);
     // Pull in at obstructions, then ease back out as the orbit clears them.
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;

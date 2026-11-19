@@ -61,6 +61,7 @@ export function supplyGuidance(world, local, id) {
     if (!driving && rover.driver == null) return boardRover();
     return guide('Pine Depot', driving ? 'Park inside the amber posts to load three cases.' : 'Your driver is collecting the supplies.', DEPOT);
   }
+  if (heli.abandonedFor != null) return guide('Trailhead helipad', 'Aircraft unpiloted. A replacement will return to the H after the crash.', HELIPAD);
   if (mission.stage === 'transfer') {
     if (flying && !home) return returnHeli();
     if (heli.wrecked) return guide('Trailhead helipad', 'Park the loaded rover at the H for aircraft recovery.', HELIPAD);
