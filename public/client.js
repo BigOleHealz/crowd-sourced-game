@@ -7,6 +7,7 @@ const byId = id => document.getElementById(id);
 const canvas = byId('game');
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
+let roverView = null;
 const held = new Set();
 let lastPointer = null;
 let windowBlurred = false;
@@ -125,13 +126,13 @@ function connect() {
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
       const wasPilot = isPilot(), wasDriving = isDriving();
-      const oldRoverYaw = world.rover.yaw;
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       vitals = authoritative;
       world = m.world;
-      if (isDriving()) {
-        if (wasDriving) camera.yaw += Math.atan2(Math.sin(world.rover.yaw-oldRoverYaw),Math.cos(world.rover.yaw-oldRoverYaw));
-        else camera.yaw = world.rover.yaw;
+      if (wasDriving && !isDriving() && roverView) {
+        camera.yaw = roverView.yaw;
+        camera.pitch = roverView.pitch;
+        roverView = null;
       }
       if (changedLife) clearInput();
       const corrected = isPilot() || isDriving() || vitals.dead ? authoritative : pending.reduce(
@@ -148,6 +149,7 @@ function connect() {
     }
   };
   socket.onclose = () => {
+    roverView = null;
     id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
@@ -221,6 +223,22 @@ function remoteFrame(time) {
   return { players, npcs, heli, rover };
 }
 
+// Follow the same interpolated heading as the rendered body, once per frame.
+function drivingView(rover, dt) {
+  if (!roverView) {
+    roverView = { yaw: camera.yaw, pitch: camera.pitch, heading: rover.yaw };
+    camera.yaw = rover.yaw;
+  }
+  const turn = Math.atan2(Math.sin(rover.yaw-roverView.heading), Math.cos(rover.yaw-roverView.heading));
+  roverView.heading = rover.yaw;
+  camera.yaw += turn;
+  const blend = 1 - Math.exp(-16 * dt);
+  roverView.yaw = angleMix(roverView.yaw + turn, camera.yaw, blend);
+  roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
+  roverView.distance = camera.distance;
+  return roverView;
+}
+
 function updateEquipment(local) {
   const heli = world.heli;
   const pilot = isPilot();
@@ -249,7 +267,7 @@ function updateEquipment(local) {
   else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
 }
 
-function drawMap(player, remotes) {
+function drawMap(player, remotes, yaw) {
   const w = map.width, h = map.height;
   const sx = x => w / 2 + x * 3.25, sy = z => h * .57 + z * 3.25;
   ctx.fillStyle = '#31473a'; ctx.fillRect(0,0,w,h);
@@ -275,7 +293,7 @@ function drawMap(player, remotes) {
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }
-  ctx.save(); ctx.translate(sx(player.x),sy(player.z)); ctx.rotate(camera.yaw);
+  ctx.save(); ctx.translate(sx(player.x),sy(player.z)); ctx.rotate(yaw);
   ctx.fillStyle = '#fcf5ce'; ctx.strokeStyle = '#19291f'; ctx.lineWidth = 2.5;
   ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(7,7); ctx.lineTo(0,4); ctx.lineTo(-7,7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
 }
@@ -303,10 +321,11 @@ function frame(time) {
     local.weapon = weapon;
     if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
     if (isDriving()) Object.assign(local, { x: rover.x, y: rover.y, z: rover.z, yaw: rover.yaw });
-    scene.render(local, remotes, camera, dt, { ...world, heli, rover, npcs });
+    const view = isDriving() ? drivingView(rover, dt) : camera;
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs });
     if (time >= nextHud) {
       nextHud = time + 80;
-      const direction = (Math.round(camera.yaw / (Math.PI / 4)) % 8 + 8) % 8;
+      const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;
       byId('bearing').textContent = headings[direction];
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
@@ -315,7 +334,7 @@ function frame(time) {
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);
       updateSupplyHud(world,local,id);
-      drawMap(local, remotes);
+      drawMap(local, remotes, view.yaw);
     }
   }
   requestAnimationFrame(frame);
