@@ -27,6 +27,17 @@ export const MAP = {
   trees: [],
 };
 
+export const HELIPAD = { x: 4, z: 14 };
+export const BOARD_RANGE = 3.5;
+export const BREAKABLES = [
+  { id: 'trailhead', x: 0, z: 10, radius: 1.15, height: 2.6, hp: 3 },
+  { id: 'twin', x: 2.1, z: 9.4, radius: 0.76, height: 1.7, hp: 3 },
+  { id: 'switchback', x: -4, z: -14, radius: 1.35, height: 3, hp: 3 },
+  { id: 'lookout', x: -3, z: -21, radius: 0.95, height: 2.1, hp: 3 },
+  { id: 'ford', x: 16, z: 6.5, radius: 1.1, height: 2.4, hp: 3 },
+  { id: 'creek', x: 17.8, z: 7.2, radius: 0.6, height: 1.5, hp: 3 },
+];
+
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
 for (let i = 0; i < 9; i++) {
   for (let j = 0; j < 9; j++) {
@@ -85,7 +96,7 @@ const PLAYER_RADIUS = 0.32;
 const GRAVITY = 19;
 const JUMP_SPEED = 7.1;
 
-const obstacles = [...MAP.rocks, ...MAP.trees].map(prop => ({
+const obstacles = [...MAP.rocks, ...MAP.trees, ...BREAKABLES].map(prop => ({
   ...prop, top: terrainHeight(prop.x, prop.z) + prop.height,
 }));
 
@@ -96,17 +107,27 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-function blocked(x, y, z) {
+export function solidTopAt(x, z, hp, padding = 0) {
+  let top = groundHeight(x, z);
+  for (const obstacle of obstacles) {
+    if (obstacle.id && hp?.[obstacle.id] === 0) continue;
+    if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
+  }
+  return top;
+}
+
+export function blocked(x, y, z, hp) {
   if (groundHeight(x, z) > y + 0.3) return true;
   const bridge = MAP.bridge;
   const rail = Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
     Math.abs(z - bridge.z) <= 4.8 && y < bridge.y + 0.9 && y + 1.7 >= bridge.y;
   if (rail) return true;
-  return obstacles.some(obstacle => y < obstacle.top && overlaps(x, z, obstacle, PLAYER_RADIUS));
+  return solidTopAt(x, z, hp, PLAYER_RADIUS) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
-export function stepPlayer(state, input, dt) {
-  const speed = input.sprint ? 7.4 : 4.6;
+export function stepPlayer(state, input, dt, hp) {
+  const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
+  const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed * dt / Math.max(1, Math.hypot(ix, iz));
@@ -116,20 +137,18 @@ export function stepPlayer(state, input, dt) {
     vy = JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
-  if (!blocked(x + ix * scale, y, z)) x += ix * scale;
-  if (!blocked(x, y, z + iz * scale)) z += iz * scale;
+  if (!blocked(x + ix * scale, y, z, hp)) x += ix * scale;
+  if (!blocked(x, y, z + iz * scale, hp)) z += iz * scale;
   let floor = groundHeight(x, z);
-  for (const obstacle of obstacles) {
-    if (y >= obstacle.top && overlaps(x, z, obstacle, PLAYER_RADIUS)) {
-      floor = Math.max(floor, obstacle.top);
-    }
-  }
+  const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
+  if (y >= top) floor = top;
   if (grounded && y - floor <= 0.28) {
     y = floor;
     vy = 0;
   } else {
     grounded = false;
     vy -= GRAVITY * dt;
+    if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
     if (y <= floor && vy <= 0) {
       y = floor;
@@ -138,5 +157,7 @@ export function stepPlayer(state, input, dt) {
     }
   }
   if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
-  return { x, y, z, vy, grounded };
+  const next = { x, y, z, vy, grounded };
+  if (parachute && !grounded) next.parachute = parachute;
+  return next;
 }

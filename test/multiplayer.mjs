@@ -1,14 +1,16 @@
-// Run against an already-running shared world. Two temporary guest slots are used.
+// The shared host only receives ordinary walking/jumping guests. The simulation
+// that gets flown, damaged and reset below has its own process and loopback port.
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
+import { BREAKABLES, HELIPAD, groundHeight } from '../public/world.js';
 
-const url = new URL('/world', process.env.GAME_URL || 'http://127.0.0.1:4173');
-url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
 const guests = [];
-async function until(read, label) {
-  const deadline = Date.now() + 6000;
+async function until(read, label, timeout = 6000) {
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const result = read();
     if (result) return result;
@@ -16,47 +18,204 @@ async function until(read, label) {
   }
   throw new Error('Timed out waiting for ' + label);
 }
-function join() {
-  const g = { ws: new WebSocket(url), id: null, frames: [], seq: 0 };
+
+async function join(host) {
+  const url = new URL('/world', host);
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+  const g = { ws: new WebSocket(url), frames: [], seq: 0 };
   guests.push(g);
   g.ws.on('error', e => { g.error = e; });
   g.ws.on('message', raw => {
     const m = JSON.parse(raw);
-    if (m.type === 'welcome') g.id = m.id;
-    if (m.type === 'snapshot') g.frames.push(m.players);
+    if (m.type === 'welcome') {
+      g.id = m.id;
+      g.welcome = m;
+    }
+    if (m.type === 'snapshot') g.frames.push(m);
   });
+  await until(() => {
+    if (g.error) throw g.error;
+    return g.id && g.frames.length;
+  }, 'introduction and first snapshot');
   return g;
 }
-async function checkMotion(actor, observer) {
-  const frame = () => observer.frames.at(-1)?.find(p => p.id === actor.id);
-  const start = await until(frame, 'remote spawn');
-  const firstFrame = observer.frames.length;
-  for (let i = 0; i < 18; i++) {
-    actor.ws.send(JSON.stringify({ type: 'input', seq: ++actor.seq, x: 0, z: -1,
-      yaw: 0, sprint: true, jump: i === 3 }));
+
+async function leave(guest) {
+  const closed = once(guest.ws, 'close');
+  guest.ws.close();
+  await closed;
+}
+const player = (viewer, id = viewer.id) => viewer.frames.at(-1).players.find(p => p.id === id);
+const world = viewer => viewer.frames.at(-1).world;
+async function drive(guest, input, ticks = 1) {
+  for (let i = 0; i < ticks; i++) {
+    guest.ws.send(JSON.stringify({ type: 'input', seq: ++guest.seq, x: 0, z: 0, yaw: 0, ...input }));
     await delay(34);
   }
+  await until(() => player(guest)?.ack === guest.seq, 'input acknowledgement');
+}
+
+async function checkMotion(actor, observer) {
+  const start = await until(() => player(observer, actor.id), 'remote spawn');
+  const firstFrame = observer.frames.length;
+  await drive(actor, { z: 1, sprint: true, jump: true });
+  await drive(actor, { z: 1, sprint: true }, 17);
   await until(() => {
-    const p = frame();
-    return p?.ack === actor.seq && p.grounded && start.z - p.z > 2;
+    const p = player(observer, actor.id);
+    return p?.ack === actor.seq && p.grounded && p.z - start.z > 2;
   }, 'remote movement and landing');
-  const states = observer.frames.slice(firstFrame).flatMap(f => f.filter(p => p.id === actor.id));
+  const states = observer.frames.slice(firstFrame).flatMap(f => f.players.filter(p => p.id === actor.id));
   assert.ok(states.some(p => !p.grounded && p.y > start.y + .5), 'observer sees jump');
 }
+
+async function walkTo(guest, destination) {
+  for (let i = 0; i < 40; i++) {
+    const p = player(guest);
+    const dx = destination.x - p.x, dz = destination.z - p.z;
+    const distance = Math.hypot(dx, dz);
+    if (distance < .4) return;
+    await drive(guest, { x: dx / distance, z: dz / distance }, Math.min(6, Math.ceil(distance * 6)));
+  }
+  throw new Error('Could not walk to ' + JSON.stringify(destination));
+}
+
+async function checkExpedition(host) {
+  const a = await join(host), b = await join(host);
+  const crystal = BREAKABLES.find(p => p.x === 0 && p.z === 10);
+  assert.ok(crystal, 'crystal obstructs the trailhead approach');
+  const hp = (state, prop) => state.hp[prop.id] ?? prop.hp;
+  assert.equal(hp(a.welcome.world, crystal), crystal.hp);
+  const start = player(a);
+  const bystander = player(b);
+  const towardBystander = Math.atan2(bystander.x - start.x, start.z - bystander.z);
+  await drive(a, { aimYaw: towardBystander, aimPitch: 0, fire: true, weapon: 1 });
+  await until(() => world(b).shots.some(shot => shot.weapon === 1), 'new guest observes pulse during spawn protection');
+  assert.equal(player(b).hp, bystander.hp, 'spawn shield prevents damage on fresh join');
+  assert.deepEqual(world(b).hp, a.welcome.world.hp, 'direct pulse absorbed by hiker leaves scenery intact');
+  await drive(a, { z: -1 }, 40);
+  const blockedZ = player(a).z;
+  assert.ok(blockedZ > crystal.z && blockedZ < start.z - 2, 'hiker reaches the obstacle');
+  await drive(a, { z: -1 }, 8);
+  assert.equal(player(a).z, blockedZ, 'intact formation stops player movement');
+  await walkTo(a, start);
+
+  const aim = { aimYaw: 0, aimPitch: -.15, fire: true };
+  await drive(a, { ...aim, weapon: 1 });
+  await until(() => hp(world(b), crystal) === crystal.hp - 1, 'Pulse damage reaches observer');
+  assert.ok(world(b).shots.some(s => s.weapon === 1 && s.hit));
+  const beforeBloom = world(b);
+  await drive(a, {}, 22);
+  await drive(a, { ...aim, weapon: 2 });
+  await until(() => hp(world(b), crystal) === 0, 'Bloom clears damaged formation');
+  assert.ok(world(b).shots.some(s => s.weapon === 2 && s.hit));
+  assert.ok(BREAKABLES.some(p => p !== crystal && hp(world(b), p) < hp(beforeBloom, p)), 'Bloom affects the nearby cluster');
+  await drive(a, { z: -1 }, 40);
+  assert.ok(player(a).z < crystal.z - .5, 'player crosses the cleared collision volume');
+  assert.equal(player(b, a.id).weapon, 2, 'observer sees equipped blaster');
+  await walkTo(a, start);
+
+  const padApproach = { x: HELIPAD.x - 1, z: HELIPAD.z + .5 };
+  await walkTo(a, padApproach);
+  await walkTo(b, padApproach);
+  await drive(a, { interact: true });
+  await until(() => world(b).heli.pilot === a.id, 'observer sees pilot board');
+  await drive(b, { interact: true, lift: 1 });
+  assert.equal(world(b).heli.pilot, a.id, 'occupied craft keeps the original pilot');
+  await drive(a, { lift: 1 }, 25);
+  await drive(a, { z: -1 }, 10);
+  const airborne = world(a).heli;
+  assert.ok(!airborne.grounded && airborne.y > groundHeight(airborne.x, airborne.z) + 1);
+  assert.ok(airborne.z < HELIPAD.z - .35, 'helicopter travels over the ground');
+  await until(() => Math.abs(world(b).heli.z - airborne.z) < .5 && !world(b).heli.grounded, 'observed aircraft motion');
+
+  const late = await join(host);
+  const arrival = late.welcome.world;
+  assert.equal(arrival.heli.pilot, a.id);
+  assert.equal(arrival.heli.grounded, false);
+  assert.ok(Math.abs(arrival.heli.z - airborne.z) < .6, 'late guest sees the current aircraft location');
+  assert.deepEqual(arrival.hp, world(a).hp, 'late guest sees all previous scenery changes');
+  await drive(a, { z: 1 }, 10);
+  await drive(a, { lift: -1 }, 60);
+  assert.ok(world(a).heli.grounded, 'pilot lands');
+  await drive(a, { interact: true });
+  await until(() => world(late).heli.pilot == null, 'late guest sees seat released');
+  const dismounted = player(a);
+  assert.ok(dismounted.grounded && Math.abs(dismounted.y - groundHeight(dismounted.x, dismounted.z)) < .3, 'exit leaves pilot on safe ground');
+
+  await drive(a, { interact: true });
+  await drive(a, { lift: 1 }, 80);
+  await drive(a, { interact: true });
+  await until(() => player(b, a.id).parachute === 'packed', 'observer sees free fall');
+  await drive(a, {}, 9);
+  assert.ok(player(a).vy < -4, 'packed chute allows accelerating free fall');
+  const empty = world(b).heli;
+  assert.equal(empty.pilot, null);
+  assert.ok(empty.abandonedFor > 0 && !empty.wrecked && !empty.grounded);
+  const beforeLanding = player(a).hp;
+  await drive(a, { deploy: true });
+  await until(() => player(b, a.id).parachute === 'open', 'observer sees manual deployment');
+  assert.ok(player(a).vy >= -2.81, 'open canopy slows descent');
+  await until(() => world(b).heli.wrecked && world(late).heli.wrecked, 'observers see the crash');
+  assert.ok(Math.hypot(world(b).heli.x-empty.x, world(b).heli.z-empty.z) > 1);
+  await until(() => player(a).grounded, 'safe parachute landing');
+  assert.equal(player(a).hp, beforeLanding);
+  assert.equal(player(a).parachute, undefined);
+  console.log('PASS: airborne bailout, accelerating free fall, manual canopy deployment, replicated descent and full-health landing.');
+  await until(() => !world(b).heli.wrecked && world(b).heli.grounded, 'replacement at the pad', 8000);
+  await walkTo(b, padApproach);
+  await drive(b, { interact: true });
+  assert.equal(world(b).heli.pilot, b.id);
+  await drive(b, { lift: 1 }, 20);
+  await leave(b);
+  await until(() => world(a).heli.pilot == null && world(a).heli.grounded, 'disconnected pilot recovery');
+  assert.ok(Math.hypot(world(a).heli.x - HELIPAD.x, world(a).heli.z - HELIPAD.z) < .1, 'abandoned craft returns to the pad');
+  assert.equal(hp(world(a), crystal), 0, 'remaining guests retain cleared path');
+  await leave(a);
+  await leave(late);
+  const fresh = await join(host);
+  assert.ok(BREAKABLES.every(p => hp(fresh.welcome.world, p) === p.hp), 'empty world resets scenery');
+  assert.equal(fresh.welcome.world.heli.pilot, null);
+  await leave(fresh);
+  console.log('PASS: two blasters, collision removal, exclusive flight, late join, landing, pilot disconnect and empty-world reset.');
+}
+
+async function isolatedExpedition() {
+  const script = fileURLToPath(new URL('../server.js', import.meta.url));
+  const child = spawn(process.execPath, [script], {
+    env: { ...process.env, HOST: '127.0.0.1', PORT: '0' },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  let output = '';
+  child.stdout.on('data', chunk => { output += chunk; });
+  const exited = once(child, 'exit');
+  try {
+    const host = await until(() => {
+      if (child.exitCode !== null) throw new Error('Isolated server exited');
+      return output.match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
+    }, 'isolated loopback server');
+    await checkExpedition(host);
+  } finally {
+    child.kill();
+    await exited;
+  }
+}
+
 try {
-  const first = join(), second = join();
-  await until(() => {
-    for (const g of guests) if (g.error) throw g.error;
-    return first.id && second.id;
-  }, 'two introductions');
+  const host = process.env.GAME_URL || 'http://127.0.0.1:4173';
+  const first = await join(host), second = await join(host);
   assert.notEqual(first.id, second.id);
   await checkMotion(first, second);
   await checkMotion(second, first);
-  const left = once(first.ws, 'close');
-  first.ws.close();
-  await left;
-  await until(() => !second.frames.at(-1)?.some(p => p.id === first.id), 'disconnect propagation');
+  await leave(first);
+  await until(() => !player(second, first.id), 'disconnect propagation');
+  await leave(second);
   console.log('PASS: two guests independently observed peer movement, jump, landing and removal.');
+  await isolatedExpedition();
+  await import('./rivals.mjs');
+  await import('./airframe.mjs');
 } finally {
   for (const g of guests) g.ws.terminate();
 }
+
+await import('./rover.mjs');
+await import('./supply-run.mjs');

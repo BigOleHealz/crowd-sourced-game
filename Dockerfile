@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY server.js ./
 COPY public/ public/
-COPY test/multiplayer.mjs test/
+COPY test/ test/
 USER node
 EXPOSE 4173
 CMD ["node", "server.js"]

@@ -5,6 +5,12 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
+import { newExpedition, parkedHelicopter, fly, interact, fire } from './public/expedition.js';
+
+import { parkedRover, nearestVehicle, driveRover, interactRover } from './public/rover.js';
+import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
+import { recoverHelicopter } from './public/airframe.js';
+import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView } from './public/rivals.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -14,6 +20,11 @@ const port = Number(process.env.PORT || '4173');
 const capacity = 16;
 const step = 1 / 30;
 const players = new Map();
+let world = newExpedition();
+let npcs = newRivals();
+function worldView() {
+  return { ...world, npcs: npcs.map(actor => rivalView(actor, ticks)) };
+}
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -82,12 +93,12 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   return { ...player.state, id: player.id, yaw: player.yaw, moving: player.moving,
-    sprint: player.sprint, ack: player.ack };
+    sprint: player.sprint, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState) });
+  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState), world: worldView() });
   for (const { ws } of players.values()) {
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 64 * 1024) ws.send(message);
   }
@@ -109,8 +120,16 @@ function acceptInput(player, data, binary) {
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
+    replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
+    aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
+    aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
+    weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
+    fire: input.fire === true, interact: input.interact === true,
+    throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
+    steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
+    lift: input.lift === 1 || input.lift === -1 ? input.lift : 0,
   });
 }
 
@@ -124,36 +143,91 @@ sockets.on('connection', ws => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, state: { ...spawn(id - 1), grounded: true, vy: 0 },
-    yaw: 0, moving: false, sprint: false, inputs: [], ack: 0, lastSeq: 0, alive: true,
+    id, ws, life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    yaw: 0, moving: false, sprint: false, weapon: 1, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   players.set(id, player);
   ws.on('message', (data, binary) => acceptInput(player, data, binary));
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if (!players.size) {
+      world = newExpedition();
+      npcs = newRivals();
+    }
+    else if (world.heli.pilot === id) world.heli = parkedHelicopter();
+    else if (world.rover.driver === id) world.rover = parkedRover();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player) }));
+  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world: worldView() }));
   publish();
 });
 
-const idle = { x: 0, z: 0, jump: false, sprint: false };
+const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
+  recoverHelicopter(world, step);
+  if (players.size) {
+    for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
+  }
   for (const player of players.values()) {
     const input = player.inputs.shift();
-    player.state = stepPlayer(player.state, input || idle, step);
+    if (input) player.ack = input.seq;
+    if (player.life.hp === 0) {
+      if (world.rover.driver === player.id) world.rover = parkedRover();
+      if (respawnDue(player, ticks)) {
+        player.state = spawn(player.id - 1);
+        player.life = newLife(ticks);
+        player.yaw = 0;
+        // Retire all inputs received during defeat. The respawn starts at rest.
+        player.ack = player.lastSeq;
+        player.inputs.length = 0;
+      }
+      continue;
+    }
     if (input) {
-      player.ack = input.seq;
-      player.yaw = input.yaw;
-      player.moving = Math.hypot(input.x, input.z) > 0.01;
-      player.sprint = player.moving && input.sprint;
-    } else {
+      if (input.replaySupply) replaySupplyRun(world);
+      if (input.weapon) player.weapon = input.weapon;
+      if (input.interact) {
+        if (world.rover.driver === player.id) interactRover(world, player);
+        else if (world.heli.pilot === player.id) interact(world, player);
+        else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
+        else interact(world, player);
+      }
+    }
+    if (world.rover.driver === player.id) {
+      driveRover(world, input || idle, step);
+      const { x,y,z,yaw } = world.rover;
+      player.state = { x,y,z,vy:0,grounded:true };
+      player.yaw = yaw;
+      player.moving = player.sprint = false;
+      continue;
+    }
+    if (world.heli.pilot === player.id) {
+      fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
+      if (world.heli.pilot !== player.id) continue;
+      const { x, y, z, yaw, grounded } = world.heli;
+      player.state = { x, y, z, vy: 0, grounded };
+      player.yaw = yaw;
       player.moving = false;
       player.sprint = false;
+      continue;
+    }
+    const falling = player.state;
+    player.state = stepPlayer(falling, input || idle, step, world.hp);
+    if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
+      const impact = Math.max(0, Math.round((-falling.vy - 7) * 10));
+      if (impact && damageActor(player, impact, ticks)) continue;
+    }
+    player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
+    player.sprint = player.moving && input.sprint;
+    if (input) {
+      player.yaw = input.fire ? input.aimYaw : input.yaw;
+      if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  updateSupplyRun(world, step);
+  while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
 }
 
