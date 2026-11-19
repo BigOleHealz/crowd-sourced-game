@@ -198,3 +198,6 @@ try {
 } finally {
   for (const g of guests) g.ws.terminate();
 }
+
+await import('./rover.mjs');
+await import('./supply-run.mjs');

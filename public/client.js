@@ -1,3 +1,4 @@
+import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
 import { nearestVehicle } from './rover.js';
 import { MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
@@ -22,9 +23,10 @@ let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = 
 const isDriving = () => id != null && world?.rover.driver === id;
 const isPilot = () => id != null && world?.heli.pilot === id;
 
+let queuedReplay = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Digit1','Digit2','KeyF','KeyE']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -40,6 +42,7 @@ function setGuide(open) {
 }
 function clearInput() {
   held.clear();
+  queuedReplay = false;
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
@@ -57,6 +60,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Space' && !isPilot() && !isDriving()) queuedJump = true;
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
+  if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
   if (e.code === 'Digit1') weapon = 1;
   if (e.code === 'Digit2') weapon = 2;
 });
@@ -177,7 +181,8 @@ function tick() {
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
-    aimYaw: camera.yaw, aimPitch: camera.pitch };
+    replaySupply: queuedReplay, aimYaw: camera.yaw, aimPitch: camera.pitch };
+  queuedReplay = false;
   queuedJump = queuedInteract = queuedFire = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
@@ -266,6 +271,7 @@ function drawMap(player, remotes) {
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
   ctx.fillStyle = '#ffe085'; ctx.fillText('R',sx(world.rover.x),sy(world.rover.z)-4);
+  drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }
@@ -308,6 +314,7 @@ function frame(time) {
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);
+      updateSupplyHud(world,local,id);
       drawMap(local, remotes);
     }
   }

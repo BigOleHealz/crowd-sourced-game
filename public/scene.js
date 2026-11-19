@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createRoverView } from './rover-view.js';
+import { createSupplyView } from './supply-view.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
@@ -818,6 +819,7 @@ export function createScene(canvas) {
   const forest=new Batch(); addForest(forest,rng);forest.mesh(scene,material);
   const features=new Batch();addBridge(features,rng);addDetails(features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng);
+  const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const updateRover=createRoverView(scene,Batch,material,shadowMap);
   const helicopter=fieldHelicopter(scene,material,shadowMap);
@@ -844,6 +846,7 @@ export function createScene(canvas) {
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
+    updateSupplyView(world);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt);
     const rover=world.rover, driving=rover.driver===local.id;
