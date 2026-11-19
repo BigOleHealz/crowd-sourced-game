@@ -22,10 +22,10 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
-const canAim = () => self && !vitals.dead && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+const canAim = () => self && !vitals.dead && !vitals.fall && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
-  byId('weapon-sight').hidden = !active;
+  byId('weapon-sight').hidden = !active || weapon!==1;
   canvas.classList.toggle('sighted', active);
 }
 let windowBlurred = false;
@@ -90,7 +90,7 @@ window.addEventListener('keydown', e => {
     const number=e.code==='Digit1' ? 1 : 2;
     const kind=seatVehicle(world,id);
     if(kind && !vitals.dead) {queuedSeat=number;queuedSeatKind=kind;}
-    else weapon=number;
+    else {weapon=number;if(camera.sighted)showSight(true);}
   }
 });
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -98,7 +98,7 @@ window.addEventListener('keyup', e => held.delete(e.code));
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
 document.addEventListener('visibilitychange', pauseControls);
-function releasePointer() { stopLook(); mouseFire = false; showSight(false); }
+function releasePointer() { stopLook(); mouseFire = false; }
 canvas.addEventListener('pointerleave', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -107,7 +107,7 @@ function pressButton(e) {
   if (e.button === 2) {
     if (canAim()) {
       canvas.focus({ preventScroll: true });
-      showSight(true);
+      showSight(!camera.sighted);
     }
     return;
   }
@@ -123,7 +123,6 @@ canvas.addEventListener('pointerdown', e => { pointerType = e.pointerType; });
 canvas.addEventListener('mousedown', e => { if (pointerType !== 'touch') pressButton(e); });
 window.addEventListener('mouseup', e => {
   if (e.button === 0) mouseFire = false;
-  if (e.button === 2) showSight(false);
 });
 
 // An unlocked cursor stops sending deltas at the window boundary. Continue

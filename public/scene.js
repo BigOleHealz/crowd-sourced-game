@@ -420,8 +420,11 @@ function makeFirearms(body) {
   endCap(carbine,-.519,.092,.022,.006,edge);
   endCap(carbine,-.524,.092,.013,.007,graphite);
   carbine.add(cube,graphite,0,.153,-.026,.061,.023,.118);
-  profile(carbine,iron,[[.031,.16],[.019,.196],[-.043,.194],[-.057,.173],[-.047,.157]],.045);
-  carbine.add(cube,0x8db7ab,0,.175,-.056,.038,.019,.006);
+  const aperture=new THREE.TorusGeometry(.031,.0055,8,28);
+  carbine.add(aperture,graphite,0,.194,-.025);
+  carbine.add(aperture,iron,0,.194,-.064);
+  aperture.dispose();
+  for(const side of [-1,1]) carbine.add(cube,iron,side*.032,.194,-.045,.007,.012,.043);
 
   // The sidearm has a short, broad blue-grey upper and a contrasting palm swell.
   profile(sidearm,graphite,[[.096,.092],[-.231,.093],[-.218,.041],[-.134,.034],[-.104,.012],[.051,.022],[.096,.056]],.059);
@@ -437,8 +440,11 @@ function makeFirearms(body) {
   }
   sidearm.beam(iron,[0,.028,-.104],[0,-.026,-.085],.014);
   sidearm.beam(iron,[0,-.026,-.085],[0,-.030,.024],.014);
-  sidearm.add(cube,graphite,0,.131,.062,.048,.018,.026);
-  sidearm.add(cube,enamel,0,.132,-.196,.021,.017,.018);
+  for(const side of [-1,1]) {
+    sidearm.add(cube,graphite,side*.018,.139,.062,.014,.024,.025);
+    sidearm.add(cube,0xd6d3b8,side*.018,.144,.076,.006,.005,.004);
+  }
+  sidearm.add(cube,enamel,0,.140,-.196,.009,.020,.018);
   endCap(sidearm,-.237,.086,.023,.025,graphite);
   tube.dispose();
   const tools = [carbine.mesh(body,handheldFinish,false), sidearm.mesh(body,handheldFinish,false)];
@@ -1158,6 +1164,10 @@ export function createScene(canvas) {
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
+  scene.add(camera);
+  const sightModels=makeFirearms(camera);
+  sightModels[0].position.set(0,-.194,-.40);
+  sightModels[1].position.set(0,-.151,-.44);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   let lastShot=null;
@@ -1304,7 +1314,9 @@ export function createScene(canvas) {
     if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
-    const sighted = onFoot && view.sighted && !local.dead;
+    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.swimming;
+    sightModels[0].visible=sighted && local.weapon===1;
+    sightModels[1].visible=sighted && local.weapon===2;
     const fov = sighted ? 32 : 55;
     if (camera.fov !== fov) {
       camera.fov = fov;
