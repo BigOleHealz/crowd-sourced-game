@@ -14,8 +14,8 @@ const waterfronts=[
   [-223,-123,-1,0,362,95,'downtown',39],
   [-28,131,0,1,201,88,'condos',63],
   [18,245,0,1,285,86,'downtown',92],
-  [-3,-338,0,-1,219,105,'condos',73],
-  [14,-456,0,-1,284,96,'downtown',33],
+  [-3,-548,0,-1,219,105,'condos',73],
+  [14,-666,0,-1,284,96,'downtown',33],
 ];
 const randFrom=seed=>()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
 const fogColor=new THREE.Color(0xbad2dc);

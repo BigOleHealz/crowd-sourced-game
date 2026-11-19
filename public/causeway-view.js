@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {causeway} from './brickell-map.js';
 
-export function addCauseway(scene, Batch, solids, asphalt) {
-  const {sections,west,east,parapetWidth,parapetHeight}=causeway;
+export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
+  const {sections,west,east,parapetWidth,parapetHeight}=bridge;
   const roadBatch=new Batch(true), geometry=new THREE.BufferGeometry();
   const index=[0,1,2,0,2,3];
   geometry.setIndex(index);

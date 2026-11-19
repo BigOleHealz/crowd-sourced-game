@@ -1077,6 +1077,8 @@ export function createScene(canvas) {
     sun.position.z+=centerZ;sun.target.position.z=centerZ;scene.add(sun.target);
     Object.assign(sun.shadow.camera,{left:-72,right:72,top:61,bottom:-61});
   }
+  if(CITY)scene.add(sun.target);
+  let lanternShadows=false;
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
@@ -1190,6 +1192,17 @@ export function createScene(canvas) {
   }
   function render(local,remotes,view,dt,world) {
     if(!local) return;
+    // Bake a new sun map only when the camera's district changes.
+    const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
+    if(lanternShadows!==insideLantern){
+      lanternShadows=insideLantern;
+      const distance=lanternShadows?2.2:1,centerZ=lanternShadows?-416:0;
+      sun.target.position.set(0,0,centerZ);
+      sun.position.set(-36*distance,32*distance,centerZ-21*distance);
+      const extent=lanternShadows?92:45;
+      Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,far:lanternShadows?240:130});
+      sun.shadow.camera.updateProjectionMatrix();renderer.shadowMap.needsUpdate=true;
+    }
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;

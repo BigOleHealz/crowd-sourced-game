@@ -8,7 +8,7 @@ const {stepBoat,interactBoat,helmFeet}=await import('../public/patrol-boats.js')
 const dt=1/30;
 for(const [x,z,yaw,axis,sign,edge] of [
   [74,-211,Math.PI/2,'x',1,109],[-74,-185,-Math.PI/2,'x',-1,94],
-  [14,80,Math.PI,'z',1,109],[15,-285,0,'z',-1,319],
+  [14,80,Math.PI,'z',1,109],[15,-484,0,'z',-1,-MAP.northBound],
 ]) {
   const world=newExpedition(),b=world.boats[1],actor={id:7,state:{}},players=new Map([[7,actor]]);
   Object.assign(b,{x,z,yaw,driver:actor.id});

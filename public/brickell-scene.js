@@ -1,3 +1,6 @@
+import {addLanternBuildings} from './lantern-point-buildings.js';
+import {lanternLand,lanternBridge} from './lantern-point.js';
+import {addLanternPoint} from './lantern-point-view.js';
 import {hotel} from './maravela-hotel.js';
 import {glassBreakDebris} from './glass-break-debris.js';
 import {storefrontFaces} from './frontage-glass.js';
@@ -46,7 +49,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
   ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.28});
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
-  ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70)],5);
+  ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.map(r=>patch(r,.70))],5);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
   for(const lot of [...lots,...lawns]) {
     const [x,,z,w,d]=patch(lot,.80);
@@ -54,6 +57,9 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addCauseway(scene,Batch,solids,material('asphalt'));
+  addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
+  addLanternPoint(scene,solids,ground,patch);
+  addLanternBuildings(scene,Batch);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
@@ -67,6 +73,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   for(const x of [westStreet,0,eastStreet]) {
     const lane=x+2.25,z=northStreet+7.5;
     paint(lane,z+.55,.16,1.25,0xece9d6);
+    if(x===0)for(const side of [-1,1])
+      solids.add(box,0xece9d6,lane+side*.15,.713,z-.30,.13,.014,.54,0,-side*.69);
     for(const sign of (x===0?[-1,1]:[x===westStreet?1:-1])) {
       paint(lane+sign*.46,z,.98,.15,0xece9d6);
       for(const side of [-1,1])solids.add(box,0xece9d6,lane+sign*.87,.713,z+side*.15,.55,.014,.13,0,sign*side*.69);
