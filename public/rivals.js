@@ -93,7 +93,7 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
   const speed = Math.hypot(vx, vz, descent);
   if (vehicle.wrecked || speed < 1.8) return;
   const hull={ [kind]:vehicle };
-  const crew = [world.rover.driver, world.rover.gunner, world.heli.pilot, world.heli.gunner];
+  const crew = [world.rover.driver, world.rover.gunner, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
     if (crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;

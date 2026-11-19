@@ -1,3 +1,4 @@
+import {crewBoat} from './patrol-boats.js';
 import {Vector3} from 'three';
 import {createRangerRig,poseRig} from './ranger-pose.js';
 import {MAP,CITY,groundHeight,solidTopAt} from './world.js';
@@ -32,9 +33,9 @@ export function sampleRanger(actor,dt,world) {
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;
-  const rover=world?.rover;
+  const vehicle=crewBoat(world,actor.id)??world?.rover;
   poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt,
-    rover?.driver===actor.id ? rover : null,rover?.gunner===actor.id ? rover : null);
+    vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null);
   readJoints(state.rig,state.now);
   const hit=actor.hitPose??={indices:J,origin:{}};
   hit.joints=state.now;

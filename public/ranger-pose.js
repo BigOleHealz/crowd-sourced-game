@@ -1,3 +1,4 @@
+import {helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot} from './locomotion.js';
 import {groundHeight} from './world.js';
@@ -60,11 +61,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.root.position.set(state.x,state.y,state.z);
   avatar.root.scale.setScalar(seated ? .85 : 1);
   if (seated) {
-    const seat=mountPosition(seated,[-.322,.025,-.085]);
+    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,[-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
-    const feet=gunnerFeet(station,'rover');
+    const feet=gunnerFeet(station,station.id??'rover');
     avatar.root.position.set(feet.x,feet.y,feet.z);
   }
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
