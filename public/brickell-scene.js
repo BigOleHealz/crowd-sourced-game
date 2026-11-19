@@ -1,5 +1,8 @@
+import {verges} from './waterfront-roads.js';
 import { addBrickellHorizon } from './brickell-horizon.js';
+import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
+import {streetLampView} from './street-lamp-view.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
 import {galleryPlans} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
@@ -8,10 +11,11 @@ import { avenueFrontage } from './avenue-frontage.js';
 import {addCauseway} from './causeway-view.js';
 import { addApartmentBalconies, hasApartmentBalconies } from './apartment-balconies.js';
 import { addBeach } from './beach-view.js';
+import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
-import { avenues, streets, coast, harbor, causeway, bayfrontLawns } from './brickell-map.js';
+import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch,panorama) {
   const updateCourts=addBeach(scene,Batch);
@@ -39,27 +43,40 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
   ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.28});
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
-  const harborAvenue={...harbor,west:-6,east:6};
-  const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
-  ground('asphalt',[[cx,.70,cz,w,d],patch(harborAvenue,.70),patch(cross,.705)],5);
-  const lots=[],lawns=bayfrontLawns.map(r=>patch(r,.812));
-  const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
-  const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
-  for(const [x1,x2] of xs) for(const [z1,z2] of zs) {
-    const x=(x1+x2)/2,z=(z1+z2)/2;
-    lots.push([x,.80,z,x2-x1,z2-z1]);
-    solids.add(box,0xbab4a4,x,.735,z,x2-x1,.12,z2-z1);
-  }
-  for(const [west,east] of [[harbor.west,-6],[6,harbor.east]]) {
-    for(const [north,south] of [[harbor.north,cross.north],[cross.south,harbor.south]]) {
-      const r={west,east,north,south};lawns.push(patch(r,.80));
-    }
+  ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70)],5);
+  const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
+  for(const lot of [...lots,...lawns]) {
+    const [x,,z,w,d]=patch(lot,.80);
+    solids.add(box,0xbab4a4,x,.735,z,w,.12,d);
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addCauseway(scene,Batch,solids,material('asphalt'));
-  for(let z=harbor.north+2;z<causeway.north;z+=4){
-    if(Math.abs(z-harbor.crossing)<6)continue;
-    solids.add(box,0xe3bc67,0,.718,z,.12,.014,2.25);
+  const {northStreet,westStreet,eastStreet}=streetPlan;
+  const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
+  for(const x of [westStreet,0,eastStreet]) {
+    const end=x===0 ? harbor.south : harbor.crossing;
+    for(let z=northStreet+7;z<end-1;z+=4)
+      if(Math.abs(z-harbor.crossing)>6)paint(x,z,.12,2.15);
+  }
+  for(const z of [northStreet,harbor.crossing])
+    for(let x=westStreet+6;x<eastStreet-5;x+=4)if(Math.abs(x)>7)paint(x,z,2.1,.12);
+  // Lane arrows show the available turns before each northern junction.
+  for(const x of [westStreet,0,eastStreet]) {
+    const lane=x+2.25,z=northStreet+7.5;
+    paint(lane,z+.55,.16,1.25,0xece9d6);
+    for(const sign of (x===0?[-1,1]:[x===westStreet?1:-1])) {
+      paint(lane+sign*.46,z,.98,.15,0xece9d6);
+      for(const side of [-1,1])solids.add(box,0xece9d6,lane+sign*.87,.713,z+side*.15,.55,.014,.13,0,sign*side*.69);
+    }
+  }
+  // Raised stone stops and amber reflectors make the dry turning heads readable from a car.
+  for(const curb of streetPlan.curbs) {
+    solids.add(box,0xbcb9ab,curb.x,.80+curb.h/2,curb.z,curb.w,curb.h,curb.d);
+    solids.add(box,0xe4b954,curb.x,.80+curb.h-.09,curb.z,curb.w+.016,.09,curb.d+.016);
+  }
+  for(const {x,z,dx,dz,span} of streetPlan.ends) {
+    const acrossX=Math.abs(dz),acrossZ=Math.abs(dx);
+    paint(x-.40*dx,z-.40*dz,acrossX?2*span-.2:.11,acrossZ?2*span-.2:.11,0xece9d6);
   }
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
   for(const [x,z,label] of harborSigns) {
@@ -75,12 +92,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0x737c70,x,3.62,z,3.82,.88,.13);
     for(const side of [-1,1])solids.add(box,0x8c9287,x+side*1.3,2.05,z,.10,2.68,.10);
   }
-  ground('pavers',lots,3);ground('lawn',lawns,3);
+  ground('pavers',lots.map(r=>patch(r,.80)),3);
+  ground('lawn',[...lawns.map(r=>patch(r,.80)),...bayfrontLawns.flatMap(r=>verges(r,streetPlan.mainland).map(l=>patch(l,.812)))],3);
   solids.add(box,0xa59f90,cx,.15,cz,w,1,d);
   const stripe=(x,z,w,d,tint=0xe9e5d4)=>solids.add(box,tint,x,.713,z,w,.012,d);
   for(const x of avenues) {
     for(let z=north+2;z<south;z+=2.8) {
-      if(streets.some(s=>Math.abs(z-s)<6.9)) continue;
+      if(streets.some(s=>Math.abs(z-s)<6.9) || streetPlan.ends.some(e=>e.dx===0 && e.x===x && (z-e.z)*e.dz>-5.4)) continue;
       for(const dx of [-.12,.12]) stripe(x+dx,z,.095,2.8,0xd6a446);
       for(const dx of [-3,3]) stripe(x+dx,z,.09,1.2);
     }
@@ -113,16 +131,18 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0xbcaf97,coreX,base+podium-.34,z,coreWidth,.68,d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
-    if (!hasApartmentBalconies(facade)) {
+    if (housing && !hasApartmentBalconies(facade)) {
       const rows=Math.max(2,Math.round((h-podium)/6)), tier=(h-podium)/rows;
       for(let j=0;j<rows;j++) {
         walls.add(faces[facade],i%3===1?0xd4e0df:0xf6f4ed,x,base+podium+(j+.5)*tier,z,w,tier,d);
         if(facade!==1 || j%3===0) solids.add(box,0xd1cec2,x,base+podium+j*tier,z,w+.32,.15,d+.32);
       }
     }
-    solids.add(box,0xd9d8cc,x,base+h,z,w+.35,.24,d+.35);
-    solids.add(box,0x9caaa9,housing.x,base+(housing.bottom+housing.h)/2,housing.z,
-      housing.w,housing.h-housing.bottom,housing.d);
+    if(housing) {
+      solids.add(box,0xd9d8cc,x,base+h,z,w+.35,.24,d+.35);
+      solids.add(box,0x9caaa9,housing.x,base+(housing.bottom+housing.h)/2,housing.z,
+        housing.w,housing.h-housing.bottom,housing.d);
+    }
     for(const side of [-1,1]) {
       // Porticoes over the ground-floor shopfronts.
       if(avenueCorner && side===1)continue;
@@ -132,9 +152,11 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
   walls.mesh(scene,facadeMaterial).userData.impactSurface='solid';
   addBrickellHorizon(scene,facadeMaterial.map);
-  addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings,base,podium);
+  addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
+  addHarborKeyStructures(scene,Batch,base+podium);
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
-  return (doors,dt,local,remotes)=>{updateDoors(doors,dt);breakables.update(doors,dt);updateGallery(doors,breakables.scatter);updateCourts(doors,dt,local,remotes);};
+  const updateLamps=streetLampView(scene,Batch);
+  return (doors,dt,local,remotes)=>{updateDoors(doors,dt);updateShopFurniture(scene,doors);updateLamps(doors,dt);breakables.update(doors,dt);updateGallery(doors,breakables.scatter);updateCourts(doors,dt,local,remotes);};
 }

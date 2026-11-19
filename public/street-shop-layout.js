@@ -1,3 +1,4 @@
+import {furnitureId} from './shop-furniture.js';
 // Tenant identities and fixture placement are shared by rendering, aiming and
 // the authoritative simulator. The renderer supplies primitives and finishes;
 // the simulator consumes the same metre-scale placements as collision shapes.
@@ -45,6 +46,8 @@ export function retailDepths(b){
 
 export function furnishShop(index,side,width,depth,draw){
   const {shape,beam,sign,detail,floorShadow}=draw;
+  const begin=(x,z)=>draw.beginPiece?.(furnitureId(index*2+(side+1)/2,x,z),x,z);
+  const end=()=>draw.endPiece?.();
   const box='box',drum='drum',bulb='bulb',pot='pot',hoop='hoop';
   const [, ,type]=tenants[index][side>0?1:0];
   const [accent,cream,wood,edge]=palettes[type],half=width/2;
@@ -132,9 +135,11 @@ export function furnishShop(index,side,width,depth,draw){
     }
   }
   function loungeChair(x,z,color){
+    begin(x,z);
     timber(wood,x,.19,z,.53,.32,.50);
     rect(color,x,.38,z,.62,.17,.60);
     shape(box,color,x,.66,z-.24,.63,.48,.12,2,-.12);
+    end();
   }
   function featureBay(x,w,variant,c){
     const z=-Math.max(1.67,depth*.65);
@@ -152,7 +157,7 @@ export function furnishShop(index,side,width,depth,draw){
       case 'gallery':
         art(x-.24*w,1.81,rear+.10,.78,1.10,variant);
         art(x+.18*w,1.59,rear+.10,.64,.82,(variant+4)%7);
-        table(x,z,w*.73,.46,.45);break;
+        begin(x,z);table(x,z,w*.73,.46,.45);end();break;
       case 'florist':
         // Lattice supports climbing foliage behind a tiered plant stand.
         for(let k=0;k<7;k++)timber(wood,x+(k-3)*w*.11,1.49,stockZ,.027,2.34,.034);
@@ -185,19 +190,19 @@ export function furnishShop(index,side,width,depth,draw){
         shape(pot,0xa29a87,x,.34,z,.32,.63,.32);
         round(0x6e756e,x,.70,z,.43,.15);round(0xc2beab,x,.79,z,.30,.05);
         vase(x,.82,z,c,.13,.28);
-        round(wood,x+.65,.51,z,.23,.085);round(dark,x+.65,.28,z,.06,.44);
+        begin(x+.65,z);round(wood,x+.65,.51,z,.23,.085);round(dark,x+.65,.28,z,.06,.44);end();
         for(let j=0;j<5;j++)rect(paint[(variant+j)%7],x+(j-2)*.27,1.90,rear+.09,.23,.41,.07);
         break;
       case 'records':
         // Listening station: speakers with recessed cones and a turntable.
-        timber(wood,x,.77,z,w*.79,.80,.64);rect(dark,x,1.19,z,.69,.076,.46);
+        begin(x,z);timber(wood,x,.77,z,w*.79,.80,.64);rect(dark,x,1.19,z,.69,.076,.46);
         round(0x323333,x,1.24,z,.19,.025);round(c,x,1.26,z,.057,.013);
         for(const sx of [-1,1]){
           const xx=x+sx*w*.32;
           timber(wood,xx,1.43,z,.31,.53,.30);
           shape(drum,dark,xx,1.40,z+.17,.115,.025,.115,2,Math.PI/2);
           shape(drum,0x8b9588,xx,1.59,z+.17,.044,.025,.044,2,Math.PI/2);
-        }break;
+        }end();break;
       case 'apparel':
         timber(wood,x,1.54,stockZ,w*.73,2.31,.42);
         for(const sx of [-1,1])timber(edge,x+sx*w*.35,1.55,stockZ+.26,.067,2.31,.48);
@@ -209,11 +214,11 @@ export function furnishShop(index,side,width,depth,draw){
       case 'books':
         art(x,1.91,rear+.10,1.12,.81,variant);
         loungeChair(x-.27*w,z,c);loungeChair(x+.25*w,z,accent);
-        round(wood,x,.52,z+.19,.26,.058);round(brass,x,.28,z+.19,.055,.45);break;
+        begin(x,z+.19);round(wood,x,.52,z+.19,.26,.058);round(brass,x,.28,z+.19,.055,.45);end();break;
       case 'surf':
-        timber(wood,x,.84,z,w*.88,.10,.75);
+        begin(x,z);timber(wood,x,.84,z,w*.88,.10,.75);
         for(const sx of [-1,1])rect(dark,x+sx*w*.32,.42,z,.12,.78,.55);
-        shape(bulb,cream,x,1,z,w*.43,.065,.26);
+        shape(bulb,cream,x,1,z,w*.43,.065,.26);end();
         for(let j=0;j<3;j++){
           const xx=x+(j-1)*.47;
           beam(wood,xx-.15,.54,stockZ,xx+.13,2.32,stockZ,.043);
@@ -245,23 +250,23 @@ export function furnishShop(index,side,width,depth,draw){
             rect(paint[(k+i+Math.round(y*2))%7],x+w*(k-4)/11,y+h/2,stockZ+.09,w/13,h,.22);
           }
         }
-        detail(false);table(x,middle,w*.71,.85);detail(true);
+        detail(false);begin(x,middle);table(x,middle,w*.71,.85);detail(true);
         for(let k=0;k<5;k++){
           const xx=x+(k%3-1)*w*.20,yy=.892+Math.floor(k/3)*.060;
           rect(paint[(variant+k)%7],xx,yy,middle,.36,.048,.48);
           rect(0xdccfaf,xx,yy+.011,middle+.235,.33,.024,.018);
-        }break;
+        }end();break;
       case 'florist':
         timber(wood,x,.70,stockZ+.12,w,1.25,.63);
         for(let k=0;k<4;k++)bouquet(x+(k-1.5)*w*.24,1.334,stockZ+.16,paint[(variant+2*k)%7],.94);
         for(let k=0;k<3;k++){
           const xx=x+(k-1)*w*.26, zz=(k===1?-1.61:middle);
-          shape(pot,0x828b79,xx,.25,zz,.23,.46,.23);
-          bouquet(xx,.46,zz,[0xc37a74,0xe8d4a0,0x9c7190][k],1.25);
+          begin(xx,zz);shape(pot,0x828b79,xx,.25,zz,.23,.46,.23);
+          bouquet(xx,.46,zz,[0xc37a74,0xe8d4a0,0x9c7190][k],1.25);end();
         }break;
       case 'records':
         for(let k=0;k<3;k++)art(x+(k-1)*w*.28,1.93,rear+.085,.66,.67,(variant+k)%7);
-        table(x,middle,w*.83,.88,.77);
+        begin(x,middle);table(x,middle,w*.83,.88,.77);
         for(let k=0;k<3;k++){
           const xx=x+(k-1)*w*.25;
           timber(wood,xx,.94,middle,w*.23,.26,.67);
@@ -269,13 +274,13 @@ export function furnishShop(index,side,width,depth,draw){
           for(let j=0;j<5;j++)shape(box,paint[(variant+j+k)%7],xx,1.12,middle+.22-j*.084,.43,.42,.028,2,-.15);
           shape(drum,0x302f2d,xx,1.19,middle+.253,.115,.018,.115,2,Math.PI/2);
           shape(drum,c,xx,1.19,middle+.269,.041,.008,.041,2,Math.PI/2);detail(false);
-        }break;
+        }end();break;
       case 'pottery':
         shelf(x,w);
         for(let j=0;j<3;j++)for(let k=0;k<4;k++)
           vase(x+(k-1.5)*w*.22,.35+.62*j,stockZ+.11,[cream,shadeColor,0xb87959,0x7c9088][(j+k)%4],.11+.017*(k%3),.28+.07*((k+j)%3));
-        table(x,middle,w*.66,.77);
-        vase(x-.24,.865,middle,c,.17,.47);vase(x+.23,.865,middle+.08,cream,.12,.30);
+        begin(x,middle);table(x,middle,w*.66,.77);
+        vase(x-.24,.865,middle,c,.17,.47);vase(x+.23,.865,middle+.08,cream,.12,.30);end();
         break;
       case 'surf':
         for(let k=0;k<3;k++){
@@ -284,12 +289,13 @@ export function furnishShop(index,side,width,depth,draw){
           shape(bulb,board,xx,1.30,stockZ+.08,.31,h,.078,2,0,0,.075*(k-1));
           rect(0xe4d4ae,xx,1.30,stockZ+.160,.036,1.72,.015);
         }
+        begin(x,middle);
         for(const sx of [-1,1]){
           timber(wood,x+sx*w*.29,.51,middle,.12,.94,.5);
           timber(edge,x+sx*w*.29,.76,middle,.14,.10,.91);
         }
         shape(bulb,shadeColor,x,.87,middle,w*.46,.11,.34);
-        shape(bulb,cream,x,1.12,middle-.085,w*.44,.082,.30);
+        shape(bulb,cream,x,1.12,middle-.085,w*.44,.082,.30);end();
         break;
       case 'market':
         shelf(x,w);
@@ -302,15 +308,15 @@ export function furnishShop(index,side,width,depth,draw){
         detail(false);
         for(let k=0;k<3;k++){
           const xx=x+(k-1)*w*.26,z=middle+(k%2)*.32;
-          timber(wood,xx,.51,z,w*.24,.76,.70);
+          begin(xx,z);timber(wood,xx,.51,z,w*.24,.76,.70);
           for(let j=0;j<3;j++)timber(edge,xx,.45+j*.16,z+.37,w*.24,.096,.036);
           detail(true);
-          for(let j=0;j<8;j++)ball([0xbf6540,0x8caa52,0xd7a339][k],xx+((j%4)-1.5)*.13,.944,z+(Math.floor(j/4)-.5)*.19,.08,.083,.083);detail(false);
+          for(let j=0;j<8;j++)ball([0xbf6540,0x8caa52,0xd7a339][k],xx+((j%4)-1.5)*.13,.944,z+(Math.floor(j/4)-.5)*.19,.08,.083,.083);detail(false);end();
         }break;
       case 'gallery':
         art(x,1.68,rear+.09,w*.64,1.42,variant);
-        rect(cream,x,.45,middle,.66,.86,.66,4);
-        shape(hoop,c,x,1.25,middle,.42,.50,.42,2,.03,.37,.21);
+        begin(x,middle);rect(cream,x,.45,middle,.66,.86,.66,4);
+        shape(hoop,c,x,1.25,middle,.42,.50,.42,2,.03,.37,.21);end();
         break;
       case 'cycles':
         rect(0x65746a,x,1.83,rear+.09,w*.81,1.04,.10);
@@ -320,11 +326,12 @@ export function furnishShop(index,side,width,depth,draw){
           shape(hoop,0xb0b6ae,xx+.082,2.10,stockZ,.06,.06,.06);
         }
         timber(wood,x,.95,stockZ+.04,w*.86,.09,.61);
-        bicycle(x,middle,c);
-        rect(dark,x,.079,middle,1.48,.085,.43);
+        begin(x,middle);bicycle(x,middle,c);
+        rect(dark,x,.079,middle,1.48,.085,.43);end();
         break;
       case 'apparel':
         art(x,1.78,rear+.09,w*.48,1.18,(variant+2)%7);
+        begin(x,middle);
         for(const sx of [-1,1]){
           rect(brass,x+sx*w*.38,.86,middle,.037,1.63,.037);
           rect(dark,x+sx*w*.38,.09,middle,.10,.07,.59);
@@ -337,13 +344,14 @@ export function furnishShop(index,side,width,depth,draw){
           shape(pot,cc,xx,1.08,middle,.17,.79,.088);
           shape(bulb,cc,xx-.109,1.36,middle,.084,.17,.088,2,0,0,-.40);
           shape(bulb,cc,xx+.109,1.36,middle,.084,.17,.088,2,0,0,.40);
-        }break;
+        }end();break;
     }
     detail(false);
   }
   // A single window display punctuates the more regularly spaced rear bays.
   // Set the merchandise at three actual distances from the pavement.
   const windowX=half-.66, near=-1.16;
+  begin(windowX,near);
   floorShadow(windowX,near,.61,.49);
   if(type==='books'||type==='gallery'||type==='records'){
     timber(wood,windowX,.30,near,.67,.55,.50);
@@ -367,6 +375,7 @@ export function furnishShop(index,side,width,depth,draw){
     shape(bulb,0xd7ad6e,windowX,1.14,near,.27,1.02,.085,2,-.12,0,.17);
     shape(box,cream,windowX,1.14,near+.083,.027,1.69,.013,2,-.12,0,.17);
   }
+  end();
 }
 
 // Small pieces on top of a stand are included, so a standing body or ray can
@@ -374,9 +383,24 @@ export function furnishShop(index,side,width,depth,draw){
 // survive a broken display window. Bounds are precomputed once, in world space.
 export function retailFixtures(index,face){
   const fixtures=[], b=face.building,s=face.side,origin=b.x+s*b.w/2;
+  const rear=face.x-s*(face.depth-.30),outer=face.x;
+  const room=[Math.min(rear,outer),Math.max(rear,outer),b.z-b.d/2+.18,b.z+b.d/2-.18];
+  face.pieces=new Map();
+  let piece=null;
+  function beginPiece(id,x,z){
+    piece={id,x:origin+s*z,z:b.z-s*x,w:0,d:0,height:0,floor:shopFloor,room};
+    face.pieces.set(id,piece);
+  }
   function add(x,y,z,hw,hh,hd){
     if(y+hh<.05)return;
-    fixtures.push({x:origin+s*z,z:b.z-s*x,w:hd*2,d:hw*2,bottom:.80+y-hh,top:.80+y+hh});
+    const box={x:origin+s*z,z:b.z-s*x,w:hd*2,d:hw*2,bottom:.80+y-hh,top:.80+y+hh};
+    if(piece){
+      piece.w=Math.max(piece.w,2*Math.abs(piece.x-box.x)+box.w);
+      piece.d=Math.max(piece.d,2*Math.abs(piece.z-box.z)+box.d);
+      piece.height=Math.max(piece.height,box.top-piece.floor);
+      box.piece=piece;
+    }
+    fixtures.push(box);
   }
   function shape(id,c,x,y,z,w,h,d,mode,rx=0,ry=0,rz=0){
     let hw=w/2,hh=h/2,hd=d/2;
@@ -393,6 +417,6 @@ export function retailFixtures(index,face){
     add((x+xx)/2,(y+yy)/2,(z+zz)/2,(Math.abs(x-xx)+t)/2,(Math.abs(y-yy)+t)/2,(Math.abs(z-zz)+t)/2);
   }
   const noop=()=>{};
-  furnishShop(index,s,b.d,face.depth,{shape,beam,sign:noop,detail:noop,floorShadow:noop});
+  furnishShop(index,s,b.d,face.depth,{shape,beam,sign:noop,detail:noop,floorShadow:noop,beginPiece,endPiece:()=>{piece=null;}});
   return fixtures;
 }

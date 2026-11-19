@@ -9,9 +9,10 @@ export function sandHeight(x,z) {
 }
 export const lookoutSteps=Array.from({length:6},(_,i)=>({x:-2.53+i*.27,h:.20+i*.22}));
 // Use the same six tread tops for foot placement and the rendered stair.
-export function lookoutFloor(x,z,sand) {
+export function lookoutFloor(x,z,sand,doors) {
   if(!onBeach(x,z)) return sand;
   for(const station of stations) {
+    if(doors?.beachWood?.[station.number])continue;
     const dx=x-station.x,dz=Math.abs(z-station.z);
     if(dz>1.34 || dx< -2.676 || dx>1.48) continue;
     const height=sandHeight(station.x,station.z);
@@ -28,7 +29,7 @@ export const beachBarriers=[
     {x,z,w:8.56,d:.11,h:2.40,net,netting:true},
     ...[-1,1].map(side=>({x:x+side*4.37,z,w:.112,d:.112,h:2.58,net})),
   ]),
-  ...stations.flatMap(({x,z})=>[
+  ...stations.flatMap(({x,z,number})=>[
     {x:x-.11,z,w:2.99,d:3.10,bottom:3.31,h:3.65},
     ...[-1,1].map(side=>({x:x-.12,z:z+side*1.12,w:1.73,d:.10,h:2.20})),
     ...[-1,1].flatMap(side=>[-.94,.69].map(dx=>({x:x+dx,z:z+side*1.12,w:.105,d:.105,h:3.40}))),
@@ -36,5 +37,5 @@ export const beachBarriers=[
     {x:x-.10,z,w:.48,d:.60,h:2.40},
     {x:x-.94,z:z-.73,w:.08,d:.76,h:2.16},
     ...[-1,1].map(side=>({x:x+1.08,z:z+side*1.26,w:.72,d:.075,h:2.38})),
-  ]),
+  ].map(rect=>({...rect,woodId:number}))),
 ];

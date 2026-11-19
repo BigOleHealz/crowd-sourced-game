@@ -1,3 +1,5 @@
+import {furnitureId,fallenTop} from './shop-furniture.js';
+
 // Metres in the Brickell district. Door centers and travel are shared by the
 // visual panels, authoritative room simulation and predicting client.
 export const storefrontFloor=.824, storefrontCeiling=3.74, doorX=-9.64;
@@ -34,11 +36,16 @@ export function panelCenter(door,side,fraction) {
 export const storefrontFurniture=[];
 const rect=(x,z,w,d,top)=>storefrontFurniture.push({x,z,hw:w/2,hd:d/2,top});
 const round=(x,z,r,top)=>storefrontFurniture.push({x,z,r,top});
-for(const [x,z] of diningTables) {
-  round(x,z,.398,1.59);
-  for(const s of [-1,1])round(x,z+s*.545,.221,1.61);
+export const cafePieces=new Map();
+function loose(x,z,r,top,height){
+  const id=furnitureId('cafe',x,z),p={id,x,z,w:2*r,d:2*r,height,floor:storefrontFloor,room:[-16.48,-9.53,2.52,15.79]};
+  cafePieces.set(id,p);storefrontFurniture.push({x,z,r,top,piece:p});
 }
-for(const [x,z] of benchTables){round(x,z,.398,1.59);round(x+.445,z+.19,.221,1.61);}
+for(const [x,z] of diningTables) {
+  loose(x,z,.398,1.59,.84);
+  for(const s of [-1,1])loose(x,z+s*.545,.221,1.61,.817);
+}
+for(const [x,z] of benchTables){loose(x,z,.398,1.59,.84);loose(x+.445,z+.19,.221,1.61,.817);}
 rect(-16.09,5.32,.84,4.70,1.79);                  // banquette
 rect(-13.67,11.54,1.30,5.96,1.86);                // service counter
 rect(-13.39,12.77,.65,2.26,2.39);                 // pastry case
@@ -46,7 +53,11 @@ rect(-13.66,9.91,.54,.86,2.32);                   // espresso machine
 rect(-16.07,11.48,.86,6.95,1.77);                 // back bar
 rect(-13.72,.68,1.01,2.05,1.81);                  // concierge desk
 rect(-13.92,1.05,.05,.32,2.07);                   // monitor
-for(const z of [-1.27,-.22])rect(-14.98,z,.72,.80,1.69);
+for(const z of [-1.27,-.22]){
+  const x=-14.98,id=furnitureId('cafe',x,z);
+  const piece={id,x,z,w:.78,d:.80,height:.862,floor:storefrontFloor,room:[-16.48,-9.53,-1.81,2.325]};
+  cafePieces.set(id,piece);storefrontFurniture.push({x,z,hw:.36,hd:.40,top:1.69,piece});
+}
 for(const [x,z,size] of planters)round(x,z,.235*size,storefrontFloor+.45*size);
 
 // The original tower still owns the upper storeys, west core and roof.
@@ -63,6 +74,8 @@ export function storefrontTopAt(x,z,pad,probe,roof,doors,brokenGlass=false) {
     }
   }
   for(const p of storefrontFurniture) {
+    const fallen=p.piece && doors?.furniture?.[p.piece.id];
+    if(fallen){top=Math.max(top,fallenTop(p.piece,fallen,x,z,pad));continue;}
     const dx=Math.abs(x-p.x),dz=Math.abs(z-p.z);
     if(p.r ? dx*dx+dz*dz<(p.r+pad)**2 : dx<p.hw+pad && dz<p.hd+pad)top=Math.max(top,p.top);
   }

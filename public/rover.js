@@ -1,4 +1,6 @@
+import {tipFurniture} from './shop-furniture.js';
 import {breakFrontage} from './frontage-glass.js';
+import {damageLamp,lampHP} from './street-lamps.js';
 import { roadContact, sweepRoad } from './road-contact.js';
 import {flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -137,20 +139,38 @@ export function driveRover(world, input, dt, players) {
   for(let pass=0;pass<2 && remaining>1e-7;pass++){
     const dx=vx*remaining,dz=vz*remaining;
     const {fraction,hit}=sweepRoad(world,r,dx,dz);
-    r.x+=dx*fraction;r.z+=dz*fraction;r.y=groundHeight(r.x,r.z);
+    r.x+=dx*fraction;r.z+=dz*fraction;r.y=groundHeight(r.x,r.z,Infinity,world.doors);
     if(!hit)break;
     contacted=true;
     const incoming=Math.max(0,-(vx*hit.nx+vz*hit.nz));
+    if(incoming>.12 && tipFurniture(world.doors,hit.object.piece,vx,vz)){
+      remaining*=1-fraction;
+      continue;
+    }
     if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r)){
       registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
       if(r.wrecked)return;
       vx*=.8;vz*=.8;remaining*=1-fraction;
       continue;
     }
+    const woodId=hit.object.woodId;
+    if(woodId && world.doors && incoming>(woodId.startsWith('sign-')?1.1:2.5)){
+      (world.doors.beachWood??={})[woodId]=Math.round(Math.atan2(vx,vz)*1000);
+      // Keep zero radians truthy for the shared collision/visibility lookup.
+      if(!world.doors.beachWood[woodId])world.doors.beachWood[woodId]=1;
+      vx*=.84;vz*=.84;remaining*=1-fraction;
+      continue;
+    }
     if(hit.object.net!=null && world.doors && incoming>.55){
       (world.doors.nets??={})[hit.object.net]=Math.sign(vz)||1;
       vx*=.94;vz*=.94;remaining*=1-fraction;
       continue;
+    }
+    if(hit.object.lamp!=null && incoming>2.5){
+      damageLamp(world.doors,hit.object.lamp,lampHP);
+      registerImpact(world,r,hit,Math.min(incoming,4),players);
+      if(r.wrecked)return;
+      vx*=.86;vz*=.86;remaining*=1-fraction;continue;
     }
     registerImpact(world,r,hit,incoming,players);
     if(r.wrecked)return;

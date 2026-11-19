@@ -1,10 +1,14 @@
+import {furnitureRanges} from './shop-furniture-view.js';
+import {furnitureId} from './shop-furniture.js';
 import * as THREE from 'three';
-import {storefrontFloor, diningTables, benchTables, planters} from './storefront-layout.js';
+import {cafePieces,storefrontFloor, diningTables, benchTables, planters} from './storefront-layout.js';
 
 // Both rooms are built from the curb elevation up. The entrance, aisles, furniture
 // and rear work surfaces are in world metres and use the same scale as the player.
 export function buildStorefrontRooms(scene,Batch,texture,stone) {
   const objects=new Batch(), joinery=new Batch(true), plaster=new Batch(true);
+  const motion=furnitureRanges(scene,[objects,joinery]);
+  const begin=(x,z)=>motion.start(cafePieces.get(furnitureId('cafe',x,z)));
   const box=new THREE.BoxGeometry(), cylinder=new THREE.CylinderGeometry(1,1,1,16);
   const oval=new THREE.SphereGeometry(1,12,8);
   const foot=storefrontFloor;
@@ -42,6 +46,7 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
   // A bentwood chair has a ring seat, splayed legs, a curved back and a lower stretcher.
   // The back follows a real arc, so it reads edge-on through the shop window.
   function chair(x,z,side) {
+    const marker=begin(x,z);
     round(walnut,x,1.265,z,.218,.045,.205);
     round(0xb79869,x,1.293,z,.194,.018,.178);
     const localZ=dz=>z+side*dz;
@@ -56,6 +61,7 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
       const a=segment((i/6-.5)*2.55),b=segment(((i+1)/6-.5)*2.55);
       objects.beam(oak,a,b,.070,.032);
     }
+    motion.end(marker);
   }
   function cup(x,y,z) {
     const ceramic=new THREE.CylinderGeometry(.046,.032,.061,10);
@@ -64,11 +70,13 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
     round(0xd1c6ab,x,y+.003,z,.064,.009,.06);
   }
   function table(x,z,bench=false) {
+    const marker=begin(x,z);
     round(0x514d43,x,foot+.023,z,.235,.044);
     round(brass,x,1.205,z,.049,.714);
     round(0x9d8059,x,1.552,z,.394,.048);
     round(0xe6d0a7,x,1.579,z,.397,.021);
     cup(x+.11,1.593,z-.085);
+    motion.end(marker);
     if(!bench){chair(x,z+.545,1);chair(x,z-.545,-1);}
     else chair(x+.445,z+.19,1);
   }
@@ -177,8 +185,10 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
   timber(walnut,-13.72,1.76,.68,1.01,.084,2.05);
   solid(rubber,-13.92,1.942,1.05,.050,.255,.316);
   for(const z of [-1.27,-.22]) {
+    const marker=begin(-14.98,z);
     timber(walnut,-14.98,.96,z,.70,.18,.78);solid(0x7e8e81,-14.93,1.17,z,.69,.23,.75);
     solid(0x8e9b8a,-15.23,1.43,z,.16,.51,.75);
+    motion.end(marker);
   }
   // Bronze address panel and grazing sconces reveal the depth of the party wall
   // through the lobby doors as a pedestrian approaches from the north.
@@ -266,9 +276,9 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
     };
     return material;
   }
-  objects.mesh(scene,surface(),false);
+  const furnishings=objects.mesh(scene,surface(),false);
   const oakMap=texture('./storefront-oak.webp');oakMap.wrapS=oakMap.wrapT=THREE.RepeatWrapping;
-  joinery.mesh(scene,surface(oakMap),false);
+  motion.bind([furnishings,joinery.mesh(scene,surface(oakMap),false)]);
   const plasterMap=texture('./avenue-limestone.webp');plasterMap.wrapS=plasterMap.wrapT=THREE.RepeatWrapping;
   plaster.mesh(scene,surface(plasterMap),false);
   lamps.mesh(scene,new THREE.MeshBasicMaterial({vertexColors:true}),false);

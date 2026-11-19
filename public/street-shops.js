@@ -1,3 +1,4 @@
+import {furnitureRanges} from './shop-furniture-view.js';
 import {faceAt} from './frontage-glass.js';
 import * as THREE from 'three';
 
@@ -169,17 +170,24 @@ export function streetShops(scene,renderer,Batch,panorama,windows){
     }
 
     const geometryByName={box,drum,bulb,pot,hoop};
+    const planned=faceAt(bld,room.position.x).pieces;
+    const motion=furnitureRanges(scene,[fittings,merchandise],side,room.position.x,room.position.z);
+    let marker;
     furnishShop(index,side,width,depth,{
+      beginPiece:id=>{marker=motion.start(planned.get(id));},
+      endPiece:()=>motion.end(marker),
       shape:(id,...args)=>shape(geometryByName[id],...args),beam,floorShadow,
       detail:on=>{batch=on?merchandise:fittings;},
       sign:(x,y,z,w,h)=>{face.setAttribute('batchUv',uv);batch.add(face,0xffffff,x,y,z,w,h,1);},
     });
     const mesh=fittings.mesh(room,interior,false);mesh.userData.impactSurface='solid';
+    let details;
     if(merchandise.indices.length){
       const detail=new THREE.LOD();
-      detail.addLevel(merchandise.mesh(detail,interior,false),0);
+      details=merchandise.mesh(detail,interior,false);detail.addLevel(details,0);
       detail.addLevel(new THREE.Group(),52,.12);room.add(detail);
     }
+    motion.bind([mesh,details]);
     contactMap.needsUpdate=true;scene.add(room);
   }
   return make;
