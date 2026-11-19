@@ -226,6 +226,10 @@ function addSky(scene) {
         #include <colorspace_fragment>
         }`
     }));
+  if(CITY) {
+    sky.frustumCulled=false;
+    sky.onBeforeRender=(_r,_s,camera)=>{sky.matrixWorld.setPosition(camera.position);sky.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse,sky.matrixWorld);};
+  }
   sky.renderOrder=-20; scene.add(sky);
   return panorama;
 }

@@ -201,7 +201,7 @@ export function stepPlayer(state, input, dt, hp) {
       grounded = true;
     }
   }
-  if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
+  if (y < -8 || Math.abs(x)>MAP.bounds || z>MAP.bounds || z<(MAP.northBound ?? -MAP.bounds)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if (parachute && !grounded) next.parachute = parachute;
   return next;

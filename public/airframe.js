@@ -52,7 +52,7 @@ function driftAfterBailout(world, dt, players) {
   }
   motion.vy = coasting ? approach(motion.vy, -.35, 3*dt) : Math.max(-14, motion.vy-7*dt);
   h.yaw += (coasting ? .09 : .48) * dt;
-  const x = clamp(h.x + motion.vx*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32), z = clamp(h.z + motion.vz*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32);
+  const x = clamp(h.x + motion.vx*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32), z = clamp(h.z + motion.vz*dt, MAP.flightNorth ?? -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32);
   const y = Math.min(MAP.flightCeiling ?? 23, h.y + motion.vy*dt);
   const floor = flightFloor(x, z, world.hp);
   if (y <= floor) {
@@ -158,7 +158,7 @@ export function fly(world, input, dt, players) {
   motion.vx += (motion.tiltX - drag * motion.vx) * dt;
   motion.vz += (motion.tiltZ - drag * motion.vz) * dt;
   const x = clamp(h.x + motion.vx * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
-  const z = clamp(h.z + motion.vz * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
+  const z = clamp(h.z + motion.vz * dt, MAP.flightNorth ?? -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
   const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp) + 0.04;
   let stoppedX = 0, stoppedZ = 0;
   if (clear(x, z)) {

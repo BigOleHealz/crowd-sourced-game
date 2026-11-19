@@ -70,7 +70,7 @@ export function recoverRover(world,dt) {
 
 function traversable(world, x,z,yaw) {
   const y = groundHeight(x,z);
-  if (Math.max(Math.abs(x),Math.abs(z))>(MAP.flightLimit ?? 32) || y<MAP.waterY+.2) return false;
+  if (Math.abs(x)>(MAP.flightLimit ?? 32) || z>(MAP.flightLimit ?? 32) || z<(MAP.flightNorth ?? -(MAP.flightLimit ?? 32)) || y<MAP.waterY+.2) return false;
   const sx = Math.sin(yaw), cz = Math.cos(yaw);
   for (const along of [-.73,0,.73]) {
     const px=x+along*sx, pz=z-along*cz, floor=groundHeight(px,pz);
