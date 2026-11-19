@@ -5,7 +5,7 @@ import {trailMarkers} from './scenery-layout.js';
 import {createRangerRig,poseRig} from './ranger-pose.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
-import { bootSole, bootUpper, rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
 import { patrolBoatView } from './patrol-boat-view.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
@@ -99,15 +99,19 @@ class Batch {
     this.add(cube, tint, (a[0]+b[0])/2, (a[1]+b[1])/2, (a[2]+b[2])/2, width, length, depth, x, y, z);
   }
 
-  mesh(parent, material, casts = true) {
-    if (!this.indices.length) return;
+  geometry() {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3));
     geometry.setAttribute('normal', new THREE.Float32BufferAttribute(this.normals, 3));
     geometry.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3));
     if (this.uv) geometry.setAttribute('uv',new THREE.Float32BufferAttribute(this.uv,2));
     geometry.setIndex(this.indices);
-    const mesh = new THREE.Mesh(geometry, material);
+    return geometry;
+  }
+
+  mesh(parent, material, casts = true) {
+    if (!this.indices.length) return;
+    const mesh = new THREE.Mesh(this.geometry(), material);
     mesh.castShadow = casts;
     mesh.receiveShadow = true;
     parent.add(mesh);
@@ -789,96 +793,122 @@ function characterLabel(root, name) {
   };
 }
 
-// A sky-to-ground reflection band gives the shield depth even in open shade.
-const visorMaterials=[0xa47745,0x677d80,0x647b6a,0x89775c].map(color=>{
-  const lens=new THREE.MeshPhongMaterial({color,specular:0xdce2d9,shininess:90});
-  lens.onBeforeCompile=shader=>{
-    shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>', `
-      vec3 reflected=inverseTransformDirection(reflect(-normalize(vViewPosition),normal),viewMatrix);
-      float sky=smoothstep(-.18,.54,reflected.y);
-      outgoingLight=outgoingLight*(.30+.7*sky)+mix(vec3(.012,.020,.018),vec3(.14,.19,.20),sky);
-      #include <opaque_fragment>
-    `);
-  };
-  return lens;
-});
-
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,uniform,shadowMap,name) {
+function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
   const rig=createRangerRig(), {root,body,upper,limbs}=rig;
   scene.add(root);
-  const identity=rangerIdentity(id), warm=skinColors[identity];
-  const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
+  const identity=rangerIdentity(id);
+  const coat=color(tint ?? jacketColor(id)).lerp(color(0xf0ece1),.88);
+  const pants=0xdad8c3, binding=0x585745;
   const torso=new Batch(true), headArt=new Batch(true), pelvisArt=new Batch(true);
   const headOrigin=new THREE.Group();headOrigin.position.y=-1.525;rig.head.add(headOrigin);
-  torso.add(fieldJacket,coat,0,1.30,.005);
-  torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
-  pelvisArt.add(trouserSeat,0x97a291,0,.995,.004);
-  const faceY=1.681, fabric=[0x52564e,0x696653,0x4e5551,0x636056][identity];
-  headArt.add(hood,fabric,0,faceY,-.008);
-  headArt.add(visorRim,0x282e2b,0,faceY,-.008);
-  const lens=new THREE.Mesh(visorLens.clone(),visorMaterials[identity]);
-  lens.position.set(0,faceY,-.008);headOrigin.add(lens);
+  torso.add(fieldJacket,coat,0,1.29,.004);
+  torso.add(fieldCollar,0xcfcdba,0,1.494,.010);
+  torso.add(fieldBib,0xb9aa88,0,1.31,-.013);
+  // Bound lower edge, map sleeve zipper, and a small exposed pull tab.
+  torso.beam(0x777763,[-.125,1.263,-.152],[0,1.257,-.194],.010,.009);
+  torso.beam(0x777763,[0,1.257,-.194],[.125,1.263,-.152],.010,.009);
+  torso.beam(0xc3a170,[.104,1.260,-.164],[.111,1.236,-.170],.009);
+  pelvisArt.add(trouserSeat,pants,0,.990,0);
+  // Bound opening, wind flap and a diagonally cut chest pocket on the field smock.
+  torso.beam(0x626958,[.008,1.503,-.078],[.008,1.435,-.135],.009,.006);
+  torso.beam(0x6e735e,[.008,1.435,-.135],[.011,1.330,-.146],.010,.006);
+  torso.beam(0x999780,[.011,1.330,-.146],[.012,1.103,-.116],.009,.008);
   for(const side of [-1,1]) {
-    headArt.beam(0x454742,[side*.12,1.717,-.036],[side*.110,1.718,.066],.022);
-    for(let n=0;n<3;n++){
-      const y=1.628-.014*n;
-      headArt.beam(0x70716a,[side*.027,y+.014,-.140+n*.008],[side*.086,y+.025,-.097+n*.004],.005);
-    }
-  }
-  headArt.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
-  headArt.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
-  torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
-  for(const side of [-1,1]) {
-    headArt.add(round,0x535648,side*.104,1.728,.028,.025,.041,.065);
-    headArt.beam(0x585849,[side*.105,1.731,-.021],[side*.067,1.589,-.046],.012);
-    torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
-    torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
+    torso.add(pocket,0xd4c6a5,side*.076,1.204,-.157,.116,.099,.052,.055,side*-.30);
+    torso.add(pocket,0xa49a7b,side*.076,1.236,-.170,.119,.038,.049,.055,side*-.30);
+    torso.beam(binding,[side*.024,1.411,-.175],[side*.124,1.391,-.139],.008,.008);
+    torso.beam(0x8b8775,[side*.033,1.408,-.176],[side*.037,1.388,-.181],.008);
+    // Raised shoulder yoke follows the sloping clavicle into the sleeve cap.
+    torso.beam(0x929782,[side*.083,1.497,.054],[side*.185,1.455,.082],.009,.011);
   }
 
-  // The pack and its pockets follow the upper back through turns and running.
-  torso.add(fieldPack,0xb8af92,0,1.306,.168,1.04,.98,1.10);
-  torso.add(fieldPack,0xb3a784,0,1.240,.248,.76,.50,.62);
+  // Fitted balaclava, wraparound lens and a low-profile crown over the occiput.
+  const faceY=1.660, fabric=[0xdadcc9,0xe3d6b9,0xcfdcca,0xdacfb9][identity];
+  headArt.add(hood,fabric,0,faceY,-.005,.94,1.04,.94);
+  headArt.add(maskPanel,0x5b665d,0,faceY,-.008);
+  headArt.add(visorRim,0x272c29,0,faceY,-.005,.96,1.05,.98);
+  const lens=new THREE.Mesh(visorLens.clone(),visorMaterials[identity]);
+  lens.scale.set(.96,1.05,.98);lens.position.set(0,faceY,-.005);headOrigin.add(lens);
+  headArt.add(capCrown,0xc0c3aa,0,1.718,.009,1.035,1,1.02);
+  headArt.add(round,0x51574d,0,1.722,-.087,.110,.009,.087,-.064);
   for(const side of [-1,1]) {
-    torso.add(fieldPack,0xa09a80,side*.149,1.243,.172,.30,.45,.65);
-    torso.beam(0x57594a,[side*.148,1.303,.215],[side*.145,1.315,.153],.009);
-    torso.add(cube,0x8c8b70,side*.145,1.298,.211,.009,.025,.010);
+    headArt.beam(0x424b43,[side*.119,1.699,-.030],[side*.105,1.693,.075],.015,.022);
+    headArt.add(round,0x696e61,side*.107,1.680,.031,.015,.032,.027);
+    headArt.beam(0x687160,[side*.100,1.694,.057],[side*.071,1.592,-.034],.011,.012);
+    headArt.beam(0x7b8377,[side*.031,1.648,-.152],[side*.083,1.637,-.102],.007,.005);
+    for(let i=0;i<3;i++)headArt.beam(0x303c37,[side*.038,1.629-.009*i,-.141+i*.003],[side*.080,1.636-.010*i,-.109+i*.002],.005,.006);
   }
-  torso.beam(0x565745,[-.060,1.49,.188],[-.035,1.505,.196],.012);
-  torso.beam(0x565745,[-.035,1.505,.196],[.035,1.505,.196],.012);
-  torso.beam(0x565745,[.035,1.505,.196],[.060,1.49,.188],.012);
+
+  // The loaded back panel sits close over the shoulder blades. A gusset and
+  // compression bands break the silhouette at the sides while leaving the front clear.
+  torso.add(fieldPack,0xf2ead9,0,1.317,.171,1.01,1.00,.86,-.07);
+  torso.add(fieldPack,0xe0d8c5,0,1.264,.220,.85,.63,.58,-.05);
+  for(const side of [-1,1]) {
+    torso.add(pocket,0xd2c7a7,side*.143,1.222,.170,.077,.135,.113,.09,side*.11,.04*side);
+    for(const y of [1.243,1.388]) {
+      torso.beam(binding,[side*.153,y,.182],[side*.115,y-.018,.247],.018,.012);
+      torso.add(cube,0x5a594b,side*.140,y-.010,.211,.025,.023,.015,.05,side*.6);
+    }
+  }
+  // Zipper tape follows the curved pocket instead of painting over an edge.
+  const zip=[[-.119,1.208,.242],[-.125,1.298,.257],[-.116,1.342,.257],[-.091,1.369,.261],
+    [-.045,1.384,.257],[.045,1.384,.257],[.091,1.369,.261],[.116,1.342,.257],[.125,1.298,.257],[.119,1.208,.242]];
+  for(let i=1;i<zip.length;i++)torso.beam(0x625c49,zip[i-1],zip[i],.009,.008);
+  torso.beam(0xa3997f,[-.088,1.368,.267],[-.094,1.334,.271],.009,.006);
+  for(const y of [1.210,1.239]){
+    torso.beam(0x94866a,[-.091,y+.003,.260],[0,y,.273],.012,.009);
+    torso.beam(0x94866a,[0,y,.273],[.091,y+.003,.260],.012,.009);
+    for(const x of [-.061,-.023,.023,.061])
+      torso.add(cube,0x615f4d,x,y,.274-.013*Math.abs(x)/.091,.004,.014,.007);
+  }
+  torso.beam(binding,[-.039,1.486,.155],[-.022,1.513,.169],.012);
+  torso.beam(binding,[-.022,1.513,.169],[.034,1.513,.172],.012);
+  torso.beam(binding,[.034,1.513,.172],[.049,1.487,.159],.012);
   torso.mesh(upper,uniform);pelvisArt.mesh(body,uniform);headArt.mesh(headOrigin,uniform);
+
   for(const {side,leg,knee,ankle,arm,forearm} of limbs) {
-    const thigh=new Batch(true); thigh.add(fieldTrouser,0x97a291,0,-.192,0,1,1,.99);
-    thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,uniform);
-    const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
-    shin.mesh(knee,uniform);
+    const pant=new Batch(true);
+    pant.add(trousers,pants,0,0,0);
+    pant.add(pocket,0xc5c8b1,side*.090,-.207,.011,.052,.144,.130,.10,side*.09);
+    pant.beam(0x7b806b,[side*.117,-.151,-.046],[side*.116,-.157,.062],.012);
+    jointGarment(pant,uniform,leg,knee,.085);
+
+    const jacket=new Batch(true);
+    jacket.add(sleeve,coat,0,0,0,.91,1,.94);
+    jacket.add(pocket,0xc6c6af,side*.075,-.131,.004,.033,.096,.090,.12);
+    jacket.add(cube,0x706f58,side*.090,-.117,.002,.010,.034,.064,.16);
+    jacket.add(cube,0x969279,side*.096,-.119,.002,.005,.009,.049,.16);
+    jointGarment(jacket,uniform,arm,forearm,.074);
+
+    const glove=new Batch(true);
+    glove.add(trunk,0x5f6255,0,-.215,0,.048,.047,.048);
+    glove.add(round,0x605c4b,0,-.254,.002,.040,.055,.035);
+    glove.add(round,0x48483d,side*.007,-.245,.014,.032,.039,.025);
+    for(let i=0;i<4;i++) {
+      const dx=side*(i-1.5)*.016;
+      glove.add(round,0x575446,dx,-.286+.005*Math.abs(i-1),-.012,.010,.026-.002*Math.abs(i-1),.013,-.58);
+      glove.add(round,0x494b40,dx,-.294+.005*Math.abs(i-1),-.026,.009,.012,.013);
+    }
+    glove.add(round,0x66614e,-side*.030,-.265,-.025,.017,.031,.018,-.56,0,side*.35);
+    glove.mesh(forearm,uniform);
+
     const boot=new Batch(true);
-    boot.add(bootSole,0x363a35,0,0,0);
-    boot.add(bootUpper,0x796b55,0,0,0);
-    boot.add(round,0x4a5148,0,.062,.013,.081,.049,.078);
+    boot.add(bootSole,0x353934,0,0,0,.83,1,.90);
+    boot.add(bootUpper,0xe4d9c5,0,0,0,.83,1,.90);
+    boot.add(round,0x5d6358,0,.051,.016,.059,.061,.056);
+    boot.add(round,0x78705a,0,.021,-.040,.049,.066,.032,-.40);
+    boot.beam(binding,[0,.020,.066],[0,.105,.060],.023,.009);
     for(const edge of [-1,1]){
-      boot.beam(0x655b4d,[edge*.086,-.064,-.139],[edge*.077,.040,-.017],.014,.009);
-      boot.beam(0x514b40,[edge*.078,.043,-.024],[edge*.076,.052,.032],.013,.009);
+      boot.beam(0x645d4e,[edge*.068,-.067,-.120],[edge*.060,.035,-.014],.011,.010);
+      boot.beam(0x766c56,[edge*.061,.035,-.022],[edge*.062,.050,.040],.010,.011);
       for(let i=0;i<4;i++){
-        const z=-.117+i*.023,y=-.009+i*.021;
-        boot.beam(0x4c483d,[edge*.044,y-.004,z],[-edge*.042,y+.011,z+.016],.006);
+        const z=-.105+i*.019,y=-.008+i*.016;
+        boot.beam(0x454438,[edge*.032,y,z],[-edge*.032,y+.011,z+.015],.005);
       }
     }
-    for(const z of [-.17,-.132,-.093,.029,.060]){
-      boot.add(cube,0x41433a,0,-.119,z,z<-.09?.147:.115,.012,.018);
-    }
+    for(const z of [-.150,-.111,-.076,.025,.054])boot.add(cube,0x41443a,0,-.119,z,.114,.012,.016);
     boot.mesh(ankle,uniform);
-    const sleeve=new Batch(true);
-    sleeve.add(fieldSleeve,coat,0,-.014,0,1,.64,1);
-    sleeve.add(cube,0xac9b75,side*.084,-.1,.006,.010,.052,.046);
-    sleeve.mesh(arm,uniform);
-    const cuff=new Batch(true);
-    cuff.add(fieldSleeve,coat,0,-.008,0,.76,.49,.78);
-    cuff.add(trunk,0x53564b,0,-.215,0,.058,.034,.059);
-    cuff.add(round,0x5a594e,0,-.252,0,.041,.055,.043);
-    cuff.add(round,warm,-side*.029,-.258,-.018,.021,.034,.022);
-    cuff.mesh(forearm,uniform);
   }
   // The mountain sun and static geometry share one cached shadow map.
   // Characters use a soft contact patch that follows their animated pose.
@@ -990,6 +1020,8 @@ export function createScene(canvas) {
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
+  const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
+    alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const features=new Batch();
   let glints, stacks;
   if(CITY) {
@@ -1042,7 +1074,7 @@ export function createScene(canvas) {
       scene.remove(ring);
       ring.geometry.dispose();ring.material.dispose();
     }
-    a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
+    a.root.traverse(node=>{if(node.isMesh) {node.skeleton?.dispose();node.geometry.dispose();}});
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
   }
@@ -1114,7 +1146,7 @@ export function createScene(canvas) {
       let a=avatars.get(state.id);
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,shadowMap,state.name || 'Hiker ' + state.id);
+        a=hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || 'Hiker ' + state.id);
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
@@ -1181,6 +1213,6 @@ export function createScene(canvas) {
     renderer.render(scene,camera);
   }
   return {render,resize,aimAt,dispose(){scene.traverse(node=>{
-    if(node.isMesh){node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
+    if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }
