@@ -24,7 +24,7 @@ export function readJoints(rig,out) {
 
 // Sample the same hierarchy, IK, planted feet and gait used by the visible avatar.
 // Keep its last two actual poses so a released wrist and a planted boot inherit different velocities.
-export function sampleRanger(actor,dt) {
+export function sampleRanger(actor,dt,world) {
   if(!actor.life.hp || actor.life.fall)return;
   let state=frame.get(actor.life);
   if(!state) {
@@ -32,7 +32,9 @@ export function sampleRanger(actor,dt) {
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;
-  poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt);
+  const rover=world?.rover;
+  poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt,
+    rover?.driver===actor.id ? rover : null,rover?.gunner===actor.id ? rover : null);
   readJoints(state.rig,state.now);
   const hit=actor.hitPose??={indices:J,origin:{}};
   hit.joints=state.now;
