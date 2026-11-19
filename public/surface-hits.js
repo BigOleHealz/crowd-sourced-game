@@ -19,7 +19,9 @@ export function surfacePicker(scene) {
     ray.near=.012;ray.far=distance+(shot.hitKind ? 1.9 : .08);
     hits.length=0;
     for(const mesh of objects){
-      if(!isVisible(mesh) || (sourceVehicle && sourceVehicle===mesh.userData.vehicle)) continue;
+      // The destroying round and the removed crate arrive in the same snapshot.
+      const justDestroyed = shot.hitKind === 'crystal' && mesh.userData.target === shot.targetId;
+      if((!isVisible(mesh) && !justDestroyed) || (sourceVehicle && sourceVehicle===mesh.userData.vehicle)) continue;
       mesh.updateWorldMatrix(true,false);
       ray.intersectObject(mesh,false,hits);
     }
