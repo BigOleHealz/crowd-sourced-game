@@ -5,6 +5,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
+import { newExpedition } from './public/expedition.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -14,6 +15,7 @@ const port = Number(process.env.PORT || '4173');
 const capacity = 16;
 const step = 1 / 30;
 const players = new Map();
+let world = newExpedition();
 const types = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -87,7 +89,7 @@ function playerState(player) {
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState) });
+  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState), world });
   for (const { ws } of players.values()) {
     if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 64 * 1024) ws.send(message);
   }
@@ -132,9 +134,10 @@ sockets.on('connection', ws => {
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if (!players.size) world = newExpedition();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player) }));
+  ws.send(JSON.stringify({ type: 'welcome', id, state: playerState(player), world }));
   publish();
 });
 
@@ -143,7 +146,7 @@ let ticks = 0;
 function tick() {
   for (const player of players.values()) {
     const input = player.inputs.shift();
-    player.state = stepPlayer(player.state, input || idle, step);
+    player.state = stepPlayer(player.state, input || idle, step, world.hp);
     if (input) {
       player.ack = input.seq;
       player.yaw = input.yaw;

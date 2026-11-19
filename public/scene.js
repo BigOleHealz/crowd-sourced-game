@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAP, terrainHeight, groundHeight } from './world.js';
+import { MAP, BREAKABLES, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -354,6 +354,30 @@ function contactShadowMap() {
   return new THREE.CanvasTexture(stamp);
 }
 
+function crystalOutcrop(scene, material, prop, seed) {
+  const rng = random(seed), batch = new Batch();
+  const shaft = new THREE.CylinderGeometry(.86,1,1,5,1,false).toNonIndexed();
+  shaft.computeVertexNormals();
+  const point = new THREE.ConeGeometry(.86,1,5).toNonIndexed();
+  point.computeVertexNormals();
+  const tints = [0x40c6b2,0x60d6c8,0x369b9e,0x9be7c8];
+  for (let i=0; i<7; i++) {
+    const a = i*TAU/6;
+    const d = i ? (.40+.22*rng())*prop.radius : 0;
+    const x = Math.cos(a)*d, z = Math.sin(a)*d;
+    const h = prop.height*(i ? .40+.36*rng() : 1);
+    const r = prop.radius*(i ? .21+.09*rng() : .39);
+    const twist = rng()*TAU, tint = tints[i%4];
+    batch.add(shaft,tint,x,h*.32,z,r,h*.69,r,0,twist);
+    batch.add(point,color(tint).lerp(color(0xd4ffe8),.33),x,h*.835,z,r,h*.37,r,0,twist);
+  }
+  batch.add(stone,0x315e65,0,prop.height*.07,0,prop.radius*.88,prop.height*.24,prop.radius*.87);
+  shaft.dispose(); point.dispose();
+  const mesh = batch.mesh(scene,material,false);
+  mesh.position.set(prop.x,groundHeight(prop.x,prop.z),prop.z);
+  return {prop,mesh,hp:null};
+}
+
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
 function jacketColor(id) {
   const str=String(id);
@@ -431,7 +455,7 @@ function pose(avatar,state,dt) {
   avatar.shadow.material.opacity=.4-height*.12;
 }
 
-function cameraDistance(target,vector,wanted) {
+function cameraDistance(target,vector,wanted,hp) {
   let distance=wanted;
   for(let d=.45;d<wanted;d+=.20) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
@@ -452,6 +476,7 @@ function cameraDistance(target,vector,wanted) {
   };
   for(const tree of MAP.trees) test(tree,tree.radius+.2);
   for(const rock of MAP.rocks) test(rock,rock.radius+.16);
+  for(const prop of BREAKABLES) if (hp?.[prop.id] !== 0) test(prop,prop.radius+.12);
   return distance;
 }
 
@@ -477,6 +502,7 @@ export function createScene(canvas) {
   const features=new Batch();addBridge(features,rng);addDetails(features,rng);features.mesh(scene,material);
   const glints=water(scene,rng);
   const shadowMap=contactShadowMap();
+  const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
@@ -490,10 +516,19 @@ export function createScene(canvas) {
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
   }
-  function render(local,remotes,view,dt) {
+  function render(local,remotes,view,dt,world) {
     if(!local) return;
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
+    for(const crystal of crystals) {
+      const {prop,mesh}=crystal;
+      const hp=world?.hp?.[prop.id] ?? prop.hp;
+      if(hp!==crystal.hp) {
+        mesh.visible=hp>0;
+        mesh.scale.y=.78+.22*hp/prop.hp;
+        crystal.hp=hp;
+      }
+    }
     const live=new Set();
     for(const state of [local,...remotes]) {
       live.add(state.id);
@@ -507,7 +542,7 @@ export function createScene(canvas) {
     else target.lerp(desired,1-Math.exp(-dt*24));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const distance=cameraDistance(target,boom,clamp(view.distance||4.4,1.35,7.5));
+    const distance=cameraDistance(target,boom,clamp(view.distance||4.4,1.35,7.5),world?.hp);
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=distance>.86;

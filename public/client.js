@@ -16,6 +16,7 @@ const ctx = map.getContext('2d');
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
+let world;
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
@@ -90,6 +91,7 @@ function connect() {
   socket.onmessage = ({data}) => {
     const m = JSON.parse(data);
     if (m.type === 'full') { full = true; return; }
+    if (m.world) world = m.world;
     if (m.type === 'welcome') {
       id = m.id; self = previous = m.state; facing = m.state.yaw;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
@@ -99,7 +101,7 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
-      const corrected = pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
+      const corrected = pending.reduce((state, cmd) => stepPlayer(state, cmd, step, world?.hp), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
@@ -141,7 +143,7 @@ function tick() {
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  self = stepPlayer(self, cmd, step);
+  self = stepPlayer(self, cmd, step, world?.hp);
 }
 
 function remoteFrame(time) {
@@ -201,7 +203,7 @@ function frame(time) {
     const local = { ...self, id, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const remotes = remoteFrame(time);
-    scene.render(local, remotes, camera, dt);
+    scene.render(local, remotes, camera, dt, world);
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(camera.yaw / (Math.PI / 4)) % 8 + 8) % 8;
