@@ -7,6 +7,11 @@ import { roadway } from './brickell-map.js';
 export function surfacePicker(scene) {
   const objects=[], ray=new THREE.Raycaster(), hits=[];
   scene.traverse(mesh=>{if(mesh.isMesh && mesh.userData.impactSurface) objects.push(mesh);});
+  const transform=new THREE.Matrix4(), normalMatrix=new THREE.Matrix3();
+  function isVisible(mesh) {
+    for (let node=mesh;node;node=node.parent) if (!node.visible) return false;
+    return true;
+  }
   return (shot,start,end,sourceVehicle)=>{
     const distance=start.distanceTo(end);
     if(distance<.01) return;
@@ -14,7 +19,7 @@ export function surfacePicker(scene) {
     ray.near=.012;ray.far=distance+(shot.hitKind ? 1.9 : .08);
     hits.length=0;
     for(const mesh of objects){
-      if(!mesh.visible || (sourceVehicle && sourceVehicle===mesh.userData.vehicle)) continue;
+      if(!isVisible(mesh) || (sourceVehicle && sourceVehicle===mesh.userData.vehicle)) continue;
       mesh.updateWorldMatrix(true,false);
       ray.intersectObject(mesh,false,hits);
     }
@@ -28,7 +33,11 @@ export function surfacePicker(scene) {
     // Painted road markings sit a few millimetres above the asphalt sheet.
     if(surface==='street' && CITY && roadway(point.x,point.z) && Math.abs(point.y-.71)<.025) surface='asphalt';
     if(!['metal','wood','asphalt'].includes(surface)) return;
-    const normal=face.normal.clone().transformDirection(object.matrixWorld);
+    if (object.isInstancedMesh) {
+      object.getMatrixAt(first.instanceId,transform);
+      transform.premultiply(object.matrixWorld);
+    } else transform.copy(object.matrixWorld);
+    const normal=face.normal.clone().applyNormalMatrix(normalMatrix.getNormalMatrix(transform));
     if(normal.dot(ray.ray.direction)>0)normal.negate();
     return {point,surface,normal};
   };
