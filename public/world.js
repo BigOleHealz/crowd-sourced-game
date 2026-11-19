@@ -1,3 +1,4 @@
+import {yachtTopAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
 import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
@@ -263,8 +264,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=stanceBodyHeight(stance);
   const doors=world?.doors;
-  if (!blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
-  if (!blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
+  if (!yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) && !blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
+  if (!yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) && !blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
   // Water reaches every outer edge. Stay at the limit and allow movement
   // parallel to it, including a swimmer turning back toward the shoreline.
   if (x < travelBounds.west || x > travelBounds.east) vx=0;
@@ -318,6 +319,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 || !insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  const yachtSurface=yachtTopAt(world?.yacht,x,z);
+  if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;
   return next;

@@ -1,3 +1,4 @@
+import {yachtTopAt} from './yacht-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {lampDown} from './street-lamps.js';
 import {wheelStations} from './road-wheel-layout.js';
@@ -145,6 +146,20 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const rel={x:d.x-(now.x-start.x),y:d.y-(now.y-start.y),z:d.z-(now.z-start.z)};
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
+  }
+  // Sample the stepped stern, side decks and tapered hull at the same spatial
+  // interval as terrain. The shooter's muzzle stays above their own deck.
+  if(world.yacht && !world.yacht.wrecked && Math.hypot(round.x-world.yacht.x,round.z-world.yacht.z)<24+Math.hypot(d.x,d.z)){
+    const count=Math.max(1,Math.ceil(Math.hypot(d.x,d.y,d.z)/.12));
+    const inside=f=>{
+      const y=round.y+d.y*f;
+      return y>=world.yacht.y-1.25 && y<=yachtTopAt(world.yacht,round.x+d.x*f,round.z+d.z*f);
+    };
+    for(let i=0;i<=count && (i-1)/count<t;i++)if(inside(i/count)){
+      let lo=Math.max(0,(i-1)/count),hi=i/count;
+      for(let j=0;j<6;j++){const mid=(lo+hi)/2;if(inside(mid))hi=mid;else lo=mid;}
+      accept(hi,world.yacht,world.yacht.id);break;
+    }
   }
   const above=f=>{
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
