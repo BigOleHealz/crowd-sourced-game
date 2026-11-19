@@ -12,7 +12,7 @@ import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround, parapetTop } from './brickell-map.js';
 export const CITY = typeof location === 'object'
-  ? new URLSearchParams(location.search).get('map') === 'brickell'
+  ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
   : typeof process !== 'undefined' && process.env.PINEWATCH_MAP === 'brickell';
 export const MAP = CITY ? brickellMap : {
   bounds: 38,
