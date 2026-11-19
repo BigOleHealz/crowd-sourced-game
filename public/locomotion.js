@@ -40,8 +40,10 @@ export function advanceGait(g,state,dt) {
   g.duty=.58-.30*smooth(clamp((g.speed-.7)/6.5,0,1));
   g.span=stride*g.duty*g.weight;
   const bounce=-Math.cos(tau*(2*g.phase-g.duty));
-  g.pelvisY=-.046-g.weight*(.040+.084*g.run)+bounce*g.weight*(.016+.028*g.run);
-  g.pelvisX=.035*Math.cos(tau*(g.phase-g.duty/2))*g.weight;
+  // A loaded rear hip supports the idle stance; weight transfers across the
+  // planted leg, with a smaller vertical excursion as cadence increases.
+  g.pelvisY=-.065-g.weight*(.031+.071*g.run)+bounce*g.weight*(.017+.018*g.run);
+  g.pelvisX=.016*(1-g.weight)+.029*Math.cos(tau*(g.phase-g.duty/2))*g.weight;
   g.footLift=g.weight*(.065+.245*g.run)+g.pivot*.085;
 }
 
@@ -53,9 +55,10 @@ export function placeFoot(g,foot,side) {
   const c=Math.cos(g.yaw),s=Math.sin(g.yaw);
   const dirLength=Math.hypot(g.vx,g.vz);
   const vx=dirLength>.05 ? g.vx/dirLength : -s, vz=dirLength>.05 ? g.vz/dirLength : -c;
-  const spread=.13+.026*(1-g.weight);
-  const neutralX=g.x+side*(spread*c+.058*s);
-  const neutralZ=g.z+side*(-spread*s+.058*c);
+  const spread=.113+.014*(1-g.weight);
+  const stagger=.092*(1-g.weight)+.011*g.weight;
+  const neutralX=g.x+side*(spread*c+stagger*s);
+  const neutralZ=g.z+side*(-spread*s+stagger*c);
   const strideOffset=g.span*(phase<g.duty ? .5-phase/g.duty : smooth(swing)-.5);
   let x=neutralX+strideOffset*vx,z=neutralZ+strideOffset*vz;
   const planted=phase<g.duty && g.weight+g.pivot>.10;

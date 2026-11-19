@@ -17,9 +17,27 @@ export function characterBurst(part,point,from,particle,random) {
   }
 }
 
+// The original and the detached garment share geometry; each needs the matrices
+// of the two joints on its own copy of the limb.
+function detachedLimb(joint) {
+  const copy=joint.clone(true), nodes=[], clones=[];
+  joint.traverse(n=>nodes.push(n));copy.traverse(n=>clones.push(n));
+  const mapped=new Map(nodes.map((node,i)=>[node,clones[i]]));
+  for(const node of nodes)if(node.isSkinnedMesh) {
+    const skeleton=node.skeleton;
+    mapped.get(node).bind(new THREE.Skeleton(skeleton.bones.map(bone=>mapped.get(bone)),skeleton.boneInverses),node.bindMatrix);
+  }
+  return copy;
+}
+function releaseLimb(prop) {
+  if(!prop)return;
+  prop.traverse(n=>n.skeleton?.dispose());
+  prop.removeFromParent();
+}
+
 export function clearLostParts(avatar) {
   if(!avatar.detached) return;
-  for(const entry of avatar.detached.values())entry.prop?.removeFromParent();
+  for(const entry of avatar.detached.values())releaseLimb(entry.prop);
   avatar.detached.clear();
 }
 
@@ -33,14 +51,14 @@ export function applyLostParts(avatar,state,scene,hp,dt) {
     joint.visible=!hit;
     let entry=avatar.detached.get(part);
     if(entry && entry.tick!==hit?.tick) {
-      entry.prop?.removeFromParent();avatar.detached.delete(part);entry=null;
+      releaseLimb(entry.prop);avatar.detached.delete(part);entry=null;
     }
     if(!hit)continue;
     if(!entry) {
       let prop=null;
       if(part!=='head') {
         // Reuse the hiker's sleeve, glove, trouser and boot geometry.
-        prop=joint.clone(true);prop.visible=true;
+        prop=detachedLimb(joint);prop.visible=true;
         for(const child of prop.children)if(child.isGroup) {
           child.rotation.set(part.endsWith('Leg') ? -.29 : .35,0,0);
           for(const end of child.children)if(end.isGroup)end.rotation.set(.10,0,0);
