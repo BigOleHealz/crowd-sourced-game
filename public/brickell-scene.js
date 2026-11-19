@@ -1,6 +1,7 @@
 import {harborSigns,signalPost} from './scenery-layout.js';
 import { retailRecess, streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
+import {addCauseway} from './causeway-view.js';
 import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
@@ -35,7 +36,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   const harborAvenue={...harbor,west:-6,east:6};
   const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
-  ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705)],5);
+  ground('asphalt',[[cx,.70,cz,w,d],patch(harborAvenue,.70),patch(cross,.705)],5);
   const lots=[],lawns=bayfrontLawns.map(r=>patch(r,.812));
   const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
   const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
@@ -50,16 +51,10 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
-  solids.add(box,0x989b96,0,.35,(causeway.north+causeway.south)/2,12,.67,causeway.south-causeway.north);
-  for(let z=harbor.north+2;z<coast.north;z+=4){
+  addCauseway(scene,Batch,solids,material('asphalt'));
+  for(let z=harbor.north+2;z<causeway.north;z+=4){
     if(Math.abs(z-harbor.crossing)<6)continue;
     solids.add(box,0xe3bc67,0,.718,z,.12,.014,2.25);
-  }
-  for(const side of [-1,1]) {
-    const x=side*5.73, length=causeway.south-causeway.north;
-    solids.add(box,0xc4bfaa,x,1.20,(causeway.north+causeway.south)/2,.12,.09,length);
-    const bays=Math.ceil(length/6);
-    for(let i=0;i<=bays;i++)solids.add(box,0xc4bfaa,x,.96,causeway.north+i*length/bays,.18,.53,.17);
   }
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
   for(const [x,z,label] of harborSigns) {

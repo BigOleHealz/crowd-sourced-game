@@ -1,3 +1,4 @@
+import {liveShots} from './shot-events.js';
 import {storefrontRoom} from './storefront-layout.js';
 import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
@@ -28,7 +29,7 @@ if(CITY) {
 }
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
-let roverView = null;
+let roverView = null, roadImpact=null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
 const canAim = () => self && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
@@ -44,7 +45,7 @@ const ctx = map.getContext('2d');
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
-let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
+let scene, socket, id, self, previous, readShots, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
 const myBoat=()=>crewBoat(world,id);
 const isDriving = () => id != null && (world?.rover.driver === id || myBoat()?.driver===id);
@@ -192,7 +193,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       id = m.id; self = previous = m.state; facing = m.state.yaw;
-      world = m.world; audio.reset(world); vitals = m.state; weapon = m.state.weapon;
+      world = m.world; roadImpact=null; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -203,6 +204,10 @@ function connect() {
       const wasPilot = isPilot(), wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       vitals = authoritative;
+      const bump=m.world.rover.contactSound;
+      if(world.rover.driver===id && bump?.damage>0 && bump.id!==world.rover.contactSound?.id){
+        roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
+      }
       world = m.world;
       if (wasDriving && !isDriving() && roverView) {
         camera.yaw = roverView.yaw;
@@ -220,7 +225,9 @@ function connect() {
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
-      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw);
+      const shots=readShots(world.shots);
+      scene.showShots(shots);
+      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
       samples.push({ time: performance.now(), bullets:world.bullets, boats:world.boats, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
@@ -375,7 +382,7 @@ function updateEquipment(local) {
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (boat ? 'Hull ' : pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
-  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : vitals.protected ? 'Spawn shield' : '';
+  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : world.rover.driver===id && roadImpact?.until>performance.now() ? roadImpact.message : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;

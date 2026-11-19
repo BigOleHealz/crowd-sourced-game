@@ -1,7 +1,7 @@
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, segmentContact } from './rounds.js';
+import { firearmSpecs, roverRoundContact, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
@@ -100,6 +100,8 @@ function actorIntersection(actor,from,worldDir) {
 export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null) {
   let target = null, hitKind = null, to, blocked = false, headshot=false, hitPart=null, injuryPoint=null;
   const intersections=actors.map(actor=>actorIntersection(actor,from,direction)).sort((a,b)=>a.distance-b.distance);
+  const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,
+    {x:direction.x*range,y:direction.y*range,z:direction.z*range});
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
@@ -112,13 +114,10 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
       target = world.heli; hitKind = 'heli'; break;
     }
-    const r=world.rover;
-    if (sourceVehicle !== 'rover' && r && !r.wrecked && Math.abs(to.y-r.y-.79)<=.79+halo) {
-      const dx=to.x-r.x, dz=to.z-r.z;
-      const side=dx*Math.cos(r.yaw)+dz*Math.sin(r.yaw), along=dx*Math.sin(r.yaw)-dz*Math.cos(r.yaw);
-      if (Math.abs(side)<=.79+halo && Math.abs(along)<=1.52+halo) {
-        target=r; hitKind='rover'; break;
-      }
+    if(roverContact && d>=roverContact.t*range){
+      const distance=roverContact.t*range;
+      to={x:from.x+direction.x*distance,y:from.y+direction.y*distance,z:from.z+direction.z*distance};
+      target=world.rover;hitKind='rover';break;
     }
     const boat=world.boats?.find(b=>{
       if(b.wrecked||b.id===sourceVehicle||to.y<b.y-.50-halo||to.y>b.y+1.05+halo)return false;
@@ -153,7 +152,7 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
+function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
   let injury=null;
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
@@ -166,12 +165,14 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint}
     for (const actor of actors) {
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
-        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick, direction);
+        const defeated=damageActor(actor,actor===target && headshot ? damage*3 : damage,tick,direction);
         if(actor===target && hitPart && actor.life.hp<priorHP) {
-          injury=actor.life.lostParts?.[hitPart] ? null : hitPart;
+          if(hitPart==='head' && !defeated)continue;
+          if(actor.life.lostParts?.[hitPart])continue;
+          injury=hitPart==='head' ? 'headPop' : hitPart;
           if(hitPart!=='torso') {
             actor.life.lostParts ??= {};
-            actor.life.lostParts[hitPart] ??= {tick,...(injuryPoint ?? to),yaw:actor.yaw ?? 0,
+            actor.life.lostParts[hitPart] = {tick,...(injuryPoint ?? to),yaw:actor.yaw ?? 0,
               dx:direction?.x ?? 0,dz:direction?.z ?? 0};
           }
         }
@@ -181,7 +182,8 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint}
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,damage,players);
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
-      damageRover(world,damage,players);
+      if(!areaImpact && Number.isInteger(wheel))world.rover.flatTires=(world.rover.flatTires ?? 0)|(1<<wheel);
+      else damageRover(world,damage,players);
     }
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, damage, players, shooter);

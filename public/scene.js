@@ -1019,7 +1019,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false) {
   const increment=indoors ? .08 : .20, minimum=indoors ? .10 : .45;
   for(let d=minimum;d<=wanted+increment;d+=increment) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
+    if(Math.max(groundHeight(x,z,y+.15),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {
@@ -1101,7 +1101,6 @@ export function createScene(canvas) {
   sightModels[2].position.set(0,-.216,-.37);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
-  let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3(), sideways=new THREE.Vector3();
@@ -1179,11 +1178,6 @@ export function createScene(canvas) {
         if(hp>0) mesh.scale.y=.78+.22*hp/prop.hp;
         stack.hp=hp;
       }
-    }
-    if(world?.shots) {
-      // Ignore recent history on first join. Consume each subsequent event once.
-      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot,shot.source);
-      lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
@@ -1265,7 +1259,7 @@ export function createScene(canvas) {
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
-    if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
+    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86);
     const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
@@ -1290,7 +1284,10 @@ export function createScene(canvas) {
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }
-  return {render,resize,aimAt,dispose(){scene.traverse(node=>{
+  function showShots(shots) {
+    for(const shot of shots)effects.shot(shot,shot.source);
+  }
+  return {render,resize,aimAt,showShots,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

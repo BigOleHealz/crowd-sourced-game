@@ -2,18 +2,29 @@ import * as THREE from 'three';
 import {groundHeight,solidTopAt} from './world.js';
 
 export function characterBurst(part,point,from,particle,random) {
-  const head=part==='head';
+  if(part==='headPop') {
+    // Two bright rings of faceted confetti fold into a short upward plume.
+    const pinks=[0xff59bb,0xffa9dc,0xffe7f8];
+    for(let i=0;i<24;i++) {
+      const angle=i*Math.PI/6+(i<12 ? 0 : Math.PI/12);
+      const radius=(i<12 ? 2.5 : 1.35)+random()*.45;
+      const velocity=new THREE.Vector3(Math.cos(angle)*radius,.5+random()*(i<12 ? .7 : 2.9),Math.sin(angle)*radius);
+      const size=.030+.042*random();
+      particle(point.clone(),velocity,new THREE.Vector3(size,size,size),
+        pinks[i%3],.22+.16*random());
+    }
+    return;
+  }
   const forward=point.clone().sub(from).normalize();
-  const count=head ? 27 : part==='torso' ? 11 : 16;
+  const count=part==='torso' ? 11 : 16;
   for(let i=0;i<count;i++) {
-    const chip=head && i%4===0;
     const direction=new THREE.Vector3(random()-.5,random()-.36,random()-.5);
-    direction.addScaledVector(forward,head ? .12 : .48).normalize();
-    const speed=(head ? 2.2 : 1.4)+random()*2.5;
-    const width=(chip ? .038 : .025)*(1+random()*.8);
-    const color=chip ? (i%8 ? 0x4c5149 : 0x283439) : i%3 ? 0xb52736 : 0x701723;
-    particle(point.clone(),direction.multiplyScalar(speed),new THREE.Vector3(width,width*(chip ? 1.4 : 1.85),width*.78),
-      color,.18+random()*(head ? .44 : .27));
+    direction.addScaledVector(forward,.48).normalize();
+    const speed=1.4+random()*2.5;
+    const width=.025*(1+random()*.8);
+    const color=i%3 ? 0xb52736 : 0x701723;
+    particle(point.clone(),direction.multiplyScalar(speed),new THREE.Vector3(width,width*1.85,width*.78),
+      color,.18+random()*.27);
   }
 }
 
@@ -47,7 +58,7 @@ export function applyLostParts(avatar,state,scene,hp,dt) {
   const [left,right]=avatar.limbs;
   const joints={head:avatar.head,leftArm:left.arm,rightArm:right.arm,leftLeg:left.leg,rightLeg:right.leg};
   for(const [part,joint] of Object.entries(joints)) {
-    const hit=state.lostParts?.[part];
+    const hit=part==='head' && !state.dead ? undefined : state.lostParts?.[part];
     joint.visible=!hit;
     let entry=avatar.detached.get(part);
     if(entry && entry.tick!==hit?.tick) {
