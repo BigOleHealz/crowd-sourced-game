@@ -670,10 +670,10 @@ function fieldEffects(scene) {
     along.subVectors(b,a);
     const length=along.length();
     if(length>.01) {
-      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.6 : 1.2);
+      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.85 : 1.4);
       const direction=along.normalize();
       particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
-        new THREE.Vector3(.018,tracerLength*.5,.018),s.weapon===2 ? 0xdcad73 : 0xffdc9a,.095);
+        new THREE.Vector3(.022,tracerLength*.5,.022),s.weapon===2 ? 0xedb97c : 0xffe5b3,.135);
       particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
       particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
