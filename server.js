@@ -1,3 +1,4 @@
+import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -141,6 +142,8 @@ function acceptInput(player, data, binary) {
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
+    seat: input.seat===1 || input.seat===2 ? input.seat : null,
+    seatKind: input.seatKind==='heli' || input.seatKind==='rover' ? input.seatKind : null,
     fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
@@ -222,7 +225,7 @@ function tick() {
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
         else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
         else interact(world, player);
-      }
+      } else if (input.seat) selectSeat(world,player,input.seatKind,input.seat);
     }
     if (world.rover.driver === player.id) {
       driveRover(world, input || idle, step, players);
@@ -247,7 +250,7 @@ function tick() {
     }
     const kind=gunnerVehicle(world,player.id);
     if (kind) {
-      if(input && !input.interact) {
+      if(input && !input.interact && !input.seat) {
         world[kind].turretYaw=input.aimYaw;
         world[kind].turretPitch=turretPitch(input.aimPitch);
         if(input.fire) firingGunners.add(player.id);
