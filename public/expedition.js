@@ -29,9 +29,38 @@ function withinBurst(center, feet, centerHeight) {
   return Math.hypot(feet.x - center.x, feet.y + centerHeight - center.y, feet.z - center.z) <= 3.5;
 }
 
+// Use the same small head and wider torso for cursor picking and server damage.
+// A relaxed near miss can select the body, but only a ray through the head earns a critical hit.
+function actorIntersection(actor,from,dir) {
+  const feet=actor.state;
+  const x=from.x-feet.x, y=from.y-feet.y, z=from.z-feet.z;
+  const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
+  const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69)/.161, hz=(z+lean*Math.cos(yaw))/.128;
+  const dx=dir.x/.128, dy=dir.y/.161, dz=dir.z/.128;
+  const a=dx*dx+dy*dy+dz*dz, b=hx*dx+hy*dy+hz*dz;
+  const disc=b*b-a*(hx*hx+hy*hy+hz*hz-1);
+  let head=Infinity, body=Infinity;
+  if(disc>=0 && -b+Math.sqrt(disc)>=0) head=Math.max(0,(-b-Math.sqrt(disc))/a);
+  // Intersect the torso cylinder with its vertical interval.
+  const radial=dir.x*dir.x+dir.z*dir.z, dot=x*dir.x+z*dir.z;
+  const c=x*x+z*z-.39*.39, delta=dot*dot-radial*c;
+  let enter=0, leave=Infinity;
+  if(radial>1e-9 && delta>=0) {
+    enter=Math.max(0,(-dot-Math.sqrt(delta))/radial);
+    leave=(-dot+Math.sqrt(delta))/radial;
+  } else if(radial>1e-9 || c>0) leave=-1;
+  if(Math.abs(dir.y)>1e-9) {
+    const low=-y/dir.y, high=(1.54-y)/dir.y;
+    enter=Math.max(enter,Math.min(low,high));leave=Math.min(leave,Math.max(low,high));
+  } else if(y<0 || y>1.54) leave=-1;
+  if(enter<=leave) body=enter;
+  return {actor,distance:Math.min(head,body),headshot:head<body};
+}
+
 // Also used by the third-person camera to find the depth under the cursor.
 export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null) {
-  let target = null, hitKind = null, to, blocked = false;
+  let target = null, hitKind = null, to, blocked = false, headshot=false;
+  const intersections=actors.map(actor=>actorIntersection(actor,from,direction)).sort((a,b)=>a.distance-b.distance);
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
@@ -52,10 +81,16 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
         target=r; hitKind='rover'; break;
       }
     }
-    target = actors.find(actor => insideBody(to, actor.state, 0.39, 1.72, halo));
+    const direct=intersections[0];
+    if(direct && direct.distance<=d+.00001) {
+      target=direct.actor;headshot=direct.headshot;
+      to={x:from.x+direction.x*direct.distance,y:from.y+direction.y*direct.distance,z:from.z+direction.z*direct.distance};
+    } else if(assist) {
+      target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72,halo))?.actor;
+    }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
-  return { target, hitKind, to, blocked };
+  return { target, hitKind, to, blocked, headshot };
 }
 
 export function fire(world, player, input, tick, players, npcs) {
@@ -69,9 +104,9 @@ export function fire(world, player, input, tick, players, npcs) {
   const dy = Math.sin(input.aimPitch);
   const dz = -Math.cos(input.aimYaw) * horizontal;
   const actors = targets(world,player.id,players,npcs);
-  const { target, hitKind, to } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
-  applyHit(world,{target,hitKind,to},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
-  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to,
+  const { target, hitKind, to, headshot } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
+  applyHit(world,{target,hitKind,to,headshot},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
+  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to, headshot,
     hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
 }
 
@@ -80,7 +115,7 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
+function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
   if (hitKind || (bloom && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
@@ -91,7 +126,7 @@ function applyHit(world,{target,hitKind,to,blocked},actors,players,shooter,tick,
     }
     for (const actor of actors) {
       if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
-        damageActor(actor, damage, tick);
+        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
       }
     }
     if (source !== 'rover' && (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8)))) {
@@ -124,7 +159,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
     applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
-    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,hit:true,hitKind:hit.hitKind,tick});
+    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
 }
@@ -143,6 +178,6 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind);
   const d=Math.min(.64,Math.hypot(hit.to.x-pivot.x,hit.to.y-pivot.y,hit.to.z-pivot.z));
   const from={x:pivot.x+dir.x*d,y:pivot.y+dir.y*d,z:pivot.z+dir.z*d};
-  world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,
+  world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,headshot:hit.headshot,
     hit:Boolean(hit.hitKind),hitKind:hit.hitKind,targetId:hit.target?.id ?? hit.hitKind,tick});
 }

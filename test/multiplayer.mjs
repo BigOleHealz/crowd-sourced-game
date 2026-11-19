@@ -219,3 +219,5 @@ try {
 
 await import('./rover.mjs');
 await import('./supply-run.mjs');
+
+await import('./mounted-combat.mjs');
