@@ -1,3 +1,4 @@
+import {lookoutFloor} from './beach-layout.js';
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
 import { brickellMap, cityGround } from './brickell-map.js';
@@ -58,7 +59,7 @@ export function onBuildingLot(x,z,margin=0) {
 }
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0) {
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity) {
   let top=-Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
@@ -66,7 +67,9 @@ export function buildingTopAt(x,z,padding=0) {
     top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
   }
   for(const b of MAP.barriers ?? []){
-    if(Math.abs(x-b.x)<=b.w/2+padding && Math.abs(z-b.z)<=b.d/2+padding) top=Math.max(top,terrainHeight(b.x,b.z)+b.h);
+    if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
+    const base=terrainHeight(b.x,b.z);
+    if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
   return top;
 }
@@ -119,7 +122,7 @@ export function terrainHeight(x, z) {
 }
 
 export function groundHeight(x, z) {
-  if(CITY) return cityGround(x,z);
+  if(CITY) return lookoutFloor(x,z,cityGround(x,z));
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&
       Math.abs(z - bridge.z) <= bridge.length / 2) {
@@ -150,8 +153,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0) {
-  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
+  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding,maxBottom));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
@@ -165,7 +168,7 @@ export function blocked(x, y, z, hp) {
   const rail = !CITY && Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
     Math.abs(z - bridge.z) <= 4.8 && y < bridge.y + 0.9 && y + 1.7 >= bridge.y;
   if (rail) return true;
-  return solidTopAt(x, z, hp, PLAYER_RADIUS) > Math.max(y, groundHeight(x, z)) + 0.001;
+  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
 export function stepPlayer(state, input, dt, hp) {
@@ -197,7 +200,7 @@ export function stepPlayer(state, input, dt, hp) {
   x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
   z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
   let floor = groundHeight(x, z);
-  const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
+  const top = solidTopAt(x, z, hp, PLAYER_RADIUS, y+.01);
   if (y >= top) floor = top;
   const draft=.72, floatY=MAP.waterY-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);

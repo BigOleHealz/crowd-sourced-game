@@ -1,5 +1,6 @@
+import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
-import { beach, courts, stations, sandHeight } from './beach-layout.js';
+import { beach, courts, sandHeight } from './beach-layout.js';
 export function addBeach(scene,Batch) {
   const geometry=new THREE.PlaneGeometry(beach.east-beach.west,beach.south-beach.north,24,64);
   geometry.rotateX(-Math.PI/2);geometry.translate((beach.east+beach.west)/2,0,(beach.south+beach.north)/2);
@@ -46,28 +47,7 @@ export function addBeach(scene,Batch) {
       cord.beam(0x525957,[ax,top(u),z],[ax,top(u)-.88,z],.015);
     }
   }
-  for(const {x,z,number} of stations){
-    const h=sandHeight(x,z),paint=number==='01'?0x4ba9aa:0xe27955;
-    for(const s of [-1,1]) for(const t of [-1,1]){
-      const a=[x+s*1.13,sandHeight(x+s*1.13,z+t*1.25)-.04,z+t*1.25],b=[x+s*.94,h+1.64,z+t*1.04];
-      timber.beam(0xa58967,a,b,.16);
-    }
-    timber.add(box,0xc2ab87,x+.25,h+1.58,z,2.84,.16,2.76);
-    timber.add(box,paint,x-.32,h+2.34,z,1.78,1.37,2.38);
-    timber.add(box,0x365558,x+.58,h+2.61,z,.032,.57,2.03);
-    for(const side of [-1,1]) {
-      timber.add(box,0x405b5d,x-.38,h+2.60,z+side*1.196,1.31,.53,.024);
-      timber.beam(0xf1e4bd,[x+1.52,h+1.60,z+side*1.28],[x+1.52,h+2.39,z+side*1.28],.062);
-      timber.beam(0xe7dbb9,[x+.56,h+2.38,z+side*1.27],[x+1.54,h+2.38,z+side*1.27],.063);
-    }
-    timber.add(box,0xf3e7c7,x,h+3.14,z,2.91,.145,3.04,0,0,.065);
-    for(let i=0;i<5;i++)timber.add(box,0xb19a75,x-.89-i*.22,h+1.35-i*.265,z,.29,.095,.77);
-    const canvas=document.createElement('canvas');canvas.width=384;canvas.height=100;
-    const ink=canvas.getContext('2d');ink.fillStyle='#e9dfc6';ink.fillRect(0,0,384,100);ink.fillStyle='#29514f';ink.font='bold 37px sans-serif';ink.textAlign='center';ink.fillText('OCEAN RESCUE',192,43);ink.font='bold 30px sans-serif';ink.fillText('HARBOR KEY  '+number,192,83);
-    const m=new THREE.CanvasTexture(canvas);m.colorSpace=THREE.SRGBColorSpace;
-    const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.48,.37),new THREE.MeshLambertMaterial({map:m}));
-    sign.position.set(x-.33,h+2.14,z+1.21);scene.add(sign);
-  }
+  addLookouts(scene,Batch);
   const wood=timber.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));wood.userData.impactSurface='wood';
   cord.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='solid';
   box.dispose();
