@@ -913,7 +913,7 @@ export function createScene(canvas) {
     if(w===lastWidth && h===lastHeight) return;
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
-  let roverBoom = null;
+  let roverBoom = null, bailoutOrbit = 0;
   function removeAvatar(a) {
     a.label.dispose();
     a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
@@ -990,7 +990,9 @@ export function createScene(canvas) {
     if (watchCrash) desired.lerp(helicopter.group.position, Math.min(.40,5/Math.max(1,separation)));
     if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
-    const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
+    // A slight shoulder view separates the canopy from the aircraft ahead.
+    bailoutOrbit = mix(bailoutOrbit,watchCrash ? .31 : 0,1-Math.exp(-dt*6));
+    const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=(view.yaw||0)+bailoutOrbit;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : Math.min(6,separation*.5));
     const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);

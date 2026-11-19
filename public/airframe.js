@@ -168,6 +168,14 @@ export function interact(world, player) {
   if (!heli.grounded) {
     if (heli.pilot !== player.id) return;
     player.state = { x: heli.x, y: heli.y + .6, z: heli.z, vy: 0, grounded: false, parachute: 'packed' };
+    // Step clear of the cabin so the jumper and aircraft separate visibly.
+    for (const side of [1,-1]) {
+      const x = heli.x + side * 1.85 * Math.cos(heli.yaw);
+      const z = heli.z + side * 1.85 * Math.sin(heli.yaw);
+      if (blocked(x, player.state.y, z, world.hp)) continue;
+      Object.assign(player.state, {x,z});
+      break;
+    }
     heli.pilot = null;
     heli.abandonedFor = 0;
     return;
