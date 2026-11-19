@@ -1,4 +1,4 @@
-import {nearBoat,crewBoat,helmFeet} from './patrol-boats.js';
+import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
@@ -449,8 +449,10 @@ function frame(time) {
     const t = accumulator / step;
     const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const { players: remotes, npcs, heli, rover, boats=[] } = remoteFrame(time);
-    const boat=boats.find(b=>b.driver===id||b.gunner===id);
+    const { players: remotes, npcs, heli, rover, boats: sampledBoats=[] } = remoteFrame(time);
+    const assigned=myBoat();
+    const boats=localBoatFrame(sampledBoats,assigned,id);
+    const boat=assigned && boats.find(b=>b.id===assigned.id);
     local.weapon = weapon;
     if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
