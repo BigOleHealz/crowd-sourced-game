@@ -1,3 +1,4 @@
+import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
@@ -15,7 +16,7 @@ export function newExpedition() {
   return {
     heli: parkedHelicopter(), rover: parkedRover(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
-    shots: [], missiles: [],
+    shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
   };
 }
@@ -95,19 +96,11 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 
 export function fire(world, player, input, tick, players, npcs) {
   if (player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
-  const bloom = player.weapon === 2;
-  player.fireReady = tick + (bloom ? 21 : 6);
-  const { x, y, z } = player.state;
-  const from = { x, y: y + 1.3, z };
-  const horizontal = Math.cos(input.aimPitch);
-  const dx = Math.sin(input.aimYaw) * horizontal;
-  const dy = Math.sin(input.aimPitch);
-  const dz = -Math.cos(input.aimYaw) * horizontal;
-  const actors = targets(world,player.id,players,npcs);
-  const { target, hitKind, to, headshot } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
-  applyHit(world,{target,hitKind,to,headshot},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
-  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to, headshot,
-    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
+  const spec=firearmSpecs[player.weapon];
+  player.fireReady=tick+spec.cooldown;
+  const from={x:player.state.x,y:player.state.y+1.3,z:player.state.z};
+  sendRound(world,player.id,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
+
 }
 
 function targets(world,shooter,players,npcs,source=null) {
@@ -171,14 +164,34 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
   // The 30 Hz simulation alternates eight and seven ticks between bullets.
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+7.5);
-  const horizontal=Math.cos(v.turretPitch);
-  const dir={x:Math.sin(v.turretYaw)*horizontal,y:Math.sin(v.turretPitch),z:-Math.cos(v.turretYaw)*horizontal};
   const pivot=mountPosition(v,mounts[kind].turret);
-  const actors=targets(world,player.id,players,npcs,kind);
-  const hit=tracePulse(world,actors,pivot,dir,turretRange,false,kind);
-  applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind);
-  const d=Math.min(.64,Math.hypot(hit.to.x-pivot.x,hit.to.y-pivot.y,hit.to.z-pivot.z));
-  const from={x:pivot.x+dir.x*d,y:pivot.y+dir.y*d,z:pivot.z+dir.z*d};
-  world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,headshot:hit.headshot,
-    hit:Boolean(hit.hitKind),hitKind:hit.hitKind,targetId:hit.target?.id ?? hit.hitKind,tick});
+  sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
+}
+
+function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick){
+  const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
+  world.bullets.push({...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
+    vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0});
+  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',from,to:from,tick});
+}
+
+const lastPosition=new WeakMap();
+export function advanceRounds(world,players,npcs,tick){
+  const dt=1/30;
+  world.bullets=world.bullets.filter(r=>{
+    const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source);
+    const d={x:r.vx*dt,y:r.vy*dt-roundDrop*dt*dt/2,z:r.vz*dt};
+    const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
+    d.x*=fraction;d.y*=fraction;d.z*=fraction;
+    const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
+    const from={x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
+    r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
+    if(hit.t===Infinity)return r.left>.00001 && r.age<90;
+    const to={x:r.x,y:r.y,z:r.z};
+    if(hit.target)applyHit(world,{...hit,to},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source);
+    world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,
+      hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
+    return false;
+  });
+  for(const actor of [...players.values(),...npcs])lastPosition.set(actor,{...actor.state});
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {newExpedition, fire, fireTurret, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
+import {newExpedition, fire, fireTurret, advanceRounds, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
 import {mountPosition,mounts} from '../public/mounts.js';
 import {newLife} from '../public/rivals.js';
 
@@ -11,15 +11,18 @@ for(const kind of ['rover','heli']){
   const target={id:'rival-test',life:newLife(0,false),state:{x:pivot.x,y:pivot.y-1.25,z:pivot.z+5}};
   const players=new Map([[2,crew]]);
   fireTurret(world,kind,crew,0,players,[target]);
-  assert.equal(target.life.hp,66,'turret body damage');
+  assert.equal(target.life.hp,100);
+  for(let tick=0;tick<4;tick++)advanceRounds(world,players,[target],tick);
+  assert.equal(target.life.hp,66,'traveling turret round contacts target');
   target.state.y=pivot.y-1.69;target.life={...newLife(0,false),hp:150};
-  for(let tick=1;tick<60;tick++) {
+  for(let tick=4;tick<60;tick++) {
     fireTurret(world,kind,crew,tick,players,[target]);
-    if(tick===8) assert.equal(target.life.hp,48);
+    advanceRounds(world,players,[target],tick);
+    if(tick===11)assert.equal(target.life.hp,48);
   }
   assert.equal(target.life.hp,0);
-  assert(world.shots[1].headshot);
-  assert.deepEqual(world.shots.map(s=>s.tick),[0,8,15,23,30,38,45,53]);
+  assert.ok(world.shots.some(s=>s.weapon==='turret' && s.headshot));
+  assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.tick),[0,8,15,23,30,38,45,53]);
   assert.equal(v.hp,v.maxHp);
   launchMissile(world,kind,{id:2},60);assert.equal(world.missiles.length,0);
   launchMissile(world,kind,{id:1},60);
@@ -34,11 +37,14 @@ const target={id:2,state:{x:0,y:15,z:-8},life:newLife(0,false)};
 const players=new Map([[1,shooter],[2,target]]);
 const pitch=Math.atan2(.39,8);
 fire(world,shooter,{aimYaw:0,aimPitch:pitch},0,players,[]);
+assert.equal(target.life.hp,100);
+for(let tick=0;tick<8;tick++)advanceRounds(world,players,[],tick);
 assert.equal(target.life.hp,25);
 const nearMiss=tracePulse(world,[target],{x:.19,y:16.69,z:0},{x:0,y:0,z:-1},12,true);
 assert.equal(nearMiss.target,target);assert.equal(nearMiss.headshot,false);
 target.life=newLife(0,false);shooter.weapon=2;
 const nearby={id:3,state:{x:1.3,y:15,z:-8},life:newLife(0,false)};players.set(3,nearby);
 fire(world,shooter,{aimYaw:0,aimPitch:pitch},30,players,[]);
-assert.equal(target.life.hp,0);assert.equal(nearby.life.hp,60,'nearby blast damage stays at base');
-console.log('PASS: both forward missiles, independent turret direction, four shots per second, direct headshots and blast falloff.');
+for(let tick=30;tick<40;tick++)advanceRounds(world,players,[],tick);
+assert.equal(target.life.hp,0);assert.equal(nearby.life.hp,100,'sidearm never damages a bystander');
+console.log('PASS: both forward missiles, independent turret direction, four shots per second, direct headshots and single-target sidearm impacts.');
