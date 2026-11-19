@@ -12,6 +12,21 @@ function moored(site) {
 }
 export const patrolFleet=()=>CITY?berths.map(moored):[];
 export const crewBoat=(world,id)=>id==null?null:world?.boats?.find(b=>b.driver===id||b.gunner===id);
+// Keep delayed hull motion while local seat changes take effect on their first frame.
+export function localBoatFrame(sampled, assigned, id) {
+  let found=false;
+  const boats=sampled.map(hull=>{
+    if(assigned && hull.id===assigned.id) {
+      found=true;
+      return {...hull,driver:assigned.driver,gunner:assigned.gunner};
+    }
+    if(id!=null && (hull.driver===id || hull.gunner===id))
+      return {...hull,driver:hull.driver===id?null:hull.driver,gunner:hull.gunner===id?null:hull.gunner};
+    return hull;
+  });
+  if(assigned && !found)boats.push(assigned);
+  return boats;
+}
 export function nearBoat(world,feet) {
   if(!feet || (!feet.grounded && !feet.swimming))return null;
   let best=null,range=3.85;
