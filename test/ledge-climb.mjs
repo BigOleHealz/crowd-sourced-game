@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {MAP,groundHeight,stepPlayer}=await import('../public/world.js');
+const {startFall}=await import('../public/falls.js');
+const dt=1/30, jump={jump:true,x:0,z:0,yaw:Math.PI}, idle={x:0,z:0};
+const start={x:24.5,z:15.8,y:groundHeight(24.5,15.8),grounded:true};
+const climb=s=>stepPlayer(s,jump,dt,{});
+let s=climb(start);assert(s.climb && !s.grounded);
+assert(climb({...start,x:24.915,z:15.96444}).climb,'corner approach lands sufficiently far onto rounded support');
+const path=[s];
+while(s.climb){s=stepPlayer(s,idle,dt,{});path.push(s);}
+assert(s.grounded && s.y===2.5 && s.z>16.5);
+assert(path.length>20 && path.every((a,i)=>!i || Math.hypot(a.x-path[i-1].x,a.y-path[i-1].y,a.z-path[i-1].z)<.34));
+for(const rule of [{grounded:false},{swimming:true},{parachute:'packed'},{stance:'crouch'},{stance:'prone'},{fall:{}},{dead:true}])
+  assert(!climb({...start,...rule}).climb);
+assert(!stepPlayer(start,{...jump,yaw:0},dt,{}).climb,'face the lip');
+assert(!stepPlayer(start,{...jump,interact:true},dt,{}).climb);
+assert(!stepPlayer({...start,x:-9,z:7},{...jump,yaw:-Math.PI/2},dt,{}).climb,'high wall rejected');
+assert(!stepPlayer(start,jump,dt,{twin:0}).climb,'destroyed support');
+const vanished=stepPlayer(path[8],idle,dt,{twin:0});
+assert(!vanished.climb && !vanished.grounded && vanished.z===path[8].z);
+const actor={state:{...path[9]},life:{}};startFall(actor,6,{x:1,y:1,z:1},'rover');
+assert(!actor.state.climb);
+const vehicle={rover:{x:start.x,z:16.65,y:2.50,yaw:0}};
+assert(!stepPlayer(start,jump,dt,{},vehicle).climb,'occupied landing');
+const canopy={x:24.5,z:16.62,w:1.5,d:.75,bottom:2.60,h:2.85};
+MAP.barriers.push(canopy);
+assert(!climb(start).climb,'overhead beam denies standing space');
+MAP.barriers.pop();
+const narrow={x:24.5,z:16.0,w:.13,d:.15,h:1.45};
+MAP.barriers.push(narrow);
+assert(!stepPlayer({...start,z:15.48},jump,dt,{twin:0}).climb,'post has no usable landing');
+MAP.barriers.pop();
+console.log('PASS reachable pull-up, facing, grounded stance, high wall, headroom, narrow surface, vehicles, interrupted supports and falls.');

@@ -1157,7 +1157,7 @@ export function createScene(canvas) {
     if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
-    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.swimming;
+    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     const fov = sighted ? 32 : 55;
