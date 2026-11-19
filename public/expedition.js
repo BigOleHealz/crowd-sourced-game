@@ -108,7 +108,7 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null) {
+function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
@@ -119,7 +119,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
     }
     for (const actor of actors) {
       if (actor === target || (areaImpact && withinBurst(center, actor.state, .9))) {
-        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
+        damageActor(actor, actor===target && headshot ? damage*3 : damage, tick, direction);
       }
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
@@ -155,7 +155,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
+    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction);
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
@@ -192,7 +192,7 @@ export function advanceRounds(world,players,npcs,tick){
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
-    if(hit.target)applyHit(world,{...hit,to},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source);
+    if(hit.target)applyHit(world,{...hit,to},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)});
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
     return false;

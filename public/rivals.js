@@ -1,5 +1,8 @@
 // The server advances every actor's lifecycle on the same 30 Hz clock.
-import { groundHeight, stepPlayer } from './world.js';
+import { vehicleContact } from './vehicle-contact.js';
+import { CITY, groundHeight, stepPlayer } from './world.js';
+
+import { startFall, advanceFall } from './falls.js';
 
 const MAX_HP = 100;
 const RESPAWN_TICKS = 90;
@@ -15,19 +18,23 @@ export function newLife(tick, shield = true) {
 
 export function healthView(actor, tick) {
   const life = actor.life;
-  return { hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  const f = life.fall;
+  const fall = f ? { cause: f.cause, yaw: f.yaw, speed: f.speed, age: (tick-f.started)/30,
+    settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
+  return { fall, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 
 // Returns true only on the transition to zero, even if several shots arrive together.
-export function damageActor(actor, amount, tick) {
+export function damageActor(actor, amount, tick, direction) {
   const life = actor.life;
   if (life.hp === 0 || tick < life.immuneUntil) return false;
   life.hp = Math.max(0, life.hp - amount);
   if (life.hp !== 0) return false;
   life.returnAt = tick + RESPAWN_TICKS;
   actor.moving = actor.sprint = false;
-  actor.state.vy = 0;
+  if (!life.fall) startFall(actor, tick, { x: (direction?.x ?? Math.sin(actor.yaw || 0)) * 1.5,
+    z: (direction?.z ?? -Math.cos(actor.yaw || 0)) * 1.5, y: 1.2 }, 'defeat');
   return true;
 }
 
@@ -52,7 +59,7 @@ export function updateRival(actor, tick, dt, hp, world) {
     actor.life = newLife(tick);
     actor.pauseUntil = tick + 30;
   }
-  if (actor.life.hp === 0 || tick < actor.pauseUntil) return;
+  if (advanceFall(actor, tick, dt, hp, world) || actor.life.hp === 0 || tick < actor.pauseUntil) return;
   const [x, z] = actor.route.points[actor.next];
   const dx = x - actor.state.x, dz = z - actor.state.z;
   const distance = Math.hypot(dx, dz);
@@ -71,4 +78,28 @@ export function updateRival(actor, tick, dt, hp, world) {
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
     moving: actor.moving, weapon: actor.weapon, ...healthView(actor, tick) };
+}
+
+export function vehicleContacts(world, kind, before, actors, tick, dt) {
+  const vehicle = world[kind];
+  const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
+  const descent = kind==='heli' ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
+  const speed = Math.hypot(vx, vz, descent);
+  if (vehicle.wrecked || speed < 1.8) return;
+  const hull={ [kind]:vehicle };
+  const crew = [world.rover.driver, world.rover.gunner, world.heli.pilot, world.heli.gunner];
+  for (const actor of actors) {
+    if (crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
+    const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
+    // Use the walking hull immediately after the vehicle moves, before an
+    // on-foot tick can push the target clear. Ignore surfaces moving away.
+    const hit=vehicleContact(p.x,p.y,p.z,hull,CITY);
+    if(hit.depth<=.00001) continue;
+    const approach=(vx*hit.dx+vz*hit.dz)/hit.depth;
+    if(Math.max(approach,descent)<1.8) continue;
+    const outward = descent / Math.max(.1, Math.hypot(dx, dz));
+    const impulse = { x: vx * 1.25 + dx*outward, z: vz * 1.25 + dz*outward, y: 1 + speed*.53 };
+    startFall(actor, tick, impulse, kind);
+    damageActor(actor, Math.round(speed * 18), tick);
+  }
 }

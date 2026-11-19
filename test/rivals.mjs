@@ -69,9 +69,9 @@ try {
   assert(dead.dead && dead.respawnIn > 0);
   const late = await join(url);
   assert(actor(late,b.id).dead && actor(late,b.id).hp === 0);
-  const lastDeathX = dead.x;
-  await input(b,{x:1, fire:true, jump:true, interact:true});
-  assert.equal(actor(b,b.id).x,lastDeathX);
+  const lastDeathZ = dead.z;
+  await input(b,{z:1, fire:true, jump:true, interact:true});
+  assert.equal(actor(b,b.id).z,lastDeathZ, 'input cannot steer the defeated body perpendicular to the shot');
   assert(!b.frame.world.shots.some(s=>s.shooter === b.id),'defeated player could not fire');
   await shoot(a,b.id); // cannot restart a dead player's timer
   await until(() => !actor(b,b.id).dead && actor(b,b.id).protected, 'player respawn');
