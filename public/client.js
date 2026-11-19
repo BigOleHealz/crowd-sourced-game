@@ -8,7 +8,7 @@ const canvas = byId('game');
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 const held = new Set();
-let lastPointer = null;
+let lastPointer = null, pressedAim = null;
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
 const footer = document.querySelector('footer');
@@ -42,6 +42,7 @@ function setGuide(open) {
 }
 function clearInput() {
   held.clear();
+  pressedAim = null;
   queuedReplay = false;
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
@@ -75,6 +76,9 @@ canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('pointerdown', e => {
   if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
   canvas.focus({ preventScroll: true });
+  lastPointer = {x: e.clientX, y: e.clientY};
+  if (self && !isDriving() && !isPilot() && !vitals.dead)
+    pressedAim = scene.aimAt(lastPointer, self, id, weapon === 2 ? 18 : 27);
   mouseFire = queuedFire = true;
 });
 window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
@@ -148,6 +152,7 @@ function connect() {
     }
   };
   socket.onclose = () => {
+    canvas.classList.remove('armed');
     id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
@@ -174,14 +179,16 @@ function tick() {
   const pilot = isPilot();
   const driving = isDriving();
   const fire = !driving && !pilot && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
-  if (fire) facing = camera.yaw;
+  const aim = fire && (pressedAim || scene.aimAt(lastPointer, self, id, weapon === 2 ? 18 : 27)) || camera;
+  pressedAim = null;
+  if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
-    replaySupply: queuedReplay, aimYaw: camera.yaw, aimPitch: camera.pitch };
+    replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = false;
   queuedJump = queuedInteract = queuedFire = false;
   socket.send(JSON.stringify(cmd));
@@ -228,7 +235,7 @@ function updateEquipment(local) {
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   byId('kit').textContent = isDriving() ? 'Trail rover' : pilot ? 'Trail helicopter' : weapon === 1 ? 'Pulse blaster' : 'Bloom blaster';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
-  byId('reticle').hidden = pilot || isDriving() || vitals.dead;
+  canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const hp = pilot ? heli.hp : vitals.hp;
   const maxHp = (pilot ? heli.maxHp : vitals.maxHp) || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
