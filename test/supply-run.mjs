@@ -63,10 +63,11 @@ world.heli.pilot = 2; rover.driver = null;
 const flight = (x,z,lift) => fly(world,{x,z,lift,aimYaw:0},dt);
 step(105,()=>flight(0,0,1));
 const h = world.heli;
-// Release forward input one braking distance before the landing ring.
-for (let i=0;i<210 && distance(h,OUTPOST)>3.2;i++) {
+// Ease off cyclic on approach so the same landing works at the faster cruise speed.
+for (let i=0;i<300 && distance(h,OUTPOST)>1.2;i++) {
   const d = distance(h,OUTPOST);
-  step(1,()=>flight((OUTPOST.x-h.x)/d,(OUTPOST.z-h.z)/d,0));
+  const approach=Math.max(d,16);
+  step(1,()=>flight((OUTPOST.x-h.x)/approach,(OUTPOST.z-h.z)/approach,0));
 }
 step(20,()=>flight(0,0,0));
 assert.ok(distance(h,OUTPOST)<1.6);

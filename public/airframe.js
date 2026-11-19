@@ -133,7 +133,9 @@ export function fly(world, input, dt, players) {
   const stick = Math.max(1, Math.hypot(input.x, input.z));
   const forwardInput=Math.max(0,(input.x*Math.sin(h.yaw)-input.z*Math.cos(h.yaw))/stick);
   const atSpeed=clamp((Math.hypot(motion.vx,motion.vz)-3)/4,0,1);
-  const cruise=8.2+forwardInput*atSpeed, drag=.65;
+  // Keep the low-speed response for docking; full cyclic reaches 16.4 m/s
+  // sideways and 18.4 m/s forward once translational lift builds.
+  const cruise=8.2+atSpeed*(8.2+2*forwardInput), drag=.65;
   const demandX = (input.x * cruise / stick - motion.vx) * 2.1 + input.x * cruise * drag / stick;
   const demandZ = (input.z * cruise / stick - motion.vz) * 2.1 + input.z * cruise * drag / stick;
   const tiltScale = Math.min(1, 13 / (Math.hypot(demandX, demandZ) || 1));
