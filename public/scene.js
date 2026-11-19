@@ -1,5 +1,7 @@
 import {viewPitch,zenith} from './view-pitch.js';
 import {routeDistance,ridgeBench} from './north-ridge.js';
+import {civilianLooks} from './civilian-style.js';
+import {dressCivilian} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
 import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
@@ -956,13 +958,19 @@ function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
     for(const z of [-.150,-.111,-.076,.025,.054])boot.add(cube,0x41443a,0,-.119,z,.114,.012,.016);
     boot.mesh(ankle,uniform);
   }
+  rig.tools=makeFirearms(upper);
+  return finishAvatar(scene,rig,material,shadowMap,name);
+}
+
+function finishAvatar(scene,rig,material,shadowMap,name){
+  const {root}=rig;
   // The mountain sun and static geometry share one cached shadow map.
   // Characters use a soft contact patch that follows their animated pose.
   root.traverse(node=>{if(node.isMesh) node.castShadow=false;});
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {...rig,makeCanopy:makeParachute,material,tools:makeFirearms(upper),shadow,label:characterLabel(root,name),cycle:0};
+  return {...rig,makeCanopy:makeParachute,material,shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -1118,7 +1126,24 @@ export function createScene(canvas) {
     if(w===lastWidth && h===lastHeight) return;
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
-  const distant=CITY ? distantResidents(scene,Batch) : null;
+  const distant=CITY ? distantResidents(scene) : null;
+  let civilianMaterials;
+  function civilianTexture(path){
+    const map=new THREE.TextureLoader().load(path);
+    map.colorSpace=THREE.SRGBColorSpace;
+    map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+    return new THREE.MeshLambertMaterial({map});
+  }
+  function resident(id,name){
+    civilianMaterials??={
+      faces:civilianTexture('./brickell-faces.webp'),
+      shirts:civilianTexture('./brickell-clothing.webp'),
+    };
+    const rig=createRangerRig();
+    dressCivilian(rig,civilianLooks[id],Batch,material,civilianMaterials);
+    scene.add(rig.root);
+    return finishAvatar(scene,rig,material,shadowMap,name);
+  }
   let roverBoom = null, bailoutOrbit = 0, indoorAngle=0;
   function removeAvatar(a) {
     clearLostParts(a);
@@ -1211,7 +1236,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || 'Hiker ' + state.id);
+        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || 'Hiker ' + state.id);
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
