@@ -1,6 +1,6 @@
 import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
-import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { CITY, BREAKABLES, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -142,7 +142,9 @@ export function launchMissile(world,kind,player,tick) {
   const side=kind==='heli' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
   launchState.set(v,{ready:tick+30,side});
   offset[0]*=side;
-  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
+  const from=mountPosition(v,offset);
+  world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
+  world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
@@ -165,8 +167,8 @@ const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=world[kind], ready=nextBullet.get(v) ?? tick;
   if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
-  // The 30 Hz simulation alternates eight and seven ticks between bullets.
-  nextBullet.set(v,(tick-ready<1 ? ready : tick)+7.5);
+  const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
+  nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
@@ -175,7 +177,7 @@ function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick){
   const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
   world.bullets.push({...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
     vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0});
-  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',from,to:from,tick});
+  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,from,to:from,tick});
 }
 
 const lastPosition=new WeakMap();
