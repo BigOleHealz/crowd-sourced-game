@@ -1,8 +1,9 @@
-import {galleryVehicleRects,galleryPlans} from './gallery-lobbies.js';
+import {hotel,hotelGlass} from './maravela-hotel.js';
+import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
 import {fallenTop} from './shop-furniture.js';
 import {tenants,retailDepths,retailFixtures,shopFloor,shopCeiling} from './street-shop-layout.js';
 import {brickellMap} from './brickell-map.js';
-import {doorX,hasStorefrontRooms,storefrontFurniture} from './storefront-layout.js';
+import {doorX,hasStorefrontRooms,panelCenter,storefrontDoors,storefrontFloor,storefrontFurniture,storefrontLeafId} from './storefront-layout.js';
 
 const roomGrid=new Map();
 const gridKey=(x,z)=>Math.floor(x/12)*128+Math.floor(z/12);
@@ -40,7 +41,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const bays=Math.max(3,Math.round(b.d/2.8)),bay=(b.d-.44)/bays;
       spans=Array.from({length:bays},(_,i)=>[b.z-b.d/2+.22+i*bay,b.z-b.d/2+.22+(i+1)*bay]);
     }
-    const face={id:index*2+(side+1)/2,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
+    const face={id:index*2+(side+1)/2,buildingIndex:index,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
     if(!showcase){
       const bayIndex=side===1?spans.length-1:0,[lo,hi]=spans[bayIndex];
       face.name=tenants[index][side===1?1:0][0];
@@ -63,6 +64,98 @@ for(const [index,b] of brickellMap.buildings.entries()){
   }
   buildings.set(b.x+','+b.z,pair);
 }
+// A vehicle clears an entire bay and its mullion. A round can leave the
+// neighboring sheets and moving door frame intact within that same bay.
+function faceGlass(face) {
+  const piece=(index,kind,x,lo,hi,bottom,top,slide)=>({
+    ...(kind?{id:'retail-'+face.id+'-'+index+'-'+kind}:{}),
+    face,index,x,z:(lo+hi)/2,width:hi-lo,bottom,top,widthAxis:'z',slide,
+  });
+  const bays=face.spans.map(([lo,hi,door],i)=>{
+    const bottom=face.showcase?.89:.92,top=face.showcase?(lo<2.11?3.04:3.13):3.65;
+    const all=piece(i,'',face.x,lo,hi,bottom,top);
+    if(door)return {all,panes:[]};
+    const e=face.entry;
+    if(e?.bayIndex!==i)return {all,panes:[all]};
+    const left=e.z-e.width/2,right=e.z+e.width/2;
+    return {all,panes:[
+      piece(i,'left',face.x,lo,left,bottom,top),
+      piece(i,'right',face.x,right,hi,bottom,top),
+      piece(i,'transom',face.x,left,right,e.head,top),
+      piece(i,'leaf',face.x-.065*face.side,left+.032,right-.032,.892,e.head-.045,true),
+    ]};
+  });
+  const extra=[];
+  if(face.showcase){
+    for(const door of storefrontDoors){
+      const cafe=door.id==='cafe';
+      const [lo,hi,top]=cafe?[2.61,15.52,3.62]:[-1.59,2.10,3.56];
+      const index=face.spans.findIndex(s=>s[2]===door.id);
+      extra.push(piece(null,door.id+'-transom',face.x,lo,hi,door.head,top));
+      for(const side of [0,1]){
+        const x=face.x-.046-.067*side,z=panelCenter(door,side,0),width=door.width/2-.052;
+        extra.push({
+          id:storefrontLeafId(door,side),face,index,x,z,width,widthAxis:'z',
+          bottom:storefrontFloor+.054,top:door.head-.039,slide:{door,side},
+        });
+      }
+    }
+  }
+  return {bays,extra};
+}
+for(const face of storefrontFaces)face.glass=faceGlass(face);
+
+export function paneCenter(pane,doors) {
+  if(pane.slide===true)return pane.z+pane.face.entry.travel*(doors?.retail?.[pane.face.id]??0);
+  if(pane.slide){
+    const {door,side}=pane.slide;
+    return panelCenter(door,side,doors?.[door.id]??0);
+  }
+  return pane.z;
+}
+export function paneShattered(pane,doors) {
+  return Boolean((pane.id && doors?.brokenPanes?.[pane.id]) ||
+    (pane.face && pane.index!==null && (doors?.broken?.[pane.face.id] & (1<<pane.index))));
+}
+export function shatterPane(doors,pane) {
+  if(!doors||paneShattered(pane,doors))return false;
+  if(pane.id){
+    (doors.brokenPanes??={})[pane.id]=pane.slide ? {z:paneCenter(pane,doors)} : pane.hotelSlider ? {x:pane.x} : true;
+  }else{
+    const masks=doors.broken??={};
+    masks[pane.face.id]=(masks[pane.face.id]??0)|(1<<pane.index);
+  }
+  return true;
+}
+
+export function frontageOpenToRound(face,z,y,doors) {
+  for(const {all} of face.glass.bays){
+    const low=face.spans[all.index][2] || face.entry?.bayIndex===all.index ? .842 : all.bottom;
+    if(Math.abs(z-all.z)>all.width/2 || y<low || y>all.top)continue;
+    const start=all.z-all.width/2;
+    const sill=face.spans[all.index][2] || face.entry?.bayIndex===all.index ? false : Math.abs(y-all.bottom)<.025;
+    return paneShattered(all,doors) || (z>start+.028 && !sill);
+  }
+  return face.glass.extra.some(p=>!p.slide && Math.abs(z-p.z)<=p.width/2 && y>=p.bottom && y<=p.top);
+}
+
+export function visitRoundGlass(building,doors,visit) {
+  const faces=buildings.get(building.x+','+building.z);
+  if(!faces)return;
+  for(const face of faces){
+    for(const {panes} of face.glass.bays)for(const pane of panes)if(!paneShattered(pane,doors))visit(pane);
+    for(const pane of face.glass.extra)if(!paneShattered(pane,doors))visit(pane);
+  }
+  const plan=galleryPlans[faces[0].buildingIndex];
+  for(const pane of plan.panes)if(!paneShattered(pane,doors))visit(pane);
+  for(const pane of plan.doorPanes)if(!paneShattered(pane,doors))visit(pane);
+  if(plan.hotel)for(const front of hotel.fronts){
+    for(const pane of hotelGlass(front,doors?.hotel?.[front.id]??0,galleryDoorWidth,galleryFloor)){
+      if(!paneShattered(pane,doors))visit(pane);
+    }
+  }
+}
+
 export function faceAt(b,x){
   const pair=buildings.get(b.x+','+b.z);
   return pair?.[x>b.x?1:0];
@@ -104,15 +197,23 @@ export function stepRetailDoors(doors,players,dt){
   }
 }
 
-export function retailSurface(face,x,z,pad,probe,roof,doors){
+export function retailSurface(face,x,z,pad,probe,roof,doors,round=false){
   const mask=doors?.broken?.[face.id]??0,reach=(face.x-x)*face.side;
   if(probe>shopCeiling || reach>face.depth-.30-pad ||
     Math.abs(z-face.building.z)>face.building.d/2-.18-pad)return roof;
-  if(reach<.17+pad && !brokenSpan(face,mask,z,pad)){
-    const entry=face.entry,opening=doors?.retail?.[face.id]??0;
-    const leafZ=entry.z+entry.travel*opening;
-    if(probe>entry.head || Math.abs(z-entry.z)>entry.width/2-pad ||
-        Math.abs(z-leafZ)<entry.width/2+pad+.018)return roof;
+  if(reach<.17+pad){
+    if(round){
+      if(!frontageOpenToRound(face,z,probe,doors))return roof;
+    }else if(!brokenSpan(face,mask,z,pad)){
+      const entry=face.entry,opening=doors?.retail?.[face.id]??0;
+      const leafZ=entry.z+entry.travel*opening;
+      const individual=face.glass.bays[entry.bayIndex].panes;
+      const leaf=individual.find(p=>p.slide);
+      const wideEnough=individual.some(p=>!p.slide && paneShattered(p,doors) &&
+        p.bottom<shopFloor+.12 && probe<=p.top && Math.abs(z-p.z)+pad<=p.width/2);
+      if(!wideEnough && (probe>entry.head || Math.abs(z-entry.z)>entry.width/2-pad ||
+          (!paneShattered(leaf,doors) && Math.abs(z-leafZ)<entry.width/2+pad+.018)))return roof;
+    }
   }
   let top=-Infinity;
   const candidates=pad<=.4?(face.fixtureRows.get(Math.floor(z))??[]):face.fixtures;
@@ -158,10 +259,14 @@ export function visitRoadPodium(b,x,z,doors,visit){
   for(const pane of face.panes){
     if(mask&(1<<pane.index))continue;
     if(face.entry?.bayIndex===pane.index){
-      for(const p of face.entry.fixed)visit(p);
+      const [left,right,,glassLeaf]=face.glass.bays[pane.index].panes;
+      if(!paneShattered(left,doors))visit(face.entry.fixed[0]);
+      if(!paneShattered(right,doors))visit(face.entry.fixed[1]);
       const leaf=face.entry.leaf;
-      leaf.z=face.entry.z+face.entry.travel*(doors?.retail?.[face.id]??0);
-      visit(leaf);
+      if(!paneShattered(glassLeaf,doors)){
+        leaf.z=face.entry.z+face.entry.travel*(doors?.retail?.[face.id]??0);
+        visit(leaf);
+      }
     }else if(!(pane.door && doors?.[pane.door]>.98))visit(pane);
   }
 }

@@ -1,5 +1,6 @@
+import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
-import {faceAt,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
+import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
 import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
 import {lampDown} from './street-lamps.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
@@ -15,7 +16,7 @@ export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
   : typeof process !== 'undefined' && process.env.PINEWATCH_MAP === 'brickell';
 export const MAP = CITY ? brickellMap : {
-  bounds: 38,
+  bounds:38, northBound:-90, flightNorth:-84, northTrail,
   waterY: -1.2,
   bridge: { x: 0, z: 0, width: 3.4, length: 10, y: 0.8 },
   lookout: { x: -4, z: -24 },
@@ -47,10 +48,20 @@ export const MAP = CITY ? brickellMap : {
   trees: [],
 };
 
+// The western skyline is closer than the eastern bay. All water users share
+// this chart, including swimmers and dismounted or falling crew.
+export const travelBounds={west:MAP.westBound ?? -MAP.bounds,east:MAP.bounds,
+  north:MAP.northBound ?? -MAP.bounds,south:MAP.bounds};
+export function insideTravelArea(x,z,halfX=0,halfZ=halfX) {
+  return x-halfX>=travelBounds.west && x+halfX<=travelBounds.east &&
+    z-halfZ>=travelBounds.north && z+halfZ<=travelBounds.south;
+}
+
 export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
 MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
-  MAP.barriers.push(...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
+  MAP.rocks.push(...northRocks);
+  MAP.barriers.push({x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
     {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
 }
 
@@ -73,14 +84,14 @@ export function onBuildingLot(x,z,margin=0) {
   return MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
 }
 
-export function podiumTop(b,x,z,pad,probe,roof,doors){
+export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return roof;
-  const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors);
+  const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
   if(gallery!==undefined)return gallery;
   const face=faceAt(b,x);
   if(!face)return roof;
-  if(!face.showcase)return retailSurface(face,x,z,pad,probe,roof,doors);
-  const gap=brokenSpan(face,doors?.broken?.[face.id]??0,z,pad);
+  if(!face.showcase)return retailSurface(face,x,z,pad,probe,roof,doors,round);
+  const gap=round ? frontageOpenToRound(face,z,probe,doors) : brokenSpan(face,doors?.broken?.[face.id]??0,z,pad);
   return storefrontTopAt(x,z,pad,probe,roof,doors,gap);
 }
 
@@ -130,6 +141,8 @@ for (let i = 0; !CITY && i < 9; i++) {
   }
 }
 
+if(!CITY)MAP.trees.push(...northernPines());
+
 function smoothstep(start, end, position) {
   const t = Math.max(0, Math.min(1, (position - start) / (end - start)));
   return t * t * (3 - 2 * t);
@@ -144,11 +157,15 @@ export function terrainHeight(x, z) {
     (1 - smoothstep(7, 27, Math.abs(x + 4)));
   const relief = smoothstep(6, 14, Math.abs(z)) *
     (0.32 * Math.sin(x * 0.17) + 0.24 * Math.sin(z * 0.3));
-  const edge = Math.max(Math.abs(x), Math.abs(z));
+  // Carry the existing northern upland through its former shoreline. The new
+  // meadow is shallow, with a long, walkable rise to the granite ridge.
+  const northRise=smoothstep(34,79,-z)*(5.4+2.2*Math.cos((x-4)*.063))+
+    smoothstep(42,59,-z)*1.35*Math.sin((z+64)*.11+x*.035);
+  const edge = Math.max(Math.abs(x),z,MAP.bounds+MAP.northBound-z);
   // Shape the wading shelf separately from the steep underwater basin.
   const shore = Math.max(0, Math.min(5, edge - (MAP.bounds - 6)));
   const lip = shore + 12 * smoothstep(MAP.bounds - 1, MAP.bounds, edge);
-  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip;
+  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief + northRise - lip;
 }
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
@@ -250,10 +267,10 @@ export function stepPlayer(state, input, dt, hp, world) {
   if (!blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
   // Water reaches every outer edge. Stay at the limit and allow movement
   // parallel to it, including a swimmer turning back toward the shoreline.
-  if (x < -MAP.bounds || x > MAP.bounds) vx=0;
-  if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
-  x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
-  z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
+  if (x < travelBounds.west || x > travelBounds.east) vx=0;
+  if (z < travelBounds.north || z > travelBounds.south) vz=0;
+  x=Math.max(travelBounds.west,Math.min(travelBounds.east,x));
+  z=Math.max(travelBounds.north,Math.min(travelBounds.south,z));
   let contact=vehicleContact(x,y,z,world,CITY,height);
   // Project out of the hull and remove only the velocity into its surface.
   // Recheck adjacent sections when a corner touches more than one shape.
@@ -299,7 +316,7 @@ export function stepPlayer(state, input, dt, hp, world) {
       grounded = true;
     }
   }
-  if (y < -8 || Math.abs(x)>MAP.bounds || z>MAP.bounds || z<(MAP.northBound ?? -MAP.bounds)) return spawn();
+  if (y < -8 || !insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;

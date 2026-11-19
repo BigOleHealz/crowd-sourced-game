@@ -7,14 +7,15 @@ import {brickellMap} from './brickell-map.js';
 
 export const galleryFloor=.824, galleryCeiling=3.77, galleryDoorWidth=1.32;
 export const galleryDoorHead=3.10, galleryStile=.07;
-export const galleryLobbies=[], galleryPanes=[], galleryPlans=[];
+export const galleryLobbies=[], galleryPanes=[], galleryDoorPanes=[], galleryPlans=[];
 const byBuilding=new WeakMap(), cells=new Map(), grid=20;
 const cellKey=(x,z)=>(Math.floor(x/grid)+32)*128+Math.floor(z/grid)+32;
 const rect=(x,z,w,d,top,bottom=galleryFloor)=>({x,z,w,d,bottom,h:top-bottom});
 for(const [index,b] of brickellMap.buildings.entries()){
   const {east,west}=retailDepths(b);
   const w=b.w-east-west,x=b.x+(west-east)/2;
-  const plan={index,b,w,x,east,west,hotel:b.x===hotel.x && b.z===hotel.z,ends:[],rooms:[],solids:[],panes:[]};
+  const plan={index,b,w,x,east,west,hotel:b.x===hotel.x && b.z===hotel.z,
+    ends:[],rooms:[],solids:[],panes:[],doorPanes:[]};
   galleryPlans.push(plan);byBuilding.set(b,plan);
   const shared=b.d<10;
   const depth=shared ? b.d/2 : Math.min(6.25,b.d/2-.48);
@@ -37,15 +38,24 @@ for(const [index,b] of brickellMap.buildings.entries()){
       plan.solids.push(obstacle);return obstacle;
     }
     for(const bay of [-1,1]){
+      const id='gallery-'+index+'-'+(side<0?'north':'south')+'-'+(bay<0?'west':'east');
       const far=w/2-.21,near=galleryDoorWidth/2+galleryStile;
       const paneWidth=far-near, paneX=x+bay*(near+far)/2;
-      const pane={id:'gallery-'+index+'-'+(side<0?'north':'south')+'-'+(bay<0?'west':'east'),
+      const pane={id,widthAxis:'x',width:paneWidth,top:galleryDoorHead,
         building:index,side,bay,axis:'x',normal:{x:0,z:side},x:paneX,z:wz(.09),w:paneWidth,d:.032,
         bottom:galleryFloor+.071,h:galleryDoorHead-galleryFloor-.071};
       galleryPanes.push(pane);plan.panes.push(pane);
       block('jamb',bay*(galleryDoorWidth/2+galleryStile/2),.095,galleryStile,.14,galleryCeiling);
       block('return',bay*(w/2-.093),depth/2,.186,depth,galleryCeiling);
-      if(!plan.hotel)block('doorLeaf',bay*(galleryDoorWidth/2+.046),.45,.067,.80,galleryDoorHead);
+      if(!plan.hotel){
+        const leaf=block('doorLeaf',bay*(galleryDoorWidth/2+.046),.455,.067,.80,galleryDoorHead);
+        const glass={
+          id:id+'-leaf',widthAxis:'z',x:leaf.x,z:leaf.z,width:.67,bottom:galleryFloor+.105,
+          top:galleryDoorHead-.064,edge:false,
+        };
+        leaf.glass=glass;
+        galleryDoorPanes.push(glass);plan.doorPanes.push(glass);
+      }
     }
     if(!shared){
       block('rear',0,depth-.073,w,.146,galleryCeiling);
@@ -87,19 +97,26 @@ export function galleryVehicleRects(building,doors) {
 }
 
 // Undefined delegates unopened building areas to the existing tower or café collision.
-export function galleryTopAt(b,x,z,padding,probe,roof,doors) {
+export function galleryTopAt(b,x,z,padding,probe,roof,doors,round=false) {
   const plan=byBuilding.get(b);
   if(!plan || Math.abs(x-plan.x)>plan.w/2+.001 || probe>galleryCeiling+.002)return undefined;
   const room=plan.rooms.find(r=>z>=r.zmin-padding && z<=r.zmax+padding);
   if(!room)return undefined;
   const overlaps=o=>Math.abs(o.x-x)<=o.w/2+padding && Math.abs(o.z-z)<=o.d/2+padding;
-  let top=plan.hotel ? hotelDoorTop(x,z,padding,doors,galleryDoorWidth) : -Infinity;
+  let top=plan.hotel ? hotelDoorTop(x,z,padding,doors,galleryDoorWidth,galleryFloor,probe,round) : -Infinity;
   for(const part of plan.solids){
     const down=part.piece && doors?.furniture?.[part.piece.id];
-    if(down)top=Math.max(top,fallenTop(part.piece,down,x,z,padding));
-    else if(overlaps(part))top=Math.max(top,part.bottom+part.h);
+    if(down){top=Math.max(top,fallenTop(part.piece,down,x,z,padding));continue;}
+    if(!overlaps(part))continue;
+    if(part.glass && (round || doors?.brokenPanes?.[part.glass.id])){
+      const glass=part.glass;
+      const end=Math.abs(glass.z-z)>=glass.width/2-padding;
+      const rail=Math.abs(probe-(galleryFloor+1.02))<.036;
+      if(!end && !rail && probe>=glass.bottom && probe<=glass.top)continue;
+    }
+    top=Math.max(top,part.bottom+part.h);
   }
-  for(const pane of plan.panes)if(!doors?.brokenPanes?.[pane.id] && overlaps(pane))top=Math.max(top,pane.bottom+pane.h);
+  for(const pane of plan.panes)if(!round && !doors?.brokenPanes?.[pane.id] && overlaps(pane))top=Math.max(top,pane.bottom+pane.h);
   for(const face of room.entries)if(Math.abs(z-face)<.15+padding && probe>galleryDoorHead)return roof;
   return top;
 }

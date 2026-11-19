@@ -29,6 +29,8 @@ export function stepStorefrontDoors(doors,players,dt) {
   }
 }
 
+export const storefrontLeafId=(door,side)=>'showcase-'+door.id+'-leaf-'+side;
+
 export function panelCenter(door,side,fraction) {
   return door.z+(side===0 ? -.25 : .25)*door.width+door.travel[side]*fraction;
 }
@@ -70,7 +72,8 @@ export function storefrontTopAt(x,z,pad,probe,roof,doors,brokenGlass=false) {
     const door=storefrontDoors[z>2.41 ? 0 : 1];
     if(Math.abs(z-door.z)>door.width/2-pad || probe>door.head+.001)return storefrontCeiling;
     for(let side=0;side<2;side++){
-      if(Math.abs(z-panelCenter(door,side,doors?.[door.id] ?? 0))<door.width/4+.018+pad) return door.head;
+      if(!doors?.brokenPanes?.[storefrontLeafId(door,side)] &&
+          Math.abs(z-panelCenter(door,side,doors?.[door.id] ?? 0))<door.width/4+.018+pad) return door.head;
     }
   }
   for(const p of storefrontFurniture) {

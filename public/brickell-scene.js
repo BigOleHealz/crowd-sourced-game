@@ -1,3 +1,4 @@
+import {hotel} from './maravela-hotel.js';
 import {glassBreakDebris} from './glass-break-debris.js';
 import {storefrontFaces} from './frontage-glass.js';
 import {verges} from './waterfront-roads.js';
@@ -6,7 +7,7 @@ import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
 import {streetLampView} from './street-lamp-view.js';
 import {harborSigns,signalPost} from './scenery-layout.js';
-import {galleryPlans,galleryPanes} from './gallery-lobbies.js';
+import {galleryPlans,galleryPanes,galleryDoorPanes} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
 import { streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
@@ -119,10 +120,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
-  const paneCount=storefrontFaces.reduce((n,face)=>n+face.spans.length,galleryPanes.length);
+  const galleryCount=galleryPanes.length+galleryDoorPanes.length+hotel.fronts.length*2;
+  const paneCount=storefrontFaces.reduce((count,{glass})=>
+    count+glass.extra.length+glass.bays.reduce((total,bay)=>total+Math.max(1,bay.panes.length),0),galleryCount);
   const debris=glassBreakDebris(scene,paneCount);
   const breakables=breakableWindows(scene,Batch,debris);
-  const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables);
+  const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables,debris);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama,debris);
@@ -166,7 +169,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);
-    breakables.update(doors,dt);
+    breakables.update(doors);
     updateGallery(doors);
     debris.update(dt);
     updateCourts(doors,dt,local,remotes);

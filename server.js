@@ -8,7 +8,7 @@ import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat, readdir, readFile } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +43,7 @@ const port = Number(process.env.PORT || '4173');
 const capacity = 16;
 const step = 1 / 30;
 const players = new Map();
+const departedScores=new Map();
 let world = newExpedition();
 let npcs = newRivals();
 function worldView() {
@@ -136,7 +137,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   return { ...player.state, id: player.id, yaw: player.yaw, moving: player.moving,
-    sprint: player.sprint, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
+    sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
 function publish() {
@@ -154,6 +155,9 @@ function acceptInput(player, data, binary) {
     input = JSON.parse(data);
   } catch {
     return;
+  }
+  if(input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
+    player.score=departedScores.get(input.key);departedScores.delete(input.key);return;
   }
   if (input?.type !== 'input' || !Number.isSafeInteger(input.seq) ||
       input.seq <= player.lastSeq || !Number.isFinite(input.x) ||
@@ -189,7 +193,7 @@ sockets.on('connection', ws => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 1, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   players.set(id, player);
@@ -197,6 +201,10 @@ sockets.on('connection', ws => {
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if(!players.size)departedScores.clear();
+    else if(player.score.kills || player.score.deaths || world.bullets.some(r=>r.shooter===id) || world.missiles.some(m=>m.shooter===id)){
+      departedScores.set(player.scoreKey,player.score);
+    }
     if (!players.size) {
       world = newExpedition();
       npcs = newRivals();
@@ -217,7 +225,7 @@ sockets.on('connection', ws => {
     }
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', build, id, state: playerState(player), world: worldView() }));
+  ws.send(JSON.stringify({ type: 'welcome', build, scoreKey:player.scoreKey, id, state: playerState(player), world: worldView() }));
   publish();
 });
 

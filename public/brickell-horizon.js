@@ -1,3 +1,4 @@
+import {coastProfile,mangroveKeys} from './offshore-keys.js';
 import * as THREE from 'three';
 
 // Each waterfront is outside the playable district. In local metres, u follows
@@ -87,11 +88,7 @@ export function addBrickellHorizon(scene,facades){
     // Joined shore sections vary in shape and setback as seen from the street
     // and above. Headlands taper naturally back towards the inland edge.
     const phase=seed*1.733;
-    function line(u){
-      const tips=Math.abs(2*u/length);
-      return (land?2.7:4.9)*Math.sin(u*.057+phase)+2.9*Math.sin(u*.091+phase*.7)+
-        (land?depth*.50:13)*Math.pow(tips,5);
-    }
+    const {line,slices}=coastProfile(length,depth,seed,land);
     const world=(u,h,v)=>[x0+alongX*u+ix*v,h,z0+alongZ*u+iz*v];
     function polygon(points,tint,kind=0,coords){
       const count=points.length, offset=positions.length/3;
@@ -164,16 +161,10 @@ export function addBrickellHorizon(scene,facades){
         polygon([mid,other,leaf],0x597150);polygon([mid,leaf,side],0x617857);
       }
     }
-    const sections=Math.ceil(length/7);
-    function contour(i){
-      const u=start+length*i/sections;
-      const shore=line(u),taper=land?Math.pow(Math.abs(2*u/length),2.5):0;
-      const inland=depth*(1-.40*taper);
-      return [[u,-.55,shore-2.1],[u,.21,shore],[u,.70,shore+1.55],[u,land?1.32:1.20,shore+4.1],[u,land?1.42:1.30,Math.max(shore+5,inland)]];
-    }
+    const sections=slices.length-1;
     const groundTints=land?[0xa49673,0xcfbc94,0xb7aa7e,0x788761]:[0x998c74,0xd0bc9a,0x9a9e7b,0xa5aa88];
     for(let i=0;i<sections;i++){
-      const a=contour(i),b=contour(i+1);
+      const a=slices[i],b=slices[i+1];
       for(let j=0;j<4;j++)polygon([world(...a[j]),world(...b[j]),world(...b[j+1]),world(...a[j+1])],groundTints[j]);
       if(i===0||i===sections-1){
         const c=i===0?a:b,back=c.at(-1);
@@ -304,10 +295,5 @@ export function addBrickellHorizon(scene,facades){
     horizon.add(mesh);
   }
   for(const coast of waterfronts)district(...coast);
-  // Lower mangrove keys with navigable water in between the actual map and the
-  // optical backdrop. They are scenery only, absent from the simulation map.
-  district(94,-56,1,0,62,20,'key',118);
-  district(109,-151,1,0,53,19,'key',205);
-  district(108,62,1,0,49,19,'key',76);
-  district(-98,-126,-1,0,53,18,'key',122);
+  for(const key of mangroveKeys)district(...key);
 }

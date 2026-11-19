@@ -11,6 +11,11 @@ export function rangerMaterial(renderer) {
 export function rangerIdentity(id) {
   if (id==='rival-fern') return 1;
   if (id==='rival-rowan') return 2;
+  if(typeof id==='string'){
+    let index=0;
+    for(const char of id)index=(index*31+char.charCodeAt(0))%4;
+    return index;
+  }
   return [0,3,2,1][(id-1)%4] ?? 0;
 }
 

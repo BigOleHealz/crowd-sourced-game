@@ -1,12 +1,12 @@
 import {frontageGlassMaterial} from './frontage-glass-material.js';
-import {faceAt} from './frontage-glass.js';
+import {faceAt,paneCenter,paneShattered} from './frontage-glass.js';
 import * as THREE from 'three';
-import {storefrontDoors,panelCenter,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
+import {storefrontDoors,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
 import {buildStorefrontRooms} from './storefront-rooms.js';
 
 // The low-rise shop and apartment entrance share the slab of the tower at (-17, 7).
 // The shop and lobby open onto the same sidewalk as the tower.
-export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, skyline, breakables) {
+export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, skyline, breakables, debris) {
   const loader = new THREE.TextureLoader();
   function texture(path) {
     const image = loader.load(path, () => { renderer.shadowMap.needsUpdate = true; });
@@ -73,14 +73,18 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     metal(dark,doorX+.104,door.head+.059,door.z,.046,.059,.155);
   }
   const glass=frontageGlassMaterial(skyline);
-  const fixedGlass=new Batch(), pane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
+  const pane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
   const showcase=faceAt({x:-17,z:7},doorX);
   breakables.add(showcase,glass);
-  for(const [lo,hi,head,top] of [[cafeMin,cafeMax,3.13,3.62],[-1.59,2.10,3.04,3.56]])
-    fixedGlass.add(pane,0xffffff,doorX,(top+head)/2,(lo+hi)/2,1,top-head,hi-lo);
-  fixedGlass.mesh(scene,glass,false);
+  const transoms=showcase.glass.extra.filter(p=>!p.slide).map(p=>{
+    const sheet=new THREE.Mesh(pane,glass);
+    sheet.position.set(p.x,(p.bottom+p.top)/2,p.z);
+    sheet.scale.set(1,p.top-p.bottom,p.width);scene.add(sheet);
+    return {pane:p,sheet};
+  });
   const frameMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
   const movingLeaves=storefrontDoors.flatMap(door=>[0,1].map(side=>{
+    const panel=showcase.glass.extra.find(p=>p.slide?.door===door && p.slide.side===side);
     const width=door.width/2, bottom=storefrontFloor+.015, height=door.head-bottom;
     const frame=new Batch(),leaf=new THREE.Group();
     scene.add(leaf);
@@ -91,10 +95,10 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     part(0xdbd4bd,.028,bottom+1.055,0,.006,.027,width-.08);
     frame.mesh(leaf,frameMaterial,false);
     const sheet=new THREE.Mesh(pane,glass);
-    sheet.scale.set(1,height-.078,width-.052);sheet.position.y=(bottom+door.head)/2;
+    sheet.scale.set(1,panel.top-panel.bottom,panel.width);sheet.position.y=(panel.bottom+panel.top)/2;
     leaf.add(sheet);
-    leaf.position.set(doorX-.046-.067*side,0,panelCenter(door,side,0));
-    return {door,side,leaf};
+    leaf.position.set(panel.x,0,panel.z);
+    return {leaf,sheet,pane:panel,debris:{...panel,edge:false}};
   }));
   buildStorefrontRooms(scene,Batch,texture,stone);
   function fascia(title,subtitle,width,height,x,y,z,background,letter) {
@@ -137,11 +141,20 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
   let firstFrame=true;
   return function updateDoors(state,dt) {
     if(!state)return;
-    for(const {door,side,leaf} of movingLeaves){
-      const bit=showcase.spans.findIndex(span=>span[2]===door.id);
-      leaf.visible=!((state.broken?.[showcase.id]??0)&(1<<bit));
-      const z=panelCenter(door,side,state[door.id]);
+    for(const {pane,sheet} of transoms){
+      const broken=paneShattered(pane,state);
+      sheet.visible=!broken;
+      debris.setBroken(pane,broken,!firstFrame);
+    }
+    for(const part of movingLeaves){
+      const {pane,leaf,sheet}=part;
+      const wholeBay=Boolean(state.broken?.[showcase.id]&(1<<pane.index));
+      const glassGone=!wholeBay && paneShattered(pane,state);
+      leaf.visible=!wholeBay;sheet.visible=!glassGone;
+      const z=paneCenter(pane,state);
       leaf.position.z=firstFrame ? z : THREE.MathUtils.damp(leaf.position.z,z,36,dt);
+      if(glassGone)part.debris.z=state.brokenPanes[pane.id]?.z??z;
+      debris.setBroken(part.debris,glassGone,!firstFrame);
     }
     firstFrame=false;
   };

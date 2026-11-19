@@ -5,6 +5,12 @@ export const hotel={name:'Hotel Maravela',x:-16,z:-53,fronts:[
 export function hotelPanels(front,fraction,width){
   return [-1,1].map(s=>({x:hotel.x+s*width*(.25+.51*fraction),z:front.z-.045*front.side,w:width/2,d:.035}));
 }
+export function hotelGlass(front,fraction,width,floor){
+  return hotelPanels(front,fraction,width).map((p,i)=>({
+    id:'hotel-'+front.id+'-leaf-'+i,x:p.x,z:p.z,width:p.w-.056,widthAxis:'x',
+    bottom:floor+.080,top:floor+2.173,edge:false,hotelSlider:true,
+  }));
+}
 export function stepHotelDoors(doors,players,dt){
   for(const f of hotel.fronts){
     const old=doors.hotel?.[f.id]??0;
@@ -15,11 +21,14 @@ export function stepHotelDoors(doors,players,dt){
     else delete doors.hotel[f.id];
   }
 }
-export function hotelDoorTop(x,z,pad,doors,width){
+export function hotelDoorTop(x,z,pad,doors,width,floor,probe,round=false){
   for(const f of hotel.fronts){
     if(Math.abs(z-f.z)>.10+pad)continue;
-    for(const p of hotelPanels(f,doors?.hotel?.[f.id]??0,width)){
-      if(Math.abs(z-p.z)<=p.d/2+pad && Math.abs(x-p.x)<p.w/2+pad)return 3.1;
+    for(const pane of hotelGlass(f,doors?.hotel?.[f.id]??0,width,floor)){
+      if(Math.abs(z-pane.z)>.018+pad || Math.abs(x-pane.x)>width*.25+pad)continue;
+      const inside=Math.abs(x-pane.x)+pad<pane.width/2 && probe>=pane.bottom &&
+        probe<=pane.top && Math.abs(probe-(floor+1.01))>.018;
+      if(!inside || (!round && !doors?.brokenPanes?.[pane.id]))return 3.1;
     }
   }
   return -Infinity;

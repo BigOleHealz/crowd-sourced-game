@@ -1,3 +1,5 @@
+import {outpostPatrols} from './outpost-patrols.js';
+import {brickellResidents} from './brickell-residents.js';
 import {packedJoints,releaseJoints} from './ragdoll.js';
 // The server advances every actor's lifecycle on the same 30 Hz clock.
 import { vehicleContact } from './vehicle-contact.js';
@@ -11,6 +13,7 @@ const SHIELD_TICKS = 60;
 const patrols = [
   { id: 'rival-fern', name: 'Fern', points: [[-3.5, 8], [-2.8, 7.6], [-3.3, 6.7]] },
   { id: 'rival-rowan', name: 'Rowan', points: [[10, 13], [11, 12], [12, 13.5]] },
+  ...(CITY ? brickellResidents : outpostPatrols),
 ];
 
 export function newLife(tick, shield = true) {
@@ -25,7 +28,7 @@ export function healthView(actor, tick) {
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
   const lostParts=life.lostParts && Object.fromEntries(Object.entries(life.lostParts).map(
     ([part,hit])=>[part,{...hit,age:Math.min(8,(tick-hit.tick)/30)}]));
-  return { fall, lostParts, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  return { fall, lostParts, lastShotTick:life.lastShotTick, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 
@@ -35,6 +38,7 @@ export function damageActor(actor, amount, tick, direction) {
   if (life.hp === 0 || tick < life.immuneUntil) return false;
   life.hp = Math.max(0, life.hp - amount);
   if (life.hp !== 0) return false;
+  if(actor.score)actor.score.deaths++;
   life.returnAt = tick + RESPAWN_TICKS;
   const released=direction && !life.fall ? releaseJoints(actor,tick,direction) : null;
   actor.moving = actor.sprint = false;
@@ -106,6 +110,9 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
     const outward = descent / Math.max(.1, Math.hypot(dx, dz));
     const impulse = { x: vx * 1.25 + dx*outward, z: vz * 1.25 + dz*outward, y: 1 + speed*.53 };
     startFall(actor, tick, impulse, kind);
-    damageActor(actor, Math.round(speed * 18), tick);
+    if(damageActor(actor,Math.round(speed*18),tick)){
+      const driver=actors.find(p=>p.id===(kind==='heli'?vehicle.pilot:vehicle.driver));
+      if(driver?.score && driver!==actor)driver.score.kills++;
+    }
   }
 }

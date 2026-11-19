@@ -1,4 +1,4 @@
-import { blocked, CITY, MAP, solidTopAt } from './world.js';
+import { blocked, CITY, insideTravelArea, solidTopAt } from './world.js';
 import { vehicleContact } from './vehicle-contact.js';
 
 const minRise=.72, maxRise=2.1, duration=.88, headroom=1.80;
@@ -13,7 +13,7 @@ function clear(x,y,z,hp,world) {
 }
 
 function landingFits(x,y,z,hp,world) {
-  if(Math.abs(x)>MAP.bounds-.32 || z>MAP.bounds-.32 || z<(MAP.northBound??-MAP.bounds)+.32) return false;
+  if(!insideTravelArea(x,z,.32)) return false;
   return clear(x,y,z,hp,world) && footprint.every(([dx,dz])=>
     Math.abs(solidTopAt(x+dx,z+dz,hp,0,y+.03,world?.doors)-y)<.14);
 }

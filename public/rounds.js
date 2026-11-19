@@ -1,3 +1,4 @@
+import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {lampDown} from './street-lamps.js';
 import {wheelStations} from './road-wheel-layout.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
@@ -20,6 +21,28 @@ function box(a,d,c,w,h,l,yaw=0){
   const cs=Math.cos(yaw),sn=Math.sin(yaw),x=a.x-c.x,z=a.z-c.z,span=[0,1];
   return slab(x*cs+z*sn,d.x*cs+d.z*sn,-w/2,w/2,span) &&
     slab(a.y-c.y,d.y,0,h,span) && slab(-x*sn+z*cs,-d.x*sn+d.z*cs,-l/2,l/2,span)?span[0]:Infinity;
+}
+function glassContact(from,delta,pane,doors){
+  const acrossX=pane.widthAxis==='x', thickness=.024;
+  return box(from,delta,{x:pane.x,y:pane.bottom,z:paneCenter(pane,doors)},
+    acrossX?pane.width:thickness,pane.top-pane.bottom,acrossX?thickness:pane.width);
+}
+
+// The chase camera's stepped depth probe can skip a thin leaf at a shallow
+// angle. Use the same swept pane geometry as rounds within the visible span.
+export function aimGlassPoint(world,from,direction,range){
+  if(!CITY || range<=0)return null;
+  const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
+  let nearest=Infinity;
+  for(const b of MAP.buildings){
+    const entry=box(from,delta,{x:b.x,y:.82,z:b.z},b.w,2.85,b.d);
+    if(entry===Infinity || entry>nearest)continue;
+    visitRoundGlass(b,world.doors,pane=>{
+      nearest=Math.min(nearest,glassContact(from,delta,pane,world.doors));
+    });
+  }
+  return nearest===Infinity ? null :
+    {x:from.x+nearest*delta.x,y:from.y+nearest*delta.y,z:from.z+nearest*delta.z};
 }
 function column(a,d,c,r,h){
   const x=a.x-c.x,z=a.z-c.z,aa=d.x*d.x+d.z*d.z,bb=x*d.x+z*d.z,cc=x*x+z*z-r*r,span=[0,1];
@@ -83,12 +106,13 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
     // Traverse ground-floor rooms using the same furnishings and glass as movement.
     if(CITY && round.y+Math.min(0,d.y)<4.74){
+      visitRoundGlass(b,world.doors,pane=>accept(glassContact(round,d,pane,world.doors),pane,'glass'));
       const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
       const steps=Math.max(1,Math.ceil(length/.045));
       for(let i=0;i<=steps;i++){
         const f=span[0]+(span[1]-span[0])*i/steps;
         const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-        if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors)){
+        if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors,true)){
           accept(f,null,'scenery');break;
         }
       }
