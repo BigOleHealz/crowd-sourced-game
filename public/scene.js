@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MAP, terrainHeight, groundHeight } from './world.js';
+import { MAP, HELIPAD, terrainHeight, groundHeight } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -362,6 +362,119 @@ function jacketColor(id) {
 }
 
 // Parts are assembled in model space about real joints. Forward is local -Z.
+function landingMarks(batch) {
+  const {x, z} = HELIPAD;
+  const h = (dx,dz) => groundHeight(x + dx,z + dz) + .035;
+  // Fit both edges to the ground so the paint stays flush across the slope.
+  function stripe(ax,az,bx,bz,width) {
+    const dx=bx-ax,dz=bz-az,k=width/(2*Math.hypot(dx,dz));
+    const ox=-dz*k,oz=dx*k;
+    const corners=[[ax+ox,az+oz],[bx+ox,bz+oz],[bx-ox,bz-oz],[ax-ox,az-oz]];
+    const positions=corners.flatMap(([u,v])=>[x+u,h(u,v),z+v]);
+    const patch=new THREE.BufferGeometry();
+    patch.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    patch.setIndex([0,1,2,0,2,3]);patch.computeVertexNormals();
+    batch.add(patch,0xe8ddaa,0,0,0);
+    patch.dispose();
+  }
+  const ringRadius = 2.35;
+  for (let i = 0; i < 20; i++) {
+    const a = i * TAU / 20, b = (i + .84) * TAU / 20;
+    stripe(Math.sin(a)*ringRadius,Math.cos(a)*ringRadius,Math.sin(b)*ringRadius,Math.cos(b)*ringRadius,.073);
+  }
+  stripe(-.46,-.8,-.46,.8,.14);
+  stripe(.46,-.8,.46,.8,.14);
+  stripe(-.46,0,.46,0,.14);
+}
+
+function fieldHelicopter(scene,material,shadowMap) {
+  const group = new THREE.Group();
+  scene.add(group);
+  const hull = new Batch(), rotor = new Batch(), fan = new Batch();
+  const orange = 0xe8783d, ivory = 0xe9ddbb, graphite = 0x273a3d, glass = 0x35636f;
+  // A continuous cabin envelope gives each window its own panel and avoids
+  // glass/fuselage intersections. Coordinates run from the nose to the tail.
+  const sections = [
+    [-1.39,.15,.94,.14],[-1.16,.49,1.00,.32],[-.60,.71,1.08,.53],
+    [-.51,.73,1.08,.54],[.04,.75,1.08,.53],[.12,.75,1.08,.52],
+    [.57,.73,1.06,.49],[.71,.67,1.06,.45],[1.13,.38,1.05,.30],[1.30,.18,1.05,.17],
+  ];
+  const profile=[[-.67,1],[.67,1],[.98,.48],[1,-.09],[.95,-.23],[.72,-.86],
+    [0,-1],[-.72,-.86],[-.95,-.23],[-1,-.09],[-.98,.48]];
+  const rings=sections.map(([z,w,y,h])=>profile.map(([cx,cy])=>[cx*w,y+cy*h,z]));
+  function panel(a,b,c,d,tint) {
+    const face=new THREE.BufferGeometry();
+    face.setAttribute('position',new THREE.Float32BufferAttribute([...a,...b,...c,...d],3));
+    face.setIndex([0,1,2,0,2,3]);face.computeVertexNormals();
+    hull.add(face,tint,0,0,0);face.dispose();
+  }
+  for(let row=0;row+1<rings.length;row++) {
+    const a=rings[row],b=rings[row+1];
+    for(let j=0;j<a.length;j++) {
+      const n=(j+1)%a.length,upper=j<=2||j>=9;
+      const windshield=row===1 && upper;
+      const cabinWindow=(row===3||row===5) && upper && j!==0;
+      const stripe=j===3||j===8;
+      let tint=orange;
+      if(windshield||cabinWindow) tint=(j===1||j===10)?0x62939c:glass;
+      else if(stripe||row===7) tint=ivory;
+      else if(j===5||j===6) tint=graphite;
+      panel(a[j],b[j],b[n],a[n],tint);
+    }
+  }
+  for(const [ring,section,front] of [[rings[0],sections[0],true],[rings.at(-1),sections.at(-1),false]]) {
+    const middle=[0,section[2],section[0]];
+    for(let i=0;i<ring.length;i++) {
+      const a=ring[i],b=ring[(i+1)%ring.length];
+      panel(middle,front?a:b,front?b:a,middle,ivory);
+    }
+  }
+  hull.add(round,graphite,0,1.49,.46,.40,.21,.68);
+  hull.add(cube,ivory,0,1.52,.50,.48,.18,.56);
+  for (const side of [-1,1]) {
+    hull.add(cube,graphite,side*.75,.96,.23,.054,.045,.13);
+    hull.add(cube,graphite,side*.65,.098,.03,.11,.105,1.86);
+    hull.beam(graphite,[side*.65,.095,-.88],[side*.65,.23,-1.12],.094);
+    for (const z of [-.50,.51]) hull.beam(graphite,[side*.48,.65,z],[side*.65,.125,z+.08],.085);
+    hull.add(cube,0xefb966,side*.57,.75,-.94,.12,.10,.15);
+  }
+  hull.add(trunk,orange,0,1.14,1.90,.123,2.72,.255,Math.PI/2-.09);
+  hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
+  hull.add(cube,orange,0,1.92,3.12,.118,.18,.41,.27);
+  hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
+  hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
+  hull.add(round,ivory,0,1.94,0,.155,.072,.155);
+  hull.mesh(group,material,false);
+  for (let i=0; i<3; i++) {
+    const a = i*TAU/3, s = Math.sin(a), c = Math.cos(a);
+    rotor.add(cube,graphite,s*1.32,0,c*1.32,.132,.044,2.58,0,a);
+    rotor.add(cube,ivory,s*2.43,.001,c*2.43,.137,.048,.28,0,a);
+  }
+  for (let i=0; i<3; i++) {
+    const a = i*TAU/3;
+    fan.add(cube,graphite,0,Math.cos(a)*.22,Math.sin(a)*.22,.042,.43,.088,a);
+  }
+  const mainRotor = rotor.mesh(group,material,false);
+  mainRotor.position.set(0,1.96,0);
+  const tailRotor = fan.mesh(group,material,false);
+  tailRotor.position.set(.14,1.61,3.02);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,4.2).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
+  scene.add(shadow);
+  let speed=0;
+  return { group, update(heli,dt) {
+    group.position.set(heli.x,heli.y,heli.z);
+    group.rotation.y=-heli.yaw;
+    speed = mix(speed,heli.pilot != null ? 20 : 0,1-Math.exp(-dt*4));
+    mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
+    const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
+    shadow.position.set(heli.x,floor+.07,heli.z);
+    shadow.rotation.y = -heli.yaw;
+    shadow.material.opacity = .38/(1+.20*height);
+    shadow.scale.setScalar(1 + Math.min(height,10)*.06);
+  }};
+}
+
 function hiker(scene,id,tint,material,shadowMap) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
@@ -474,9 +587,10 @@ export function createScene(canvas) {
   addSky(scene); addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial();
   const forest=new Batch(); addForest(forest,rng);forest.mesh(scene,material);
-  const features=new Batch();addBridge(features,rng);addDetails(features,rng);features.mesh(scene,material);
+  const features=new Batch();addBridge(features,rng);addDetails(features,rng);landingMarks(features);features.mesh(scene,material);
   const glints=water(scene,rng);
   const shadowMap=contactShadowMap();
+  const helicopter=fieldHelicopter(scene,material,shadowMap);
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
@@ -490,27 +604,33 @@ export function createScene(canvas) {
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
   }
-  function render(local,remotes,view,dt) {
+  function render(local,remotes,view,dt,world) {
     if(!local) return;
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
+    const heli=world.heli;
+    const piloting=heli.pilot===local.id;
+    helicopter.update(heli,dt);
     const live=new Set();
     for(const state of [local,...remotes]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       if(!a) {a=hiker(scene,state.id,state.color,material,shadowMap);avatars.set(state.id,a);}
-      pose(a,state,dt);
+      a.root.visible=a.shadow.visible=state.id!==heli.pilot;
+      if(a.root.visible) pose(a,state,dt);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
-    desired.set(local.x,local.y+1.43,local.z);
+    if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
+    else desired.set(local.x,local.y+1.43,local.z);
     if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const distance=cameraDistance(target,boom,clamp(view.distance||4.4,1.35,7.5));
+    const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : 0);
+    const distance=cameraDistance(target,boom,wanted);
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=distance>.86;
+    avatars.get(local.id).root.visible=!piloting && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }

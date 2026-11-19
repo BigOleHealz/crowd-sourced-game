@@ -19,7 +19,9 @@ const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) *
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
+let world = null, queuedInteract = false;
+const isPilot = () => id != null && world?.heli.pilot === id;
+const controls = new Set(['KeyE','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -33,7 +35,7 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
-function clearInput() { held.clear(); queuedJump = false; }
+function clearInput() { held.clear(); queuedJump = queuedInteract = false; }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function pauseControls() { clearInput(); stopLook(); }
 byId('help').onclick = () => setGuide(byId('guide').hidden);
@@ -45,6 +47,7 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button')) return;
   e.preventDefault();
   held.add(e.code);
+  if (e.code === 'KeyE' && !e.repeat) queuedInteract = true;
   if (e.code === 'Space' && !e.repeat) queuedJump = true;
 });
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -91,7 +94,7 @@ function connect() {
     const m = JSON.parse(data);
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
-      id = m.id; self = previous = m.state; facing = m.state.yaw;
+      id = m.id; world = m.world; self = previous = m.state; facing = m.state.yaw;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -99,7 +102,8 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
-      const corrected = pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
+      world = m.world;
+      const corrected = isPilot() ? authoritative : pending.reduce((state, cmd) => stepPlayer(state, cmd, step), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
@@ -111,7 +115,7 @@ function connect() {
     }
   };
   socket.onclose = () => {
-    id = null; pending = []; samples = [];
+    id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
     notice(full ? 'All 16 places are taken. Retrying shortly…' : 'Connection lost. Rejoining the trail…');
@@ -135,13 +139,16 @@ function tick() {
   moving = Boolean(lateral || forward);
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
   if (moving) facing = Math.atan2(x, -z);
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint };
-  queuedJump = false;
+  const pilot = isPilot();
+  const descending = held.has('ShiftLeft') || held.has('ShiftRight');
+  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot, yaw: facing, sprint: sprint && !pilot,
+    interact: queuedInteract, lift: pilot ? Number(held.has('Space')) - Number(descending) : 0, aimYaw: camera.yaw };
+  queuedJump = queuedInteract = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  self = stepPlayer(self, cmd, step);
+  if (!pilot) self = stepPlayer(self, cmd, step);
 }
 
 function remoteFrame(time) {
@@ -201,7 +208,7 @@ function frame(time) {
     const local = { ...self, id, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const remotes = remoteFrame(time);
-    scene.render(local, remotes, camera, dt);
+    scene.render(local, remotes, camera, dt, world);
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(camera.yaw / (Math.PI / 4)) % 8 + 8) % 8;

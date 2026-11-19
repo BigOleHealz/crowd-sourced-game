@@ -27,6 +27,9 @@ export const MAP = {
   trees: [],
 };
 
+export const HELIPAD = { x: 4, z: 14 };
+export const BOARD_RANGE = 3.5;
+
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
 for (let i = 0; i < 9; i++) {
   for (let j = 0; j < 9; j++) {
@@ -96,7 +99,16 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-function blocked(x, y, z) {
+export function solidTopAt(x, z, hp, padding = 0) {
+  let top = groundHeight(x, z);
+  for (const obstacle of obstacles) {
+    if (obstacle.id && hp?.[obstacle.id] === 0) continue;
+    if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
+  }
+  return top;
+}
+
+export function blocked(x, y, z) {
   if (groundHeight(x, z) > y + 0.3) return true;
   const bridge = MAP.bridge;
   const rail = Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
