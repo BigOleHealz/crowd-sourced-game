@@ -54,6 +54,20 @@ export function cityStreets(scene,renderer,Batch) {
       }
     }
   }
+  // Face northbound traffic from the sidewalk before the causeway and at landfall.
+  for(const [x,z,label] of [[8.3,-38,'↑  HARBOR KEY'],[8.3,-157,'HARBOR KEY']]) {
+    const face=document.createElement('canvas');face.width=640;face.height=144;
+    const ink=face.getContext('2d');
+    ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
+    ink.fillStyle='#205448';ink.fillRect(6,6,628,132);
+    ink.fillStyle='#fff9dd';ink.textAlign='center';ink.textBaseline='middle';
+    ink.font='bold 70px sans-serif';ink.fillText(label,320,74);
+    const texture=new THREE.CanvasTexture(face);texture.colorSpace=THREE.SRGBColorSpace;
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.86),new THREE.MeshBasicMaterial({map:texture}));
+    sign.position.set(x,3.62,z+.08);scene.add(sign);
+    solids.add(box,0x737c70,x,3.62,z,3.82,.88,.13);
+    for(const side of [-1,1])solids.add(box,0x8c9287,x+side*1.3,2.05,z,.10,2.68,.10);
+  }
   ground('pavers',lots,3);ground('lawn',lawns,3);
   solids.add(box,0xa59f90,cx,.15,cz,w,1,d);
   const stripe=(x,z,w,d,tint=0xe9e5d4)=>solids.add(box,tint,x,.713,z,w,.012,d);
