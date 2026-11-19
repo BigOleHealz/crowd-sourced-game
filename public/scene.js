@@ -788,7 +788,7 @@ function hiker(scene,id,tint,material,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,limbs,tools:makeBlasters(body,material),shadow,label:characterLabel(root,name),cycle:0,weight:0};
+  return {root,body,limbs,material,tools:makeBlasters(body,material),shadow,label:characterLabel(root,name),cycle:0,weight:0};
 }
 
 function makeParachute(root, material) {
@@ -809,7 +809,7 @@ function pose(avatar,state,dt) {
   const swing=Math.sin(avatar.cycle)*avatar.weight;
   const airborne=state.grounded===false;
   const open = state.parachute === 'open' && !state.dead;
-  if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.body.children[0].material);
+  if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
   const yaw=-(Number.isFinite(state.yaw)?state.yaw:0);
