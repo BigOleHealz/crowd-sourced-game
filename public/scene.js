@@ -1037,7 +1037,7 @@ export function createScene(canvas) {
       if(hp!==stack.hp) {
         if(hp===0 && stack.hp>0) effects.burst(prop.x,mesh.position.y+prop.height*.48,prop.z,true);
         mesh.visible=hp>0;
-        mesh.scale.y=.78+.22*hp/prop.hp;
+        if(hp>0) mesh.scale.y=.78+.22*hp/prop.hp;
         stack.hp=hp;
       }
     }
