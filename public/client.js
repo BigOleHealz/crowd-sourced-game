@@ -430,7 +430,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
+    const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const { players: remotes, npcs, heli, rover } = remoteFrame(time);
     local.weapon = weapon;

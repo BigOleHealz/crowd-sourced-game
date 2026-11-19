@@ -23,7 +23,9 @@ export function healthView(actor, tick) {
   const fall = f ? { cause: f.cause, yaw: f.yaw, speed: f.speed, age: (tick-f.started)/30,
     ...(f.ragdoll ? {joints:packedJoints(f.ragdoll),started:f.started} : {}),
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
-  return { fall, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  const lostParts=life.lostParts && Object.fromEntries(Object.entries(life.lostParts).map(
+    ([part,hit])=>[part,{...hit,age:Math.min(8,(tick-hit.tick)/30)}]));
+  return { fall, lostParts, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 

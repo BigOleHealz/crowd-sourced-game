@@ -1,3 +1,4 @@
+import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {createRangerRig,poseRig} from './ranger-pose.js';
@@ -704,6 +705,8 @@ function fieldEffects(scene) {
       return;
     }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
+    if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
+    if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
     if(s.weapon==='missile'){
@@ -1030,6 +1033,7 @@ export function createScene(canvas) {
   }
   let roverBoom = null, bailoutOrbit = 0;
   function removeAvatar(a) {
+    clearLostParts(a);
     a.label.dispose();
     for(const ring of a.ripples?.rings ?? []) {
       scene.remove(ring);
@@ -1117,6 +1121,7 @@ export function createScene(canvas) {
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
       if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
+      applyLostParts(a,state,scene,world.hp,dt);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const localStation=local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
