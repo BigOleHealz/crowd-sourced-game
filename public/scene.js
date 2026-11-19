@@ -1,3 +1,4 @@
+import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
@@ -722,6 +723,8 @@ function fieldEffects(scene) {
       return;
     }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
+    if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
+    if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
     if(s.weapon==='missile'){
@@ -824,28 +827,30 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   spine.position.y=1.01;upper.position.y=-1.01;spine.add(upper);body.add(spine);
   const identity=rangerIdentity(id), warm=skinColors[identity];
   const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
-  const torso=new Batch(true);
+  const head=new THREE.Group();head.position.y=1.525;upper.add(head);
+  const torso=new Batch(true), headArt=new Batch(true);
+  const headOrigin=new THREE.Group();headOrigin.position.y=-1.525;head.add(headOrigin);
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
   torso.add(trouserSeat,0x97a291,0,.995,.004);
   const faceY=1.681, fabric=[0x52564e,0x696653,0x4e5551,0x636056][identity];
-  torso.add(hood,fabric,0,faceY,-.008);
-  torso.add(visorRim,0x282e2b,0,faceY,-.008);
+  headArt.add(hood,fabric,0,faceY,-.008);
+  headArt.add(visorRim,0x282e2b,0,faceY,-.008);
   const lens=new THREE.Mesh(visorLens.clone(),visorMaterials[identity]);
-  lens.position.set(0,faceY,-.008);upper.add(lens);
+  lens.position.set(0,faceY,-.008);headOrigin.add(lens);
   for(const side of [-1,1]) {
-    torso.beam(0x454742,[side*.12,1.717,-.036],[side*.110,1.718,.066],.022);
+    headArt.beam(0x454742,[side*.12,1.717,-.036],[side*.110,1.718,.066],.022);
     for(let n=0;n<3;n++){
       const y=1.628-.014*n;
-      torso.beam(0x70716a,[side*.027,y+.014,-.140+n*.008],[side*.086,y+.025,-.097+n*.004],.005);
+      headArt.beam(0x70716a,[side*.027,y+.014,-.140+n*.008],[side*.086,y+.025,-.097+n*.004],.005);
     }
   }
-  torso.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
-  torso.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
+  headArt.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
+  headArt.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
   torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
   for(const side of [-1,1]) {
-    torso.add(round,0x535648,side*.104,1.728,.028,.025,.041,.065);
-    torso.beam(0x585849,[side*.105,1.731,-.021],[side*.067,1.589,-.046],.012);
+    headArt.add(round,0x535648,side*.104,1.728,.028,.025,.041,.065);
+    headArt.beam(0x585849,[side*.105,1.731,-.021],[side*.067,1.589,-.046],.012);
     torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
     torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
   }
@@ -861,7 +866,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   torso.beam(0x565745,[-.060,1.49,.188],[-.035,1.505,.196],.012);
   torso.beam(0x565745,[-.035,1.505,.196],[.035,1.505,.196],.012);
   torso.beam(0x565745,[.035,1.505,.196],[.060,1.49,.188],.012);
-  torso.mesh(upper,uniform);
+  torso.mesh(upper,uniform);headArt.mesh(headOrigin,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
     const leg=new THREE.Group(); leg.position.set(side*.108,.975,0); body.add(leg);
@@ -907,7 +912,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,spine,limbs,material,gait:null,tools:makeFirearms(upper),shadow,label:characterLabel(root,name),cycle:0};
+  return {root,body,spine,head,limbs,material,gait:null,tools:makeFirearms(upper),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -1180,6 +1185,7 @@ export function createScene(canvas) {
   }
   let roverBoom = null, bailoutOrbit = 0;
   function removeAvatar(a) {
+    clearLostParts(a);
     a.label.dispose();
     for(const ring of a.ripples?.rings ?? []) {
       scene.remove(ring);
@@ -1267,6 +1273,7 @@ export function createScene(canvas) {
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
       if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
+      applyLostParts(a,state,scene,world.hp,dt);
     }
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const localStation=local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;

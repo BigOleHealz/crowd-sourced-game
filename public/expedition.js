@@ -1,3 +1,4 @@
+import {posedHit} from './hit-zones.js';
 import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
@@ -55,12 +56,23 @@ function actorIntersection(actor,from,dir) {
     enter=Math.max(enter,Math.min(low,high));leave=Math.min(leave,Math.max(low,high));
   } else if(y<0 || y>1.54) leave=-1;
   if(enter<=leave) body=enter;
-  return {actor,distance:Math.min(head,body),headshot:head<body};
+  const distance=Math.min(head,body),headshot=head<body;
+  let hitPart=null,visualT=distance;
+  if(Number.isFinite(distance)) {
+    const side=(x+dir.x*distance)*Math.cos(yaw)+(z+dir.z*distance)*Math.sin(yaw);
+    const h=y+dir.y*distance, limb=side<0 ? 'left' : 'right';
+    hitPart=headshot ? 'head' : h<.91 ? limb+'Leg' : h>1.14 && Math.abs(side)>.19 ? limb+'Arm' : 'torso';
+    if(!headshot) {
+      const posed=posedHit(actor,from,dir,enter,leave);
+      if(posed) {hitPart=posed.part;visualT=posed.visualT;}
+    }
+  }
+  return {actor,distance,headshot,hitPart,visualT};
 }
 
 // Also used by the third-person camera to find the depth under the cursor.
 export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null) {
-  let target = null, hitKind = null, to, blocked = false, headshot=false;
+  let target = null, hitKind = null, to, blocked = false, headshot=false, hitPart=null, injuryPoint=null;
   const intersections=actors.map(actor=>actorIntersection(actor,from,direction)).sort((a,b)=>a.distance-b.distance);
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
@@ -84,14 +96,15 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     }
     const direct=intersections[0];
     if(direct && direct.distance<=d+.00001) {
-      target=direct.actor;headshot=direct.headshot;
+      target=direct.actor;headshot=direct.headshot;hitPart=direct.hitPart;
+      injuryPoint={x:from.x+direction.x*direct.visualT,y:from.y+direction.y*direct.visualT,z:from.z+direction.z*direct.visualT};
       to={x:from.x+direction.x*direct.distance,y:from.y+direction.y*direct.distance,z:from.z+direction.z*direct.distance};
     } else if(assist) {
       target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72,halo))?.actor;
     }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
-  return { target, hitKind, to, blocked, headshot };
+  return { target, hitKind, to, blocked, headshot, hitPart, injuryPoint };
 }
 
 export function fire(world, player, input, tick, players, npcs) {
@@ -108,7 +121,8 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
+function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction) {
+  let injury=null;
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
@@ -119,7 +133,16 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
     }
     for (const actor of actors) {
       if (actor === target || (areaImpact && withinBurst(center, actor.state, .9))) {
+        const priorHP=actor.life.hp;
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick, direction);
+        if(actor===target && hitPart && actor.life.hp<priorHP) {
+          injury=actor.life.lostParts?.[hitPart] ? null : hitPart;
+          if(hitPart!=='torso') {
+            actor.life.lostParts ??= {};
+            actor.life.lostParts[hitPart] ??= {tick,...(injuryPoint ?? to),yaw:actor.yaw ?? 0,
+              dx:direction?.x ?? 0,dz:direction?.z ?? 0};
+          }
+        }
       }
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
@@ -129,6 +152,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
       damageHelicopter(world, damage, players, shooter);
     }
   }
+  return injury;
 }
 
 // Launch direction is captured from the authoritative body heading.
@@ -155,8 +179,8 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction);
-    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction);
+    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
 }
@@ -187,13 +211,14 @@ export function advanceRounds(world,players,npcs,tick){
     const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
     d.x*=fraction;d.y*=fraction;d.z*=fraction;
     const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
+    const injuryPoint=hit.hitPart ? {x:r.x+d.x*hit.visualT,y:r.y+d.y*hit.visualT,z:r.z+d.z*hit.visualT} : undefined;
     const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
     r.prior={x:r.x,y:r.y,z:r.z};
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
-    if(hit.target)applyHit(world,{...hit,to},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)});
-    world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,
+    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)});
+    world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
     return false;
   });
