@@ -791,12 +791,26 @@ function hiker(scene,id,tint,material,shadowMap,name) {
   return {root,body,limbs,tools:makeBlasters(body,material),shadow,label:characterLabel(root,name),cycle:0,weight:0};
 }
 
+function makeParachute(root, material) {
+  const canopy = new Batch();
+  for (let cell = -4; cell <= 4; cell++) {
+    const x = cell * .38, arch = 4.05 - .04 * cell * cell;
+    canopy.add(round, Math.abs(cell) === 2 ? 0xffeac1 : 0xd36a36, x,arch,0,.25,.24,.82,0,0,-cell*.13);
+    if (cell % 2 === 0) for (const z of [-.50,.50])
+      canopy.beam(0x544e43,[Math.sign(cell)*.18,1.45,0],[x,arch-.09,z],.019);
+  }
+  return canopy.mesh(root,material,false);
+}
+
 function pose(avatar,state,dt) {
   const active=!state.dead && !!state.moving && state.grounded !== false;
   avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
   avatar.cycle+=dt*(state.sprint?13:9);
   const swing=Math.sin(avatar.cycle)*avatar.weight;
   const airborne=state.grounded===false;
+  const open = state.parachute === 'open' && !state.dead;
+  if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.body.children[0].material);
+  if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
   const yaw=-(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
@@ -813,7 +827,7 @@ function pose(avatar,state,dt) {
     leg.rotation.x=airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
     knee.rotation.x=airborne ? -.65 : -Math.max(0,-side*swing)*.77;
     arm.rotation.x=side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
-    arm.rotation.z=side*(side===1 ? .26 : airborne?.20:.065);
+    arm.rotation.z=side*(open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
@@ -934,7 +948,7 @@ export function createScene(canvas) {
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
-    else desired.set(local.x,local.y+1.43,local.z);
+    else desired.set(local.x,local.y+(local.parachute === 'open' ? 2.1 : 1.43),local.z);
     if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;

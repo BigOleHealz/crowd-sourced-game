@@ -126,8 +126,6 @@ async function checkExpedition(host) {
   const airborne = world(a).heli;
   assert.ok(!airborne.grounded && airborne.y > groundHeight(airborne.x, airborne.z) + 1);
   assert.ok(airborne.z < HELIPAD.z - .35, 'helicopter travels over the ground');
-  await drive(a, { interact: true });
-  assert.equal(world(a).heli.pilot, a.id, 'airborne exit is refused');
   await until(() => Math.abs(world(b).heli.z - airborne.z) < .5 && !world(b).heli.grounded, 'observed aircraft motion');
 
   const late = await join(host);
@@ -144,6 +142,19 @@ async function checkExpedition(host) {
   const dismounted = player(a);
   assert.ok(dismounted.grounded && Math.abs(dismounted.y - groundHeight(dismounted.x, dismounted.z)) < .3, 'exit leaves pilot on safe ground');
 
+  await drive(a, { interact: true });
+  await drive(a, { lift: 1 }, 80);
+  await drive(a, { interact: true });
+  await until(() => player(b, a.id).parachute === 'packed', 'observer sees free fall');
+  await drive(a, {}, 9);
+  assert.ok(player(a).vy < -4, 'packed chute allows accelerating free fall');
+  const beforeLanding = player(a).hp;
+  await drive(a, { deploy: true });
+  await until(() => player(b, a.id).parachute === 'open', 'observer sees manual deployment');
+  assert.ok(player(a).vy >= -2.81, 'open canopy slows descent');
+  await until(() => player(a).grounded, 'safe parachute landing');
+  assert.equal(player(a).hp, beforeLanding);
+  assert.equal(player(a).parachute, undefined);
   await walkTo(b, padApproach);
   await drive(b, { interact: true });
   assert.equal(world(b).heli.pilot, b.id);
