@@ -1,8 +1,9 @@
+import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, turretRange } from './mounts.js';
 import { nearestVehicle } from './rover.js';
-import { avenues, streets, coast } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
 const byId = id => document.getElementById(id);
@@ -91,7 +92,7 @@ canvas.addEventListener('pointerdown', e => {
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead)
-    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 18 : 27,gunnerRole());
+    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 49 : 78,gunnerRole());
   mouseFire = queuedFire = true;
 });
 window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
@@ -154,13 +155,13 @@ function connect() {
       if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       const corrected = isPilot() || isDriving() || gunner || vitals.dead ? authoritative : pending.reduce(
-        (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
+        (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
       previous = { ...previous, x: previous.x + corrected.x - self.x,
         y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
-      samples.push({ time: performance.now(), heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), bullets:world.bullets, heli: world.heli, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -191,13 +192,13 @@ function tick() {
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   moving = Boolean(lateral || forward);
-  sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
+  sprint = moving && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
+  const fire = !self.swimming && !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
+    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 49 : 78,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -213,7 +214,20 @@ function tick() {
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
   previous = self;
-  if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp);
+  if (!pilot && !driving && !gunner && !vitals.dead) self = stepPlayer(self, cmd, step, world.hp, world);
+}
+
+// Interpolate only live rounds. An impact snapshot immediately retires its tracer.
+function roundFrame(time) {
+  const newest=samples.at(-1),older=samples.at(-2);
+  if(!older || !newest?.bullets?.length) return world.bullets;
+  const duration=Math.max(1,newest.time-older.time),blend=clamp((time-newest.time)/duration,0,1);
+  return newest.bullets.map(r=>{
+    const old=older.bullets?.find(v=>v.id===r.id);
+    const back=Math.min(r.age/30,duration/1000);
+    return {...r,x:mix(old?.x ?? r.x-r.vx*back,r.x,blend),
+      y:mix(old?.y ?? r.y-r.vy*back,r.y,blend),z:mix(old?.z ?? r.z-r.vz*back,r.z,blend)};
+  });
 }
 
 function remoteFrame(time) {
@@ -276,23 +290,24 @@ function updateEquipment(local) {
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
-  byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Burst launcher';
+  byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Patrol sidearm';
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = pilot ? heli : isDriving() ? world.rover : vitals;
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+world[gunner].hp+'/'+world[gunner].maxHp : vitals.protected ? 'Spawn shield' : '';
-  byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = isDriving() || !!gunner;
+  byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  byId('tool-shortcut').hidden = pilot || isDriving() || !!gunner;
-  byId('fire-shortcut').hidden = vitals.dead;
+  byId('tool-shortcut').hidden = local.swimming || pilot || isDriving() || !!gunner;
+  byId('fire-shortcut').hidden = local.swimming || vitals.dead;
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (local.swimming) prompt.textContent='Swimming  ·  WASD / arrows to swim to shore';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
   else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
   else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
@@ -308,11 +323,16 @@ function updateEquipment(local) {
 function drawMap(player, remotes, yaw) {
   const w = map.width, h = map.height;
   const scale=CITY ? 1.34 : 3.25;
-  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + z * scale;
+  const centerZ=CITY ? Math.min(0,player.z+36) : 0;
+  const sx = x => w / 2 + x * scale, sy = z => h * (CITY ? .48 : .57) + (z-centerZ) * scale;
   if(CITY) {
     ctx.fillStyle='#467e87';ctx.fillRect(0,0,w,h);
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
+    ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
+    ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
+    ctx.fillRect(sx(-6),sy(harbor.north),12*scale,(causeway.south-harbor.north)*scale);
+    ctx.fillRect(sx(harbor.west),sy(harbor.crossing-4.5),(harbor.east-harbor.west)*scale,9*scale);
     for(const x of avenues) ctx.fillRect(sx(x-5.7),sy(coast.north),11.4*scale,(coast.south-coast.north)*scale);
     for(const z of streets) ctx.fillRect(sx(coast.west),sy(z-4.1),(coast.east-coast.west)*scale,8.2*scale);
     ctx.fillStyle='#3b4b4c';
@@ -373,7 +393,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='rover' ? rover : heli,role));
     const view = isDriving() ? drivingView(rover, dt) : camera;
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs });
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;
@@ -381,7 +401,7 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-      byId('location').textContent = CITY ? (local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);

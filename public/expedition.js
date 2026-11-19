@@ -1,3 +1,4 @@
+import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
@@ -15,7 +16,7 @@ export function newExpedition() {
   return {
     heli: parkedHelicopter(), rover: parkedRover(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
-    shots: [], missiles: [],
+    shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
   };
 }
@@ -94,20 +95,12 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
-  const bloom = player.weapon === 2;
-  player.fireReady = tick + (bloom ? 21 : 6);
-  const { x, y, z } = player.state;
-  const from = { x, y: y + 1.3, z };
-  const horizontal = Math.cos(input.aimPitch);
-  const dx = Math.sin(input.aimYaw) * horizontal;
-  const dy = Math.sin(input.aimPitch);
-  const dz = -Math.cos(input.aimYaw) * horizontal;
-  const actors = targets(world,player.id,players,npcs);
-  const { target, hitKind, to, headshot } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
-  applyHit(world,{target,hitKind,to,headshot},actors,players,player.id,tick,bloom ? 40 : 25,bloom ? 2 : 1,bloom);
-  world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to, headshot,
-    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
+  if (player.state.swimming || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
+  const spec=firearmSpecs[player.weapon];
+  player.fireReady=tick+spec.cooldown;
+  const from={x:player.state.x,y:player.state.y+1.3,z:player.state.z};
+  sendRound(world,player.id,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
+
 }
 
 function targets(world,shooter,players,npcs,source=null) {
@@ -115,39 +108,41 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
-  if (hitKind || (bloom && blocked)) {
+function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null) {
+  if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     for (const crystal of BREAKABLES) {
-      if (crystal === target || (bloom && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
+      if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
         world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);
       }
     }
     for (const actor of actors) {
-      if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
+      if (actor === target || (areaImpact && withinBurst(center, actor.state, .9))) {
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
       }
     }
-    if (source !== 'rover' && (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8)))) {
+    if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       damageRover(world,damage,players);
     }
-    if (source !== 'heli' && (hitKind === 'heli' || (bloom && withinBurst(center, world.heli, 1)))) {
+    if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, damage, players, shooter);
     }
   }
 }
 
 // Launch direction is captured from the authoritative body heading.
-const launcherReady=new WeakMap();
+const launchState=new WeakMap();
 export function launchMissile(world,kind,player,tick) {
   const v=world[kind];
-  if(v.wrecked || (kind==='heli' ? v.pilot : v.driver)!==player.id || tick<(launcherReady.get(v) ?? 0)) return;
-  launcherReady.set(v,tick+30);
+  const previous=launchState.get(v);
+  if(v.wrecked || (kind==='heli' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
   const offset=[...mounts[kind].launcher];
   const id=nextShotId++;
-  if(id%2===0) offset[0]*=-1;
-  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,remaining:60});
+  const side=kind==='heli' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
+  launchState.set(v,{ready:tick+30,side});
+  offset[0]*=side;
+  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
@@ -156,11 +151,12 @@ export function advanceMissiles(world,players,npcs,tick) {
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
     const hit=tracePulse(world,actors,m,direction,1,false,m.source);
+    const from={x:m.x,y:m.y,z:m.z};
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
     applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
-    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
+    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
 }
@@ -171,14 +167,35 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
   // The 30 Hz simulation alternates eight and seven ticks between bullets.
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+7.5);
-  const horizontal=Math.cos(v.turretPitch);
-  const dir={x:Math.sin(v.turretYaw)*horizontal,y:Math.sin(v.turretPitch),z:-Math.cos(v.turretYaw)*horizontal};
   const pivot=mountPosition(v,mounts[kind].turret);
-  const actors=targets(world,player.id,players,npcs,kind);
-  const hit=tracePulse(world,actors,pivot,dir,turretRange,false,kind);
-  applyHit(world,hit,actors,players,player.id,tick,34,34,false,kind);
-  const d=Math.min(.64,Math.hypot(hit.to.x-pivot.x,hit.to.y-pivot.y,hit.to.z-pivot.z));
-  const from={x:pivot.x+dir.x*d,y:pivot.y+dir.y*d,z:pivot.z+dir.z*d};
-  world.shots.push({id:nextShotId++,shooter:player.id,weapon:'turret',from,to:hit.to,headshot:hit.headshot,
-    hit:Boolean(hit.hitKind),hitKind:hit.hitKind,targetId:hit.target?.id ?? hit.hitKind,tick});
+  sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
+}
+
+function sendRound(world,shooter,weapon,source,from,yaw,pitch,tick){
+  const spec=firearmSpecs[weapon],speed=spec.speed,flat=Math.cos(pitch);
+  world.bullets.push({...from,shooter,weapon,source,id:nextShotId++,vx:Math.sin(yaw)*flat*speed,
+    vy:Math.sin(pitch)*speed,vz:-Math.cos(yaw)*flat*speed,left:spec.range,age:0});
+  world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',from,to:from,tick});
+}
+
+const lastPosition=new WeakMap();
+export function advanceRounds(world,players,npcs,tick){
+  const dt=1/30;
+  world.bullets=world.bullets.filter(r=>{
+    const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source);
+    const d={x:r.vx*dt,y:r.vy*dt-roundDrop*dt*dt/2,z:r.vz*dt};
+    const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
+    d.x*=fraction;d.y*=fraction;d.z*=fraction;
+    const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
+    const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
+    r.prior={x:r.x,y:r.y,z:r.z};
+    r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
+    if(hit.t===Infinity)return r.left>.00001 && r.age<90;
+    const to={x:r.x,y:r.y,z:r.z};
+    if(hit.target)applyHit(world,{...hit,to},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source);
+    world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,
+      hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
+    return false;
+  });
+  for(const actor of [...players.values(),...npcs])lastPosition.set(actor,{...actor.state});
 }

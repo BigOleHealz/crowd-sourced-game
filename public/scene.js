@@ -1,6 +1,7 @@
+import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
-import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { bootSole, bootUpper, rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, gunnerFeet } from './mounts.js';
 import { tracePulse } from './expedition.js';
@@ -9,6 +10,8 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import { missileCloud } from './missile-cloud.js';
+import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
 import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
@@ -226,6 +229,10 @@ function addSky(scene) {
         #include <colorspace_fragment>
         }`
     }));
+  if(CITY) {
+    sky.frustumCulled=false;
+    sky.onBeforeRender=(_r,_s,camera)=>{sky.matrixWorld.setPosition(camera.position);sky.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse,sky.matrixWorld);};
+  }
   sky.renderOrder=-20; scene.add(sky);
   return panorama;
 }
@@ -276,6 +283,7 @@ function addBridge(scene,renderer,rng) {
   map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   const wood=new THREE.MeshLambertMaterial({map,vertexColors:true});
   const bridge=batch.mesh(scene,wood);
+  bridge.userData.impactSurface='wood';
   bridge.geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
 }
 
@@ -326,10 +334,10 @@ function windsock(batch) {
 
 function addDetails(scene,batch, rng) {
   const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
-  addTrailMarker(batch,2.24,8.1,-.35);
-  addTrailMarker(batch,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,true);
-  signFace(scene,2.24,8.1,-.35,'CREEK TRAIL');
-  signFace(scene,MAP.lookout.x-1.65,MAP.lookout.z-.80,.2,'LOOKOUT');
+  for(const marker of trailMarkers) {
+    addTrailMarker(batch,marker.x,marker.z,marker.heading,marker.h>2);
+    signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+  }
   windsock(batch);
   for(let i=0;i<4100;i++) {
     const x=(rng()-.5)*79,z=(rng()-.5)*79,y=terrainHeight(x,z);
@@ -345,8 +353,9 @@ function addDetails(scene,batch, rng) {
 }
 
 function water(scene,rng,renderer) {
-  const geometry=new THREE.PlaneGeometry(125,10).rotateX(-Math.PI/2);
+  const geometry=new THREE.PlaneGeometry(125,125).rotateX(-Math.PI/2);
   const material=creekMaterial(renderer);
+  material.map.repeat.set(28,28);
   const surface=new THREE.Mesh(geometry,material);
   surface.position.y=MAP.waterY; surface.receiveShadow=true; scene.add(surface);
   const ripples=new Batch();
@@ -372,20 +381,41 @@ function contactShadowMap() {
 
 // Field equipment uses the same vertex-colored batches as the hikers.
 // Each loadout costs a single draw call while equipped.
-function makeBlasters(body, material) {
-  const pulse = new Batch(), bloom = new Batch();
-  const steel=0x474c49, polymer=0x4e5042, sand=0x817964;
-  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
-    kit.add(cube,polymer,0,.048,.098,.071,.105,.227,-.055);
-    kit.add(cube,steel,0,.060,-.096,.076,.091,.226);
-    kit.add(cube,polymer,0,-.038,-.014,.053,.136,.055,-.22);
-    kit.add(cube,sand,0,-.030,-.136,.060,.115,.085,.12);
-    kit.add(cube,heavy ? sand : polymer,0,.06,-.255,heavy ? .092 : .077,heavy ? .096 : .074,.19);
-    kit.add(trunk,steel,0,.061,-.407,heavy ? .055 : .022,.18,heavy ? .055 : .022,Math.PI/2);
-    kit.add(cube,steel,0,.129,-.092,.045,.048,.067);
-    kit.add(cube,0x737c73,0,.138,-.128,.022,.020,.004);
+function makeFirearms(body, material) {
+  const carbine = new Batch(), sidearm = new Batch();
+  const alloy=0x4f5452, charcoal=0x343a39, stock=0x686655, accent=0x858578;
+  const tube=new THREE.CylinderGeometry(1,1,1,14);
+  // Bevelled side profiles give the two field props distinct silhouettes.
+  function profile(batch,tint,outline,width) {
+    const shape=new THREE.Shape(outline.map(([z,y])=>new THREE.Vector2(z,y)));
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:1,bevelThickness:.003,bevelSize:.004});
+    geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
   }
-  const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
+  profile(carbine,stock,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
+  carbine.add(cube,charcoal,0,.041,.236,.065,.119,.013);
+  profile(carbine,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
+  profile(carbine,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
+  profile(carbine,stock,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
+    profile(carbine,stock,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
+    for(const side of [-1,1]) for(let n=0;n<5;n++)
+      carbine.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
+    carbine.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
+    carbine.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
+  carbine.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
+  carbine.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
+  carbine.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
+  for(const side of [-1,1]) {
+    carbine.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
+    carbine.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
+  }
+  profile(sidearm,charcoal,[[.088,.085],[-.169,.085],[-.18,.047],[-.10,.025],[.044,.027],[.091,.050]],.043);
+  profile(sidearm,alloy,[[.084,.106],[-.184,.106],[-.184,.064],[.080,.064]],.047);
+  profile(sidearm,stock,[[.079,.045],[.019,.043],[.036,-.095],[.095,-.089]],.045);
+  sidearm.add(tube,charcoal,0,.085,-.188,.014,.02,.014,Math.PI/2);
+  sidearm.beam(charcoal,[.0,.019,-.063],[.0,-.014,-.050],.010);
+  sidearm.beam(charcoal,[.0,-.014,-.050],[.0,-.013,.021],.010);
+  tube.dispose();
+  const tools = [carbine.mesh(body,material,false), sidearm.mesh(body,material,false)];
   for (const tool of tools) tool.position.set(.109,1.33,-.19);
   return tools;
 }
@@ -461,24 +491,47 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const olive=0x59614f, graphite=0x343b36, alloy=0x939489;
   aircraftBody(hull,glazing);
   const wheel=new THREE.TorusGeometry(1,.36,8,20);
-  const fairing=new THREE.CylinderGeometry(.12,.27,2.72,8);
-  hull.add(fairing,olive,0,1.48,3.04,1,1,1,Math.PI/2-.14);
-  // Swept tail pylon with thickness and a wide, tapered stabilator.
+  hull.add(round,graphite,0,1.03,-1.87,.50,.13,.22);
+  hull.add(cube,0x414840,0,1.07,-1.72,.95,.16,.24,-.30);
+  for(const side of [-1,1]) {
+    hull.add(cube,0x303833,side*.765,.973,-.83,.025,.069,.172);
+    hull.add(cube,alloy,side*.785,.983,-.83,.029,.024,.116);
+    hull.add(cube,0x303833,side*.763,.928,.80,.036,.073,.185);
+    hull.add(cube,alloy,side*.787,.938,.80,.031,.024,.118);
+    for(let k=0;k<9;k++) hull.add(round,0x8f9281,side*.757,.894,-.56+k*.122,.009,.010,.010);
+  }
+  // An upswept boom, fin and low stabilator form the distinctive tail silhouette.
+  const fairing=new THREE.CylinderGeometry(.13,.31,3.05,10);
+  hull.add(fairing,olive,0,1.54,3.40,1,1,.94,Math.PI/2-.13);
   const fin=new THREE.Shape();
-  fin.moveTo(3.85,1.54);fin.lineTo(4.39,1.66);fin.lineTo(4.83,2.77);fin.lineTo(4.49,2.69);fin.closePath();
-  const pylon=new THREE.ExtrudeGeometry(fin,{depth:.13,bevelEnabled:false});
-  pylon.rotateY(-Math.PI/2);hull.add(pylon,olive,.065,0,0);
-  hull.add(cube,olive,0,1.66,3.99,1.92,.075,.45,-.08);
+  fin.moveTo(4.25,1.58);fin.lineTo(4.92,1.70);fin.lineTo(5.39,2.99);
+  fin.lineTo(4.99,2.97);fin.lineTo(4.66,2.35);fin.closePath();
+  const pylon=new THREE.ExtrudeGeometry(fin,{depth:.15,bevelEnabled:false});
+  pylon.rotateY(-Math.PI/2);hull.add(pylon,olive,.075,0,0);
+  const aerofoil=(outline,thickness)=>{
+    const shape=new THREE.Shape(outline.map(([x,z])=>new THREE.Vector2(x,-z)));
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:thickness,bevelEnabled:false});
+    return geo.rotateX(-Math.PI/2);
+  };
+  const stabilator=aerofoil([[-1.34,4.72],[1.34,4.72],[1.34,4.29],[.33,4.00],[-.33,4.00],[-1.34,4.29]],.055);
+  hull.add(stabilator,olive,0,1.66,0);stabilator.dispose();
   for(const side of [-1,1]){
-    hull.add(round,graphite,side*.35,.94,-1.04,.23,.16,.26);
+    hull.add(round,graphite,side*.35,.94,-1.28,.23,.16,.26);
     hull.add(round,0x42473e,side*.35,1.18,-.84,.22,.30,.08,-.12);
     // Paired turbine nacelles above the cabin with recessed mouths and rear exhausts.
-    hull.add(round,olive,side*.39,1.71,.33,.30,.27,1.05);
-    hull.add(trunk,graphite,side*.39,1.77,-.43,.228,.30,.20,Math.PI/2);
-    hull.add(round,0x222923,side*.39,1.77,-.58,.182,.154,.038);
-    for(let j=-2;j<=2;j++) hull.add(cube,0x737869,side*.39+.058*j,1.77,-.616,.014,.20,.014);
+    hull.add(round,olive,side*.45,1.70,.46,.316,.262,1.14);
+    hull.add(trunk,graphite,side*.46,1.76,-.54,.228,.30,.20,Math.PI/2);
+    hull.add(round,0x222923,side*.46,1.76,-.69,.182,.154,.038);
+    for(let j=-2;j<=2;j++) hull.add(cube,0x737869,side*.46+.058*j,1.76,-.726,.014,.20,.014);
     hull.add(trunk,0x59564b,side*.48,1.73,1.14,.18,.49,.17,Math.PI/2-.17,side*.18);
     hull.add(round,0x252924,side*.51,1.77,1.36,.145,.14,.04);
+    hull.add(round,graphite,side*.54,1.76,1.30,.235,.19,.33);
+    hull.add(round,0x1c2220,side*.59,1.78,1.57,.16,.125,.07);
+    hull.add(cube,0x555c50,side*.72,1.51,1.10,.11,.29,.55);
+    for(let l=0;l<8;l++) hull.add(cube,graphite,side*.778,1.51,.90+.052*l,.018,.17,.022,-.15);
+    hull.beam(0x292e2b,[side*.60,1.38,-1.84],[side*.35,1.26,-1.99],.017);
+    hull.add(round,0xadb2a7,side*.29,.66,-2.30,.084,.055,.042);
+    hull.beam(0x7a8073,[side*.39,1.64,-.90],[side*.39,1.77,-1.0],.024);
     hull.beam(graphite,[side*.78,.53,-.52],[side*.78,.53,.94],.039);
     for(const z of [-.48,.80]){
       hull.beam(alloy,[side*.67,.64,z],[side*.84,.42,z],.033);
@@ -491,18 +544,21 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     hull.add(round,side<0?0x9e4038:0x558a70,side*.83,1.24,.69,.045,.036,.049);
     hull.beam(graphite,[side*.31,1.35,-1.74],[side*.48,1.46,-1.57],.014);
   }
-  hull.beam(graphite,[0,1.41,3.68],[0,.24,3.91],.090);
-  hull.beam(olive,[0,1.39,3.13],[0,.28,3.90],.068);
-  hull.add(wheel,0x272a26,0,.193,3.91,.142,.142,.15,0,Math.PI/2);
-  hull.add(trunk,alloy,0,.193,3.91,.084,.13,.084,0,0,Math.PI/2);
+  hull.beam(graphite,[0,1.52,3.35],[0,.24,3.44],.090);
+  hull.beam(olive,[0,1.45,2.85],[0,.28,3.44],.068);
+  hull.add(wheel,0x272a26,0,.193,3.44,.142,.142,.15,0,Math.PI/2);
+  hull.add(trunk,alloy,0,.193,3.44,.084,.13,.084,0,0,Math.PI/2);
   wheel.dispose();fairing.dispose();pylon.dispose();
   hull.add(round,olive,0,1.79,-.06,.36,.28,.51);
   hull.add(trunk,alloy,0,2.04,-.08,.085,.42,.085);
   hull.add(round,graphite,0,2.22,-.08,.205,.078,.205);
-  missileLaunchers(hull,'heli');
+  const airframe=new THREE.Group();
+  airframe.scale.setScalar(1.23);group.add(airframe);
+  const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
-  hull.mesh(group,paint,false);
-  glazing.mesh(group,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false}),false);
+  Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  Object.assign(glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false).userData,{impactSurface:'solid',vehicle:'heli'});
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
@@ -512,28 +568,28 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const placard=new THREE.PlaneGeometry(.69,.105);
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
-    id.position.set(side*.806,.93,.12);id.rotation.y=side*Math.PI/2;
-    id.rotation.x=-side*.16;group.add(id);
+    id.position.set(side*.773,.928,.12);id.rotation.y=side*Math.PI/2;
+    airframe.add(id);
   }
-  for (let i=0; i<4; i++) {
-    const a = i*TAU/4, s = Math.sin(a), c = Math.cos(a);
-    rotor.add(round,0x777f79,s*.13,0,c*.13,.063,.062,.11);
-    rotor.beam(0x8e8e7c,[s*.11,-.069,c*.11],[s*.32,0,c*.32],.025);
-    rotor.add(cube,graphite,s*1.90,0,c*1.90,.169,.035,3.40,0,a);
-    rotor.add(cube,0x929282,s*3.56,.001,c*3.56,.169,.038,.10,0,a);
+  const blade=aerofoil([[-.06,.28],[.08,.28],[.13,.62],[.135,3.98],[-.035,4.40],[-.21,4.39],[-.11,3.92],[-.11,.62]],.026);
+  for(let i=0;i<4;i++){
+    const a=i*TAU/4, sn=Math.sin(a),cs=Math.cos(a);
+    rotor.add(blade,graphite,0,0,0,1,1,1,0,a);
+    rotor.beam(alloy,[sn*.07,-.055,cs*.07],[sn*.46,.016,cs*.46],.055);
+    rotor.add(round,olive,sn*.28,.017,cs*.28,.085,.052,.105);
+    fan.add(cube,graphite,0,Math.cos(a)*.365,Math.sin(a)*.365,.042,.69,.093,a);
+    fan.add(cube,0xb3ad92,0,Math.cos(a)*.665,Math.sin(a)*.665,.043,.076,.093,a);
   }
-  for (let i=0; i<4; i++) {
-    const a = i*TAU/4;
-    fan.add(cube,graphite,0,Math.cos(a)*.31,Math.sin(a)*.31,.036,.59,.087,a);
-  }
-  const mainRotor = rotor.mesh(group,material,false);
+  blade.dispose();
+  const mainRotor=rotor.mesh(airframe,material,false);
   mainRotor.position.set(0,2.24,-.08);
-  const tailRotor = fan.mesh(group,material,false);
-  tailRotor.position.set(.13,2.49,4.53);
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.5,5.4).rotateX(-Math.PI/2),
+  const tailHub=new THREE.Group();
+  tailHub.position.set(.17,2.72,5.09);tailHub.rotation.z=.29;airframe.add(tailHub);
+  const tailRotor=fan.mesh(tailHub,material,false);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.0,7.8).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const healthLabel=objectHealthLabel(scene,'UTILITY HELICOPTER');
+  const healthLabel=objectHealthLabel(scene,'BLACK HAWK');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -542,7 +598,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   }),puffCount);
   smoke.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   smoke.frustumCulled=false;
-  group.add(smoke);
+  airframe.add(smoke);
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
   return { group, update(heli,dt,crewView) {
@@ -554,7 +610,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     const drift = heli.abandonedFor ?? 0;
     healthLabel.sprite.visible=!crewView;
     healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
-    healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
+    healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 4.52 : 3.71),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
@@ -614,22 +670,55 @@ function fieldEffects(scene) {
         new THREE.Vector3(size,size,size),i%4 ? 0x8b7b65 : 0xffb066,.5+rng()*.6);
     }
   }
-  function shot(s) {
-    if(s.weapon==='missile') {crash(s.to);return;}
+  const pickSurface=surfacePicker(scene);
+  const plume=missileCloud(scene,rng);
+  function chips(contact) {
+    const {point,normal,surface}=contact;
+    const metal=surface==='metal', wood=surface==='wood';
+    for(let i=0;i<(metal?5:4);i++){
+      const v=new THREE.Vector3(rng()-.5,rng()*.8,rng()-.5);
+      v.addScaledVector(normal,Math.max(.25,-v.dot(normal)+.22)).multiplyScalar(metal?2.8:1.45);
+      const size=metal?.016:wood?.023:.045;
+      const scale=new THREE.Vector3(size,(metal?4:wood?2.9:.70)*size,size);
+      particle(point.clone().addScaledVector(normal,.014),v,scale,
+        metal?(i%2?0xffce79:0xffefd2):wood?(i%2?0xb48954:0x866441):(i%2?0xa59c8d:0x8b8377),
+        (metal?.095:wood?.21:.19)+rng()*.10);
+      if(metal || wood) particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,v.clone().normalize());
+    }
+  }
+  function shot(s,sourceVehicle) {
+    if(s.weapon==='muzzle'){
+      particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
+      return;
+    }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
+    const contact=pickSurface(s,a,b,sourceVehicle);
+    if(contact) b.copy(contact.point);
+    if(s.weapon==='missile'){
+      const normal=contact?.normal ?? new THREE.Vector3().subVectors(a,b).normalize();
+      if(!normal.lengthSq())normal.copy(up);
+      plume.impact(b,normal,contact?.surface);
+      for(let i=0;i<9;i++){
+        const v=new THREE.Vector3(rng()-.5,rng(),rng()-.5).addScaledVector(normal,.45).multiplyScalar(2+rng()*3);
+        particle(b.clone(),v,new THREE.Vector3(.032,.055,.029),i%2?0x776b59:0x585650,.27+rng()*.3);
+      }
+      return;
+    }
     along.subVectors(b,a);
     const length=along.length();
     if(length>.01) {
-      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.6 : 1.2);
+      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.85 : 1.4);
       const direction=along.normalize();
       particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
-        new THREE.Vector3(.018,tracerLength*.5,.018),s.weapon===2 ? 0xdcad73 : 0xffdc9a,.095);
+        new THREE.Vector3(.022,tracerLength*.5,.022),s.weapon===2 ? 0xedb97c : 0xffe5b3,.135);
       particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
-      particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
+      if(!s.traveling)particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
-    if(s.hit) burst(b.x,b.y,b.z,false);
+    if(contact) chips(contact);
+    else if(s.hit) burst(b.x,b.y,b.z,false);
   }
   function update(dt) {
+    plume.update(dt);
     let write=0;
     for(const p of particles) {
       p.remaining-=dt;
@@ -645,7 +734,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,crash,update};
+  return {shot,burst,crash,update,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -694,6 +783,20 @@ function characterLabel(root, name) {
   };
 }
 
+// A sky-to-ground reflection band gives the shield depth even in open shade.
+const visorMaterials=[0xa47745,0x677d80,0x647b6a,0x89775c].map(color=>{
+  const lens=new THREE.MeshPhongMaterial({color,specular:0xdce2d9,shininess:90});
+  lens.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>', `
+      vec3 reflected=inverseTransformDirection(reflect(-normalize(vViewPosition),normal),viewMatrix);
+      float sky=smoothstep(-.18,.54,reflected.y);
+      outgoingLight=outgoingLight*(.30+.7*sky)+mix(vec3(.012,.020,.018),vec3(.14,.19,.20),sky);
+      #include <opaque_fragment>
+    `);
+  };
+  return lens;
+});
+
 // Parts are assembled in model space about real joints. Forward is local -Z.
 function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
@@ -706,9 +809,18 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
   torso.add(trouserSeat,0x97a291,0,.995,.004);
-  torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
-  torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
-  for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
+  const faceY=1.681, fabric=[0x52564e,0x696653,0x4e5551,0x636056][identity];
+  torso.add(hood,fabric,0,faceY,-.008);
+  torso.add(visorRim,0x282e2b,0,faceY,-.008);
+  const lens=new THREE.Mesh(visorLens.clone(),visorMaterials[identity]);
+  lens.position.set(0,faceY,-.008);upper.add(lens);
+  for(const side of [-1,1]) {
+    torso.beam(0x454742,[side*.12,1.717,-.036],[side*.110,1.718,.066],.022);
+    for(let n=0;n<3;n++){
+      const y=1.628-.014*n;
+      torso.beam(0x70716a,[side*.027,y+.014,-.140+n*.008],[side*.086,y+.025,-.097+n*.004],.005);
+    }
+  }
   torso.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
   torso.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
   torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
@@ -718,25 +830,18 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
     torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
   }
-  if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
-  torso.add(fieldPack,0xecdfc5,0,1.315,.183,1.02,1.05,1.15);
-  // A strapped groundsheet and two side pockets break up the rectangular pack.
-  torso.add(fieldSleeve,0xb6ab90,-.20,1.51,.221,.76,.89,.76,0,0,Math.PI/2);
+
+  // The pack and its pockets follow the upper back through turns and running.
+  torso.add(fieldPack,0xb8af92,0,1.306,.168,1.04,.98,1.10);
+  torso.add(fieldPack,0xb3a784,0,1.240,.248,.76,.50,.62);
   for(const side of [-1,1]) {
-    torso.add(round,0x504d40,side*.121,1.51,.221,.015,.071,.074);
-    torso.add(fieldPack,0xb7ad90,side*.17,1.248,.167,.34,.42,.77);
-    torso.add(cube,0x78735b,side*.114,1.22,.283,.026,.21,.012,.04);
-    torso.add(cube,0x999683,side*.114,1.24,.29,.035,.021,.012);
+    torso.add(fieldPack,0xa09a80,side*.149,1.243,.172,.30,.45,.65);
+    torso.beam(0x57594a,[side*.148,1.303,.215],[side*.145,1.315,.153],.009);
+    torso.add(cube,0x8c8b70,side*.145,1.298,.211,.009,.025,.010);
   }
-  for (const side of [-1,1]) {
-    torso.beam(0x6a6853,[side*.136,1.497,-.110],[side*.127,1.405,-.150],.031,.014);
-    torso.beam(0x6a6853,[side*.127,1.405,-.150],[side*.120,1.193,-.121],.031,.014);
-    torso.add(cube,0x96907b,side*.12,1.216,-.134,.037,.021,.009);
-    torso.beam(0x585844,[side*.120,1.193,-.121],[side*.171,1.12,-.049],.022,.014);
-    torso.beam(0x585844,[side*.171,1.12,-.049],[side*.152,1.17,.166],.022,.014);
-    torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
-    torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
-  }
+  torso.beam(0x565745,[-.060,1.49,.188],[-.035,1.505,.196],.012);
+  torso.beam(0x565745,[-.035,1.505,.196],[.035,1.505,.196],.012);
+  torso.beam(0x565745,[.035,1.505,.196],[.060,1.49,.188],.012);
   torso.mesh(upper,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
@@ -748,11 +853,20 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     shin.mesh(knee,uniform);
     const ankle=new THREE.Group();ankle.position.y=-.395;knee.add(ankle);
     const boot=new Batch(true);
-    boot.add(trunk,0x645743,0,.025,.004,.096,.095,.103);
-    boot.add(round,0x584d3d,0,-.038,-.024,.097,.092,.119);
-    boot.add(round,0x5f5344,0,-.067,-.090,.103,.053,.127);
-    boot.add(round,0x373d36,0,-.112,-.065,.11,.022,.166);
-    for(let j=0;j<3;j++) boot.beam(0x95856c,[-.058,-.013-j*.008,-.115-j*.018],[.058,-.007-j*.008,-.113-j*.018],.008);
+    boot.add(bootSole,0x363a35,0,0,0);
+    boot.add(bootUpper,0x796b55,0,0,0);
+    boot.add(round,0x4a5148,0,.062,.013,.081,.049,.078);
+    for(const edge of [-1,1]){
+      boot.beam(0x655b4d,[edge*.086,-.064,-.139],[edge*.077,.040,-.017],.014,.009);
+      boot.beam(0x514b40,[edge*.078,.043,-.024],[edge*.076,.052,.032],.013,.009);
+      for(let i=0;i<4;i++){
+        const z=-.117+i*.023,y=-.009+i*.021;
+        boot.beam(0x4c483d,[edge*.044,y-.004,z],[-edge*.042,y+.011,z+.016],.006);
+      }
+    }
+    for(const z of [-.17,-.132,-.093,.029,.060]){
+      boot.add(cube,0x41433a,0,-.119,z,z<-.09?.147:.115,.012,.018);
+    }
     boot.mesh(ankle,uniform);
     const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); upper.add(arm);
     const sleeve=new Batch(true);
@@ -774,7 +888,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,spine,limbs,material,gait:null,tools:makeBlasters(upper,material),shadow,label:characterLabel(root,name),cycle:0};
+  return {root,body,spine,limbs,material,gait:null,tools:makeFirearms(upper,material),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -804,6 +918,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const roll=gait ? .046*swing*weight : 0;
   const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
+  const swimming=!!state.swimming && !state.dead;
   const open = state.parachute === 'open' && !state.dead;
   if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
@@ -823,11 +938,50 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
+  if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
+  const stroke=avatar.stroke ?? 0;
+  avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
+  if(swimming) {
+    avatar.body.position.y=.72-1.34*Math.cos(avatar.body.rotation.x)+.07+.03*Math.sin(stroke);
+    avatar.body.position.z=-Math.sin(avatar.body.rotation.x)*1.12;
+    avatar.spine.rotation.x=.17;
+    if(!avatar.ripples) {
+      const rings=Array.from({length:2},()=>{
+        const ring=new THREE.Mesh(new THREE.RingGeometry(.95,1,42).rotateX(-Math.PI/2),
+          new THREE.MeshBasicMaterial({color:0xd9f6ec,transparent:true,depthWrite:false}));
+        ring.visible=false;
+        avatar.root.parent.add(ring);
+        return ring;
+      });
+      avatar.ripples={rings,beat:-1};
+    }
+    // Leave each stroke ring where the swimmer disturbed the surface.
+    const beat=Math.floor(stroke/Math.PI);
+    const {rings}=avatar.ripples;
+    if(beat!==avatar.ripples.beat) {
+      const ring=rings[beat%2];
+      ring.userData.beat=beat;
+      ring.position.set(state.x,MAP.waterY+.019,state.z);
+      avatar.ripples.beat=beat;
+    }
+    for(const ring of rings) {
+      const age=(stroke/Math.PI-ring.userData.beat)/2;
+      ring.visible=age>=0 && age<1;
+      if(ring.visible) {
+        const radius=.29+age*.95;
+        ring.scale.set(radius,1,radius);
+        ring.material.opacity=.33*(1-age)**2;
+      }
+    }
+  } else if(avatar.ripples) {
+    avatar.ripples.beat=-1;
+    for(const ring of avatar.ripples.rings) {ring.visible=false;delete ring.userData.beat;}
+  }
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
-  avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
+  avatar.tools[0].visible = !swimming && !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !swimming && !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(gait) {
@@ -853,7 +1007,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
-    if(station) {
+    if(swimming) {
+      const wave=stroke+(side===1?Math.PI:0);
+      leg.rotation.x=-.16+.25*Math.sin(wave);
+      knee.rotation.x=-.21-.19*Math.sin(wave+.9);
+      arm.rotation.set(.45+1.07*Math.cos(wave),side*.23,side*(.76+.48*Math.sin(wave)));
+      forearm.rotation.x=.5+.36*Math.sin(wave);
+    } else if(station) {
       const p=station.turretPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
@@ -863,7 +1023,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
       kit.y=1.325+.005*breathe-.085*run;
       kit.z=-.19+.045*run;
       weapon.rotation.x=-.32*run;
-      const gripZ=side===1 ? -.014 : -.226, gripY=side===1 ? -.04 : .018;
+      const gripZ=side===1 ? -.014 : bloom ? .007 : -.226, gripY=side===1 ? -.04 : .018;
       const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
       gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
         kit.z+gripY*sine+gripZ*cosine,side);
@@ -881,7 +1041,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0) {
   let distance=wanted;
   for(let d=.45;d<wanted;d+=.20) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14))>y-.15) {distance=Math.max(.45,d-.18);break;}
+    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14,y+.15))>y-.15) {distance=Math.max(.45,d-.18);break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {
@@ -932,7 +1092,7 @@ export function createScene(canvas) {
     addGround(scene,renderer);
     const forest=new Batch();
     conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
-    forest.mesh(scene,material);
+    forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
     addDetails(scene,features,rng);
@@ -943,13 +1103,16 @@ export function createScene(canvas) {
   landingMarks(features);features.mesh(scene,material);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
-  const roverLabel=objectHealthLabel(scene,'TRAIL ROVER');
+  const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
-  const updateMissiles=missileView(scene);
+  const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
+  rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
+  const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   const effects=fieldEffects(scene);
+  const updateMissiles=missileView(scene,Batch,effects.trail);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
@@ -963,6 +1126,10 @@ export function createScene(canvas) {
   let roverBoom = null, bailoutOrbit = 0;
   function removeAvatar(a) {
     a.label.dispose();
+    for(const ring of a.ripples?.rings ?? []) {
+      scene.remove(ring);
+      ring.geometry.dispose();ring.material.dispose();
+    }
     a.root.traverse(node=>{if(node.isMesh) node.geometry.dispose();});
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
@@ -1015,16 +1182,28 @@ export function createScene(canvas) {
       if(hp!==stack.hp) {
         if(hp===0 && stack.hp>0) effects.burst(prop.x,mesh.position.y+prop.height*.48,prop.z,true);
         mesh.visible=hp>0;
-        mesh.scale.y=.78+.22*hp/prop.hp;
+        if(hp>0) mesh.scale.y=.78+.22*hp/prop.hp;
         stack.hp=hp;
       }
     }
     if(world?.shots) {
       // Ignore recent history on first join. Consume each subsequent event once.
-      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot);
+      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot,shot.source);
       lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
     }
     updateMissiles(world.missiles ?? [],dt);
+    rounds.count=Math.min(world.bullets?.length??0,rounds.instanceMatrix.count);
+    for(let i=0;i<rounds.count;i++){
+      const r=world.bullets[i];
+      roundMesh.position.set(r.x,r.y,r.z);
+      path.set(r.vx,r.vy,r.vz).normalize();
+      roundMesh.position.addScaledVector(path,-.24);
+      roundMesh.quaternion.setFromUnitVectors(up,path);
+      roundMesh.scale.set(.022,r.weapon==='turret'?.58:.36,.022);
+      roundMesh.updateMatrix();rounds.setMatrixAt(i,roundMesh.matrix);
+      rounds.setColorAt(i,roundColor.setHex(r.weapon===2?0xedb97c:0xffe5b3));
+    }
+    if(rounds.count){rounds.instanceMatrix.needsUpdate=true;rounds.instanceColor.needsUpdate=true;}
     effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
@@ -1039,7 +1218,8 @@ export function createScene(canvas) {
       const seated=state.id===rover.driver;
       const station=state.id===rover.gunner ? rover : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
-      a.shadow.visible=a.root.visible && !seated && !station;
+      a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
+      if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
       if(a.root.visible) pose(a,state,dt,seated ? rover : null,station);
     }
@@ -1050,12 +1230,12 @@ export function createScene(canvas) {
       desired.set(pivot.x,pivot.y,pivot.z);
     }
     else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
-    else if(piloting) desired.set(heli.x,heli.y+1.12,heli.z);
+    else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
     else {
       const shoulder=local.parachute ? 0 : .66;
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
-      const clear=buildingTopAt(x,z,.15)<local.y+1.3;
-      desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
+      const clear=buildingTopAt(x,z,.15,local.y+1.46)<local.y+1.3;
+      desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
@@ -1068,12 +1248,13 @@ export function createScene(canvas) {
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=(view.yaw||0)+bailoutOrbit;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const onFoot=!localStation && !piloting && !driving && !local.parachute;
-    const wanted=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : Math.min(6,separation*.5));
+    const wanted=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : driving ? 1.7 : Math.min(6,separation*.5));
     const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);
     // Pull in at obstructions, then ease back out as the orbit clears them.
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
+    if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;

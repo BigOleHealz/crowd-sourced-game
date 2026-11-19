@@ -45,7 +45,7 @@ export function newRivals() {
     state: patrolStart(route), yaw: Math.PI, moving: false, weapon: 1, life: newLife(0, false) }));
 }
 
-export function updateRival(actor, tick, dt, hp) {
+export function updateRival(actor, tick, dt, hp, world) {
   if (respawnDue(actor, tick)) {
     actor.state = patrolStart(actor.route);
     actor.next = 1;
@@ -65,7 +65,7 @@ export function updateRival(actor, tick, dt, hp) {
   }
   actor.yaw = Math.atan2(dx, -dz);
   actor.moving = true;
-  actor.state = stepPlayer(actor.state, { x: dx / distance * .17, z: dz / distance * .17 }, dt, hp);
+  actor.state = stepPlayer(actor.state, { x: dx / distance * .17, z: dz / distance * .17 }, dt, hp, world);
 }
 
 export function rivalView(actor, tick) {

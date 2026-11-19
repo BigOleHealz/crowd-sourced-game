@@ -6,7 +6,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, spawn, stepPlayer } from './public/world.js';
-import { newExpedition, parkedHelicopter, fly, interact, fire, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
@@ -195,7 +195,7 @@ function tick() {
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   if (players.size) {
-    for (const npc of npcs) updateRival(npc, ticks, step, world.hp);
+    for (const npc of npcs) updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
@@ -255,13 +255,13 @@ function tick() {
       continue;
     }
     const falling = player.state;
-    player.state = stepPlayer(falling, input || idle, step, world.hp);
+    player.state = stepPlayer(falling, input || idle, step, world.hp, world);
     if (falling.parachute === 'packed' && player.state.grounded && !(input?.deploy && !input.interact)) {
       const impact = Math.max(0, Math.round((-falling.vy - 7) * 10));
       if (impact && damageActor(player, impact, ticks)) continue;
     }
     player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
-    player.sprint = player.moving && input.sprint;
+    player.sprint = player.moving && !player.state.swimming && input.sprint;
     if (input) {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
       if (input.fire) fire(world, player, input, ticks, players, npcs);
@@ -274,6 +274,7 @@ function tick() {
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
+  advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();

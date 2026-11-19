@@ -53,7 +53,7 @@ export function buildOutpost(scene,renderer,Batch) {
     }
     walls.add(chimney,0x888778,x+w*.34,top+rise+.23,z+.16,1,1.34,1);
   }
-  walls.mesh(scene,masonry);
+  walls.mesh(scene,masonry).userData.impactSurface='solid';
   for(const shape of [facade,iron,concrete,door,gable,chimney]) shape.dispose();
 
   return buildStacks(scene,renderer,Batch);
@@ -70,6 +70,7 @@ export function buildStacks(scene,renderer,Batch) {
     for(const side of [-1,1]) stack.add(box,side===1 ? 0xbaad89 : 0xceccad,side*w*.237,h*.62,0,w*.46,h*.36,d*.91,0,side*.026);
     stack.add(bundle,0xded6b4,-.08*w,h*.893,0,w*.80,h*.215,d*.85,0,.07);
     const mesh=stack.mesh(scene,equipment);
+    Object.assign(mesh.userData,{impactSurface:'gear',target:prop.id});
     mesh.position.set(prop.x,terrainHeight(prop.x,prop.z),prop.z);
     mesh.rotation.y=[-.26,.34,.2,-.35,.57,.1][i];
     return {prop,mesh,hp:null};

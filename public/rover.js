@@ -1,4 +1,5 @@
-import { MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
+import { vehicleContact } from './vehicle-contact.js';
+import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
 
 import { impactDamage, RECOVERY_SECONDS } from './airframe.js';
 
@@ -39,7 +40,7 @@ export function interactRover(world, player) {
     const x = r.x + 1.7*Math.cos(angle), z = r.z + 1.7*Math.sin(angle);
     const y = groundHeight(x,z);
     if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp)) continue;
-    if (world.heli.y-y < 2 && Math.hypot(x-world.heli.x,z-world.heli.z)<1.3) continue;
+    if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
     exit = {x,y,z,vy:0,grounded:true};
     break;
   }
@@ -70,7 +71,7 @@ export function recoverRover(world,dt) {
 
 function traversable(world, x,z,yaw) {
   const y = groundHeight(x,z);
-  if (Math.max(Math.abs(x),Math.abs(z))>(MAP.flightLimit ?? 32) || y<MAP.waterY+.2) return false;
+  if (Math.abs(x)>(MAP.flightLimit ?? 32) || z>(MAP.flightLimit ?? 32) || z<(MAP.flightNorth ?? -(MAP.flightLimit ?? 32)) || y<MAP.waterY+.2) return false;
   const sx = Math.sin(yaw), cz = Math.cos(yaw);
   for (const along of [-.73,0,.73]) {
     const px=x+along*sx, pz=z-along*cz, floor=groundHeight(px,pz);
@@ -86,11 +87,13 @@ export function driveRover(world, input, dt, players) {
   const r = world.rover;
   if (r.driver == null) return;
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const target = throttle * (throttle<0 ? 2.8 : 5.7);
-  const acceleration = throttle && r.speed*throttle>=0 ? 7.2 : 14;
+  const target = throttle * (throttle<0 ? 2.8 : 10.2);
+  const acceleration = throttle && r.speed*throttle>=0 ? (throttle>0 ? 9.5 : 7.2) : 18;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
   // Low-range steering allows the little utility rover to pivot in the depot.
-  const yaw = r.yaw + steer * (r.speed<-.05 ? -1 : 1) * (1.55+Math.min(.45,Math.abs(r.speed)*.09)) * dt;
+  const pace=Math.abs(r.speed);
+  const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.11;
+  const yaw = r.yaw + steer * (r.speed<-.05 ? -1 : 1) * turnRate * dt;
   if (traversable(world,r.x,r.z,yaw)) r.yaw = Math.atan2(Math.sin(yaw),Math.cos(yaw));
   const x = r.x + Math.sin(r.yaw)*r.speed*dt, z = r.z - Math.cos(r.yaw)*r.speed*dt;
   if (traversable(world,x,z,r.yaw) && Math.abs(groundHeight(x,z)-r.y)<.34) {

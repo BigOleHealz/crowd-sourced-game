@@ -1,6 +1,6 @@
 // The same fixed control packets are used by the browser and server.
 import assert from 'node:assert/strict';
-import { newExpedition, fire, tracePulse } from '../public/expedition.js';
+import { newExpedition, fire, advanceRounds, tracePulse } from '../public/expedition.js';
 import { driveRover, interactRover, nearestVehicle, recoverRover } from '../public/rover.js';
 import { MAP, groundHeight, solidTopAt, spawn } from '../public/world.js';
 
@@ -38,11 +38,15 @@ const shooter={id:1,life:{hp:100},weapon:1,fireReady:0,state:{x:car.x,y:car.y,z:
 const players=new Map([[1,shooter],[2,driver]]);
 interactRover(fight,driver);
 const shot={aimYaw:0,aimPitch:0};
-fire(fight,shooter,shot,30,players,[]);
+function fireAtRover(tick) {
+  fire(fight,shooter,shot,tick,players,[]);
+  for(let t=tick;t<tick+6;t++) advanceRounds(fight,players,[],t);
+}
+fireAtRover(30);
 assert.equal(car.hp,225);
 assert.equal(fight.shots.at(-1).targetId,'rover');
 shooter.weapon=2;
-for(let n=1;n<=6;n++) fire(fight,shooter,shot,30+21*n,players,[]);
+for(let n=1;n<=6;n++) fireAtRover(30+21*n);
 assert.equal(car.hp,0); assert(car.wrecked); assert.equal(car.driver,null);
 assert.equal(driver.life.hp,100); assert.ok(driver.state.grounded);
 interactRover(fight,driver); assert.equal(car.driver,null);
@@ -56,4 +60,4 @@ for(let n=0;n<20;n++){
   assert.equal(hit.hitKind,null); assert.ok(hit.to.z>tree.z-.3);
 }
 assert.deepEqual(fight.hp,hpBefore);
-console.log('PASS: rover direct and burst damage, driver ejection, six-second recovery and indestructible tree cover.');
+console.log('PASS: rover carbine and sidearm damage, driver ejection, six-second recovery and indestructible tree cover.');

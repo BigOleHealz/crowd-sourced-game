@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
-import { groundHeight } from './world.js';
+import { CITY, groundHeight } from './world.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
@@ -11,7 +11,9 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const cube = new THREE.BoxGeometry(1,1,1);
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
-  const green=0x667662, darkGreen=0x485a4b, trim=0xc4bc9e, steel=0x626660, rubber=0x303332;
+  const pickup=CITY;
+  const green=pickup?0x748480:0x696e50, darkGreen=pickup?0x566661:0x4e5543;
+  const trim=pickup?0xb2b3a6:0x747861, steel=0x626660, rubber=0x2c302e;
   const box=(t,x,y,z,w,h,l) => chassis.add(cube,t,x,y,z,w,h,l);
   function panel(batch,tint,a,b,c,d) {
     const geom=new THREE.BufferGeometry();
@@ -40,16 +42,42 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   shell(green,[[-1.48,.62,.62,.88],[-1.34,.70,.61,.96],[-.67,.72,.57,1.02],[-.55,.70,.57,1.02]],.055);
   shell(green,[[-.60,.69,.56,1.04],[-.36,.72,.50,1.02],[.30,.71,.5,1.01],[.42,.68,.56,1.02]],.045);
   box(steel,0,.48,-1.49,1.54,.125,.14);
-  box(darkGreen,0,.735,-1.479,.79,.155,.027);
-  for(let n=0;n<3;n++) box(steel,0,.686+n*.043,-1.499,.74,.014,.025);
+  const trimMap=new THREE.TextureLoader().load('./vehicle-trim.webp');
+  trimMap.colorSpace=THREE.SRGBColorSpace;
+  const facingMaterial=new THREE.MeshPhongMaterial({map:trimMap,specular:0x555958,shininess:36,vertexColors:true});
+  function trimFace(geometry,col,row){
+    const uv=geometry.attributes.uv.clone();
+    for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/2,(row+.008+.984*uv.getY(i))/2);
+    geometry.setAttribute('batchUv',uv);
+    return geometry;
+  }
+  const brightwork=new Batch(true);
+  const lensFace=trimFace(pickup?new THREE.PlaneGeometry():new THREE.CircleGeometry(1,24),0,1);
+  const grilleFace=trimFace(new THREE.PlaneGeometry(),1,1);
+  const rimFace=trimFace(new THREE.CircleGeometry(1,32),pickup?1:0,0);
+  const nose=pickup?-1.67:-1.51;
+  brightwork.add(grilleFace,0xc6c6bf,0,.753,nose-.021,.925,.213,1,0,Math.PI);
+  if(pickup) shell(green,[[-1.66,.64,.65,.88],[-1.51,.73,.60,.97],[-.67,.72,.58,1.02]],.055);
+  box(rubber,0,.753,nose,.94,.223,.04);
+  if(pickup) {
+    for(let row=0;row<3;row++) box(steel,0,.679+row*.071,nose-.030,.89,.012,.017);
+    box(steel,0,.568,nose+.004,1.55,.115,.12);
+    box(0x9a9e95,0,.99,-.98,.68,.034,.64);
+  } else {
+    for(let slot=-3;slot<=3;slot++) box(green,slot*.090,.756,nose-.023,.036,.211,.035);
+    for(const side of [-1,1]) {
+      chassis.beam(steel,[side*.60,.96,-1.22],[side*.60,.98,-1.04],.024);
+      box(rubber,side*.69,.84,-1.05,.018,.11,.032);
+    }
+  }
   // The cabin has actual interior volume: glazed panels sit inside its pillars.
   const glazing=new Batch();
   panel(glazing,0x7896a0,[-.611,1.02,-.633],[.611,1.02,-.633],[.553,1.55,-.40],[-.553,1.55,-.40]);
-  panel(glazing,0x718e95,[-.635,1.015,.37],[-.573,1.53,.298],[.573,1.53,.298],[.635,1.015,.37]);
+  if(pickup) panel(glazing,0x718e95,[-.635,1.015,.37],[-.573,1.53,.298],[.573,1.53,.298],[.635,1.015,.37]);
   box(0x41473e,0,1.075,-.51,1.20,.12,.24);
   for(const side of [-1,1]) {
     const x=v=>side*v;
-    panel(glazing,0x6e8790,[x(.667),1.023,-.58],[x(.597),1.54,-.397],
+    if(pickup) panel(glazing,0x6e8790,[x(.667),1.023,-.58],[x(.597),1.54,-.397],
       [x(.599),1.53,.299],[x(.665),1.02,.356]);
     chassis.beam(green,[x(.668),1.025,-.613],[x(.59),1.55,-.4],.065);
     chassis.beam(green,[x(.665),1.02,.37],[x(.585),1.55,.302],.079);
@@ -83,10 +111,38 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
         }
       }
     }
-    box(0xffe3a5,x(.548),.787,-1.475,.19,.127,.058);
-    box(0xc28440,x(.677),.79,-1.405,.038,.076,.083);
+    brightwork.add(lensFace,0xf9f9ef,x(.555),pickup?.830:.810,nose-.053,pickup?.184:.084,pickup?.104:.084,1,0,Math.PI);
+    if(pickup) {
+      box(rubber,x(.58),.824,nose,.276,.155,.055);
+      box(0xd9dfd7,x(.555),.83,nose-.030,.186,.10,.025);
+      box(0xbe793f,x(.687),.83,nose-.025,.048,.108,.022);
+      for(let k=0;k<3;k++) box(trim,x(.50+.048*k),.83,nose-.044,.012,.093,.006);
+      chassis.beam(trim,[x(.61),1.55,-.4],[x(.61),1.55,.41],.034);
+    } else {
+      for(const [color,r,depth] of [[rubber,.116,0],[steel,.099,.020],[0xd9d9bf,.081,.032]])
+        chassis.add(disc,color,x(.555),.81,nose-depth,r,.032,r,Math.PI/2);
+      chassis.beam(rubber,[x(.60),1.03,.39],[x(.575),1.62,.32],.071);
+      chassis.beam(rubber,[x(.575),1.62,.32],[x(.565),1.07,1.04],.071);
+      chassis.beam(rubber,[x(.57),1.60,.32],[x(.58),1.55,-.39],.060);
+    }
+    chassis.beam(rubber,[x(.055),1.064,-.622],[x(.445),1.137,-.590],.019);
+    box(0x9e9c89,x(.721),.894,-.407,.020,.072,.096);
   }
-  shell(trim,[[-.52,.54,1.52,1.58],[-.43,.63,1.525,1.618],[.27,.65,1.515,1.603],[.397,.59,1.50,1.56]],.025);
+  if(pickup){
+    shell(green,[[-.52,.54,1.54,1.60],[-.43,.63,1.545,1.657],[.34,.65,1.535,1.643],[.46,.59,1.52,1.59]],.025);
+    for(const side of [-1,1]) {
+      box(green,side*.68,.98,1.53,.10,.37,.36);
+      box(steel,side*.68,1.162,1.51,.108,.026,.40);
+    }
+    box(darkGreen,0,.705,1.52,1.38,.17,.37);
+    box(green,0,.932,1.69,1.36,.42,.06);
+  } else {
+    chassis.beam(rubber,[-.575,1.62,.32],[.575,1.62,.32],.071);
+    const spare=new THREE.TorusGeometry(.216,.070,10,22);
+    chassis.add(spare,rubber,-.21,.986,1.55,1,1,1);
+    chassis.add(disc,green,-.21,.986,1.60,.165,.085,.165,Math.PI/2);
+    spare.dispose();
+  }
   chassis.beam(steel,[-.36,1.12,-.45],[-.36,1.17,-.3],.035);
   const steeringWheel=new THREE.TorusGeometry(.117,.015,6,14);
   chassis.add(steeringWheel,rubber,-.36,1.195,-.29,1,1,1,-.50);
@@ -110,17 +166,33 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
   missileLaunchers(chassis,'rover');
-  chassis.mesh(root,fieldPaint(),false);
+  for(const side of [-1,1]){
+    const hub=side*.7;
+    for(const z of [-.94,.95]) {
+      chassis.beam(steel,[hub*.52,.43,z],[hub,.37,z],.058);
+    }
+  }
+  // Recovery eyes, exposed tow points and shaded bumper insets pick up light
+  // separately from the painted sheet metal on the front apron.
+  const eye=new THREE.TorusGeometry(.049,.012,7,14);
+  for(const side of [-1,1]){
+    chassis.add(eye,steel,side*.455,.50,nose-.094,1,.80,1);
+    box(rubber,side*.63,.55,nose-.073,.12,.045,.023);
+    chassis.beam(steel,[side*.62,.566,-.52],[side*.83,.49,-.52],.046);
+  }
+  eye.dispose();
+  Object.assign(chassis.mesh(root,fieldPaint(),false).userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
+  brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
-  glazing.mesh(root,glassMat,false);
+  Object.assign(glazing.mesh(root,glassMat,false).userData,{impactSurface:'solid',vehicle:'rover'});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
   ink.fillStyle='#dcd4b3';ink.font='bold 36px sans-serif';ink.textBaseline='middle';
-  ink.fillText('PINEWATCH',10,35);ink.textAlign='right';ink.fillText('04',373,35);
+  ink.fillText(pickup?'BAY SERVICE':'FIELD UNIT',10,35);ink.textAlign='right';ink.fillText(pickup?'07':'04',373,35);
   const tagMap=new THREE.CanvasTexture(tag);tagMap.colorSpace=THREE.SRGBColorSpace;
   const tailTag=new THREE.Mesh(new THREE.PlaneGeometry(.97,.127),new THREE.MeshLambertMaterial({map:tagMap}));
-  tailTag.position.set(0,.87,1.511);root.add(tailTag);
+  tailTag.scale.setScalar(pickup?.69:.46);tailTag.position.set(pickup?0:.32,pickup?.94:.86,pickup?1.73:1.511);root.add(tailTag);
   const wheels=[];
   const tireSection=[[.18,-.11],[.245,-.139],[.309,-.136],[.356,-.095],[.36,.087],[.31,.136],[.246,.14],[.18,.111]]
     .map(([r,w])=>new THREE.Vector2(r,w));
@@ -145,9 +217,14 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     const wheel=wheelBatch.mesh(root,material,false);
     wheel.position.set(side*.70,.368,z);
+    const trimBatch=new Batch(true);
+    trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
+    trimBatch.mesh(wheel,facingMaterial,false);
+    Object.assign(wheel.userData,{impactSurface:'solid',vehicle:'rover'});
     wheels.push(wheel);
   }
   tire.dispose(); seatForm.dispose();
+  lensFace.dispose();grilleFace.dispose();rimFace.dispose();
   const cargo=[];
   for(const [cx,cy,cz] of [[-.47,.79,.58],[.47,.79,.58],[-.47,1.01,.58]]) {
     const crate=new Batch();

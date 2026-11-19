@@ -1,17 +1,22 @@
+import {harborSigns,signalPost} from './scenery-layout.js';
+import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
+import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
-import { avenues, streets, coast } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch) {
+  addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
     const map=loader.load('./brickell-'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
     map.colorSpace=THREE.SRGBColorSpace;
     map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
-    map.wrapS=map.wrapT=THREE.RepeatWrapping;
+    // Mirror the photographed wave edges so adjacent water tiles meet at the surface.
+    map.wrapS=map.wrapT=name==='water' ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
     return new THREE.MeshStandardMaterial({map,roughness:.83,vertexColors:true,...options});
   }
-  const solids=new Batch(), walls=new Batch(true), foliage=new Batch(true);
+  const furniture=new Batch(),solids=new Batch(), walls=new Batch(true);
   function ground(name,rectangles,period,options={}) {
     const batch=new Batch(true), plane=new THREE.PlaneGeometry().rotateX(-Math.PI/2);
     for(const [x,y,z,w,d] of rectangles) {
@@ -20,11 +25,15 @@ export function cityStreets(scene,renderer,Batch) {
       plane.setAttribute('batchUv',uv);
       batch.add(plane,0xffffff,x,y,z,w,1,d);
     }
-    batch.mesh(scene,material(name,options),false);plane.dispose();
+    const mesh=batch.mesh(scene,material(name,options),false);
+    mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  ground('water',[[0,MAP.waterY,0,460,460]],14,{roughness:.28});
-  ground('asphalt',[[cx,.70,cz,w,d]],5);
+  ground('water',[[0,MAP.waterY,-102,730,820]],14,{roughness:.28});
+  const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
+  const harborAvenue={...harbor,west:-6,east:6};
+  const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
+  ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705)],5);
   const lots=[],lawns=[];
   const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
   const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
@@ -33,6 +42,37 @@ export function cityStreets(scene,renderer,Batch) {
     lots.push([x,.80,z,x2-x1,z2-z1]);
     solids.add(box,0xbab4a4,x,.735,z,x2-x1,.12,z2-z1);
     if(x>37) lawns.push([x,.812,z,2.65,z2-z1-2]);
+  }
+  for(const [west,east] of [[harbor.west,-6],[6,harbor.east]]) {
+    for(const [north,south] of [[harbor.north,cross.north],[cross.south,harbor.south]]) {
+      const r={west,east,north,south};lawns.push(patch(r,.80));
+    }
+  }
+  solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
+  solids.add(box,0x989b96,0,.35,(causeway.north+causeway.south)/2,12,.67,causeway.south-causeway.north);
+  for(let z=harbor.north+2;z<coast.north;z+=4){
+    if(Math.abs(z-harbor.crossing)<6)continue;
+    solids.add(box,0xe3bc67,0,.718,z,.12,.014,2.25);
+  }
+  for(const side of [-1,1]) {
+    const x=side*5.73, length=causeway.south-causeway.north;
+    solids.add(box,0xc4bfaa,x,1.20,(causeway.north+causeway.south)/2,.12,.09,length);
+    const bays=Math.ceil(length/6);
+    for(let i=0;i<=bays;i++)solids.add(box,0xc4bfaa,x,.96,causeway.north+i*length/bays,.18,.53,.17);
+  }
+  // Face northbound traffic from the sidewalk before the causeway and at landfall.
+  for(const [x,z,label] of harborSigns) {
+    const face=document.createElement('canvas');face.width=640;face.height=144;
+    const ink=face.getContext('2d');
+    ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
+    ink.fillStyle='#205448';ink.fillRect(6,6,628,132);
+    ink.fillStyle='#fff9dd';ink.textAlign='center';ink.textBaseline='middle';
+    ink.font='bold 70px sans-serif';ink.fillText(label,320,74);
+    const texture=new THREE.CanvasTexture(face);texture.colorSpace=THREE.SRGBColorSpace;
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.86),new THREE.MeshBasicMaterial({map:texture}));
+    sign.position.set(x,3.62,z+.08);scene.add(sign);
+    solids.add(box,0x737c70,x,3.62,z,3.82,.88,.13);
+    for(const side of [-1,1])solids.add(box,0x8c9287,x+side*1.3,2.05,z,.10,2.68,.10);
   }
   ground('pavers',lots,3);ground('lawn',lawns,3);
   solids.add(box,0xa59f90,cx,.15,cz,w,1,d);
@@ -45,11 +85,11 @@ export function cityStreets(scene,renderer,Batch) {
     }
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
-      const lx=x-6.2,lz=z-5.8;
-      solids.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
-      solids.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
-      solids.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
-      for(let k=0;k<3;k++) solids.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
+      const {x:lx,z:lz}=signalPost(x,z);
+      furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
+      furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
+      furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
+      for(let k=0;k<3;k++) furniture.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
     }
   }
   // UV islands preserve the scale of windows regardless of each tower's height.
@@ -58,6 +98,7 @@ export function cityStreets(scene,renderer,Batch) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
+  furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
     const base=.80, podium=3.9;
@@ -74,12 +115,8 @@ export function cityStreets(scene,renderer,Batch) {
       solids.add(box,i%2?0x637b78:0xc2b49d,x+side*(w/2+.45),base+2.95,z,1.1,.17,d*.79);
     }
   });
-  walls.mesh(scene,material('facades',{roughness:.53,metalness:.08}));
-  const leaves=[0,1,2].map(i=>atlas(new THREE.PlaneGeometry(1,1),i,0,3,1));
-  MAP.trees.forEach(({x,z,height:h},i)=>{
-    for(const angle of [0,Math.PI/2]) foliage.add(leaves[i%3],0xfafbf0,x,.80+h/2,z,h,h,1,0,angle+i*.91);
-  });
-  foliage.mesh(scene,material('palms',{side:THREE.DoubleSide,alphaTest:.53,roughness:.95}));
-  solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
-  for(const geometry of [box,...faces,...leaves])geometry.dispose();
+  walls.mesh(scene,material('facades',{roughness:.53,metalness:.08})).userData.impactSurface='solid';
+  addPalms(scene);
+  solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
+  for(const geometry of [box,...faces])geometry.dispose();
 }

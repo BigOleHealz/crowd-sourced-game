@@ -1,5 +1,8 @@
+import {lookoutFloor} from './beach-layout.js';
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
+import {depotPoint,landingPoint,supplySupports,trailMarkers} from './scenery-layout.js';
+import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround } from './brickell-map.js';
 export const CITY = typeof location === 'object'
   ? new URLSearchParams(location.search).get('map') === 'brickell'
@@ -38,6 +41,15 @@ export const MAP = CITY ? brickellMap : {
 };
 
 export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
+MAP.barriers=[
+  ...(MAP.barriers ?? []),
+  ...supplySupports(depotPoint,2.4),...supplySupports(landingPoint(CITY),3.4),
+];
+if (!CITY) {
+  MAP.barriers.push(...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
+    {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
+}
+
 export const BOARD_RANGE = 3.5;
 export const BREAKABLES = [
   { id: 'trailhead', x: 0, z: 10, radius: 1.15, height: 2.6, hp: 3 },
@@ -58,12 +70,17 @@ export function onBuildingLot(x,z,margin=0) {
 }
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0) {
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity) {
   let top=-Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
+  }
+  for(const b of MAP.barriers ?? []){
+    if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
+    const base=terrainHeight(b.x,b.z);
+    if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
   return top;
 }
@@ -108,12 +125,15 @@ export function terrainHeight(x, z) {
     (1 - smoothstep(7, 27, Math.abs(x + 4)));
   const relief = smoothstep(6, 14, Math.abs(z)) *
     (0.32 * Math.sin(x * 0.17) + 0.24 * Math.sin(z * 0.3));
-  const lip = smoothstep(33, MAP.bounds, Math.max(Math.abs(x), Math.abs(z)));
-  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip * 17;
+  const edge = Math.max(Math.abs(x), Math.abs(z));
+  // Shape the wading shelf separately from the steep underwater basin.
+  const shore = Math.max(0, Math.min(5, edge - (MAP.bounds - 6)));
+  const lip = shore + 12 * smoothstep(MAP.bounds - 1, MAP.bounds, edge);
+  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief - lip;
 }
 
 export function groundHeight(x, z) {
-  if(CITY) return cityGround(x,z);
+  if(CITY) return lookoutFloor(x,z,cityGround(x,z));
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&
       Math.abs(z - bridge.z) <= bridge.length / 2) {
@@ -144,8 +164,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0) {
-  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
+  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding,maxBottom));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
@@ -159,12 +179,12 @@ export function blocked(x, y, z, hp) {
   const rail = !CITY && Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
     Math.abs(z - bridge.z) <= 4.8 && y < bridge.y + 0.9 && y + 1.7 >= bridge.y;
   if (rail) return true;
-  return solidTopAt(x, z, hp, PLAYER_RADIUS) > Math.max(y, groundHeight(x, z)) + 0.001;
+  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
-export function stepPlayer(state, input, dt, hp) {
+export function stepPlayer(state, input, dt, hp, world) {
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
-  const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const speed = state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
@@ -184,9 +204,39 @@ export function stepPlayer(state, input, dt, hp) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   if (!blocked(x+vx*dt,y,z,hp)) x+=vx*dt; else vx=0;
   if (!blocked(x,y,z+vz*dt,hp)) z+=vz*dt; else vz=0;
-  let floor = groundHeight(x, z);
-  const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
-  if (y >= top) floor = top;
+  // Water reaches every outer edge. Stay at the limit and allow movement
+  // parallel to it, including a swimmer turning back toward the shoreline.
+  if (x < -MAP.bounds || x > MAP.bounds) vx=0;
+  if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
+  x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
+  z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
+  const height=state.stance==='prone' ? .54 : state.stance==='crouch' ? 1.28 : 1.8;
+  let contact=vehicleContact(x,y,z,world,CITY,height);
+  // Project out of the hull and remove only the velocity into its surface.
+  // Recheck adjacent sections when a corner touches more than one shape.
+  for(let pass=0; contact.depth>.00001 && pass<5; pass++) {
+    const nx=contact.dx/contact.depth,nz=contact.dz/contact.depth;
+    const px=x+contact.dx, pz=z+contact.dz;
+    if(blocked(px,y,pz,hp)) {x=state.x;z=state.z;vx=vz=0;break;}
+    x=px;z=pz;
+    const inward=Math.min(0,vx*nx+vz*nz);
+    vx-=inward*nx;vz-=inward*nz;
+    contact=vehicleContact(x,y,z,world,CITY,height);
+  }
+  let floor = Math.max(groundHeight(x, z),contact.floor);
+  const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01);
+  if (y >= top) floor = Math.max(floor,top);
+  const draft=.72, floatY=MAP.waterY-draft;
+  const deep=floor<floatY+(state.swimming?.08:-.03);
+  if(deep && y<=floatY+.20 && vy<=.2){
+    // Damp the last part of a fall on entry, then converge to surface height.
+    const blend=-Math.expm1(-9*dt);
+    const nextY=Math.max(floatY-.16,y+(floatY-y)*blend);
+    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true};
+  }
+  if(state.swimming && !deep && floor<=y+.31) {
+    y=floor;grounded=true;vy=0;
+  }
   if (grounded && y - floor <= 0.28) {
     y = floor;
     vy = 0;
@@ -195,13 +245,14 @@ export function stepPlayer(state, input, dt, hp) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
+    if(y>contact.ceiling) {y=contact.ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;
       vy = 0;
       grounded = true;
     }
   }
-  if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
+  if (y < -8 || Math.abs(x)>MAP.bounds || z>MAP.bounds || z<(MAP.northBound ?? -MAP.bounds)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if (parachute && !grounded) next.parachute = parachute;
   return next;
