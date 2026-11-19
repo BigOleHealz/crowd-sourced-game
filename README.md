@@ -11,4 +11,4 @@ Press **R** after completion to start another run. Fly the helicopter back to th
 
 ### Helicopter bailout
 
-Press **E** in flight to jump out. You start in free fall. Release the climb key if held, then press **Space** to open the parachute. Steer with **WASD** or the **arrow keys**. A deployed chute gives you a safe landing. A hard landing with the chute packed can cost health or trigger a respawn. The unpiloted helicopter returns to the trailhead pad with its remaining hull health and cargo.
+Press **E** in flight to jump out. You start in free fall. Release the climb key if held, then press **Space** to open the parachute. Steer with **WASD** or the **arrow keys**. A deployed chute gives you a safe landing. A hard landing with the chute packed can cost health or trigger a respawn. The empty helicopter carries its momentum, banks and loses height until impact. The wreck stays in the world for six seconds before a replacement returns to the trailhead pad.

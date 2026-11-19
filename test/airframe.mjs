@@ -74,3 +74,27 @@ recoverHelicopter(world, dt);
 assert.deepEqual(world.heli, parkedHelicopter());
 assert.equal(world.heli.x, HELIPAD.x);
 console.log('PASS: hard and gentle landings, repeated solid contact, pulse/bloom hull damage, ejection and six-second recovery.');
+
+// Leave a moving aircraft while flying sideways to its nose.
+const bailout = expedition();
+control(bailout, { lift: 1 }, 100);
+control(bailout, { x: 1 }, 16);
+const abandoned = bailout.world.heli;
+const departure = { ...abandoned };
+interact(bailout.world, bailout.pilot);
+assert.equal(bailout.pilot.state.parachute, 'packed');
+assert.equal(abandoned.pilot, null);
+assert.equal(bailout.world.heli, abandoned);
+interact(bailout.world, bailout.pilot);
+for (let i=0; i<24; i++) recoverHelicopter(bailout.world,dt);
+assert.ok(abandoned.x > departure.x+3 && abandoned.y > departure.y-1);
+assert.ok(!abandoned.wrecked && !abandoned.grounded && abandoned.pilot === null);
+for (let i=0; i<180 && !abandoned.wrecked; i++) recoverHelicopter(bailout.world,dt);
+assert.equal(abandoned.hp,0);
+assert.ok(abandoned.wrecked && abandoned.x > departure.x+3);
+assert.equal(abandoned.recoverySeconds,6);
+for (let i=0; i<179; i++) recoverHelicopter(bailout.world,dt);
+assert.equal(bailout.world.heli,abandoned);
+recoverHelicopter(bailout.world,dt);
+assert.deepEqual(bailout.world.heli,parkedHelicopter());
+console.log('PASS: pilotless momentum, crash away from the pad, visible wreck and replacement.');

@@ -9,8 +9,8 @@ import WebSocket from 'ws';
 import { BREAKABLES, HELIPAD, groundHeight } from '../public/world.js';
 
 const guests = [];
-async function until(read, label) {
-  const deadline = Date.now() + 6000;
+async function until(read, label, timeout = 6000) {
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const result = read();
     if (result) return result;
@@ -148,14 +148,20 @@ async function checkExpedition(host) {
   await until(() => player(b, a.id).parachute === 'packed', 'observer sees free fall');
   await drive(a, {}, 9);
   assert.ok(player(a).vy < -4, 'packed chute allows accelerating free fall');
+  const empty = world(b).heli;
+  assert.equal(empty.pilot, null);
+  assert.ok(empty.abandonedFor > 0 && !empty.wrecked && !empty.grounded);
   const beforeLanding = player(a).hp;
   await drive(a, { deploy: true });
   await until(() => player(b, a.id).parachute === 'open', 'observer sees manual deployment');
   assert.ok(player(a).vy >= -2.81, 'open canopy slows descent');
+  await until(() => world(b).heli.wrecked && world(late).heli.wrecked, 'observers see the crash');
+  assert.ok(Math.hypot(world(b).heli.x-empty.x, world(b).heli.z-empty.z) > 1);
   await until(() => player(a).grounded, 'safe parachute landing');
   assert.equal(player(a).hp, beforeLanding);
   assert.equal(player(a).parachute, undefined);
   console.log('PASS: airborne bailout, accelerating free fall, manual canopy deployment, replicated descent and full-health landing.');
+  await until(() => !world(b).heli.wrecked && world(b).heli.grounded, 'replacement at the pad', 8000);
   await walkTo(b, padApproach);
   await drive(b, { interact: true });
   assert.equal(world(b).heli.pilot, b.id);

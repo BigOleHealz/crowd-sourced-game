@@ -3,6 +3,7 @@ import { MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } f
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 100;
 export const RECOVERY_SECONDS = 6;
+const COAST_SECONDS = 1.5;
 
 // Velocity and contact history belong to the server, not its public snapshots.
 const flightStates = new WeakMap();
@@ -10,7 +11,7 @@ const flightStates = new WeakMap();
 export function parkedHelicopter() {
   const heli = {
     ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pilot: null, grounded: true,
-    hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, wrecked: false, recoverySeconds: 0,
+    hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
   flightStates.set(heli, { vx: 0, vy: 0, vz: 0, sideContact: false, floorContact: false });
   return heli;
@@ -30,14 +31,40 @@ export function damageHelicopter(world, damage, players, shooterId = null) {
       pilot.inputs.length = 0;
     }
     heli.pilot = null;
+    heli.abandonedFor = null;
     heli.wrecked = true;
     heli.recoverySeconds = RECOVERY_SECONDS;
   }
   return true;
 }
 
+// Advance the same airframe after the seat is released, even without pilot input.
+function driftAfterBailout(world, dt) {
+  const h = world.heli, motion = flightStates.get(h);
+  h.abandonedFor += dt;
+  const coasting = h.abandonedFor <= COAST_SECONDS;
+  // A hovering craft tips gently forward. A moving craft retains its existing course.
+  if (coasting && Math.hypot(motion.vx, motion.vz) < 3) {
+    motion.vx += Math.sin(h.yaw) * 2 * dt;
+    motion.vz -= Math.cos(h.yaw) * 2 * dt;
+  }
+  motion.vy = coasting ? approach(motion.vy, -.35, 3*dt) : Math.max(-14, motion.vy-7*dt);
+  h.yaw += (coasting ? .09 : .48) * dt;
+  const x = clamp(h.x + motion.vx*dt, -32, 32), z = clamp(h.z + motion.vz*dt, -32, 32);
+  const y = Math.min(23, h.y + motion.vy*dt);
+  const floor = flightFloor(x, z, world.hp);
+  if (y <= floor) {
+    // At a side impact retain the last clear position instead of jumping atop the obstacle.
+    if (h.y >= floor) Object.assign(h, {x, y:floor, z});
+    damageHelicopter(world, h.hp);
+    return;
+  }
+  Object.assign(h, {x,y,z});
+}
+
 export function recoverHelicopter(world, dt) {
   const heli = world.heli;
+  if (heli.abandonedFor != null) return driftAfterBailout(world, dt);
   if (!heli.wrecked) return;
   const ground = Math.max(groundHeight(heli.x, heli.z), MAP.waterY);
   heli.y = Math.max(ground, heli.y - dt * 6);
@@ -141,8 +168,8 @@ export function interact(world, player) {
   if (!heli.grounded) {
     if (heli.pilot !== player.id) return;
     player.state = { x: heli.x, y: heli.y + .6, z: heli.z, vy: 0, grounded: false, parachute: 'packed' };
-    // Use the same home pad as pilot disconnect recovery, retaining hull damage and cargo.
-    world.heli = Object.assign(parkedHelicopter(), {hp: heli.hp, cargo: heli.cargo ?? 0});
+    heli.pilot = null;
+    heli.abandonedFor = 0;
     return;
   }
   if (heli.pilot === null) {
