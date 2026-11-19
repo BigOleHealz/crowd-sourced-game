@@ -821,7 +821,7 @@ function pose(avatar,state,dt) {
   avatar.shadow.material.opacity=.4-height*.12;
 }
 
-function cameraDistance(target,vector,wanted,hp) {
+function cameraDistance(target,vector,wanted,hp,margin=0) {
   let distance=wanted;
   for(let d=.45;d<wanted;d+=.20) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
@@ -835,10 +835,13 @@ function cameraDistance(target,vector,wanted,hp) {
     const d=clamp(along,0,distance);
     const dx=target.x+d*vector.x-prop.x,dz=target.z+d*vector.z-prop.z;
     const span=radius*radius-dx*dx-dz*dz;
-    if(span<=0) return;
-    const near=clamp(d-Math.sqrt(span/h),.45,distance);
+    if(span<=0 && (!margin || dx*dx+dz*dz >= (radius+margin)**2)) return;
+    const near=clamp(d-Math.sqrt(Math.max(0,span)/h),.45,distance);
     const y=target.y+near*vector.y,bottom=terrainHeight(prop.x,prop.z);
-    if(y>bottom-.15 && y<bottom+prop.height+.15) distance=near;
+    if(y<=bottom-.15 || y>=bottom+prop.height+.15) return;
+    // Start shortening before the rover camera grazes the side of a tree or rock.
+    const gap=Math.hypot(dx,dz)-radius;
+    distance=gap>0 ? mix(near,distance,THREE.MathUtils.smoothstep(gap,0,margin)) : near;
   };
   for(const tree of MAP.trees) test(tree,tree.radius+.2);
   for(const rock of MAP.rocks) test(rock,rock.radius+.16);
@@ -941,7 +944,7 @@ export function createScene(canvas) {
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=view.yaw||0;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const wanted=clamp(view.distance||4.4,1.35,7.5) + (piloting ? 4.2 : driving ? 1.7 : 0);
-    const clearance=cameraDistance(target,boom,wanted,world?.hp);
+    const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);
     // Pull in at obstructions, then ease back out as the orbit clears them.
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
     const distance=roverBoom ?? clearance;
