@@ -7,7 +7,7 @@ const smooth=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t);};
 const mix=(a,b,t)=>a+(b-a)*t;
 
 function clear(x,y,z,hp,world) {
-  if(blocked(x,y,z,hp) || solidTopAt(x,z,hp,.32,y+headroom)>y+.001) return false;
+  if(blocked(x,y,z,hp,world?.doors) || solidTopAt(x,z,hp,.32,y+headroom,world?.doors)>y+.001) return false;
   const vehicle=vehicleContact(x,y,z,world,CITY,headroom);
   return vehicle.depth<.00001 && vehicle.floor<=y+.01 && vehicle.ceiling>=y;
 }
@@ -15,7 +15,7 @@ function clear(x,y,z,hp,world) {
 function landingFits(x,y,z,hp,world) {
   if(Math.abs(x)>MAP.bounds-.32 || z>MAP.bounds-.32 || z<(MAP.northBound??-MAP.bounds)+.32) return false;
   return clear(x,y,z,hp,world) && footprint.every(([dx,dz])=>
-    Math.abs(solidTopAt(x+dx,z+dz,hp,0,y+.03)-y)<.14);
+    Math.abs(solidTopAt(x+dx,z+dz,hp,0,y+.03,world?.doors)-y)<.14);
 }
 
 function path(c,t) {
@@ -33,7 +33,7 @@ export function findLedge(state,input,hp,world) {
   const dx=Math.sin(yaw), dz=-Math.cos(yaw);
   let hx=x,hz=z;
   for(let distance=.05;distance<=.82;distance+=.05){
-    const ex=x+dx*distance,ez=z+dz*distance,top=solidTopAt(ex,ez,hp,0,y+maxRise);
+    const ex=x+dx*distance,ez=z+dz*distance,top=solidTopAt(ex,ez,hp,0,y+maxRise,world?.doors);
     if(top-y<minRise){
       if(clear(ex,y,ez,hp,world)){hx=ex;hz=ez;}
       continue;

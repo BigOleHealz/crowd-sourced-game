@@ -31,16 +31,16 @@ export function advanceFall(actor, tick, dt, hp, world) {
   for (const [axis, velocity] of [['x', 'vx'], ['z', 'vz']]) {
     const next = s[axis] + s[velocity] * dt;
     const limit=axis==='z' ? (MAP.northBound ?? -MAP.bounds) : -MAP.bounds;
-    if (next<limit || next>MAP.bounds || blocked(axis === 'x' ? next : s.x, s.y, axis === 'z' ? next : s.z, hp)) s[velocity] = 0;
+    if (next<limit || next>MAP.bounds || blocked(axis === 'x' ? next : s.x, s.y, axis === 'z' ? next : s.z, hp,world?.doors)) s[velocity] = 0;
     else s[axis] = next;
   }
   // Keep a falling body outside nearby hulls and let it settle on the roof,
   // terrain, or water surface it actually reaches.
   const contact=vehicleContact(s.x,s.y,s.z,world,CITY,.75);
-  if(contact.depth && !blocked(s.x+contact.dx,s.y,s.z+contact.dz,hp)) {
+  if(contact.depth && !blocked(s.x+contact.dx,s.y,s.z+contact.dz,hp,world?.doors)) {
     s.x+=contact.dx;s.z+=contact.dz;
   }
-  const top = solidTopAt(s.x, s.z, hp, .32);
+  const top = solidTopAt(s.x, s.z, hp, .32,s.y+.04,world?.doors);
   const land = Math.max(s.y >= top - .05 ? top : groundHeight(s.x,s.z),contact.floor);
   const floatY=MAP.waterY-.72, water=land<floatY;
   const floor=water ? floatY : land;

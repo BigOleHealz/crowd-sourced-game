@@ -1,3 +1,4 @@
+import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
 import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
@@ -43,7 +44,7 @@ export const MAP = CITY ? brickellMap : {
 
 export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
 MAP.barriers=[
-  ...(MAP.barriers ?? []),
+  ...(MAP.barriers ?? []), ...(CITY ? facadePiers : []),
   ...supplySupports(depotPoint,2.4),...supplySupports(landingPoint(CITY),3.4),
 ];
 if (!CITY) {
@@ -71,12 +72,14 @@ export function onBuildingLot(x,z,margin=0) {
 }
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0,maxBottom=Infinity) {
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
   let top=-Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
-    top=Math.max(top,b.base+b.eave+b.rise*(1-2*dz/b.d));
+    const roof=b.base+b.eave+b.rise*(1-2*dz/b.d);
+    const surface=CITY && hasStorefrontRooms(b) ? storefrontTopAt(x,z,padding,maxBottom,roof,doors) : roof;
+    top=Math.max(top,surface);
   }
   for(const b of MAP.barriers ?? []){
     if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
@@ -134,7 +137,10 @@ export function terrainHeight(x, z) {
 }
 
 export function groundHeight(x, z) {
-  if(CITY) return lookoutFloor(x,z,cityGround(x,z));
+  if(CITY) {
+    if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
+    return lookoutFloor(x,z,cityGround(x,z));
+  }
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&
       Math.abs(z - bridge.z) <= bridge.length / 2) {
@@ -165,8 +171,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
-  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding,maxBottom));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors) {
+  let top = Math.max(groundHeight(x,z),buildingTopAt(x,z,padding,maxBottom,doors));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
@@ -174,13 +180,13 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity) {
   return top;
 }
 
-export function blocked(x, y, z, hp) {
+export function blocked(x, y, z, hp, doors, height=1.7) {
   if (groundHeight(x, z) > y + 0.3) return true;
   const bridge = MAP.bridge;
   const rail = !CITY && Math.abs(Math.abs(x - bridge.x) - bridge.width / 2) < PLAYER_RADIUS + 0.05 &&
     Math.abs(z - bridge.z) <= 4.8 && y < bridge.y + 0.9 && y + 1.7 >= bridge.y;
   if (rail) return true;
-  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, groundHeight(x, z)) + 0.001;
+  return solidTopAt(x, z, hp, PLAYER_RADIUS, y+height, doors) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
 export function stanceBodyHeight(stance) {
@@ -220,29 +226,30 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy = JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
-  if (!blocked(x+vx*dt,y,z,hp)) x+=vx*dt; else vx=0;
-  if (!blocked(x,y,z+vz*dt,hp)) z+=vz*dt; else vz=0;
+  const height=stanceBodyHeight(stance);
+  const doors=world?.doors;
+  if (!blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
+  if (!blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
   // Water reaches every outer edge. Stay at the limit and allow movement
   // parallel to it, including a swimmer turning back toward the shoreline.
   if (x < -MAP.bounds || x > MAP.bounds) vx=0;
   if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
   x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
   z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
-  const height=stanceBodyHeight(stance);
   let contact=vehicleContact(x,y,z,world,CITY,height);
   // Project out of the hull and remove only the velocity into its surface.
   // Recheck adjacent sections when a corner touches more than one shape.
   for(let pass=0; contact.depth>.00001 && pass<5; pass++) {
     const nx=contact.dx/contact.depth,nz=contact.dz/contact.depth;
     const px=x+contact.dx, pz=z+contact.dz;
-    if(blocked(px,y,pz,hp)) {x=state.x;z=state.z;vx=vz=0;break;}
+    if(blocked(px,y,pz,hp,doors,height)) {x=state.x;z=state.z;vx=vz=0;break;}
     x=px;z=pz;
     const inward=Math.min(0,vx*nx+vz*nz);
     vx-=inward*nx;vz-=inward*nz;
     contact=vehicleContact(x,y,z,world,CITY,height);
   }
   let floor = Math.max(groundHeight(x, z),contact.floor);
-  const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01);
+  const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top) floor = Math.max(floor,top);
   const draft=.72, floatY=MAP.waterY-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
@@ -263,7 +270,9 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    if(y>contact.ceiling) {y=contact.ceiling;vy=0;}
+    let ceiling=contact.ceiling;
+    if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
+    if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;
       vy = 0;

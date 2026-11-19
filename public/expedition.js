@@ -1,6 +1,7 @@
+import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
+import { firearmSpecs, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
@@ -16,6 +17,7 @@ let nextShotId = 1;
 
 export function newExpedition() {
   return {
+    ...(CITY ? {doors:newStorefrontDoors()} : {}),
     heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
@@ -102,7 +104,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
-    if (to.y <= solidTopAt(to.x, to.z, clearCrystals)) { blocked = true; break; }
+    if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
@@ -242,14 +244,14 @@ export function advanceRounds(world,players,npcs,tick){
   const dt=1/30;
   world.bullets=world.bullets.filter(r=>{
     const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source);
-    const d={x:r.vx*dt,y:r.vy*dt-roundDrop*dt*dt/2,z:r.vz*dt};
+    const d={x:r.vx*dt,y:r.vy*dt,z:r.vz*dt};
     const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
     d.x*=fraction;d.y*=fraction;d.z*=fraction;
     const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
     const injuryPoint=hit.hitPart ? {x:r.x+d.x*hit.visualT,y:r.y+d.y*hit.visualT,z:r.z+d.z*hit.visualT} : undefined;
     const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
     r.prior={x:r.x,y:r.y,z:r.z};
-    r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
+    r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
     const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)});

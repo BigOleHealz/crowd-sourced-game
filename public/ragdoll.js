@@ -110,7 +110,7 @@ export function advanceJoints(rag,hp,world) {
       constrain(rag);
       for(let i=0;i<rag.points.length;i++) {
         const p=rag.points[i],old=rag.previous[i],r=radius[i];
-        const top=solidTopAt(p.x,p.z,hp,r,p.y+r);
+        const top=solidTopAt(p.x,p.z,hp,r,p.y+r,world?.doors);
         let floor=Math.max(groundHeight(p.x,p.z),MAP.waterY-.08);
         if(top<=Math.max(old.y,p.y)+r+.075) floor=Math.max(floor,top);
         else {p.x=old.x;p.z=old.z;}

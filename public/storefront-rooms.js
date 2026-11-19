@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {storefrontFloor, diningTables, benchTables, planters} from './storefront-layout.js';
 
 // Both rooms are built from the curb elevation up. The entrance, aisles, furniture
 // and rear work surfaces are in world metres and use the same scale as the player.
@@ -6,7 +7,7 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
   const objects=new Batch(), joinery=new Batch(true), plaster=new Batch(true);
   const box=new THREE.BoxGeometry(), cylinder=new THREE.CylinderGeometry(1,1,1,16);
   const oval=new THREE.SphereGeometry(1,12,8);
-  const foot=0.824;
+  const foot=storefrontFloor;
   const solid=(color,x,y,z,w,h,d)=>objects.add(box,color,x,y,z,w,h,d);
   const round=(color,x,y,z,r,h,rZ=r)=>objects.add(cylinder,color,x,y,z,r,h,rZ);
   const sphere=(color,x,y,z,w,h,d,tilt=0)=>objects.add(oval,color,x,y,z,w,h,d,0,0,tilt);
@@ -72,11 +73,11 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
     else chair(x+.445,z+.19,1);
   }
   // Foreground dining and the rear upholstered banquette sit at separate depths.
-  for(const [x,z] of [[-11.18,4.10],[-11.66,6.56],[-11.00,9.05]]) table(x,z);
+  for(const [x,z] of diningTables) table(x,z);
   timber(walnut,-16.05,1.005,5.32,.81,.33,4.65);
   solid(0x717e66,-15.98,1.21,5.32,.79,.15,4.70);
   for(let i=0;i<12;i++) solid(i%2?0x849078:0x76816c,-16.30,1.47,3.205+.383*i,.14,.64,.369);
-  table(-14.62,4.37,true);table(-14.62,6.27,true);
+  for(const [x,z] of benchTables)table(x,z,true);
 
   // The dining wall pairs a low upholstered bench with a carved tropical-leaf panel.
   timber(walnut,-16.46,2.51,5.33,.12,1.29,2.61);
@@ -168,7 +169,7 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
   const menu=new THREE.Mesh(new THREE.PlaneGeometry(1.65,.97),new THREE.MeshBasicMaterial({map:menuMap,color:0xc1b396}));
   menu.rotation.y=Math.PI;menu.position.set(-14.69,2.60,15.711);scene.add(menu);
 
-  // Lobby remains visible through closed, full-height glazed entrance doors.
+  // The concierge desk sits across a clear approach from the glazed entrance.
   timber(0xb18660,-16.43,2.23,.18,.18,2.78,3.95);
   for(let i=0;i<36;i++)timber(i%3?0x9e7956:0xaf8966,-16.29,2.24,-1.65+i*.103,.083,2.76,.054);
   solid(0x5b594e,-13.72,.92,.68,.82,.17,1.79);
@@ -219,7 +220,7 @@ export function buildStorefrontRooms(scene,Batch,texture,stone) {
       objects.add(blade,[0x5c7656,0x78916a,0x46624a][i%3],tx,high,tz,length,length,length,.43+Math.sin(i)*.21,a,.12*Math.cos(i));
     }
   }
-  for(const [x,z,s] of [[-10.76,2.97,1.20],[-15.71,15.19,1.54],[-10.89,1.61,.93],[-14.92,1.94,1.06]])planter(x,z,s);
+  for(const [x,z,s] of planters)planter(x,z,s);
   // Downturned terracotta and brass pendant shades carry a warm, luminous underside.
   const shade=new THREE.LatheGeometry([new THREE.Vector2(.020,.02),new THREE.Vector2(.045,-.025),new THREE.Vector2(.16,-.065),new THREE.Vector2(.25,-.13),new THREE.Vector2(.27,-.19)],20);
   const lamps=new Batch();
