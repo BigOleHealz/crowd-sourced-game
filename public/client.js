@@ -16,11 +16,11 @@ const ctx = map.getContext('2d');
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
-let world;
+let world, weapon = 1, queuedFire = false, mouseFire = false;
 let scene, socket, id, self, previous, facing = 0, moving = false, sprint = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Digit1','Digit2','KeyF']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -34,7 +34,7 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
-function clearInput() { held.clear(); queuedJump = false; }
+function clearInput() { held.clear(); queuedJump = queuedFire = mouseFire = false; }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function pauseControls() { clearInput(); stopLook(); }
 byId('help').onclick = () => setGuide(byId('guide').hidden);
@@ -46,15 +46,26 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button')) return;
   e.preventDefault();
   held.add(e.code);
-  if (e.code === 'Space' && !e.repeat) queuedJump = true;
+  if (e.repeat) return;
+  if (e.code === 'Space') queuedJump = true;
+  if (e.code === 'KeyF') queuedFire = true;
+  if (e.code === 'Digit1') weapon = 1;
+  if (e.code === 'Digit2') weapon = 2;
 });
 window.addEventListener('keyup', e => held.delete(e.code));
 // A visible embedded document can receive pointer events before it has keyboard focus.
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
 document.addEventListener('visibilitychange', pauseControls);
-canvas.addEventListener('pointerleave', stopLook);
-canvas.addEventListener('pointercancel', stopLook);
+function releasePointer() { stopLook(); mouseFire = false; }
+canvas.addEventListener('pointerleave', releasePointer);
+canvas.addEventListener('pointercancel', releasePointer);
+canvas.addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
+  canvas.focus({ preventScroll: true });
+  mouseFire = queuedFire = true;
+});
+window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
 
 // An unlocked cursor stops sending deltas at the window boundary. Continue
 // turning gently in the outer band until the cursor moves inward or exits.
@@ -136,9 +147,12 @@ function tick() {
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   moving = Boolean(lateral || forward);
   sprint = moving && (held.has('ShiftLeft') || held.has('ShiftRight'));
-  if (moving) facing = Math.atan2(x, -z);
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint };
-  queuedJump = false;
+  const fire = queuedFire || mouseFire || held.has('KeyF');
+  if (fire) facing = camera.yaw;
+  else if (moving) facing = Math.atan2(x, -z);
+  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump, yaw: facing, sprint, weapon, fire,
+    aimYaw: camera.yaw, aimPitch: camera.pitch };
+  queuedJump = queuedFire = false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
@@ -200,7 +214,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, id, yaw: facing, moving, sprint,
+    const local = { ...self, id, weapon, yaw: facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const remotes = remoteFrame(time);
     scene.render(local, remotes, camera, dt, world);

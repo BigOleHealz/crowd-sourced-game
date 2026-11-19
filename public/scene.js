@@ -354,6 +354,38 @@ function contactShadowMap() {
   return new THREE.CanvasTexture(stamp);
 }
 
+// Field equipment uses the same vertex-colored batches as the hikers.
+// Each loadout costs a single draw call while equipped.
+function makeBlasters(body, material) {
+  const pulse = new Batch(), bloom = new Batch();
+  const handle = 0x253b40, shell = 0xd2c6a6, teal = 0x53e7d2, coral = 0xff9664;
+  const ring = new THREE.TorusGeometry(1, .15, 5, 14);
+  pulse.add(cube, handle, 0, -.06, -.02, .10, .20, .13, -.2);
+  pulse.add(round, shell, 0, .015, -.18, .115, .105, .28);
+  pulse.add(cube, handle, 0, .08, -.19, .105, .06, .40);
+  pulse.add(round, teal, 0, .10, -.13, .082, .056, .10);
+  pulse.add(round, teal, .099, .077, -.12, .055, .09, .17);
+  pulse.add(cube, shell, .11, .159, -.12, .07, .035, .22);
+  pulse.add(ring, teal, 0, .008, -.43, .078);
+  pulse.add(round, handle, 0, .00, -.415, .065, .066, .045);
+  bloom.add(cube, handle, 0, -.07, .0, .115, .21, .13, -.20);
+  bloom.add(round, 0xa25140, 0, .035, -.17, .175, .17, .245);
+  bloom.add(round, coral, 0, .16, -.14, .09, .07, .14);
+  bloom.add(ring, coral, .14, .06, -.13, .113, .113, .113, 0,Math.PI/2);
+  bloom.add(round, coral, .154, .06, -.13, .050, .092, .09);
+  bloom.add(ring, shell, 0, .035, -.34, .153);
+  for (let i = 0; i < 3; i++) {
+    const a = i * TAU / 3;
+    const x = .137 * Math.cos(a), y = .035 + .137 * Math.sin(a);
+    bloom.add(round, shell, x, y, -.36, .050, .053, .147);
+    bloom.add(round, coral, x, y, -.468, .037, .038, .060);
+  }
+  ring.dispose();
+  const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
+  for (const tool of tools) tool.position.set(.43, 1.19, -.31);
+  return tools;
+}
+
 function crystalOutcrop(scene, material, prop, seed) {
   const rng = random(seed), batch = new Batch();
   const shaft = new THREE.CylinderGeometry(.86,1,1,5,1,false).toNonIndexed();
@@ -376,6 +408,68 @@ function crystalOutcrop(scene, material, prop, seed) {
   const mesh = batch.mesh(scene,material,false);
   mesh.position.set(prop.x,groundHeight(prop.x,prop.z),prop.z);
   return {prop,mesh,hp:null};
+}
+
+// The pool bounds effect draw calls during sustained multiplayer use. Each
+// instance represents a short pulse trail, a bloom ring, or a fading shard.
+function fieldEffects(scene) {
+  const capacity=180, particles=[];
+  const geometry=new THREE.IcosahedronGeometry(1,0);
+  const material=new THREE.MeshBasicMaterial({color:0xffffff});
+  const cloud=new THREE.InstancedMesh(geometry,material,capacity);
+  cloud.instanceMatrix.setUsage(THREE.DynamicDrawUsage); cloud.frustumCulled=false;
+  cloud.count=0; scene.add(cloud);
+  const dummy=new THREE.Object3D(), shade=new THREE.Color(), along=new THREE.Vector3();
+  const rng=random(84927);
+  function particle(pos,vel,scale,tint,life) {
+    if(particles.length>=capacity) particles.shift();
+    particles.push({pos,vel,scale,tint,life,remaining:life});
+  }
+  function burst(x,y,z,large) {
+    for(let i=0;i<(large?18:7);i++) {
+      const a=rng()*TAU, s=.6+rng()*(large?3.6:1.7), size=(large?.045:.026)+rng()*.075;
+      particle(new THREE.Vector3(x,y,z),new THREE.Vector3(Math.cos(a)*s,.6+rng()*2.7,Math.sin(a)*s),
+        new THREE.Vector3(size,size*(1+rng()),size),i%3?0x8cf3cd:0xf4e7a7,.28+rng()*.29);
+    }
+  }
+  function shot(s) {
+    const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
+    along.subVectors(b,a);
+    const bloom=s.weapon===2, pieces=bloom?12:7;
+    for(let i=1;i<=pieces;i++) {
+      const t=i/pieces, pos=a.clone().addScaledVector(along,t);
+      const radius=bloom ? .18+.23*t : .035;
+      if(bloom) {pos.x+=Math.cos(t*TAU*2)*radius; pos.y+=Math.sin(t*TAU*2)*radius;}
+      particle(pos,new THREE.Vector3(),new THREE.Vector3(radius*.55,radius*.55,radius*.55),
+        bloom?0xffbd83:0x96ffe1,.15+.09*t);
+    }
+    // The thin straight pulse reads from a distance; bloom draws a spiral of motes.
+    if(!bloom) {
+      const delta=b.clone().sub(a), length=delta.length();
+      if(length>.01) {
+        particle(a.clone().lerp(b,.5),new THREE.Vector3(),new THREE.Vector3(.033,length/2,.033),0xb6ffdf,.13);
+        particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,delta.normalize());
+      }
+    }
+    if(s.hit) burst(b.x,b.y,b.z,false);
+  }
+  function update(dt) {
+    let write=0;
+    for(const p of particles) {
+      p.remaining-=dt;
+      if(p.remaining<=0) continue;
+      p.pos.addScaledVector(p.vel,dt);
+      if(p.vel.lengthSq()) p.vel.y-=dt*5.8;
+      dummy.position.copy(p.pos);dummy.scale.copy(p.scale).multiplyScalar(Math.min(1,p.remaining/.13));
+      if(p.rotation) dummy.quaternion.copy(p.rotation); else dummy.quaternion.identity();
+      dummy.updateMatrix();cloud.setMatrixAt(write,dummy.matrix);
+      cloud.setColorAt(write,shade.setHex(p.tint));
+      particles[write++]=p;
+    }
+    particles.length=write;cloud.count=write;
+    if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
+  }
+  return {shot,burst,update};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -428,7 +522,7 @@ function hiker(scene,id,tint,material,shadowMap) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,limbs,shadow,cycle:0,weight:0};
+  return {root,body,limbs,tools:makeBlasters(body,material),shadow,cycle:0,weight:0};
 }
 
 function pose(avatar,state,dt) {
@@ -443,11 +537,14 @@ function pose(avatar,state,dt) {
   avatar.root.rotation.y+=delta*(1-Math.exp(-dt*19));
   avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
+  const bloom = state.weapon === 2;
+  avatar.tools[0].visible = !bloom;
+  avatar.tools[1].visible = bloom;
   for(const {leg,arm,knee,side} of avatar.limbs) {
     leg.rotation.x=airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
     knee.rotation.x=airborne ? -.65 : -Math.max(0,-side*swing)*.77;
-    arm.rotation.x=airborne ? -.42 : side*swing*.62;
-    arm.rotation.z=side*(airborne?.20:.065);
+    arm.rotation.x=side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.z=side*(side===1 ? .26 : airborne?.20:.065);
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
@@ -503,6 +600,8 @@ export function createScene(canvas) {
   const glints=water(scene,rng);
   const shadowMap=contactShadowMap();
   const crystals=BREAKABLES.map((prop,i)=>crystalOutcrop(scene,material,prop,6104+i*39));
+  const effects=fieldEffects(scene);
+  let lastShot=null;
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
@@ -524,11 +623,18 @@ export function createScene(canvas) {
       const {prop,mesh}=crystal;
       const hp=world?.hp?.[prop.id] ?? prop.hp;
       if(hp!==crystal.hp) {
+        if(hp===0 && crystal.hp>0) effects.burst(prop.x,mesh.position.y+prop.height*.48,prop.z,true);
         mesh.visible=hp>0;
         mesh.scale.y=.78+.22*hp/prop.hp;
         crystal.hp=hp;
       }
     }
+    if(world?.shots) {
+      // Ignore recent history on first join. Consume each subsequent event once.
+      for(const shot of world.shots) if(lastShot!==null && shot.id>lastShot) effects.shot(shot);
+      lastShot=world.shots.at(-1)?.id ?? lastShot ?? 0;
+    }
+    effects.update(dt);
     const live=new Set();
     for(const state of [local,...remotes]) {
       live.add(state.id);

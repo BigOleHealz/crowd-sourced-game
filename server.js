@@ -5,7 +5,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { spawn, stepPlayer } from './public/world.js';
-import { newExpedition } from './public/expedition.js';
+import { newExpedition, fire } from './public/expedition.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -84,7 +84,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   return { ...player.state, id: player.id, yaw: player.yaw, moving: player.moving,
-    sprint: player.sprint, ack: player.ack };
+    sprint: player.sprint, ack: player.ack, weapon: player.weapon };
 }
 
 function publish() {
@@ -113,6 +113,10 @@ function acceptInput(player, data, binary) {
   player.inputs.push({
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
+    aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
+    aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-1.2, Math.min(0.9, input.aimPitch)) : 0,
+    weapon: input.weapon === 1 || input.weapon === 2 ? input.weapon : null,
+    fire: input.fire === true,
   });
 }
 
@@ -127,7 +131,7 @@ sockets.on('connection', ws => {
   while (players.has(id)) id++;
   const player = {
     id, ws, state: { ...spawn(id - 1), grounded: true, vy: 0 },
-    yaw: 0, moving: false, sprint: false, inputs: [], ack: 0, lastSeq: 0, alive: true,
+    yaw: 0, moving: false, sprint: false, weapon: 1, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   players.set(id, player);
   ws.on('message', (data, binary) => acceptInput(player, data, binary));
@@ -146,17 +150,19 @@ let ticks = 0;
 function tick() {
   for (const player of players.values()) {
     const input = player.inputs.shift();
-    player.state = stepPlayer(player.state, input || idle, step, world.hp);
     if (input) {
       player.ack = input.seq;
-      player.yaw = input.yaw;
-      player.moving = Math.hypot(input.x, input.z) > 0.01;
-      player.sprint = player.moving && input.sprint;
-    } else {
-      player.moving = false;
-      player.sprint = false;
+      if (input.weapon) player.weapon = input.weapon;
+    }
+    player.state = stepPlayer(player.state, input || idle, step, world.hp);
+    player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
+    player.sprint = player.moving && input.sprint;
+    if (input) {
+      player.yaw = input.fire ? input.aimYaw : input.yaw;
+      if (input.fire) fire(world, player, input, ticks);
     }
   }
+  while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
 }
 
