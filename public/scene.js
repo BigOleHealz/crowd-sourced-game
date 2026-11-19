@@ -10,6 +10,7 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
 import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
@@ -670,6 +671,7 @@ function fieldEffects(scene) {
     }
   }
   const pickSurface=surfacePicker(scene);
+  const plume=missileCloud(scene,rng);
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
@@ -689,10 +691,19 @@ function fieldEffects(scene) {
       particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
       return;
     }
-    if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
+    if(s.weapon==='missile'){
+      const normal=contact?.normal ?? new THREE.Vector3().subVectors(a,b).normalize();
+      if(!normal.lengthSq())normal.copy(up);
+      plume.impact(b,normal,contact?.surface);
+      for(let i=0;i<9;i++){
+        const v=new THREE.Vector3(rng()-.5,rng(),rng()-.5).addScaledVector(normal,.45).multiplyScalar(2+rng()*3);
+        particle(b.clone(),v,new THREE.Vector3(.032,.055,.029),i%2?0x776b59:0x585650,.27+rng()*.3);
+      }
+      return;
+    }
     along.subVectors(b,a);
     const length=along.length();
     if(length>.01) {
@@ -707,6 +718,7 @@ function fieldEffects(scene) {
     else if(s.hit) burst(b.x,b.y,b.z,false);
   }
   function update(dt) {
+    plume.update(dt);
     let write=0;
     for(const p of particles) {
       p.remaining-=dt;
@@ -722,7 +734,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,crash,update};
+  return {shot,burst,crash,update,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1091,7 +1103,6 @@ export function createScene(canvas) {
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
-  const updateMissiles=missileView(scene);
   const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
   rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
   const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
@@ -1099,6 +1110,7 @@ export function createScene(canvas) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   const effects=fieldEffects(scene);
+  const updateMissiles=missileView(scene,Batch,effects.trail);
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();

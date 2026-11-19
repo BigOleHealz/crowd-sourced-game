@@ -149,11 +149,12 @@ export function advanceMissiles(world,players,npcs,tick) {
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
     const hit=tracePulse(world,actors,m,direction,1,false,m.source);
+    const from={x:m.x,y:m.y,z:m.z};
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
     applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source);
-    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',from:hit.to,to:hit.to,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
+    world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
 }
