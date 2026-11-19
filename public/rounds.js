@@ -1,9 +1,9 @@
 import { avenues, streets } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
-  1:{name:'Field carbine',speed:56,range:78,damage:25,cooldown:6,propDamage:1},
-  2:{name:'Patrol sidearm',speed:39,range:49,damage:40,cooldown:21,propDamage:2},
-  turret:{name:'Vehicle turret',speed:62,range:86,damage:34,cooldown:7.5,propDamage:34},
+  1:{name:'Field carbine',speed:56,range:144,damage:25,cooldown:6,propDamage:1},
+  2:{name:'Patrol sidearm',speed:39,range:84,damage:40,cooldown:21,propDamage:2},
+  turret:{name:'Vehicle turret',speed:62,range:160,damage:34,cooldown:7.5,propDamage:34},
 };
 export const roundDrop=4.2;
 

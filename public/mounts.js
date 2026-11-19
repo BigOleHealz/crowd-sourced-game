@@ -15,7 +15,6 @@ export function mountPosition(vehicle, [side,height,z]) {
     z:vehicle.z+lateral*s+longitudinal*c};
 }
 
-export const turretRange=40;
 export const turretPitch=pitch=>Math.max(-.95,Math.min(.65,pitch));
 
 export function gunnerVehicle(world,id) {

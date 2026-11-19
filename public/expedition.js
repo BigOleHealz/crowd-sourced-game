@@ -7,7 +7,7 @@ import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
 
-import { mounts, mountPosition, turretRange } from './mounts.js';
+import { mounts, mountPosition } from './mounts.js';
 
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
