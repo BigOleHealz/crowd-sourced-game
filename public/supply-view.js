@@ -34,9 +34,10 @@ export function createSupplyView(scene) {
     c.fillText(name,128,41);
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    const sign = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture }));
-    sign.position.set(-radius,1.65,0); sign.scale.set(2.25,.56,1); origin.add(sign);
-    const light = mesh(origin,new THREE.OctahedronGeometry(.27),amber,-radius,2.45,0);
+    const sign=mesh(origin,new THREE.BoxGeometry(1.9,.47,.07),
+      new THREE.MeshLambertMaterial({map:texture}),-radius,1.56,0);
+    for(const offset of [-.61,.61]) mesh(origin,new THREE.BoxGeometry(.07,1.59,.07),metal,sign.position.x+offset,.795,-.03);
+    const light=mesh(origin,new THREE.CylinderGeometry(.055,.065,.12,8),amber,-radius,1.86,0);
     return light;
   }
   const depotBeacon = station(DEPOT,2.4,'PINE DEPOT');
