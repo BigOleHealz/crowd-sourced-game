@@ -1,3 +1,4 @@
+import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { createScene } from './scene.js';
@@ -36,6 +37,7 @@ const isDriving = () => id != null && world?.rover.driver === id;
 const gunnerRole=()=>gunnerVehicle(world,id);
 const isPilot = () => id != null && world?.heli.pilot === id;
 
+let queuedSeat=null, queuedSeatKind=null;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
@@ -55,6 +57,7 @@ function setGuide(open) {
 }
 function clearInput() {
   held.clear();
+  queuedSeat=queuedSeatKind=null;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = mouseFire = false;
@@ -76,8 +79,12 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (e.code === 'Digit1') weapon = 1;
-  if (e.code === 'Digit2') weapon = 2;
+  if (e.code === 'Digit1' || e.code === 'Digit2') {
+    const number=e.code==='Digit1' ? 1 : 2;
+    const kind=seatVehicle(world,id,self);
+    if(kind && !vitals.dead) {queuedSeat=number;queuedSeatKind=kind;}
+    else weapon=number;
+  }
 });
 window.addEventListener('keyup', e => held.delete(e.code));
 // A visible embedded document can receive pointer events before it has keyboard focus.
@@ -204,12 +211,13 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
-    sprint: sprint && !pilot, weapon, fire, interact: queuedInteract,
+    sprint: sprint && !pilot, weapon, fire, interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = false;
+  queuedSeat=queuedSeatKind=null;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
@@ -303,7 +311,9 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  byId('tool-shortcut').hidden = local.swimming || pilot || isDriving() || !!gunner;
+  const kind=seatVehicle(world,id,local);
+  byId('tool-shortcut').hidden=local.swimming || vitals.dead;
+  byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('fire-shortcut').hidden = local.swimming || vitals.dead;
   const prompt = byId('field-prompt');
   if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
@@ -318,6 +328,12 @@ function updateEquipment(local) {
   else if (heli.pilot != null) prompt.textContent = nearestVehicle(world,local)==='heli' ? 'E  ·  Join helicopter turret' : heli.gunner!=null ? 'Helicopter crew full' : 'Helicopter in use';
   else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
   else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
+  if(kind && !vitals.dead) {
+    const v=world[kind],primary=kind==='heli'?'pilot':'driver';
+    if(v[primary]!=null && v.gunner!=null && v[primary]!==id && v.gunner!==id)
+      prompt.textContent = kind==='heli' ? 'Helicopter crew full' : 'Vehicle crew full';
+    prompt.textContent += '  ·  '+seatChoices(world,kind,id);
+  }
 }
 
 function drawMap(player, remotes, yaw) {
