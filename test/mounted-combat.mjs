@@ -32,6 +32,25 @@ for(const kind of ['rover','heli']){
   advanceMissiles(world,players,[target],62);advanceMissiles(world,players,[target],63);
   assert.equal(target.life.hp,25);assert.equal(world.missiles.length,0);
 }
+// Unrelated missile IDs and rejected attempts cannot change which helicopter pod fires next.
+{
+  const a=newExpedition(), b=newExpedition(), pilot={id:1};
+  for(const w of [a,b]) Object.assign(w.heli,{pilot:1,x:3,y:12,z:-5,yaw:.7,pitch:.2,roll:-.1});
+  a.rover.driver=2;
+  launchMissile(a,'heli',pilot,10);
+  launchMissile(a,'heli',pilot,12);
+  launchMissile(a,'rover',{id:2},15);
+  launchMissile(a,'heli',pilot,40);
+  launchMissile(b,'heli',pilot,40);
+  launchMissile(a,'heli',pilot,70);
+  const shots=a.missiles.filter(m=>m.source==='heli');
+  assert.deepEqual(shots.map(m=>m.side),[1,-1,1]);
+  assert.equal(b.missiles[0].side,1);
+  for(const shot of shots){
+    const [x,y,z]=mounts.heli.launcher, pos=mountPosition(a.heli,[x*shot.side,y,z]);
+    assert.deepEqual({x:shot.x,y:shot.y,z:shot.z},pos);
+  }
+}
 const world=newExpedition(), shooter={id:1,weapon:1,state:{x:0,y:15,z:0},life:newLife(0,false),fireReady:0};
 const target={id:2,state:{x:0,y:15,z:-8},life:newLife(0,false)};
 const players=new Map([[1,shooter],[2,target]]);

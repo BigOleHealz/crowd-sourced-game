@@ -557,7 +557,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
   Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
-  launchers.mesh(group,paint,false);
+  Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   Object.assign(glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false).userData,{impactSurface:'solid',vehicle:'heli'});
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';

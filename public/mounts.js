@@ -1,6 +1,6 @@
 // Offsets in game units from the centre of the vehicle, facing local -Z.
 export const mounts = {
-  heli: { launcher: [.91,.86,-1.00], turret: [0,.49,-.97] },
+  heli: { launcher: [2.05,.86,-.21], turret: [0,.49,-.97] },
   rover: { launcher: [.84,.82,-1.16], turret: [0,2.04,.96] },
 };
 

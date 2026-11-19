@@ -132,15 +132,17 @@ function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shoo
 }
 
 // Launch direction is captured from the authoritative body heading.
-const launcherReady=new WeakMap();
+const launchState=new WeakMap();
 export function launchMissile(world,kind,player,tick) {
   const v=world[kind];
-  if(v.wrecked || (kind==='heli' ? v.pilot : v.driver)!==player.id || tick<(launcherReady.get(v) ?? 0)) return;
-  launcherReady.set(v,tick+30);
+  const previous=launchState.get(v);
+  if(v.wrecked || (kind==='heli' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
   const offset=[...mounts[kind].launcher];
   const id=nextShotId++;
-  if(id%2===0) offset[0]*=-1;
-  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,remaining:60});
+  const side=kind==='heli' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
+  launchState.set(v,{ready:tick+30,side});
+  offset[0]*=side;
+  world.missiles.push({...mountPosition(v,offset),yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
