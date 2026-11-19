@@ -101,3 +101,37 @@ export const fieldTrouser=shell([[-.242,.077,.078],[-.216,.091,.086],[-.17,.09,.
 export const trouserSeat=shell([[-.118,.12,.094],[-.09,.17,.114],[-.04,.195,.130],[.048,.196,.142],[.088,.182,.129]],7,7);
 export const capCrown=shell([[0,.114,.119],[.018,.119,.123],[.044,.109,.112],[.063,.087,.097],[.078,.045,.061],[.08,.012,.014]],7,7);
 export const fieldGaiter=shell([[-.234,.076,.083],[-.215,.087,.088],[-.158,.083,.094],[-.124,.088,.099],[-.100,.082,.091],[.01,.084,.093],[.128,.097,.10],[.193,.098,.106],[.218,.083,.088]],7,7);
+
+
+// Sections run from the toe to the heel. A flatter underside and fuller toe box
+// give the sole and upper a continuous contour as the foot rolls through a step.
+function footwear(rows) {
+  const positions=[],indices=[],around=16;
+  for(const [z,width,bottom,top] of rows){
+    for(let i=0;i<around;i++){
+      const a=i*Math.PI*2/around,sy=Math.sin(a),sx=Math.cos(a);
+      positions.push(width*Math.sign(sx)*Math.pow(Math.abs(sx),.73),
+        bottom+(top-bottom)*(.5+.5*Math.sign(sy)*Math.pow(Math.abs(sy),.65)),z);
+    }
+  }
+  for(let j=0;j<rows.length-1;j++)for(let i=0;i<around;i++){
+    const a=j*around+i,b=j*around+(i+1)%around;
+    indices.push(a,b,a+around,b,b+around,a+around);
+  }
+  for(let i=1;i<around-1;i++){
+    const last=(rows.length-1)*around;
+    indices.push(0,i+1,i,last,last+i,last+i+1);
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  g.setIndex(indices);g.computeVertexNormals();return g;
+}
+export const bootSole=footwear([
+  [-.221,.044,-.105,-.081],[-.211,.078,-.115,-.079],[-.177,.095,-.124,-.083],
+  [-.097,.100,-.126,-.084],[-.008,.080,-.114,-.079],[.040,.081,-.126,-.081],[.080,.067,-.124,-.079],[.090,.041,-.115,-.08],
+]);
+export const bootUpper=footwear([
+  [-.215,.044,-.096,-.065],[-.194,.080,-.100,-.036],[-.152,.089,-.102,-.025],
+  [-.104,.089,-.104,-.005],[-.052,.078,-.102,.064],[-.021,.079,-.104,.086],
+  [.035,.080,-.103,.084],[.080,.064,-.10,.045],[.085,.044,-.095,.021],
+]);

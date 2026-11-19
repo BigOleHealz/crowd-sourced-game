@@ -1,7 +1,7 @@
 import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
-import { rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { bootSole, bootUpper, rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, gunnerFeet } from './mounts.js';
 import { tracePulse } from './expedition.js';
@@ -831,24 +831,17 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
   }
 
-  torso.add(fieldPack,0xecdfc5,0,1.315,.183,1.02,1.05,1.15);
-  // A strapped groundsheet and two side pockets break up the rectangular pack.
-  torso.add(fieldSleeve,0xb6ab90,-.20,1.51,.221,.76,.89,.76,0,0,Math.PI/2);
+  // The pack and its pockets follow the upper back through turns and running.
+  torso.add(fieldPack,0xb8af92,0,1.306,.168,1.04,.98,1.10);
+  torso.add(fieldPack,0xb3a784,0,1.240,.248,.76,.50,.62);
   for(const side of [-1,1]) {
-    torso.add(round,0x504d40,side*.121,1.51,.221,.015,.071,.074);
-    torso.add(fieldPack,0xb7ad90,side*.17,1.248,.167,.34,.42,.77);
-    torso.add(cube,0x78735b,side*.114,1.22,.283,.026,.21,.012,.04);
-    torso.add(cube,0x999683,side*.114,1.24,.29,.035,.021,.012);
+    torso.add(fieldPack,0xa09a80,side*.149,1.243,.172,.30,.45,.65);
+    torso.beam(0x57594a,[side*.148,1.303,.215],[side*.145,1.315,.153],.009);
+    torso.add(cube,0x8c8b70,side*.145,1.298,.211,.009,.025,.010);
   }
-  for (const side of [-1,1]) {
-    torso.beam(0x6a6853,[side*.136,1.497,-.110],[side*.127,1.405,-.150],.031,.014);
-    torso.beam(0x6a6853,[side*.127,1.405,-.150],[side*.120,1.193,-.121],.031,.014);
-    torso.add(cube,0x96907b,side*.12,1.216,-.134,.037,.021,.009);
-    torso.beam(0x585844,[side*.120,1.193,-.121],[side*.171,1.12,-.049],.022,.014);
-    torso.beam(0x585844,[side*.171,1.12,-.049],[side*.152,1.17,.166],.022,.014);
-    torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
-    torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
-  }
+  torso.beam(0x565745,[-.060,1.49,.188],[-.035,1.505,.196],.012);
+  torso.beam(0x565745,[-.035,1.505,.196],[.035,1.505,.196],.012);
+  torso.beam(0x565745,[.035,1.505,.196],[.060,1.49,.188],.012);
   torso.mesh(upper,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
@@ -860,11 +853,20 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     shin.mesh(knee,uniform);
     const ankle=new THREE.Group();ankle.position.y=-.395;knee.add(ankle);
     const boot=new Batch(true);
-    boot.add(trunk,0x645743,0,.025,.004,.096,.095,.103);
-    boot.add(round,0x584d3d,0,-.038,-.024,.097,.092,.119);
-    boot.add(round,0x5f5344,0,-.067,-.090,.103,.053,.127);
-    boot.add(round,0x373d36,0,-.112,-.065,.11,.022,.166);
-    for(let j=0;j<3;j++) boot.beam(0x95856c,[-.058,-.013-j*.008,-.115-j*.018],[.058,-.007-j*.008,-.113-j*.018],.008);
+    boot.add(bootSole,0x363a35,0,0,0);
+    boot.add(bootUpper,0x796b55,0,0,0);
+    boot.add(round,0x4a5148,0,.062,.013,.081,.049,.078);
+    for(const edge of [-1,1]){
+      boot.beam(0x655b4d,[edge*.086,-.064,-.139],[edge*.077,.040,-.017],.014,.009);
+      boot.beam(0x514b40,[edge*.078,.043,-.024],[edge*.076,.052,.032],.013,.009);
+      for(let i=0;i<4;i++){
+        const z=-.117+i*.023,y=-.009+i*.021;
+        boot.beam(0x4c483d,[edge*.044,y-.004,z],[-edge*.042,y+.011,z+.016],.006);
+      }
+    }
+    for(const z of [-.17,-.132,-.093,.029,.060]){
+      boot.add(cube,0x41433a,0,-.119,z,z<-.09?.147:.115,.012,.018);
+    }
     boot.mesh(ankle,uniform);
     const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); upper.add(arm);
     const sleeve=new Batch(true);
