@@ -1,7 +1,7 @@
 import {packedJoints,releaseJoints} from './ragdoll.js';
 // The server advances every actor's lifecycle on the same 30 Hz clock.
 import { vehicleContact } from './vehicle-contact.js';
-import { CITY, groundHeight, stepPlayer } from './world.js';
+import { CITY, groundHeight, stepPlayer, stanceBodyHeight } from './world.js';
 
 import { startFall, advanceFall } from './falls.js';
 
@@ -99,7 +99,7 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
     // Use the walking hull immediately after the vehicle moves, before an
     // on-foot tick can push the target clear. Ignore surfaces moving away.
-    const hit=vehicleContact(p.x,p.y,p.z,hull,CITY);
+    const hit=vehicleContact(p.x,p.y,p.z,hull,CITY,stanceBodyHeight(p.stance));
     if(hit.depth<=.00001) continue;
     const approach=(vx*hit.dx+vz*hit.dz)/hit.depth;
     if(Math.max(approach,descent)<1.8) continue;

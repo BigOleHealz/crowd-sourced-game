@@ -183,11 +183,26 @@ export function blocked(x, y, z, hp) {
   return solidTopAt(x, z, hp, PLAYER_RADIUS, y+1.7) > Math.max(y, groundHeight(x, z)) + 0.001;
 }
 
+export function stanceBodyHeight(stance) {
+  return stance === 'prone' ? .54 : stance === 'crouch' ? 1.28 : 1.8;
+}
+
+export function stanceDrop(state) {
+  return state.stance === 'prone' ? .98 : state.stance === 'crouch' ? .49 : 0;
+}
+
+export function stanceMuzzleHeight(state) {
+  return 1.3 - stanceDrop(state) * (state.stance === 'prone' ? .78 : 1);
+}
+
 export function stepPlayer(state, input, dt, hp, world) {
   const climb=state.climb || (input.jump && findLedge(state,input,hp,world));
   if(climb) return stepClimb(state,climb,dt,hp,world);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
-  const speed = state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const requested = input.stance ?? state.stance;
+  const stance = state.grounded && !input.jump && !parachute && !state.swimming &&
+    (requested === 'crouch' || requested === 'prone') ? requested : undefined;
+  const speed = stance === 'prone' ? 1.05 : stance === 'crouch' ? 2.25 : state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
@@ -213,7 +228,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   if (z < (MAP.northBound ?? -MAP.bounds) || z > MAP.bounds) vz=0;
   x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
   z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
-  const height=state.stance==='prone' ? .54 : state.stance==='crouch' ? 1.28 : 1.8;
+  const height=stanceBodyHeight(stance);
   let contact=vehicleContact(x,y,z,world,CITY,height);
   // Project out of the hull and remove only the velocity into its surface.
   // Recheck adjacent sections when a corner touches more than one shape.
@@ -257,6 +272,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 || Math.abs(x)>MAP.bounds || z>MAP.bounds || z<(MAP.northBound ?? -MAP.bounds)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;
   return next;
 }
