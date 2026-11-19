@@ -349,8 +349,9 @@ function addDetails(scene,batch, rng) {
 }
 
 function water(scene,rng,renderer) {
-  const geometry=new THREE.PlaneGeometry(125,10).rotateX(-Math.PI/2);
+  const geometry=new THREE.PlaneGeometry(125,125).rotateX(-Math.PI/2);
   const material=creekMaterial(renderer);
+  material.map.repeat.set(28,28);
   const surface=new THREE.Mesh(geometry,material);
   surface.position.y=MAP.waterY; surface.receiveShadow=true; scene.add(surface);
   const ripples=new Batch();
@@ -808,6 +809,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const roll=gait ? .046*swing*weight : 0;
   const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
+  const swimming=!!state.swimming && !state.dead;
   const open = state.parachute === 'open' && !state.dead;
   if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
@@ -827,11 +829,18 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
+  const stroke=avatar.cycle*(state.moving?2.7:1.45);
+  avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
+  if(swimming) {
+    avatar.body.position.y=.72-1.34*Math.cos(avatar.body.rotation.x)+.07+.03*Math.sin(stroke);
+    avatar.body.position.z=-Math.sin(avatar.body.rotation.x)*1.12;
+    avatar.spine.rotation.x=.17;
+  }
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
-  avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
-  avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
+  avatar.tools[0].visible = !swimming && !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !swimming && !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(gait) {
@@ -857,7 +866,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
-    if(station) {
+    if(swimming) {
+      const wave=stroke+(side===1?Math.PI:0);
+      leg.rotation.x=-.16+.25*Math.sin(wave);
+      knee.rotation.x=-.21-.19*Math.sin(wave+.9);
+      arm.rotation.set(.45+1.07*Math.cos(wave),side*.23,side*(.76+.48*Math.sin(wave)));
+      forearm.rotation.x=.5+.36*Math.sin(wave);
+    } else if(station) {
       const p=station.turretPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
@@ -1059,7 +1074,7 @@ export function createScene(canvas) {
       const shoulder=local.parachute ? 0 : .66;
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
       const clear=buildingTopAt(x,z,.15)<local.y+1.3;
-      desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
+      desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
@@ -1078,6 +1093,7 @@ export function createScene(canvas) {
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
+    if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;

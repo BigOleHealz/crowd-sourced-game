@@ -167,7 +167,7 @@ export function blocked(x, y, z, hp) {
 
 export function stepPlayer(state, input, dt, hp) {
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
-  const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const speed = state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
@@ -187,9 +187,24 @@ export function stepPlayer(state, input, dt, hp) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   if (!blocked(x+vx*dt,y,z,hp)) x+=vx*dt; else vx=0;
   if (!blocked(x,y,z+vz*dt,hp)) z+=vz*dt; else vz=0;
+  // Water reaches every outer edge. Stay at the limit and allow movement
+  // parallel to it, including a swimmer turning back toward the shoreline.
+  x=Math.max(-MAP.bounds,Math.min(MAP.bounds,x));
+  z=Math.max(MAP.northBound ?? -MAP.bounds,Math.min(MAP.bounds,z));
   let floor = groundHeight(x, z);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
   if (y >= top) floor = top;
+  const draft=.72, floatY=MAP.waterY-draft;
+  const deep=floor<floatY+(state.swimming?.08:-.03);
+  if(deep && y<=floatY+.20 && vy<=.2){
+    // Damp the last part of a fall on entry, then converge to surface height.
+    const blend=-Math.expm1(-9*dt);
+    const nextY=Math.max(floatY-.16,y+(floatY-y)*blend);
+    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true};
+  }
+  if(state.swimming && !deep && floor<=y+.31) {
+    y=floor;grounded=true;vy=0;
+  }
   if (grounded && y - floor <= 0.28) {
     y = floor;
     vy = 0;
