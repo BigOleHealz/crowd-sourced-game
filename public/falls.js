@@ -12,6 +12,7 @@ export function startFall(actor, tick, impulse, cause) {
   delete s.climb;
   delete s.parachute;
   delete s.swimming;
+  delete s.stance;
   const speed = Math.hypot(s.vx, s.vz);
   actor.life.fall = { cause, started: tick, yaw: speed > .05 ? Math.atan2(s.vx, -s.vz) : actor.yaw || 0,
     speed, settled: null };

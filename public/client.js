@@ -52,11 +52,17 @@ const isDriving = () => id != null && (world?.rover.driver === id || myBoat()?.d
 const gunnerRole=()=>gunnerVehicle(world,id);
 const isPilot = () => id != null && world?.heli.pilot === id;
 
+function canChangeStance(state) {
+  return state?.grounded && !state.swimming && !state.climb && !state.parachute &&
+    !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
+}
+
+let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE']);
+const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -73,6 +79,7 @@ function setGuide(open) {
 function clearInput() {
   showSight(false);
   held.clear();
+  requestedStance = undefined;
   queuedSeat=queuedSeatKind=null;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
@@ -92,6 +99,10 @@ window.addEventListener('keydown', e => {
   if (e.repeat) return;
   if (e.code === 'Space') queuedDeploy = true;
   if (e.code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
+  if ((e.code === 'KeyC' || e.code === 'KeyZ') && canChangeStance(self)) {
+    const target = e.code === 'KeyC' ? 'crouch' : 'prone';
+    requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
+  }
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
@@ -232,7 +243,8 @@ function tick() {
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   moving = Boolean(lateral || forward);
-  sprint = moving && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
+  const effectiveStance = requestedStance ?? self.stance;
+  sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
   const pilot = isPilot();
   const driving = isDriving();
   const fire = !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
@@ -244,6 +256,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+    stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire, interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
@@ -251,6 +264,7 @@ function tick() {
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
+  requestedStance = undefined;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
@@ -356,6 +370,11 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
+  const showStances = canChangeStance(local);
+  byId('prone-shortcut').hidden = byId('crouch-shortcut').hidden = !showStances;
+  byId('crouch-action').textContent = local.stance === 'crouch' ? 'Stand' : 'Crouch';
+  byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
+  if (local.stance) byId('shift-action').parentElement.hidden = true;
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';

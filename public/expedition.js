@@ -2,7 +2,7 @@ import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
 import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
-import { CITY, BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -32,13 +32,36 @@ function withinBurst(center, feet, centerHeight) {
   return Math.hypot(feet.x - center.x, feet.y + centerHeight - center.y, feet.z - center.z) <= 3.5;
 }
 
+// Rotate prone rays back into the upright body frame, preserving the ray parameter.
+function proneCoordinates(vector, actor, isPoint) {
+  const fx=Math.sin(actor.yaw || 0), fz=-Math.cos(actor.yaw || 0);
+  const feet=actor.state;
+  const x=vector.x-(isPoint ? feet.x-.96*fx : 0);
+  const y=vector.y-(isPoint ? feet.y+.14 : 0);
+  const z=vector.z-(isPoint ? feet.z-.96*fz : 0);
+  const forward=x*fx+z*fz;
+  const c=Math.cos(1.38), s=Math.sin(1.38);
+  const shift=forward*(c-1)-y*s;
+  return {x:x+fx*shift,y:y*c+forward*s,z:z+fz*shift};
+}
+
+function assistedActorHit(point, actor, halo) {
+  if(actor.state.stance==='prone') {
+    return insideBody(proneCoordinates(point,actor,true),{x:0,y:0,z:0},.39,1.72,halo);
+  }
+  return insideBody(point,actor.state,.39,1.72-stanceDrop(actor.state),halo);
+}
+
 // Use the same small head and wider torso for cursor picking and server damage.
 // A relaxed near miss can select the body, but only a ray through the head earns a critical hit.
-function actorIntersection(actor,from,dir) {
+function actorIntersection(actor,from,worldDir) {
   const feet=actor.state;
-  const x=from.x-feet.x, y=from.y-feet.y, z=from.z-feet.z;
+  const prone=feet.stance==='prone';
+  const {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
+  const dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  const drop=prone ? 0 : stanceDrop(feet);
   const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
-  const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69)/.161, hz=(z+lean*Math.cos(yaw))/.128;
+  const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69+drop)/.161, hz=(z+lean*Math.cos(yaw))/.128;
   const dx=dir.x/.128, dy=dir.y/.161, dz=dir.z/.128;
   const a=dx*dx+dy*dy+dz*dz, b=hx*dx+hy*dy+hz*dz;
   const disc=b*b-a*(hx*hx+hy*hy+hz*hz-1);
@@ -53,18 +76,18 @@ function actorIntersection(actor,from,dir) {
     leave=(-dot+Math.sqrt(delta))/radial;
   } else if(radial>1e-9 || c>0) leave=-1;
   if(Math.abs(dir.y)>1e-9) {
-    const low=-y/dir.y, high=(1.54-y)/dir.y;
+    const low=-y/dir.y, high=(1.54-drop-y)/dir.y;
     enter=Math.max(enter,Math.min(low,high));leave=Math.min(leave,Math.max(low,high));
-  } else if(y<0 || y>1.54) leave=-1;
+  } else if(y<0 || y>1.54-drop) leave=-1;
   if(enter<=leave) body=enter;
   const distance=Math.min(head,body),headshot=head<body;
   let hitPart=null,visualT=distance;
   if(Number.isFinite(distance)) {
     const side=(x+dir.x*distance)*Math.cos(yaw)+(z+dir.z*distance)*Math.sin(yaw);
-    const h=y+dir.y*distance, limb=side<0 ? 'left' : 'right';
+    const h=y+dir.y*distance+drop, limb=side<0 ? 'left' : 'right';
     hitPart=headshot ? 'head' : h<.91 ? limb+'Leg' : h>1.14 && Math.abs(side)>.19 ? limb+'Arm' : 'torso';
     if(!headshot) {
-      const posed=posedHit(actor,from,dir,enter,leave);
+      const posed=posedHit(actor,from,worldDir,enter,leave);
       if(posed) {hitPart=posed.part;visualT=posed.visualT;}
     }
   }
@@ -107,7 +130,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       injuryPoint={x:from.x+direction.x*direct.visualT,y:from.y+direction.y*direct.visualT,z:from.z+direction.z*direct.visualT};
       to={x:from.x+direction.x*direct.distance,y:from.y+direction.y*direct.distance,z:from.z+direction.z*direct.distance};
     } else if(assist) {
-      target=intersections.find(entry=>entry.distance===Infinity && insideBody(to,entry.actor.state,.39,1.72,halo))?.actor;
+      target=intersections.find(entry=>entry.distance===Infinity && assistedActorHit(to,entry.actor,halo))?.actor;
     }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
@@ -118,7 +141,7 @@ export function fire(world, player, input, tick, players, npcs) {
   if (player.state.swimming || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
   const spec=firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
-  const from={x:player.state.x,y:player.state.y+1.3,z:player.state.z};
+  const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   sendRound(world,player.id,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
 
 }
@@ -139,7 +162,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint}
       }
     }
     for (const actor of actors) {
-      if (actor === target || (areaImpact && withinBurst(center, actor.state, .9))) {
+      if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick, direction);
         if(actor===target && hitPart && actor.life.hp<priorHP) {

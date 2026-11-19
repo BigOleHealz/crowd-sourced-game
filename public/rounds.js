@@ -71,7 +71,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     // Respawns are discontinuities; ordinary movers sweep relative to the bullet.
     const start=Math.hypot(now.x-prev.x,now.y-prev.y,now.z-prev.z)<2.5?prev:now;
     const rel={x:d.x-(now.x-start.x),y:d.y-(now.y-start.y),z:d.z-(now.z-start.z)};
-    const hit=actorIntersection({...actor,state:start},round,rel);
+    const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
   const above=f=>round.y+f*d.y-Math.max(MAP.waterY,groundHeight(round.x+f*d.x,round.z+f*d.z));

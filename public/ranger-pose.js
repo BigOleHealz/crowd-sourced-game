@@ -1,7 +1,7 @@
 import {helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot} from './locomotion.js';
-import {groundHeight} from './world.js';
+import {groundHeight,stanceDrop} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
 export function createRangerRig() {
@@ -23,11 +23,12 @@ const upperLength=.275, lowerLength=.265;
 
 // Solve the two visible arm segments in body space. An outward elbow bend keeps
 // both hands on the grips as the field kit bobs, including on a turning turret.
-function gripPose(arm,forearm,x,y,z,side) {
+function gripPose(arm,forearm,x,y,z,side,prone=false) {
   reach.set(x,y,z).sub(arm.position);
   const distance=clamp(reach.length(),.04,upperLength+lowerLength-.0001);
   reach.normalize();
-  bend.set(side*.70,-1,.62);
+  if(prone) bend.set(side*.82,-.15,-.95);
+  else bend.set(side*.70,-1,.62);
   bend.addScaledVector(reach,-bend.dot(reach)).normalize();
   const along=(distance*distance+upperLength*upperLength-lowerLength*lowerLength)/(2*distance);
   elbow.copy(reach).multiplyScalar(along).addScaledVector(bend,Math.sqrt(Math.max(0,upperLength*upperLength-along*along)));
@@ -40,6 +41,8 @@ function gripPose(arm,forearm,x,y,z,side) {
 export function poseRig(avatar,state,dt,seated=null,station=null) {
   const fall = state.fall, climb=state.climb;
   const onFoot=!fall && !seated && !station && !state.dead && state.grounded!==false && !state.parachute;
+  const prone=onFoot && state.stance==='prone';
+  const crouch=onFoot && state.stance==='crouch';
   let gait=avatar.gait;
   if(onFoot) {
     if(!gait || Math.hypot(state.x-gait.x,state.z-gait.z)>1.8) {
@@ -47,6 +50,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       for(const limb of avatar.limbs) limb.foot.planted=false;
     }
     advanceGait(gait,state,Math.max(.001,dt));
+    if(crouch)gait.pelvisY-=stanceDrop(state)-.055;
   } else gait=avatar.gait=null;
   avatar.initialized=true;
   const weight=gait?.weight ?? 0, run=gait?.run ?? 0;
@@ -80,14 +84,26 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe : 0,
     gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
     gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
+  if(crouch)avatar.spine.rotation.x-=.20*stanceDrop(state);
   // Neck counter-rotation steadies the gaze above the shoulders through each
   // foot strike and lets the head lead the torso into a change of direction.
+  avatar.head.position.set(0,1.525,0);
   avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
     gait ? .28*gait.twist-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
   avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
+  if(prone) {
+    // Face down around the hips. The head and hands counter-rotate to look along the ground.
+    avatar.body.rotation.x=-1.38;
+    avatar.body.position.set(0,.14+.012*swing*weight,.96);
+    avatar.spine.rotation.set(.065,.040*swing*weight,.022*swing*weight,'YXZ');
+    avatar.head.rotation.set(.87+.018*breathe,.02*swing*weight,0,'YXZ');
+    // Lift the gaze about the skull rather than lifting the skull out of its low hit volume.
+    grip.set(0,.143,-.008).applyQuaternion(avatar.head.quaternion);
+    avatar.head.position.set(-grip.x,1.525+.143-grip.y,-.008-grip.z-.045*weight);
+  }
   if(swimming) {
     avatar.body.position.y=.72-1.34*Math.cos(avatar.body.rotation.x)+.07+.03*Math.sin(stroke);
     avatar.body.position.z=-Math.sin(avatar.body.rotation.x)*1.12;
@@ -118,7 +134,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.tools[1].visible = !climb && !fall && !swimming && !state.dead && !seated && !station && bloom;
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
-    if(gait) {
+    if(prone) {
+      leg.rotation.set(.09+side*swing*.25*weight,side*.10,side*.06,'ZXY');
+      knee.rotation.x=-.19-Math.max(0,side*swing)*.37*weight;
+      ankle.rotation.set(-.52,0,0);
+    } else if(gait) {
       placeFoot(gait,foot,side);
       const c=Math.cos(gait.yaw),s=Math.sin(gait.yaw);
       const wx=state.x+c*foot.sideOffset+s*foot.forwardOffset;
@@ -174,12 +194,19 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
       kit.z=(bloom ? -.322 : -.185)+.037*run;
       weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
+      if(prone) {
+        kit.set(bloom ? .060 : .099,1.515+.014*swing*weight,bloom ? -.037 : -.010);
+        weapon.rotation.set(-avatar.body.rotation.x-avatar.spine.rotation.x,-.035,.012,'YXZ');
+      } else if(crouch) {
+        // Retain the sightline as the torso leans over the bent knees.
+        weapon.rotation.x+=.20*stanceDrop(state);
+      }
       // Aim each wrist at its own contact on the prop, including during the running tilt.
       const handX=side===1 ? .027 : bloom ? -.028 : -.036;
       const handY=side===1 ? -.048 : bloom ? -.049 : .038;
       const handZ=side===1 ? .037 : bloom ? .031 : -.21;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
-      gripPose(arm,forearm,grip.x,grip.y,grip.z,side);
+      gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
     } else if(seated) {
       forearm.rotation.x=.42;
     }
@@ -187,11 +214,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   if(!avatar.shadow)return;
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
-  avatar.shadow.rotation.y = fall ? -fall.yaw : 0;
+  avatar.shadow.rotation.y = prone ? avatar.root.rotation.y : fall ? -fall.yaw : 0;
   if (collapse) {
     avatar.shadow.position.x += .75*collapse*Math.sin(fall.yaw);
     avatar.shadow.position.z -= .75*collapse*Math.cos(fall.yaw);
   }
-  avatar.shadow.scale.set(.37+height*.05,1,.30+height*.04+.7*collapse);
+  avatar.shadow.scale.set(.37+height*.05,1,prone ? .87 : .30+height*.04+.7*collapse);
   avatar.shadow.material.opacity=.4-height*.12;
 }

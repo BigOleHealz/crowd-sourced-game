@@ -20,7 +20,7 @@ import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, terrainHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, stanceDrop, stanceMuzzleHeight, terrainHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -775,7 +775,7 @@ function characterLabel(root, name) {
       const hp = state.hp ?? 100, max = state.maxHp || 100;
       const status = state.dead ? 'DOWN' : state.protected ? 'SHIELD' : String(hp);
       const key = status + '/' + hp + '/' + max;
-      sprite.position.y = state.dead ? .95 : 2.26;
+      sprite.position.y = state.dead ? .95 : 2.26-stanceDrop(state);
       if (key === previous) return;
       previous = key;
       ctx.clearRect(0, 0, 256, 60);
@@ -1089,8 +1089,8 @@ export function createScene(canvas) {
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
-      .map(state => ({id: state.id, state}));
-    const muzzle=station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+1.3,z:feet.z};
+      .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
+    const muzzle=station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     let {to} = tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1173,8 +1173,9 @@ export function createScene(canvas) {
     else {
       const shoulder=local.parachute ? 0 : .66;
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
-      const clear=buildingTopAt(x,z,.15,local.y+1.46)<local.y+1.3;
-      desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : 1.46),clear ? z : local.z);
+      const shoulderHeight=1.46-stanceDrop(local);
+      const clear=buildingTopAt(x,z,.15,local.y+shoulderHeight)<local.y+shoulderHeight-.16;
+      desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : shoulderHeight),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
@@ -1205,7 +1206,7 @@ export function createScene(canvas) {
       camera.updateProjectionMatrix();
     }
     if (sighted) {
-      camera.position.set(local.x, local.y + 1.3, local.z);
+      camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.lookAt(desired.copy(camera.position).sub(boom));
       avatars.get(local.id).root.visible = false;
     }
