@@ -381,42 +381,67 @@ function contactShadowMap() {
 
 // Field equipment uses the same vertex-colored batches as the hikers.
 // Each loadout costs a single draw call while equipped.
-function makeFirearms(body, material) {
+const handheldFinish = new THREE.MeshPhongMaterial({vertexColors:true,specular:0x777c75,shininess:27});
+function makeFirearms(body) {
   const carbine = new Batch(), sidearm = new Batch();
-  const alloy=0x4f5452, charcoal=0x343a39, stock=0x686655, accent=0x858578;
-  const tube=new THREE.CylinderGeometry(1,1,1,14);
-  // Bevelled side profiles give the two field props distinct silhouettes.
-  function profile(batch,tint,outline,width) {
+  const graphite=0x333b3c, iron=0x505e60, edge=0x939f98;
+  const sand=0xc6ad80, clay=0x9e825d, rubber=0x424641, enamel=0x49948c;
+  const tube=new THREE.CylinderGeometry(1,1,1,16);
+  function profile(batch,tint,outline,width,bevel=.006) {
     const shape=new THREE.Shape(outline.map(([z,y])=>new THREE.Vector2(z,y)));
-    const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:1,bevelThickness:.003,bevelSize:.004});
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:2,bevelThickness:bevel,bevelSize:bevel});
     geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
   }
-  profile(carbine,stock,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
-  carbine.add(cube,charcoal,0,.041,.236,.065,.119,.013);
-  profile(carbine,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
-  profile(carbine,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
-  profile(carbine,stock,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
-    profile(carbine,stock,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
-    for(const side of [-1,1]) for(let n=0;n<5;n++)
-      carbine.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
-    carbine.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
-    carbine.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
-  carbine.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
-  carbine.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
-  carbine.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
-  for(const side of [-1,1]) {
-    carbine.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
-    carbine.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
+  function endCap(batch,z,y,radius,length,tint) {
+    batch.add(tube,tint,0,y,z,radius,length,radius,Math.PI/2);
   }
-  profile(sidearm,charcoal,[[.088,.085],[-.169,.085],[-.18,.047],[-.10,.025],[.044,.027],[.091,.050]],.043);
-  profile(sidearm,alloy,[[.084,.106],[-.184,.106],[-.184,.064],[.080,.064]],.047);
-  profile(sidearm,stock,[[.079,.045],[.019,.043],[.036,-.095],[.095,-.089]],.045);
-  sidearm.add(tube,charcoal,0,.085,-.188,.014,.02,.014,Math.PI/2);
-  sidearm.beam(charcoal,[.0,.019,-.063],[.0,-.014,-.050],.010);
-  sidearm.beam(charcoal,[.0,-.014,-.050],[.0,-.013,.021],.010);
+
+  // A sun-faded upper shell stands out against the ranger's dark sleeves.
+  // Leave open air below the cheek rest so the shoulder silhouette reads in profile.
+  profile(carbine,clay,[[.272,.096],[.235,.124],[.092,.120],[.068,.088],[.113,.066],[.207,.071],[.235,.024],[.270,.017]],.064);
+  profile(carbine,rubber,[[.268,.102],[.287,.096],[.290,-.025],[.258,-.028],[.248,-.001]],.071);
+  profile(carbine,graphite,[[.100,.099],[-.195,.096],[-.180,.035],[-.088,.009],[-.042,.023],[.049,.044],[.099,.065]],.071);
+  profile(carbine,sand,[[.100,.111],[.074,.142],[-.297,.140],[-.394,.113],[-.388,.067],[-.181,.054],[-.128,.083],[.071,.084]],.078);
+  profile(carbine,iron,[[.042,.042],[.005,.040],[-.011,.011],[.019,-.085],[.065,-.075]],.053);
+  profile(carbine,iron,[[-.058,.030],[-.129,.026],[-.143,-.062],[-.164,-.109],[-.113,-.123],[-.080,-.070]],.056);
+  profile(carbine,graphite,[[-.108,-.111],[-.163,-.101],[-.175,-.123],[-.118,-.140]],.062);
+  profile(carbine,clay,[[-.182,.083],[-.354,.080],[-.377,.063],[-.354,.027],[-.207,.024],[-.175,.045]],.084);
+  for(const side of [-1,1]){
+    for(let n=0;n<3;n++) carbine.add(cube,graphite,side*.041,.113,-.243-.039*n,.011,.015,.026);
+    carbine.add(cube,iron,side*.042,.111,-.055,.012,.026,.106);
+    carbine.add(cube,edge,side*.050,.113,-.025,.013,.013,.030);
+    carbine.add(cube,enamel,side*.043,.112,.047,.011,.022,.031);
+    carbine.add(cube,0xead2a2,side*.041,.131,-.125,.007,.010,.168);
+    for(let j=0;j<3;j++) carbine.add(cube,0x77827d,side*.029,-.051,-.104-j*.014,.008,.078,.005,-.22);
+  }
+  endCap(carbine,-.427,.092,.025,.095,iron);
+  endCap(carbine,-.489,.092,.036,.058,graphite);
+  endCap(carbine,-.519,.092,.022,.006,edge);
+  endCap(carbine,-.524,.092,.013,.007,graphite);
+  carbine.add(cube,graphite,0,.153,-.026,.061,.023,.118);
+  profile(carbine,iron,[[.031,.16],[.019,.196],[-.043,.194],[-.057,.173],[-.047,.157]],.045);
+  carbine.add(cube,0x8db7ab,0,.175,-.056,.038,.019,.006);
+
+  // The sidearm has a short, broad blue-grey upper and a contrasting palm swell.
+  profile(sidearm,graphite,[[.096,.092],[-.231,.093],[-.218,.041],[-.134,.034],[-.104,.012],[.051,.022],[.096,.056]],.059);
+  profile(sidearm,0xb1c2bb,[[.092,.102],[.067,.127],[-.192,.126],[-.241,.102],[-.238,.071],[.076,.071]],.062);
+  profile(sidearm,clay,[[.075,.043],[.006,.035],[.020,-.015],[.045,-.111],[.103,-.097],[.090,-.036]],.060);
+  profile(sidearm,rubber,[[.042,-.096],[.101,-.082],[.113,-.103],[.045,-.119]],.067);
+  for(const side of [-1,1]){
+    sidearm.add(cube,iron,side*.036,.093,.029,.009,.039,.075);
+    sidearm.add(cube,0x697975,side*.035,.093,-.078,.009,.030,.082);
+    sidearm.add(cube,0xb8c6b9,side*.042,.101,-.068,.008,.009,.047);
+    for(let j=0;j<3;j++) sidearm.add(cube,edge,side*.039,.094,.045-j*.017,.006,.023,.005);
+    sidearm.add(cube,enamel,side*.034,.085,-.129,.008,.017,.027);
+  }
+  sidearm.beam(iron,[0,.028,-.104],[0,-.026,-.085],.014);
+  sidearm.beam(iron,[0,-.026,-.085],[0,-.030,.024],.014);
+  sidearm.add(cube,graphite,0,.131,.062,.048,.018,.026);
+  sidearm.add(cube,enamel,0,.132,-.196,.021,.017,.018);
+  endCap(sidearm,-.237,.086,.023,.025,graphite);
   tube.dispose();
-  const tools = [carbine.mesh(body,material,false), sidearm.mesh(body,material,false)];
-  for (const tool of tools) tool.position.set(.109,1.33,-.19);
+  const tools = [carbine.mesh(body,handheldFinish,false), sidearm.mesh(body,handheldFinish,false)];
+  for(const tool of tools) tool.position.set(.12,1.33,-.20);
   return tools;
 }
 
@@ -886,7 +911,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,spine,limbs,material,gait:null,tools:makeFirearms(upper,material),shadow,label:characterLabel(root,name),cycle:0};
+  return {root,body,spine,limbs,material,gait:null,tools:makeFirearms(upper),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -1018,13 +1043,17 @@ function pose(avatar,state,dt,seated=null,station=null) {
     } else if(!seated && !state.parachute && !state.dead) {
       const weapon=avatar.tools[bloom ? 1 : 0];
       const kit=weapon.position;
-      kit.y=1.325+.005*breathe-.085*run;
-      kit.z=-.19+.045*run;
-      weapon.rotation.x=-.32*run;
-      const gripZ=side===1 ? -.014 : bloom ? .007 : -.226, gripY=side===1 ? -.04 : .018;
+      kit.x=bloom ? .073 : .133;
+      kit.y=(bloom ? 1.33 : 1.355)+.005*breathe-.080*run;
+      kit.z=(bloom ? -.345 : -.198)+.042*run;
+      weapon.rotation.x=-.29*run;
+      // Aim each wrist at its own contact on the prop, including during the running tilt.
+      const handX=side===1 ? .027 : bloom ? -.028 : -.036;
+      const handY=side===1 ? -.048 : bloom ? -.049 : .038;
+      const handZ=side===1 ? .037 : bloom ? .031 : -.21;
       const sine=Math.sin(weapon.rotation.x), cosine=Math.cos(weapon.rotation.x);
-      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
-        kit.z+gripY*sine+gripZ*cosine,side);
+      gripPose(arm,forearm,kit.x+handX,kit.y+handY*cosine-handZ*sine,
+        kit.z+handY*sine+handZ*cosine,side);
     } else if(seated) {
       forearm.rotation.x=.42;
     }
