@@ -1,6 +1,6 @@
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
-import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, gunnerFeet } from './mounts.js';
 import { tracePulse } from './expedition.js';
@@ -694,6 +694,20 @@ function characterLabel(root, name) {
   };
 }
 
+// A sky-to-ground reflection band gives the shield depth even in open shade.
+const visorMaterials=[0xa47745,0x677d80,0x647b6a,0x89775c].map(color=>{
+  const lens=new THREE.MeshPhongMaterial({color,specular:0xdce2d9,shininess:90});
+  lens.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>', `
+      vec3 reflected=inverseTransformDirection(reflect(-normalize(vViewPosition),normal),viewMatrix);
+      float sky=smoothstep(-.18,.54,reflected.y);
+      outgoingLight=outgoingLight*(.30+.7*sky)+mix(vec3(.012,.020,.018),vec3(.14,.19,.20),sky);
+      #include <opaque_fragment>
+    `);
+  };
+  return lens;
+});
+
 // Parts are assembled in model space about real joints. Forward is local -Z.
 function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
@@ -706,9 +720,18 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
   torso.add(trouserSeat,0x97a291,0,.995,.004);
-  torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
-  torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
-  for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
+  const faceY=1.681, fabric=[0x52564e,0x696653,0x4e5551,0x636056][identity];
+  torso.add(hood,fabric,0,faceY,-.008);
+  torso.add(visorRim,0x282e2b,0,faceY,-.008);
+  const lens=new THREE.Mesh(visorLens.clone(),visorMaterials[identity]);
+  lens.position.set(0,faceY,-.008);upper.add(lens);
+  for(const side of [-1,1]) {
+    torso.beam(0x454742,[side*.12,1.717,-.036],[side*.110,1.718,.066],.022);
+    for(let n=0;n<3;n++){
+      const y=1.628-.014*n;
+      torso.beam(0x70716a,[side*.027,y+.014,-.140+n*.008],[side*.086,y+.025,-.097+n*.004],.005);
+    }
+  }
   torso.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
   torso.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
   torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
@@ -718,7 +741,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
     torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
   }
-  if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
+
   torso.add(fieldPack,0xecdfc5,0,1.315,.183,1.02,1.05,1.15);
   // A strapped groundsheet and two side pockets break up the rectangular pack.
   torso.add(fieldSleeve,0xb6ab90,-.20,1.51,.221,.76,.89,.76,0,0,Math.PI/2);

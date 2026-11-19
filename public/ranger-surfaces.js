@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 
-// Four wrapped faces share the left half of the atlas. The right half holds
-// the jacket front, jacket back, rucksack and field twill.
+// Clothing and the hood sample the garment panels of the shared ranger atlas.
 export function rangerMaterial(renderer) {
   const map=new THREE.TextureLoader().load('./ranger-atlas.webp');
   map.colorSpace=THREE.SRGBColorSpace;
@@ -19,24 +18,18 @@ export const skinColors=[0xbd896f,0xc79780,0x91644e,0xc69276];
 
 // Each row describes height, half-width and half-depth in metres. A separate
 // UV seam at each side keeps the two shirt panels aligned around the torso.
-function shell(rows,front,back,face=false) {
+function shell(rows,front,back) {
   const positions=[],uv=[],indices=[];
-  const first=rows[0][0],height=rows.at(-1)[0]-first,segments=face ? 16 : 10;
+  const first=rows[0][0],height=rows.at(-1)[0]-first,segments=10;
   for(let panel=0; panel<2; panel++) {
     const tile=panel ? back : front;
     const start=positions.length/3;
     for(const [y,rx,rz] of rows) for(let j=0;j<=segments;j++) {
-      const a=(face ? -Math.PI : -Math.PI/2)+Math.PI*(panel+j/segments),t=(y-first)/height;
+      const a=(-Math.PI/2)+Math.PI*(panel+j/segments),t=(y-first)/height;
       const x=rx*Math.sin(a);
-      let z=-rz*Math.cos(a);
-      if(face && Math.cos(a)>0) {
-        const nose=.032*Math.exp(-((x/.029)**2)-(((t-.46)/.15)**2));
-        const brow=.007*Math.exp(-(((t-.60)/.09)**2));
-        z-=(nose+brow)*Math.cos(a);
-      }
+      const z=-rz*Math.cos(a);
       positions.push(x,y,z);
-      const u=face ? (.5+a/(2*Math.PI))
-        : .5+(panel ? 1 : -1)*.47*Math.sin(a);
+      const u=.5+(panel ? 1 : -1)*.47*Math.sin(a);
       uv.push((tile%4+.012+(tile===7 ? .80 : .976)*u)/4,(1-Math.floor(tile/4)+.012+.976*t)/2);
     }
     for(let r=0;r<rows.length-1;r++) for(let j=0;j<segments;j++) {
@@ -74,12 +67,32 @@ function shell(rows,front,back,face=false) {
   return geometry;
 }
 
-const skull=[
-  [-.132,.036,.059],[-.113,.067,.085],[-.087,.084,.098],[-.054,.099,.104],
-  [-.02,.109,.107],[.019,.108,.105],[.048,.105,.104],[.079,.105,.105],
-  [.105,.099,.098],[.126,.082,.085],[.143,.057,.066],[.152,.017,.021],
-];
-export const heads=[0,1,4,5].map(tile=>shell(skull,tile,tile,true));
+// A fabric hood extends into the collar, with a projecting nose and gathered chin.
+export const hood=shell([
+  [-.18,.081,.073],[-.135,.077,.086],[-.103,.079,.099],[-.067,.100,.114],
+  [-.038,.110,.134],[-.013,.112,.14],[.012,.114,.118],[.044,.116,.113],
+  [.078,.109,.110],[.108,.102,.101],[.139,.067,.074],[.15,.018,.02]
+],7,7);
+
+// A curved shield with a cutout over the bridge, mirrored into its rubber gasket.
+function visor(gasket) {
+  const p=[],idx=[],steps=20;
+  for(let r=0;r<4;r++) for(let i=0;i<=steps;i++){
+    const t=i/steps*2-1,angle=t*(gasket?1.47:1.37), outer=Math.abs(t);
+    const bottom=.003+.018*Math.exp(-t*t*34)+.012*outer**4;
+    const top=.063-.013*outer**3;
+    const y=THREE.MathUtils.lerp(bottom-(gasket?.006:0),top+(gasket?.005:0),r/3);
+    const depth=(gasket?.134:.140)+.004*Math.sin(r*Math.PI/3);
+    p.push(Math.sin(angle)*(gasket?.122:.124),y,-Math.cos(angle)*depth);
+  }
+  for(let r=0;r<3;r++)for(let i=0;i<steps;i++){
+    const a=r*(steps+1)+i,b=a+steps+1;
+    idx.push(a,b,a+1,a+1,b,b+1);
+  }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p,3));
+  g.setIndex(idx);g.computeVertexNormals();return g;
+}
+export const visorRim=visor(true), visorLens=visor(false);
 export const fieldJacket=shell([[-.28,.177,.125],[-.24,.196,.143],[-.20,.201,.143],[-.167,.191,.138],[-.12,.195,.141],[.02,.210,.151],[.12,.223,.161],[.17,.218,.158],[.21,.165,.115],[.225,.079,.074]],2,3);
 export const fieldPack=shell([[-.235,.085,.060],[-.216,.145,.075],[-.16,.162,.089],[.07,.156,.100],[.16,.15,.096],[.199,.129,.076],[.223,.089,.05]],6,6);
 export const fieldSleeve=shell([[-.416,.058,.060],[-.37,.068,.070],[-.30,.072,.074],[-.26,.065,.072],[-.23,.082,.077],[-.203,.074,.079],[-.175,.084,.084],[-.10,.086,.089],[-.035,.093,.095],[.013,.085,.086],[.049,.045,.051]],7,7);
