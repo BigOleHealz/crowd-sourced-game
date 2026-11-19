@@ -52,8 +52,8 @@ function driftAfterBailout(world, dt, players) {
   }
   motion.vy = coasting ? approach(motion.vy, -.35, 3*dt) : Math.max(-14, motion.vy-7*dt);
   h.yaw += (coasting ? .09 : .48) * dt;
-  const x = clamp(h.x + motion.vx*dt, -32, 32), z = clamp(h.z + motion.vz*dt, -32, 32);
-  const y = Math.min(23, h.y + motion.vy*dt);
+  const x = clamp(h.x + motion.vx*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32), z = clamp(h.z + motion.vz*dt, -(MAP.flightLimit ?? 32), MAP.flightLimit ?? 32);
+  const y = Math.min(MAP.flightCeiling ?? 23, h.y + motion.vy*dt);
   const floor = flightFloor(x, z, world.hp);
   if (y <= floor) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
@@ -89,7 +89,7 @@ function landingSite(x, z, hp) {
   const y = groundHeight(x, z);
   if (y < MAP.waterY + 0.45 || solidTopAt(x, z, hp, 1.8) > y + 0.05) return false;
   // Both skids need a reasonably level patch of terrain. Keep the narrow bridge clear.
-  if (Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
+  if (MAP.bridge && Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) =>
     Math.abs(groundHeight(x + dx, z + dz) - y) < 0.45);
 }
@@ -104,7 +104,7 @@ function flightFloor(x, z, hp) {
       floor = Math.max(floor, groundHeight(tree.x, tree.z) + tree.height + 0.2);
     }
   }
-  if (Math.abs(x) <= MAP.bridge.width / 2 + 1.65 && Math.abs(z) <= MAP.bridge.length / 2 + 1.65) {
+  if (MAP.bridge && Math.abs(x) <= MAP.bridge.width / 2 + 1.65 && Math.abs(z) <= MAP.bridge.length / 2 + 1.65) {
     floor = Math.max(floor, MAP.bridge.y + 1.12);
   }
   return floor;
@@ -144,8 +144,8 @@ export function fly(world, input, dt, players) {
     damageHelicopter(world, impactDamage(-motion.vy), players);
   }
   motion.floorContact = floorContact;
-  h.y = clamp(nextY, minY, 23);
-  if (floorContact || h.y === 23) motion.vy = 0;
+  h.y = clamp(nextY, minY, MAP.flightCeiling ?? 23);
+  if (floorContact || h.y === (MAP.flightCeiling ?? 23)) motion.vy = 0;
   h.grounded = landable && floorContact;
   if (h.grounded || h.wrecked) {
     motion.vx = 0;
@@ -157,8 +157,8 @@ export function fly(world, input, dt, players) {
 
   motion.vx += (motion.tiltX - drag * motion.vx) * dt;
   motion.vz += (motion.tiltZ - drag * motion.vz) * dt;
-  const x = clamp(h.x + motion.vx * dt, -30, 30);
-  const z = clamp(h.z + motion.vz * dt, -30, 30);
+  const x = clamp(h.x + motion.vx * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
+  const z = clamp(h.z + motion.vz * dt, -(MAP.flightLimit ?? 30), MAP.flightLimit ?? 30);
   const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp) + 0.04;
   let stoppedX = 0, stoppedZ = 0;
   if (clear(x, z)) {
