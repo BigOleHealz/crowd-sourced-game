@@ -267,7 +267,7 @@ function updateEquipment(local) {
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
   byId('kit').textContent = gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon === 1 ? 'Field carbine' : 'Burst launcher';
-  byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' crystals cleared';
+  byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = pilot ? heli : isDriving() ? world.rover : vitals;
   const hp = health.hp;

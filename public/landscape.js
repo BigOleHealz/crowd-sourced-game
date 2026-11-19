@@ -71,7 +71,7 @@ export function alpineGlass(panorama, options={}) {
     shader.fragmentShader='uniform sampler2D alpineSky;\n'+shader.fragmentShader.replace('#include <opaque_fragment>', `
       vec3 eye=normalize(vViewPosition);
       vec3 ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
-      vec2 uv=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.19)/.72,0.,1.));
+      vec2 uv=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
       vec3 skyReflection=texture2D(alpineSky,uv).rgb;
       float grazing=1.-clamp(dot(normal,eye),0.,1.);
       outgoingLight=mix(outgoingLight,skyReflection,.26+.57*grazing*grazing);
@@ -199,14 +199,23 @@ export function creekMaterial(renderer) {
 
 // Mild paint sheen and lower-panel trail dust use the vehicle's own coordinates.
 // The finish stays fixed to the body as it turns and requires no reflection pass.
+let wearMap;
 export function fieldPaint() {
+  if(!wearMap){
+    wearMap=new THREE.TextureLoader().load('./bodywork-wear.webp');
+    wearMap.wrapS=wearMap.wrapT=THREE.MirroredRepeatWrapping;
+  }
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,specular:0x484a41,shininess:31});
   paint.onBeforeCompile=shader=>{
+    shader.uniforms.wearMap={value:wearMap};
     shader.vertexShader='varying vec3 panelPoint;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n panelPoint=position;');
-    shader.fragmentShader='varying vec3 panelPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
+    shader.fragmentShader='uniform sampler2D wearMap; varying vec3 panelPoint;\n'+shader.fragmentShader.replace('#include <color_fragment>', `
       #include <color_fragment>
       vec3 p=panelPoint;
-      float streak=.5+.5*sin(17.*p.z+2.*sin(11.*p.x)+sin(36.*p.z));
+      vec3 n=abs(normalize(cross(dFdx(p),dFdy(p))));
+      vec2 uv=n.y>max(n.z,n.x) ? p.xz : (n.x>n.z ? p.zy : p.xy);
+      float streak=texture2D(wearMap,uv*.75).r;
+      diffuseColor.rgb*=.67+.57*streak;
       float dust=(1.-smoothstep(.35,.84+.11*streak,p.y))*(.17+.18*streak);
       diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.23,.195,.14),dust);`);
   };
