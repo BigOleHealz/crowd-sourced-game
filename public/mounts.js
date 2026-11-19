@@ -7,15 +7,14 @@ export const mounts = {
 export function mountPosition(vehicle, [side,height,z]) {
   const c=Math.cos(vehicle.yaw), s=Math.sin(vehicle.yaw);
   // Apply the same roll, pitch, then heading as the rendered airframe.
-  const roll=vehicle.roll ?? 0, pitch=vehicle.pitch ?? 0;
+  const roll=vehicle.roll ?? vehicle.suspension?.roll ?? 0, pitch=vehicle.pitch ?? vehicle.suspension?.pitch ?? 0;
   const lateral=side*Math.cos(roll)-height*Math.sin(roll);
   const up=side*Math.sin(roll)+height*Math.cos(roll);
   const longitudinal=up*Math.sin(pitch)+z*Math.cos(pitch);
-  return {x:vehicle.x+lateral*c-longitudinal*s, y:vehicle.y+up*Math.cos(pitch)-z*Math.sin(pitch),
+  return {x:vehicle.x+lateral*c-longitudinal*s, y:vehicle.y+(vehicle.suspension?.heave ?? 0)+up*Math.cos(pitch)-z*Math.sin(pitch),
     z:vehicle.z+lateral*s+longitudinal*c};
 }
 
-export const turretRange=40;
 export const turretPitch=pitch=>Math.max(-.95,Math.min(.65,pitch));
 
 export function gunnerVehicle(world,id) {

@@ -1,8 +1,10 @@
+import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
+import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
-import { gunnerVehicle, gunnerFeet, turretRange } from './mounts.js';
+import { gunnerVehicle, gunnerFeet } from './mounts.js';
 import { nearestVehicle } from './rover.js';
 import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
@@ -22,6 +24,12 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
+const canAim = () => self && !vitals.dead && !vitals.fall && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+function showSight(active) {
+  camera.sighted = active;
+  byId('weapon-sight').hidden = !active || weapon!==1;
+  canvas.classList.toggle('sighted', active);
+}
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
 const footer = document.querySelector('footer');
@@ -56,6 +64,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
+  showSight(false);
   held.clear();
   queuedSeat=queuedSeatKind=null;
   pressedAim = null;
@@ -81,9 +90,9 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
   if (e.code === 'Digit1' || e.code === 'Digit2') {
     const number=e.code==='Digit1' ? 1 : 2;
-    const kind=seatVehicle(world,id,self);
+    const kind=seatVehicle(world,id);
     if(kind && !vitals.dead) {queuedSeat=number;queuedSeatKind=kind;}
-    else weapon=number;
+    else {weapon=number;if(camera.sighted)showSight(true);}
   }
 });
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -94,15 +103,29 @@ document.addEventListener('visibilitychange', pauseControls);
 function releasePointer() { stopLook(); mouseFire = false; }
 canvas.addEventListener('pointerleave', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
-canvas.addEventListener('pointerdown', e => {
-  if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+function pressButton(e) {
+  if (!byId('guide').hidden || (e.button !== 0 && e.button !== 2)) return;
+  if (e.button === 2) {
+    if (canAim()) {
+      canvas.focus({ preventScroll: true });
+      showSight(!camera.sighted);
+    }
+    return;
+  }
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
-    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 49 : 78,gunnerRole());
+    pressedAim = camera.sighted ? {yaw:camera.yaw,pitch:camera.pitch} : scene.aimAt(lastPointer,self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
+}
+// Mouse events report each button in a chord (pointerdown only reports the first).
+let pointerType;
+canvas.addEventListener('pointerdown', e => { pointerType = e.pointerType; });
+canvas.addEventListener('mousedown', e => { if (pointerType !== 'touch') pressButton(e); });
+window.addEventListener('mouseup', e => {
+  if (e.button === 0) mouseFire = false;
 });
-window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
 
 // An unlocked cursor stops sending deltas at the window boundary. Continue
 // turning gently in the outer band until the cursor moves inward or exits.
@@ -161,6 +184,7 @@ function connect() {
       const gunner=gunnerRole();
       if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
+      if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
       const corrected = isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
@@ -205,7 +229,7 @@ function tick() {
   const fire = !self.swimming && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 49 : 78,gunner))) || camera;
+    (pressedAim || (camera.sighted ? camera : null) || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -265,7 +289,8 @@ function remoteFrame(time) {
   let rover = b.rover;
   if(a.rover.driver===b.rover.driver && a.rover.wrecked===b.rover.wrecked) {
     rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
-      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t) };
+      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t),
+      suspension:interpolateSuspension(a.rover.suspension,b.rover.suspension,t) };
   }
   for(const [kind,v] of [['heli',heli],['rover',rover]]) {
     if(v.gunner!=null && a[kind].gunner===v.gunner) {
@@ -311,7 +336,7 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
-  const kind=seatVehicle(world,id,local);
+  const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('fire-shortcut').hidden = local.swimming || vitals.dead;
@@ -329,12 +354,7 @@ function updateEquipment(local) {
   else if (heli.pilot != null) prompt.textContent = nearestVehicle(world,local)==='heli' ? 'E  ·  Join helicopter turret' : heli.gunner!=null ? 'Helicopter crew full' : 'Helicopter in use';
   else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
   else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
-  if(kind && !vitals.dead) {
-    const v=world[kind],primary=kind==='heli'?'pilot':'driver';
-    if(v[primary]!=null && v.gunner!=null && v[primary]!==id && v.gunner!==id)
-      prompt.textContent = kind==='heli' ? 'Helicopter crew full' : 'Vehicle crew full';
-    prompt.textContent += '  ·  '+seatChoices(world,kind,id);
-  }
+  if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
 }
 
 function drawMap(player, remotes, yaw) {

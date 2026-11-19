@@ -1,20 +1,20 @@
-import {nearestVehicle} from './rover.js';
+import {stopRover} from './rover.js';
 
-export function seatVehicle(world,id,feet) {
-  if(!world || id==null || !feet) return null;
+export function seatVehicle(world,id) {
+  if(!world || id==null) return null;
   if(world.rover.driver===id || world.rover.gunner===id) return 'rover';
   if(world.heli.pilot===id || world.heli.gunner===id) return 'heli';
-  return nearestVehicle(world,feet,true);
+  return null;
 }
 
 export function selectSeat(world,player,kind,seat) {
-  if((seat!==1 && seat!==2) || !kind || kind!==seatVehicle(world,player.id,player.state)) return false;
+  if((seat!==1 && seat!==2) || !kind || kind!==seatVehicle(world,player.id)) return false;
   const v=world[kind], primary=kind==='heli'?'pilot':'driver';
   const to=seat===1?primary:'gunner', from=seat===1?'gunner':primary;
   if(v.wrecked || v[to]!=null) return false;
   if(v[from]===player.id) {
     v[from]=null;
-    if(from==='driver') v.speed=0;
+    if(from==='driver') stopRover(v);
     if(from==='pilot' && !v.grounded) v.abandonedFor=0;
   }
   v[to]=player.id;

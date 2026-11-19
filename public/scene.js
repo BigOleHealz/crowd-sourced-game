@@ -1,3 +1,4 @@
+import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
@@ -10,6 +11,7 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import { aircraftWreck } from './aircraft-wreck.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
@@ -419,8 +421,11 @@ function makeFirearms(body) {
   endCap(carbine,-.519,.092,.022,.006,edge);
   endCap(carbine,-.524,.092,.013,.007,graphite);
   carbine.add(cube,graphite,0,.153,-.026,.061,.023,.118);
-  profile(carbine,iron,[[.031,.16],[.019,.196],[-.043,.194],[-.057,.173],[-.047,.157]],.045);
-  carbine.add(cube,0x8db7ab,0,.175,-.056,.038,.019,.006);
+  const aperture=new THREE.TorusGeometry(.031,.0055,8,28);
+  carbine.add(aperture,graphite,0,.194,-.025);
+  carbine.add(aperture,iron,0,.194,-.064);
+  aperture.dispose();
+  for(const side of [-1,1]) carbine.add(cube,iron,side*.032,.194,-.045,.007,.012,.043);
 
   // The sidearm has a short, broad blue-grey upper and a contrasting palm swell.
   profile(sidearm,graphite,[[.096,.092],[-.231,.093],[-.218,.041],[-.134,.034],[-.104,.012],[.051,.022],[.096,.056]],.059);
@@ -436,8 +441,11 @@ function makeFirearms(body) {
   }
   sidearm.beam(iron,[0,.028,-.104],[0,-.026,-.085],.014);
   sidearm.beam(iron,[0,-.026,-.085],[0,-.030,.024],.014);
-  sidearm.add(cube,graphite,0,.131,.062,.048,.018,.026);
-  sidearm.add(cube,enamel,0,.132,-.196,.021,.017,.018);
+  for(const side of [-1,1]) {
+    sidearm.add(cube,graphite,side*.018,.139,.062,.014,.024,.025);
+    sidearm.add(cube,0xd6d3b8,side*.018,.144,.076,.006,.005,.004);
+  }
+  sidearm.add(cube,enamel,0,.140,-.196,.009,.020,.018);
   endCap(sidearm,-.237,.086,.023,.025,graphite);
   tube.dispose();
   const tools = [carbine.mesh(body,handheldFinish,false), sidearm.mesh(body,handheldFinish,false)];
@@ -687,16 +695,9 @@ function fieldEffects(scene) {
         new THREE.Vector3(size,size*(1+rng()),size),i%3?0x958d78:0xb5ac95,.28+rng()*.29);
     }
   }
-  function crash(heli) {
-    for(let i=0;i<26;i++) {
-      const a=rng()*TAU, speed=1+rng()*4.8, size=.08+rng()*.15;
-      particle(new THREE.Vector3(heli.x,heli.y+.45,heli.z),
-        new THREE.Vector3(Math.cos(a)*speed,1+rng()*3,Math.sin(a)*speed),
-        new THREE.Vector3(size,size,size),i%4 ? 0x8b7b65 : 0xffb066,.5+rng()*.6);
-    }
-  }
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
+  const wreck=aircraftWreck(scene,plume.puff,particle,rng);
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
@@ -759,7 +760,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,crash,update,trail:plume.trail};
+  return {shot,burst,wreck,update,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -951,8 +952,8 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.root.position.set(state.x,state.y,state.z);
   avatar.root.scale.setScalar(seated ? .85 : 1);
   if (seated) {
-    const c=Math.cos(seated.yaw), s=Math.sin(seated.yaw);
-    avatar.root.position.set(seated.x-.322*c+.085*s,seated.y+.025,seated.z-.322*s-.085*c);
+    const seat=mountPosition(seated,[-.322,.025,-.085]);
+    avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
     const feet=gunnerFeet(station,'rover');
@@ -961,6 +962,11 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  const ride=(seated || station)?.suspension;
+  const deltaHeading=station ? station.turretYaw-station.yaw : 0;
+  avatar.root.rotation.order='YXZ';
+  avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
+  avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
@@ -1161,9 +1167,14 @@ export function createScene(canvas) {
   const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
   rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
   const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
+  const updateTireDebris=tireDebris(scene,trailDistance);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
+  scene.add(camera);
+  const sightModels=makeFirearms(camera);
+  sightModels[0].position.set(0,-.194,-.40);
+  sightModels[1].position.set(0,-.151,-.44);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   let lastShot=null;
@@ -1218,13 +1229,14 @@ export function createScene(canvas) {
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
-    if (heli.wrecked && displayedWorld?.heli.abandonedFor != null) effects.crash(heli);
+    effects.wreck(heli,dt);
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, driving=rover.driver===local.id;
+    updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
     roverLabel.sprite.visible=!driving && local.id!==rover.gunner;
@@ -1310,6 +1322,19 @@ export function createScene(canvas) {
     if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
+    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.swimming;
+    sightModels[0].visible=sighted && local.weapon===1;
+    sightModels[1].visible=sighted && local.weapon===2;
+    const fov = sighted ? 32 : 55;
+    if (camera.fov !== fov) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+    if (sighted) {
+      camera.position.set(local.x, local.y + 1.3, local.z);
+      camera.lookAt(desired.copy(camera.position).sub(boom));
+      avatars.get(local.id).root.visible = false;
+    }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }

@@ -94,5 +94,5 @@ export function missileCloud(scene, random) {
     particles.length=n;mesh.count=n;
     if(n){shade.needsUpdate=true;mesh.instanceMatrix.needsUpdate=true;}
   }
-  return {impact,trail,update};
+  return {impact,trail,update,puff};
 }

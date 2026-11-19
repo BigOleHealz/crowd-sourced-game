@@ -11,6 +11,7 @@ import { newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, la
 
 import { gunnerVehicle, gunnerFeet, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
+import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
@@ -278,6 +279,7 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  stepSuspension(world.rover,step);
   for(const kind of ['rover','heli']) {
     const v=world[kind], gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
