@@ -366,31 +366,19 @@ function contactShadowMap() {
 // Each loadout costs a single draw call while equipped.
 function makeBlasters(body, material) {
   const pulse = new Batch(), bloom = new Batch();
-  const handle = 0x253b40, shell = 0xd2c6a6, teal = 0x53e7d2, coral = 0xff9664;
-  const ring = new THREE.TorusGeometry(1, .15, 5, 14);
-  pulse.add(cube, handle, 0, -.06, -.02, .10, .20, .13, -.2);
-  pulse.add(round, shell, 0, .015, -.18, .115, .105, .28);
-  pulse.add(cube, handle, 0, .08, -.19, .105, .06, .40);
-  pulse.add(round, teal, 0, .10, -.13, .082, .056, .10);
-  pulse.add(round, teal, .099, .077, -.12, .055, .09, .17);
-  pulse.add(cube, shell, .11, .159, -.12, .07, .035, .22);
-  pulse.add(ring, teal, 0, .008, -.43, .078);
-  pulse.add(round, handle, 0, .00, -.415, .065, .066, .045);
-  bloom.add(cube, handle, 0, -.07, .0, .115, .21, .13, -.20);
-  bloom.add(round, 0xa25140, 0, .035, -.17, .175, .17, .245);
-  bloom.add(round, coral, 0, .16, -.14, .09, .07, .14);
-  bloom.add(ring, coral, .14, .06, -.13, .113, .113, .113, 0,Math.PI/2);
-  bloom.add(round, coral, .154, .06, -.13, .050, .092, .09);
-  bloom.add(ring, shell, 0, .035, -.34, .153);
-  for (let i = 0; i < 3; i++) {
-    const a = i * TAU / 3;
-    const x = .137 * Math.cos(a), y = .035 + .137 * Math.sin(a);
-    bloom.add(round, shell, x, y, -.36, .050, .053, .147);
-    bloom.add(round, coral, x, y, -.468, .037, .038, .060);
+  const steel=0x474c49, polymer=0x4e5042, sand=0x817964;
+  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
+    kit.add(cube,polymer,0,.048,.098,.071,.105,.227,-.055);
+    kit.add(cube,steel,0,.060,-.096,.076,.091,.226);
+    kit.add(cube,polymer,0,-.038,-.014,.053,.136,.055,-.22);
+    kit.add(cube,sand,0,-.030,-.136,.060,.115,.085,.12);
+    kit.add(cube,heavy ? sand : polymer,0,.06,-.255,heavy ? .092 : .077,heavy ? .096 : .074,.19);
+    kit.add(trunk,steel,0,.061,-.407,heavy ? .055 : .022,.18,heavy ? .055 : .022,Math.PI/2);
+    kit.add(cube,steel,0,.129,-.092,.045,.048,.067);
+    kit.add(cube,0x737c73,0,.138,-.128,.022,.020,.004);
   }
-  ring.dispose();
   const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
-  for (const tool of tools) tool.position.set(.43, 1.19, -.31);
+  for (const tool of tools) tool.position.set(.293, 1.14, -.34);
   return tools;
 }
 
@@ -426,7 +414,7 @@ function objectHealthLabel(scene,title) {
   const labelMap=new THREE.CanvasTexture(tag);
   labelMap.colorSpace=THREE.SRGBColorSpace;
   const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(2.9,.58,1);
+  label.scale.set(1.9,.38,1);
   scene.add(label);
   let labelHp, labelMax, labelRecovery, labelUnpiloted;
   function update(hp,maxHp,recovery,unpiloted=false) {
@@ -456,7 +444,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const group = new THREE.Group();
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
-  const orange = 0xb15d32, ivory = 0xe0dfc8, graphite = 0x343d3e, glass = 0x284550;
+  const olive = 0x606452, ivory = 0x999981, graphite = 0x343d3e, glass = 0x284550;
   // A continuous cabin envelope gives each window its own panel and avoids
   // glass/fuselage intersections. Coordinates run from the nose to the tail.
   const sections = [
@@ -488,7 +476,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
       const windshield=row===1 && upper;
       const cabinWindow=(row===3||row===5) && upper && j!==0;
       const stripe=j===3||j===8;
-      let tint=orange;
+      let tint=olive;
       if(windshield||cabinWindow) tint=(j===1||j===10)?0x667e87:glass;
       else if(stripe || j===0 || (row>=7 && j!==5 && j!==6)) tint=ivory;
       else if(j===4||j===7) tint=row<2?0x445052:0x59635d;
@@ -539,7 +527,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     hull.add(round,0x76382c,side*.55,1.30,2.77,.031,.035,.05);
   }
   hull.add(cube,ivory,0,1.56,3.05,.11,.87,.39,.27);
-  hull.add(cube,orange,0,1.92,3.12,.118,.18,.41,.27);
+  hull.add(cube,olive,0,1.92,3.12,.118,.18,.41,.27);
   hull.add(cube,ivory,0,1.26,2.77,1.14,.072,.27);
   hull.add(trunk,graphite,0,1.79,0,.082,.34,.082);
   hull.add(round,ivory,0,1.94,0,.155,.072,.155);
@@ -549,7 +537,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   glazing.mesh(group,alpineGlass(panorama),false);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#f0e9cf';st.textAlign='center';
-  st.font='bold 76px sans-serif';st.fillText('FORESTRY',256,88);
+  st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
   const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-2});
@@ -629,7 +617,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
 
 function crystalOutcrop(scene, material, prop, seed) {
   const rng = random(seed), batch = new Batch();
-  const tints=[0x57988a,0x71a98e,0x487e7f,0x7fae99];
+  const tints=[0x8a9288,0x9f9f91,0x737f7f,0xa6ac9d];
   for(let i=0;i<10;i++){
     const angle=i*2.399,dist=i?(.36+.39*rng())*prop.radius:0;
     const x=Math.cos(angle)*dist,z=Math.sin(angle)*dist;
@@ -680,7 +668,7 @@ function fieldEffects(scene) {
     for(let i=0;i<(large?18:7);i++) {
       const a=rng()*TAU, s=.6+rng()*(large?3.6:1.7), size=(large?.045:.026)+rng()*.075;
       particle(new THREE.Vector3(x,y,z),new THREE.Vector3(Math.cos(a)*s,.6+rng()*2.7,Math.sin(a)*s),
-        new THREE.Vector3(size,size*(1+rng()),size),i%3?0x8cf3cd:0xf4e7a7,.28+rng()*.29);
+        new THREE.Vector3(size,size*(1+rng()),size),i%3?0x958d78:0xb5ac95,.28+rng()*.29);
     }
   }
   function crash(heli) {
@@ -695,21 +683,14 @@ function fieldEffects(scene) {
     if(s.weapon==='missile') {crash(s.to);return;}
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     along.subVectors(b,a);
-    const bloom=s.weapon===2, pieces=bloom?12:7;
-    for(let i=1;i<=pieces;i++) {
-      const t=i/pieces, pos=a.clone().addScaledVector(along,t);
-      const radius=bloom ? .18+.23*t : .035;
-      if(bloom) {pos.x+=Math.cos(t*TAU*2)*radius; pos.y+=Math.sin(t*TAU*2)*radius;}
-      particle(pos,new THREE.Vector3(),new THREE.Vector3(radius*.55,radius*.55,radius*.55),
-        bloom?0xffbd83:0x96ffe1,.15+.09*t);
-    }
-    // The thin straight pulse reads from a distance; bloom draws a spiral of motes.
-    if(!bloom) {
-      const delta=b.clone().sub(a), length=delta.length();
-      if(length>.01) {
-        particle(a.clone().lerp(b,.5),new THREE.Vector3(),new THREE.Vector3(.033,length/2,.033),s.weapon==='turret' ? 0xffcf72 : 0xb6ffdf,.13);
-        particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,delta.normalize());
-      }
+    const length=along.length();
+    if(length>.01) {
+      const tracerLength=Math.min(length,s.weapon==='turret' ? 2.6 : 1.2);
+      const direction=along.normalize();
+      particle(b.clone().addScaledVector(direction,-tracerLength*.5),new THREE.Vector3(),
+        new THREE.Vector3(.018,tracerLength*.5,.018),s.weapon===2 ? 0xdcad73 : 0xffdc9a,.095);
+      particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,direction);
+      particle(a,new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
     }
     if(s.hit) burst(b.x,b.y,b.z,false);
   }
@@ -751,7 +732,7 @@ function characterLabel(root, name) {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: texture, transparent: true, depthWrite: false, sizeAttenuation: false,
   }));
-  sprite.scale.set(.135, .032, 1);
+  sprite.scale.set(.102, .024, 1);
   root.add(sprite);
   let previous;
   return {
@@ -783,7 +764,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
   const identity=rangerIdentity(id), warm=skinColors[identity];
-  const coat=tint ?? jacketColor(id);
+  const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
   const torso=new Batch(true);
   torso.add(fieldJacket,coat,0,1.30,.005);
   torso.add(trunk,0x505549,0,1.048,.008,.185,.037,.130);
@@ -791,8 +772,15 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   torso.add(trunk,warm,0,1.555,0,.06,.115,.063);
   torso.add(heads[identity],0xf2e7dc,0,1.682,-.008);
   for (const side of [-1,1]) torso.add(round,warm,side*.105,1.675,.003,.017,.034,.025);
-  torso.add(capCrown,0x9d9b7d,0,1.785,.004);
-  torso.add(round,0x454d40,0,1.781,-.096,.114,.013,.103,-.06);
+  torso.add(capCrown,0x949381,0,1.757,.008,1.10,1.40,1.11);
+  torso.add(round,0x575b50,0,1.759,.008,.132,.015,.137);
+  torso.add(fieldJacket,0x6d705b,0,1.317,-.005,1.035,.67,1.08);
+  for(const side of [-1,1]) {
+    torso.add(round,0x535648,side*.104,1.728,.028,.025,.041,.065);
+    torso.beam(0x585849,[side*.105,1.731,-.021],[side*.067,1.589,-.046],.012);
+    torso.add(cube,0x797864,side*.070,1.265,-.17,.104,.126,.046);
+    torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
+  }
   if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
   torso.add(fieldPack,0xe1d4ba,0,1.302,.172);
   for (const side of [-1,1]) {
@@ -934,9 +922,9 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(60,1,.09,400);
-  scene.fog=new THREE.FogExp2(0xaebfc9,.0058);
-  scene.add(new THREE.HemisphereLight(0xc8dfec,0xa09074,1.36));
-  const sun=new THREE.DirectionalLight(0xffe6c7,2.55);
+  scene.fog=new THREE.FogExp2(0xadb5b3,.0085);
+  scene.add(new THREE.HemisphereLight(0xcbd8dc,0x958d7e,1.44));
+  const sun=new THREE.DirectionalLight(0xffedda,2.30);
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,near:1,far:130});

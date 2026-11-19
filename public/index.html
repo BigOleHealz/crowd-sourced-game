@@ -12,8 +12,8 @@
 <body>
   <canvas id="game" tabindex="0" aria-label="Pinewatch multiplayer hiking world"></canvas>
   <header class="mast">
-    <div class="world-name"><span class="crest" aria-hidden="true">▲</span><div><span class="subhead">Matt’s world</span><h1>Pinewatch</h1></div></div>
-    <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="right-bearing">NE</span></div>
+    <div class="world-name"><h1>Pinewatch</h1></div>
+    <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="degrees">000°</span><span id="right-bearing">NE</span></div>
     <span class="presence" role="status"><i></i><span id="presence">Connecting</span></span>
   </header>
   <aside id="supply-card" aria-label="Supply delivery" hidden>
@@ -23,19 +23,19 @@
   </aside>
   <main class="hud">
     <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2>
-      <div class="kit-row"><strong id="kit">Pulse blaster</strong><span id="progress"></span></div>
+      <div class="kit-row"><strong id="kit">Field carbine</strong><span id="progress"></span></div>
       <div class="health-readout"><label id="hp-label" for="hp-meter">Health</label><meter id="hp-meter" min="0" max="100" value="100"></meter><span id="life-status"></span></div>
       <div id="field-prompt"></div></div>
     <aside class="map-panel" aria-label="Live trail map"><div class="map-title"><span>Trail map</span><b>N ↑</b></div><canvas id="map" width="288" height="208" aria-label="Trail loop, creek and player locations"></canvas></aside>
     <div id="notice" role="alert" hidden></div>
   </main>
   <footer>
-    <div class="shortcuts"><span><kbd>WASD</kbd> / <kbd>Arrows</kbd> Move</span><span><kbd>Space</kbd> <span id="space-action">Jump</span></span><span><kbd>Shift</kbd> <span id="shift-action">Sprint</span></span><span id="tool-shortcut"><kbd>1</kbd><kbd>2</kbd> Blasters</span><span id="fire-shortcut"><kbd>F</kbd> / click Fire</span></div>
+    <div class="shortcuts"><span><kbd>WASD</kbd> / <kbd>Arrows</kbd> Move</span><span><kbd>Space</kbd> <span id="space-action">Jump</span></span><span><kbd>Shift</kbd> <span id="shift-action">Sprint</span></span><span id="tool-shortcut"><kbd>1</kbd><kbd>2</kbd> Weapons</span><span id="fire-shortcut"><kbd>F</kbd> / click Fire</span></div>
     <button id="help" aria-expanded="false" aria-controls="guide">Controls <kbd>?</kbd></button>
   </footer>
   <section id="guide" hidden aria-label="Controls">
     <div class="guide-heading"><h2>Field controls</h2><button id="close-guide" aria-label="Close controls">×</button></div>
-    <dl><dt>Forward / back</dt><dd>W / S or ↑ / ↓</dd><dt>Strafe left / right</dt><dd>A / D or ← / →</dd><dt>Sprint</dt><dd>Hold Shift</dd><dt>Jump</dt><dd>Space</dd><dt>Look around</dt><dd>Move the cursor over the world</dd><dt>Gunner seat</dt><dd>Press E by a crewed vehicle. Look in any direction, then hold F or click to fire the turret. Press E to leave.</dd><dt>Vehicle missiles</dt><dd>Driver or pilot · F / click to launch straight ahead</dd><dt>Keep turning</dt><dd>Hold the cursor near an edge</dd><dt>1 · Pulse blaster</dt><dd>Rapid single-target pulses</dd><dt>2 · Bloom blaster</dt><dd>Slower area pulses</dd><dt>Fire blaster</dt><dd>Hold F or left mouse</dd><dt>Board / exit</dt><dd>E by a parked helicopter or rover</dd><dt>Drive rover</dt><dd>W / S to drive or reverse, A / D to steer. E parks and exits.</dd><dt>Fly</dt><dd>Movement keys to steer</dd><dt>Climb / descend</dt><dd>Hold Space / Shift</dd><dt>Bail out in flight</dt><dd>E to jump out, then press Space to deploy the parachute. Steer with the movement keys.</dd><dt>Land</dt><dd>Ease down over clear ground</dd><dt>Replay completed run</dt><dd>R</dd><dt>Camera distance</dt><dd>Scroll</dd></dl>
+    <dl><dt>Forward / back</dt><dd>W / S or ↑ / ↓</dd><dt>Strafe left / right</dt><dd>A / D or ← / →</dd><dt>Sprint</dt><dd>Hold Shift</dd><dt>Jump</dt><dd>Space</dd><dt>Look around</dt><dd>Move the cursor over the world</dd><dt>Gunner seat</dt><dd>Press E by a crewed vehicle. Look in any direction, then hold F or click to fire the turret. Press E to leave.</dd><dt>Vehicle missiles</dt><dd>Driver or pilot · F / click to launch straight ahead</dd><dt>Keep turning</dt><dd>Hold the cursor near an edge</dd><dt>1 · Field carbine</dt><dd>Single-target fire</dd><dt>2 · Burst launcher</dt><dd>Slower area pulses</dd><dt>Fire blaster</dt><dd>Hold F or left mouse</dd><dt>Board / exit</dt><dd>E by a parked helicopter or rover</dd><dt>Drive rover</dt><dd>W / S to drive or reverse, A / D to steer. E parks and exits.</dd><dt>Fly</dt><dd>Movement keys to steer</dd><dt>Climb / descend</dt><dd>Hold Space / Shift</dd><dt>Bail out in flight</dt><dd>E to jump out, then press Space to deploy the parachute. Steer with the movement keys.</dd><dt>Land</dt><dd>Ease down over clear ground</dd><dt>Replay completed run</dt><dd>R</dd><dt>Camera distance</dt><dd>Scroll</dd></dl>
   </section>
   <script type="module" src="/client.js"></script>
 </body>
