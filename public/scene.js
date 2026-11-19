@@ -10,6 +10,7 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import { aircraftWreck } from './aircraft-wreck.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
@@ -687,16 +688,9 @@ function fieldEffects(scene) {
         new THREE.Vector3(size,size*(1+rng()),size),i%3?0x958d78:0xb5ac95,.28+rng()*.29);
     }
   }
-  function crash(heli) {
-    for(let i=0;i<26;i++) {
-      const a=rng()*TAU, speed=1+rng()*4.8, size=.08+rng()*.15;
-      particle(new THREE.Vector3(heli.x,heli.y+.45,heli.z),
-        new THREE.Vector3(Math.cos(a)*speed,1+rng()*3,Math.sin(a)*speed),
-        new THREE.Vector3(size,size,size),i%4 ? 0x8b7b65 : 0xffb066,.5+rng()*.6);
-    }
-  }
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
+  const wreck=aircraftWreck(scene,plume.puff,particle,rng);
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
@@ -759,7 +753,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,crash,update,trail:plume.trail};
+  return {shot,burst,wreck,update,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1194,7 +1188,7 @@ export function createScene(canvas) {
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
     const heli=world?.heli ?? parked;
-    if (heli.wrecked && displayedWorld?.heli.abandonedFor != null) effects.crash(heli);
+    effects.wreck(heli,dt);
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
