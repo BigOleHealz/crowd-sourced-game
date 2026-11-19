@@ -589,13 +589,14 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   group.add(smoke);
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
-  return { group, update(heli,dt) {
+  return { group, update(heli,dt,crewView) {
     const maxHp=Math.max(1,heli.maxHp??500);
     const hp=clamp(heli.hp??maxHp,0,maxHp);
     const wrecked=heli.wrecked===true;
     const smoking=hp>0 && hp/maxHp<=.30;
     const recovery=wrecked ? Math.max(0,Math.ceil(heli.recoverySeconds??0)) : null;
     const drift = heli.abandonedFor ?? 0;
+    healthLabel.sprite.visible=!crewView;
     healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
     healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
@@ -1017,11 +1018,11 @@ export function createScene(canvas) {
     displayedPlayers = remotes;
     updateSupplyView(world);
     const piloting=heli.pilot != null && local.id===heli.pilot;
-    helicopter.update(heli,dt);
+    helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, driving=rover.driver===local.id;
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
-    roverLabel.sprite.visible=!driving;
+    roverLabel.sprite.visible=!driving && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const crystal of crystals) {
       const {prop,mesh}=crystal;

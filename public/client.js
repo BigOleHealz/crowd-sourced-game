@@ -274,7 +274,7 @@ function updateEquipment(local) {
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (pilot ? 'Airframe ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
-  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : vitals.protected ? 'Spawn shield' : '';
+  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+world[gunner].hp+'/'+world[gunner].maxHp : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = isDriving() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
