@@ -3,7 +3,7 @@ import { addBeach } from './beach-view.js';
 import * as THREE from 'three';
 import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
-import { avenues, streets, coast, harbor, causeway } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway, bayfrontLawns } from './brickell-map.js';
 
 export function cityStreets(scene,renderer,Batch) {
   addBeach(scene,Batch);
@@ -34,14 +34,13 @@ export function cityStreets(scene,renderer,Batch) {
   const harborAvenue={...harbor,west:-6,east:6};
   const cross={...harbor,north:harbor.crossing-4.5,south:harbor.crossing+4.5};
   ground('asphalt',[[cx,.70,cz,w,d],patch(causeway,.70),patch(harborAvenue,.70),patch(cross,.705)],5);
-  const lots=[],lawns=[];
+  const lots=[],lawns=bayfrontLawns.map(r=>patch(r,.812));
   const xs=[[west,-43.7],[-32.3,-5.7],[5.7,26.3],[37.7,east]];
   const zs=[[north,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,south]];
   for(const [x1,x2] of xs) for(const [z1,z2] of zs) {
     const x=(x1+x2)/2,z=(z1+z2)/2;
     lots.push([x,.80,z,x2-x1,z2-z1]);
     solids.add(box,0xbab4a4,x,.735,z,x2-x1,.12,z2-z1);
-    if(x>37) lawns.push([x,.812,z,2.65,z2-z1-2]);
   }
   for(const [west,east] of [[harbor.west,-6],[6,harbor.east]]) {
     for(const [north,south] of [[harbor.north,cross.north],[cross.south,harbor.south]]) {

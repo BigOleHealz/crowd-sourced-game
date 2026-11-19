@@ -5,6 +5,8 @@ import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
 export const avenues = [-38, 0, 32];
 export const streets = [-45, -9, 27, 61];
 export const coast = { west: -76, east: 43, north: -60, south: 76 };
+export const bayfrontLawns=[[-60,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,76]]
+  .map(([north,south])=>({west:39.025,east:41.675,north:north+1,south:south-1}));
 export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-205};
 export const causeway={west:-6,east:6,north:harbor.south,south:coast.north};
 export const causewayRails=[-1,1].map(side=>({

@@ -1,3 +1,4 @@
+import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
@@ -1166,6 +1167,7 @@ export function createScene(canvas) {
   const rounds=new THREE.InstancedMesh(new THREE.SphereGeometry(1,6,4),new THREE.MeshBasicMaterial(),192);
   rounds.count=0;rounds.frustumCulled=false;scene.add(rounds);
   const roundMesh=new THREE.Object3D(),path=new THREE.Vector3(),roundColor=new THREE.Color();
+  const updateTireDebris=tireDebris(scene,trailDistance);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1234,6 +1236,7 @@ export function createScene(canvas) {
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, driving=rover.driver===local.id;
+    updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
     roverLabel.sprite.visible=!driving && local.id!==rover.gunner;
