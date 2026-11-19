@@ -12,8 +12,11 @@ for(const kind of ['rover','heli']){
   const players=new Map([[2,crew]]);
   fireTurret(world,kind,crew,0,players,[target]);
   assert.equal(target.life.hp,66,'turret body damage');
-  target.state.y=pivot.y-1.69;target.life=newLife(0,false);
-  for(let tick=1;tick<60;tick++) fireTurret(world,kind,crew,tick,players,[target]);
+  target.state.y=pivot.y-1.69;target.life={...newLife(0,false),hp:150};
+  for(let tick=1;tick<60;tick++) {
+    fireTurret(world,kind,crew,tick,players,[target]);
+    if(tick===8) assert.equal(target.life.hp,48);
+  }
   assert.equal(target.life.hp,0);
   assert(world.shots[1].headshot);
   assert.deepEqual(world.shots.map(s=>s.tick),[0,8,15,23,30,38,45,53]);
