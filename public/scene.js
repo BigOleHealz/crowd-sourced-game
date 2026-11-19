@@ -6,6 +6,7 @@ import {createRangerRig,poseRig} from './ranger-pose.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, skinColors, hood, visorLens, visorRim, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
+import { patrolBoatView } from './patrol-boat-view.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
@@ -1013,6 +1014,7 @@ export function createScene(canvas) {
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateRounds=flightRounds(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
+  const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1079,6 +1081,7 @@ export function createScene(canvas) {
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
+    updatePatrolBoats(world?.boats,dt);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, driving=rover.driver===local.id;

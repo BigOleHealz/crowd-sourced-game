@@ -113,8 +113,9 @@ export function turretView(scene,kind,Batch,material) {
     const pivot=mountPosition(v,offset);
     base.position.set(pivot.x,pivot.y,pivot.z);
     base.visible=!v.wrecked;
-    if(kind==='rover') {
-      base.rotation.set(v.suspension?.pitch ?? 0,-v.yaw,v.suspension?.roll ?? 0,'YXZ');
+    if(kind==='rover'||kind==='boat') {
+      const deck=kind==='boat'?v:v.suspension;
+      base.rotation.set(deck?.pitch ?? 0,-v.yaw,deck?.roll ?? 0,'YXZ');
       // Keep the pedestal on the deck and the occupied barrel on its world aim.
       if(v.gunner==null) swivel.quaternion.identity();
       else {
