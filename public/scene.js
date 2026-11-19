@@ -781,8 +781,10 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
     const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
     shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
-    shin.add(round,0x61543f,0,-.446,-.039,.108,.091,.16);
-    shin.add(round,0x373d36,0,-.505,-.041,.114,.032,.163); for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
+    shin.add(round,0x584d3d,0,-.433,-.024,.097,.092,.119);
+    shin.add(round,0x5f5344,0,-.462,-.090,.103,.053,.127);
+    shin.add(round,0x373d36,0,-.507,-.065,.11,.022,.166);
+    for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
     shin.mesh(knee,uniform);
     const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
     const sleeve=new Batch(true);
@@ -840,7 +842,7 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight;
+  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight-(seated || station || airborne ? 0 : .024);
   avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
@@ -849,8 +851,12 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,side} of avatar.limbs) {
-    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
+    const ready=!station && !seated && !airborne && !state.dead;
+    const stance=ready ? (1-avatar.weight) : 0;
+    leg.position.z=side*.059*stance;
+    leg.rotation.z=side*.066*stance;
+    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : (.14+.058*side)*stance-side*swing*(state.sprint?.80:.59);
+    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23*stance-Math.max(0,-side*swing)*.77;
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
