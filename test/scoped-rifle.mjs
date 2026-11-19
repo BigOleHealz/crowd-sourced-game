@@ -23,9 +23,20 @@ const flightTicks=Math.ceil(160/(spec.speed/30));
 for(let tick=1;tick<flightTicks;tick++)advanceRounds(world,players,[],tick);
 assert.equal(target.life.hp,100);
 advanceRounds(world,players,[],flightTicks);
-assert.equal(target.life.hp,100-spec.damage);
+assert.equal(target.life.hp,20);
+assert.equal(spec.vehicleDamage,45);
 assert.equal(world.bullets.length,0);
 assert.equal(world.shots.at(-1).targetId,2);
 fire(world,shooter,aim,flightTicks,players,[]);
 assert.equal(world.bullets.length,1);
+for(const [slot,expected] of [[1,75],[3,150]]){
+  const game=newExpedition();
+  shooter.weapon=slot;shooter.fireReady=0;
+  target.life={...newLife(0,false),hp:200};
+  target.state.z=-8;
+  fire(game,shooter,{aimYaw:0,aimPitch:Math.atan2(.39,8)},0,players,[]);
+  for(let tick=1;tick<10;tick++)advanceRounds(game,players,[],tick);
+  assert(game.shots.at(-1).headshot);
+  assert.equal(target.life.hp,200-expected);
+}
 console.log('PASS slot 3 shares the rendered and authoritative pose, respects its cadence and lands one finite-flight body hit beyond carbine range.');

@@ -1,6 +1,6 @@
 import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { CITY, MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, solidTopAt, spawn } from './world.js';
+import { CITY, MAP, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -87,9 +87,20 @@ function approach(current, target, maxDelta) {
   return current + clamp(target - current, -maxDelta, maxDelta);
 }
 
-function landingSite(x, z, hp) {
+// Wheel contact points in local metres after the airframe model's 1.23 scale.
+const wheels = [[-1.22, -.85], [1.22, -.85], [0, 4.23]];
+function roofSupportsWheels(h, floor, hp) {
+  const c = Math.cos(h.yaw), s = Math.sin(h.yaw);
+  return wheels.every(([side, aft]) => {
+    const x = h.x + side*c - aft*s, z = h.z + side*s + aft*c;
+    // Padding keeps the fuselage clear of walls, but cannot support a wheel in midair.
+    return onBuildingLot(x, z) && Math.abs(solidTopAt(x, z, hp) - floor) < .02;
+  });
+}
+
+function landingSite(x, z, floor) {
   const y = groundHeight(x, z);
-  if (y < MAP.waterY + 0.45 || solidTopAt(x, z, hp, 1.8) > y + 0.05) return false;
+  if (y < MAP.waterY + 0.45 || floor > y + 0.05) return false;
   // Both skids need a reasonably level patch of terrain. Keep the narrow bridge clear.
   if (MAP.bridge && Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) =>
@@ -117,9 +128,6 @@ export function fly(world, input, dt, players) {
   const h = world.heli;
   if (h.wrecked || (h.grounded && input.lift <= 0)) return;
   const motion = flightStates.get(h);
-  const oldFloor = flightFloor(h.x, h.z, world.hp,world);
-  const landable = landingSite(h.x, h.z, world.hp) && oldFloor <= groundHeight(h.x, h.z) + 0.08;
-  const minY = oldFloor + (landable ? 0 : 0.22);
   // The rotor disc tips toward the velocity error. Its horizontal thrust
   // accelerates the hull, while drag and the hover assist bleed off airspeed.
   const stick = Math.max(1, Math.hypot(input.x, input.z));
@@ -144,9 +152,15 @@ export function fly(world, input, dt, players) {
   motion.vy = approach(motion.vy, liftTarget * (input.lift > 0 ? liftFraction : 1),
     (input.lift ? 8 * liftFraction : 10) * dt);
   const nextY = h.y + motion.vy * dt;
+  const floor = flightFloor(h.x, h.z, world.hp, world);
+  const rooftop = CITY && nextY <= floor + .22 && onBuildingLot(h.x, h.z) &&
+    roofSupportsWheels(h, floor, world.hp);
+  const landable = rooftop || landingSite(h.x, h.z, floor);
+  const minY = floor + (landable ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
   if (floorContact && !motion.floorContact) {
-    damageHelicopter(world, impactDamage(-motion.vy), players);
+    const stoppedSpeed = rooftop ? Math.hypot(motion.vx, motion.vy, motion.vz) : -motion.vy;
+    damageHelicopter(world, impactDamage(stoppedSpeed), players);
   }
   motion.floorContact = floorContact;
   h.y = clamp(nextY, minY, MAP.flightCeiling ?? 23);
@@ -214,7 +228,7 @@ export function interact(world, player) {
       const angle = heli.yaw + i * Math.PI / 4;
       const x = heli.x + 2.15 * Math.cos(angle);
       const z = heli.z + 2.15 * Math.sin(angle);
-      const y = groundHeight(x, z);
+      const y = CITY && onBuildingLot(x, z) ? solidTopAt(x, z, world.hp) : groundHeight(x, z);
       if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp) && !vehicleContact(x,y,z,world,CITY).depth) {
         exit = { x, y, z, vy: 0, grounded: true };
         break;

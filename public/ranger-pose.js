@@ -1,4 +1,4 @@
-import {helmFeet} from './patrol-boats.js';
+import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot} from './locomotion.js';
 import {groundHeight,stanceDrop} from './world.js';
@@ -58,12 +58,12 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   const roll=gait ? .046*swing*weight : 0;
   const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
-  const swimming=!!state.swimming && !fall && !state.dead;
+  const swimming=!!state.swimming && !seated && !station && !fall && !state.dead;
   const open = state.parachute === 'open' && !state.dead;
   if (open && avatar.makeCanopy && !avatar.canopy) avatar.canopy = avatar.makeCanopy(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
-  avatar.root.scale.setScalar(seated ? .85 : 1);
+  avatar.root.scale.setScalar(seated ? seatedScale : 1);
   if (seated) {
     const seat=seated.id ? helmFeet(seated) : mountPosition(seated,[-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
@@ -75,7 +75,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  const ride=(seated || station)?.suspension;
+  const ride=seated?.id ? seated : (seated || station)?.suspension;
   const deltaHeading=station ? station.turretYaw-station.yaw : 0;
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
@@ -208,6 +208,12 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       const handZ=side===1 ? .037 : bloom ? .031 : -.21;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
       gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
+    } else if(seated?.id) {
+      // Hold the upper left/right spokes in the same frame as the cushion.
+      const {y,z,radius,tilt}=helmWheel, up=radius*.5;
+      gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/seatedScale,
+        (y+up*Math.cos(tilt)-helmOffset[1])/seatedScale,
+        (z+up*Math.sin(tilt)-helmOffset[2])/seatedScale,side);
     } else if(seated) {
       forearm.rotation.x=.42;
     }

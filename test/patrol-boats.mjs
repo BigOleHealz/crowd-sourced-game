@@ -44,3 +44,25 @@ Object.assign(key,{x:66,z:-201,driver:3,yaw:-Math.PI/2});
 for(let n=0;n<240;n++)stepBoat(world,key,{throttle:1},dt,players);
 assert(groundHeight(key.x,key.z)<MAP.waterY-.24,'hull stays in navigable water');
 console.log('PASS: two RHIBs, dry and swimming boarding, protected seat swaps, independent helm/turret, hull collision, damage, ejection, six-second recovery and beach clearance.');
+
+// The visible seat contact follows the full hull transform when the RHIB banks.
+const {createRangerRig,poseRig}=await import('../public/ranger-pose.js');
+const {helmCushion,helmWheel}=await import('../public/patrol-boats.js');
+const {mountPosition}=await import('../public/mounts.js');
+const {Vector3}=await import('three');
+const {trouserSeat}=await import('../public/ranger-surfaces.js');
+trouserSeat.computeBoundingBox();
+const garmentBottom=.990+trouserSeat.boundingBox.min.y;
+const rig=createRangerRig();
+for(const hull of [{...bay,pitch:0,roll:0},{...key,yaw:1.4,pitch:.05,roll:-.16}]) {
+  poseRig(rig,{grounded:true,swimming:true},dt,hull);
+  const contact=rig.body.localToWorld(new Vector3(0,garmentBottom,0));
+  const cushion=mountPosition(hull,[0,helmCushion.top,helmCushion.z]);
+  assert(contact.distanceTo(new Vector3(cushion.x,cushion.y,cushion.z))<.001);
+  for(const {forearm,side} of rig.limbs) {
+    const hand=forearm.localToWorld(new Vector3(0,-.265,0)), up=helmWheel.radius*.5;
+    const rim=mountPosition(hull,[side*helmWheel.radius*Math.cos(Math.PI/6),
+      helmWheel.y+up*Math.cos(helmWheel.tilt),helmWheel.z+up*Math.sin(helmWheel.tilt)]);
+    assert(hand.distanceTo(new Vector3(rim.x,rim.y,rim.z))<.002);
+  }
+}
