@@ -60,17 +60,22 @@ export function missileCloud(scene, random) {
   }
   function trail(m,point) {
     const prior=tracks.get(m.id);
-    tracks.set(m.id,{point:point.clone(),time});
-    if(!prior) return;
+    if(!prior){
+      tracks.set(m.id,{point:point.clone(),time,until:.4});
+      return;
+    }
+    prior.time=time;
     const distance=prior.point.distanceTo(point);
-    if(distance<.001 || distance>9) return;
+    if(distance<.001) return;
+    if(distance>9){prior.point.copy(point);prior.until=.4;return;}
     // Sample continuous distance so the exhaust density is independent of frame rate.
-    let step=prior.until??.4;
+    let step=prior.until;
     for(;step<=distance;step+=.52) {
       const at=prior.point.clone().lerp(point,step/distance);
       puff(at,new THREE.Vector3(.12,.34+random()*.24,.04),.13,.50+random()*.2,.27+random()*.15,0xc5c4bb,.46);
     }
-    tracks.get(m.id).until=step-distance;
+    prior.until=step-distance;
+    prior.point.copy(point);
   }
   function update(dt) {
     time+=dt;
