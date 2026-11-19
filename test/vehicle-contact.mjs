@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {vehicleContact} from '../public/vehicle-contact.js';
-import {stepPlayer, groundHeight} from '../public/world.js';
+import {CITY, stepPlayer, groundHeight} from '../public/world.js';
 
 function worldPoint(body, side, along, height=0) {
   const c=Math.cos(body.yaw),s=Math.sin(body.yaw);
@@ -29,8 +29,8 @@ const flat={x:0,z:18,y:groundHeight(0,18),yaw:.8};
 let state={...flat,vy:0,grounded:true};
 const world={rover:flat};
 state=stepPlayer(state,{},1/30,{},world);
-assert.ok(vehicleContact(state.x,state.y,state.z,world,false).depth<.00001,'moving chassis displaces an idle hiker');
+assert.ok(vehicleContact(state.x,state.y,state.z,world,CITY).depth<.00001,'moving chassis displaces an idle hiker');
 state={...flat,y:flat.y+3.4,vy:-1,grounded:false};
 for(let i=0;i<50;i++)state=stepPlayer(state,{},1/30,{},world);
-assert.ok(state.grounded && Math.abs(state.y-(flat.y+1.60))<.01,'land on jeep roof');
+assert.ok(state.grounded && Math.abs(state.y-(flat.y+(CITY ? 1.66 : 1.60)))<.01,'land on the local vehicle roof');
 console.log('PASS rotated pickup, jeep and helicopter hulls, hovering clearance, displacement and vehicle roof landing.');
