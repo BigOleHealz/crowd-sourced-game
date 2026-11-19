@@ -103,7 +103,25 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
-const handVector=new THREE.Vector3(), gripVector=new THREE.Vector3();
+const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
+const elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
+const upperLength=.275, lowerLength=.265;
+
+// Solve the two visible arm segments in body space. An outward elbow bend keeps
+// both hands on the grips as the field kit bobs, including on a turning turret.
+function gripPose(arm,forearm,x,y,z,side) {
+  reach.set(x,y,z).sub(arm.position);
+  const distance=clamp(reach.length(),.04,upperLength+lowerLength-.0001);
+  reach.normalize();
+  bend.set(side*.70,-1,.62);
+  bend.addScaledVector(reach,-bend.dot(reach)).normalize();
+  const along=(distance*distance+upperLength*upperLength-lowerLength*lowerLength)/(2*distance);
+  elbow.copy(reach).multiplyScalar(along).addScaledVector(bend,Math.sqrt(Math.max(0,upperLength*upperLength-along*along)));
+  arm.quaternion.setFromUnitVectors(downArm,segment.copy(elbow).normalize());
+  segment.copy(reach).multiplyScalar(distance).sub(elbow).normalize();
+  inverseUpper.copy(arm.quaternion).invert();
+  forearm.quaternion.setFromUnitVectors(downArm,segment.applyQuaternion(inverseUpper));
+}
 
 function trailDistance(x, z) {
   let best = Infinity;
@@ -365,7 +383,7 @@ function makeBlasters(body, material) {
     kit.add(cube,0x737c73,0,.138,-.128,.022,.020,.004);
   }
   const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
-  for (const tool of tools) tool.position.set(.293, 1.14, -.34);
+  for (const tool of tools) tool.position.set(.109,1.33,-.19);
   return tools;
 }
 
@@ -736,7 +754,15 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.add(cube,0x686b59,side*.070,1.318,-.194,.107,.031,.017);
   }
   if (identity%2) torso.add(round,identity===1 ? 0x614331 : 0x37302c,0,1.681,.105,.069,.063,.049);
-  torso.add(fieldPack,0xe1d4ba,0,1.302,.172);
+  torso.add(fieldPack,0xecdfc5,0,1.315,.183,1.02,1.05,1.15);
+  // A strapped groundsheet and two side pockets break up the rectangular pack.
+  torso.add(fieldSleeve,0xb6ab90,-.20,1.51,.221,.76,.89,.76,0,0,Math.PI/2);
+  for(const side of [-1,1]) {
+    torso.add(round,0x504d40,side*.121,1.51,.221,.015,.071,.074);
+    torso.add(fieldPack,0xb7ad90,side*.17,1.248,.167,.34,.42,.77);
+    torso.add(cube,0x78735b,side*.114,1.22,.283,.026,.21,.012,.04);
+    torso.add(cube,0x999683,side*.114,1.24,.29,.035,.021,.012);
+  }
   for (const side of [-1,1]) {
     torso.beam(0x6a6853,[side*.136,1.497,-.110],[side*.127,1.405,-.150],.031,.014);
     torso.beam(0x6a6853,[side*.127,1.405,-.150],[side*.120,1.193,-.121],.031,.014);
@@ -760,13 +786,17 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     shin.mesh(knee,uniform);
     const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
     const sleeve=new Batch(true);
-    sleeve.add(fieldSleeve,coat,side*.017,-.012,.006,1,1,1,-.10);
-    sleeve.add(trunk,0x454d42,side*.018,-.423,.038,.059,.035,.059,-.10);
-    sleeve.add(round,warm,side*.02,-.466,.028,.041,.060,.037,-.15);
-    sleeve.add(round,warm,side*-.010,-.456,-.002,.019,.033,.019,-.38);
-    sleeve.add(cube,0xc3ac75,side*.097,-.107,.004,.012,.059,.048,0,0,side*.06);
+    sleeve.add(fieldSleeve,coat,0,-.014,0,1,.64,1);
+    sleeve.add(cube,0xac9b75,side*.084,-.1,.006,.010,.052,.046);
     sleeve.mesh(arm,uniform);
-    limbs.push({side,leg,knee,arm});
+    const forearm=new THREE.Group();forearm.position.y=-upperLength;arm.add(forearm);
+    const cuff=new Batch(true);
+    cuff.add(fieldSleeve,coat,0,-.008,0,.76,.49,.78);
+    cuff.add(trunk,0x53564b,0,-.215,0,.058,.034,.059);
+    cuff.add(round,0x5a594e,0,-.252,0,.041,.055,.043);
+    cuff.add(round,warm,-side*.029,-.258,-.018,.021,.034,.022);
+    cuff.mesh(forearm,uniform);
+    limbs.push({side,leg,knee,arm,forearm});
   }
   // The mountain sun and static geometry share one cached shadow map.
   // Characters use a soft contact patch that follows their animated pose.
@@ -818,19 +848,23 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
-  for(const {leg,arm,knee,side} of avatar.limbs) {
+  for(const {leg,arm,forearm,knee,side} of avatar.limbs) {
     leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : -side*swing*(state.sprint?.80:.59);
     knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -Math.max(0,-side*swing)*.77;
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
-    arm.scale.setScalar(1);
+    forearm.rotation.set(0,0,0);
     if(station) {
       const p=station.turretPitch;
-      handVector.set(side*.02,-.466,.028);
-      gripVector.set(side*.177-arm.position.x,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.8-arm.position.y,
-        -.062*Math.sin(p)+.19*Math.cos(p)-.44);
-      arm.scale.setScalar(gripVector.length()/handVector.length());
-      arm.quaternion.setFromUnitVectors(handVector.normalize(),gripVector.normalize());
+      gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
+        -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
+    } else if(!seated && !state.parachute && !state.dead) {
+      const kit=avatar.tools[bloom ? 1 : 0].position;
+      kit.y=1.325+.007*Math.sin(avatar.cycle*.65)-.026*avatar.weight;
+      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+(side===1 ? -.04 : .018),
+        kit.z-(side===1 ? .014 : .226),side);
+    } else if(seated) {
+      forearm.rotation.x=.42;
     }
   }
   const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
