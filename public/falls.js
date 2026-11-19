@@ -1,3 +1,4 @@
+import {advanceJoints} from './ragdoll.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, MAP, blocked, groundHeight, solidTopAt } from './world.js';
 
@@ -24,6 +25,7 @@ export function advanceFall(actor, tick, dt, hp, world) {
     if (actor.life.hp && tick - f.settled >= 16) delete actor.life.fall;
     return true;
   }
+  const jointsResting=!f.ragdoll || f.ragdoll.quiet>=7 || advanceJoints(f.ragdoll,hp,world);
   for (const [axis, velocity] of [['x', 'vx'], ['z', 'vz']]) {
     const next = s[axis] + s[velocity] * dt;
     const limit=axis==='z' ? (MAP.northBound ?? -MAP.bounds) : -MAP.bounds;
@@ -54,7 +56,7 @@ export function advanceFall(actor, tick, dt, hp, world) {
   s.vz *= drag;
   if (rest && Math.hypot(s.vx, s.vz) < .13) {
     s.vx = s.vz = 0;
-    f.settled = tick;
+    if(jointsResting) f.settled = tick;
   }
   return true;
 }
