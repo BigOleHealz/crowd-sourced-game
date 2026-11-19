@@ -108,24 +108,24 @@ function targets(world,shooter,players,npcs,source=null) {
     actor.id !== shooter && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && actor.id !== world.rover?.driver && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,bloom,source=null) {
-  if (hitKind || (bloom && blocked)) {
+function applyHit(world,{target,hitKind,to,blocked,headshot},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null) {
+  if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     for (const crystal of BREAKABLES) {
-      if (crystal === target || (bloom && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
+      if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
         world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);
       }
     }
     for (const actor of actors) {
-      if (actor === target || (bloom && withinBurst(center, actor.state, .9))) {
+      if (actor === target || (areaImpact && withinBurst(center, actor.state, .9))) {
         damageActor(actor, actor===target && headshot ? damage*3 : damage, tick);
       }
     }
-    if (source !== 'rover' && (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8)))) {
+    if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       damageRover(world,damage,players);
     }
-    if (source !== 'heli' && (hitKind === 'heli' || (bloom && withinBurst(center, world.heli, 1)))) {
+    if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, damage, players, shooter);
     }
   }
@@ -184,7 +184,8 @@ export function advanceRounds(world,players,npcs,tick){
     const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
     d.x*=fraction;d.y*=fraction;d.z*=fraction;
     const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
-    const from={x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
+    const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
+    r.prior={x:r.x,y:r.y,z:r.z};
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.vy-=roundDrop*dt*fraction;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
