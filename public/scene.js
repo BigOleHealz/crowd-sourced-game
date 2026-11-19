@@ -374,17 +374,41 @@ function contactShadowMap() {
 // Each loadout costs a single draw call while equipped.
 function makeBlasters(body, material) {
   const pulse = new Batch(), bloom = new Batch();
-  const steel=0x474c49, polymer=0x4e5042, sand=0x817964;
-  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
-    kit.add(cube,polymer,0,.048,.098,.071,.105,.227,-.055);
-    kit.add(cube,steel,0,.060,-.096,.076,.091,.226);
-    kit.add(cube,polymer,0,-.038,-.014,.053,.136,.055,-.22);
-    kit.add(cube,sand,0,-.030,-.136,.060,.115,.085,.12);
-    kit.add(cube,heavy ? sand : polymer,0,.06,-.255,heavy ? .092 : .077,heavy ? .096 : .074,.19);
-    kit.add(trunk,steel,0,.061,-.407,heavy ? .055 : .022,.18,heavy ? .055 : .022,Math.PI/2);
-    kit.add(cube,steel,0,.129,-.092,.045,.048,.067);
-    kit.add(cube,0x737c73,0,.138,-.128,.022,.020,.004);
+  const alloy=0x4f5452, charcoal=0x343a39, stock=0x686655, accent=0x858578;
+  const tube=new THREE.CylinderGeometry(1,1,1,14);
+  // Bevelled side profiles give the two field props distinct silhouettes.
+  function profile(batch,tint,outline,width) {
+    const shape=new THREE.Shape(outline.map(([z,y])=>new THREE.Vector2(z,y)));
+    const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:1,bevelThickness:.003,bevelSize:.004});
+    geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
   }
+  for(const [kit,heavy] of [[pulse,false],[bloom,true]]) {
+    const finish=heavy?0x796b51:stock;
+    profile(kit,finish,[[.235,.104],[.072,.102],[.045,.061],[.092,.034],[.149,.039],[.199,-.008],[.232,-.014]],.056);
+    kit.add(cube,charcoal,0,.041,.236,.065,.119,.013);
+    profile(kit,alloy,[[.072,.1],[-.167,.1],[-.192,.068],[-.143,.023],[-.063,.016],[-.02,.036],[.067,.047]],.061);
+    profile(kit,charcoal,[[.026,.048],[-.020,.035],[.012,-.091],[.052,-.077]],.043);
+    profile(kit,finish,[[-.075,.042],[-.139,.040],[-.143,-.010],[-.17,-.077],[-.124,-.097],[-.095,-.044]],.047);
+    if(heavy) {
+      kit.add(tube,charcoal,0,.059,-.255,.072,.253,.072,Math.PI/2);
+      for(const z of [-.164,-.28,-.37]) kit.add(tube,finish,0,.059,z,.077,.024,.077,Math.PI/2);
+      kit.add(tube,alloy,0,.059,-.395,.061,.046,.061,Math.PI/2);
+    } else {
+      profile(kit,finish,[[-.151,.098],[-.341,.093],[-.36,.074],[-.337,.029],[-.168,.025]],.056);
+      for(const side of [-1,1]) for(let n=0;n<5;n++)
+        kit.add(cube,charcoal,side*.032,.064,-.184-.033*n,.004,.016,.019);
+      kit.add(tube,charcoal,0,.063,-.399,.018,.123,.018,Math.PI/2);
+      kit.add(tube,alloy,0,.063,-.462,.023,.054,.023,Math.PI/2);
+    }
+    kit.add(cube,charcoal,0,.109,-.092,.047,.017,.157);
+    kit.add(tube,alloy,0,.137,-.075,.026,.067,.026,Math.PI/2);
+    kit.add(tube,0x597478,0,.137,-.111,.019,.005,.019,Math.PI/2);
+    for(const side of [-1,1]) {
+      kit.add(cube,charcoal,side*.033,.072,-.073,.004,.019,.086);
+      kit.add(cube,accent,side*.036,.073,-.071,.004,.010,.046);
+    }
+  }
+  tube.dispose();
   const tools = [pulse.mesh(body,material,false), bloom.mesh(body,material,false)];
   for (const tool of tools) tool.position.set(.109,1.33,-.19);
   return tools;
