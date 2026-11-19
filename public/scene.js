@@ -951,8 +951,8 @@ function pose(avatar,state,dt,seated=null,station=null) {
   avatar.root.position.set(state.x,state.y,state.z);
   avatar.root.scale.setScalar(seated ? .85 : 1);
   if (seated) {
-    const c=Math.cos(seated.yaw), s=Math.sin(seated.yaw);
-    avatar.root.position.set(seated.x-.322*c+.085*s,seated.y+.025,seated.z-.322*s-.085*c);
+    const seat=mountPosition(seated,[-.322,.025,-.085]);
+    avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
     const feet=gunnerFeet(station,'rover');
@@ -961,6 +961,11 @@ function pose(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  const ride=(seated || station)?.suspension;
+  const deltaHeading=station ? station.turretYaw-station.yaw : 0;
+  avatar.root.rotation.order='YXZ';
+  avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
+  avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
   avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
     gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');

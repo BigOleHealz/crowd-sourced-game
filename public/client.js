@@ -2,6 +2,7 @@ import {firearmSpecs} from './rounds.js';
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
+import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet } from './mounts.js';
 import { nearestVehicle } from './rover.js';
@@ -288,7 +289,8 @@ function remoteFrame(time) {
   let rover = b.rover;
   if(a.rover.driver===b.rover.driver && a.rover.wrecked===b.rover.wrecked) {
     rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
-      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t) };
+      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t),
+      suspension:interpolateSuspension(a.rover.suspension,b.rover.suspension,t) };
   }
   for(const [kind,v] of [['heli',heli],['rover',rover]]) {
     if(v.gunner!=null && a[kind].gunner===v.gunner) {

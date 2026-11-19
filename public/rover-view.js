@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
-import { CITY, groundHeight } from './world.js';
+import { CITY } from './world.js';
+import { wheelStations } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
 export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const root = new THREE.Group(), chassis = new Batch();
-  scene.add(root);
+  const axles=new THREE.Group();
+  scene.add(root,axles);
   const cube = new THREE.BoxGeometry(1,1,1);
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
@@ -197,7 +199,8 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const tireSection=[[.18,-.11],[.245,-.139],[.309,-.136],[.356,-.095],[.36,.087],[.31,.136],[.246,.14],[.18,.111]]
     .map(([r,w])=>new THREE.Vector2(r,w));
   const tire = new THREE.LatheGeometry(tireSection,20);
-  for(const side of [-1,1]) for(const z of [-.94,.95]) {
+  for(const [x,z] of wheelStations) {
+    const side=Math.sign(x);
     const wheelBatch=new Batch();
     wheelBatch.add(tire,rubber,0,0,0,1,1,1,0,0,Math.PI/2);
     for(let i=0;i<16;i++){
@@ -215,8 +218,8 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       const a=i*Math.PI*2/5;
       wheelBatch.add(disc,0x41453f,side*.155,.112*Math.cos(a),.112*Math.sin(a),.021,.019,.021,0,0,Math.PI/2);
     }
-    const wheel=wheelBatch.mesh(root,material,false);
-    wheel.position.set(side*.70,.368,z);
+    const wheel=wheelBatch.mesh(axles,material,false);
+    wheel.position.set(x,.368,z);
     const trimBatch=new Batch(true);
     trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
     trimBatch.mesh(wheel,facingMaterial,false);
@@ -237,13 +240,15 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   scene.add(shadow);
   cube.dispose(); disc.dispose();
   return function update(r,dt) {
-    const sn=Math.sin(r.yaw), cs=Math.cos(r.yaw);
-    const front=groundHeight(r.x+sn*.84,r.z-cs*.84), back=groundHeight(r.x-sn*.84,r.z+cs*.84);
-    const right=groundHeight(r.x+cs*.68,r.z+sn*.68), left=groundHeight(r.x-cs*.68,r.z-sn*.68);
-    root.position.set(r.x,r.y,r.z);
-    root.rotation.set(Math.atan2(front-back,1.68),-r.yaw,Math.atan2(right-left,1.36)+(r.wrecked ? -.22 : 0),'YXZ');
+    const pose=r.suspension;
+    axles.position.set(r.x,r.y,r.z);axles.rotation.y=-r.yaw;
+    root.position.set(r.x,r.y+(pose?.heave ?? 0),r.z);
+    root.rotation.set(pose?.pitch ?? 0,-r.yaw,(pose?.roll ?? 0)+(r.wrecked ? -.22 : 0),'YXZ');
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
-    for(const wheel of wheels) wheel.rotation.x-=r.speed*dt/.36;
+    wheels.forEach((wheel,i)=>{
+      wheel.position.y=.368+(pose?.wheels[i] ?? 0);
+      wheel.rotation.x-=r.speed*dt/.36;
+    });
     for(let i=0;i<cargo.length;i++) cargo[i].visible=i<(r.cargo||0);
   };
 }
