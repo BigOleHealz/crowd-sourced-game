@@ -1,3 +1,4 @@
+import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
@@ -974,11 +975,12 @@ function pose(avatar,state,dt,seated,station) {
   updateSwimRipples(avatar,state);
 }
 
-function cameraDistance(target,vector,wanted,hp,margin=0) {
+function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false) {
   let distance=wanted;
-  for(let d=.45;d<wanted;d+=.20) {
+  const increment=indoors ? .08 : .20, minimum=indoors ? .10 : .45;
+  for(let d=minimum;d<=wanted+increment;d+=increment) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14,y+.15))>y-.15) {distance=Math.max(.45,d-.18);break;}
+    if(Math.max(groundHeight(x,z),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {
@@ -1023,9 +1025,9 @@ export function createScene(canvas) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const features=new Batch();
-  let glints, stacks;
+  let glints, stacks, updateDoors;
   if(CITY) {
-    cityStreets(scene,renderer,Batch,panorama);
+    updateDoors=cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
   } else {
     addGround(scene,renderer);
@@ -1051,7 +1053,10 @@ export function createScene(canvas) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
-  const sightModels=makeFirearms(camera);
+  const sightPivot=new THREE.Group();
+  camera.add(sightPivot);
+  const sightForward=new THREE.Vector3(0,0,-1), sightRay=new THREE.Vector3();
+  const sightModels=makeFirearms(sightPivot);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
   const effects=fieldEffects(scene);
@@ -1059,14 +1064,14 @@ export function createScene(canvas) {
   let lastShot=null;
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
-  const desired=new THREE.Vector3();
+  const desired=new THREE.Vector3(), sideways=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
   function resize(){
     const w=canvas.clientWidth||innerWidth,h=canvas.clientHeight||innerHeight;
     if(w===lastWidth && h===lastHeight) return;
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
-  let roverBoom = null, bailoutOrbit = 0;
+  let roverBoom = null, bailoutOrbit = 0, indoorAngle=0;
   function removeAvatar(a) {
     clearLostParts(a);
     a.label.dispose();
@@ -1081,11 +1086,13 @@ export function createScene(canvas) {
   const cursorRay = new THREE.Raycaster();
   const cursorNdc = new THREE.Vector2();
   let displayedWorld, displayedPlayers;
+  function pointerNdc(pointer,rect) {
+    return cursorNdc.set(2*(pointer.x-rect.left)/rect.width-1,1-2*(pointer.y-rect.top)/rect.height);
+  }
   function aimAt(pointer, feet, id, range, station=null) {
     if (!ready || !displayedWorld || !pointer) return null;
     const rect = canvas.getBoundingClientRect();
-    cursorNdc.set(2 * (pointer.x - rect.left) / rect.width - 1, 1 - 2 * (pointer.y - rect.top) / rect.height);
-    cursorRay.setFromCamera(cursorNdc, camera);
+    cursorRay.setFromCamera(pointerNdc(pointer,rect), camera);
     const {origin, direction} = cursorRay.ray;
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
@@ -1104,7 +1111,7 @@ export function createScene(canvas) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  function render(local,remotes,view,dt,world) {
+  function render(local,remotes,view,dt,world,pointer) {
     if(!local) return;
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
@@ -1113,6 +1120,7 @@ export function createScene(canvas) {
     displayedWorld = world;
     displayedPlayers = remotes;
     updateSupplyView(world);
+    updateDoors?.(world.doors,dt);
     updatePatrolBoats(world?.boats,dt);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
@@ -1163,6 +1171,8 @@ export function createScene(canvas) {
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
     const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const indoors=CITY && Boolean(storefrontRoom(local.x,local.y,local.z));
+    const roomBlend=indoors ? THREE.MathUtils.smoothstep(doorX-local.x,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
@@ -1171,10 +1181,10 @@ export function createScene(canvas) {
     else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
     else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
     else {
-      const shoulder=local.parachute ? 0 : .66;
+      const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
       const shoulderHeight=1.46-stanceDrop(local);
-      const clear=buildingTopAt(x,z,.15,local.y+shoulderHeight)<local.y+shoulderHeight-.16;
+      const clear=buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
       desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : shoulderHeight),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
@@ -1188,25 +1198,51 @@ export function createScene(canvas) {
     const pitch=clamp(view.pitch??-.12,-1.2,.8),yaw=(view.yaw||0)+bailoutOrbit;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
     const onFoot=!boat && !localStation && !piloting && !driving && !local.parachute;
-    const wanted=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
-    const clearance=cameraDistance(target,boom,wanted,world?.hp,driving ? 1.1 : 0);
+    const outdoorDistance=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
+    const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
+    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,indoors);
+    // When backed against an interior wall, the usual boom can collapse into
+    // the character. Swing it along the wall for a short three-quarter view.
+    if(indoors){
+      let orbit=0;
+      if(clearance<1.15){
+        const turn=THREE.MathUtils.smoothstep(1.15-clearance,0,.85)*Math.PI*.49;
+        const first=indoorAngle<0 ? -1 : 1;
+        let best=clearance;
+        for(const sign of [first,-first]) {
+          sideways.copy(boom).applyAxisAngle(up,sign*turn);
+          const available=cameraDistance(target,sideways,1.42,world.hp,0,world.doors,true);
+          if(available>best+.16){orbit=sign*turn;best=available;}
+        }
+      }
+      indoorAngle=THREE.MathUtils.damp(indoorAngle,orbit,14,dt);
+      if(Math.abs(indoorAngle)>.01){
+        boom.applyAxisAngle(up,indoorAngle);
+        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true);
+      }
+    }else indoorAngle=0;
     // Pull in at obstructions, then ease back out as the orbit clears them.
     roverBoom = driving ? Math.min(clearance, mix(roverBoom ?? clearance,clearance,1-Math.exp(-8*dt))) : null;
     const distance=roverBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
-    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
+    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86);
     const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
-    const fov = sighted ? 32 : 55;
+    const fov = sighted ? 32 : 55+6*roomBlend;
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
     }
     if (sighted) {
+      // Keep the optic on the same screen ray used for picking, even at the edges.
+      const ndc=pointer ? pointerNdc(pointer,canvas.getBoundingClientRect()) : cursorNdc.set(0,0);
+      sightRay.set(ndc.x,ndc.y,-1).applyMatrix4(camera.projectionMatrixInverse).normalize();
+      sightPivot.quaternion.setFromUnitVectors(sightForward,sightRay);
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
+      boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
       camera.lookAt(desired.copy(camera.position).sub(boom));
       avatars.get(local.id).root.visible = false;
     }

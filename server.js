@@ -1,3 +1,4 @@
+import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
 import {nearBoat,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
@@ -202,6 +203,13 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
+  if(CITY && players.size) {
+    const pedestrians=[];
+    for(const p of players.values()) {
+      if(p.life.hp && p.id!==world.rover.driver && p.id!==world.heli.pilot && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
+    }
+    stepStorefrontDoors(world.doors,pedestrians,step);
+  }
   const firingGunners=new Set(), boatInputs=new Map();
   recoverHelicopter(world, step, players);
   recoverRover(world, step);

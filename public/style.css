@@ -31,7 +31,7 @@ footer { bottom: 0; justify-content: space-between; padding: 12px 30px; backgrou
 #sound-mute[aria-pressed="true"] { color:var(--accent); }
 kbd { font-family: inherit; font-size: 10px; font-weight: 600; letter-spacing: .04em; background: #ffffff0d; border: 1px solid #c9d0bd63; border-radius: 3px; padding: 2px 5px; margin-right: 3px; }
 button { font: inherit; color: inherit; cursor: pointer; border: none; background: transparent; }
-.world-name, #compass, .presence, .map-panel, .location, #notice, footer, #guide { pointer-events: auto; }
+#map-choice, footer button, #guide { pointer-events: auto; }
 footer button { padding: 4px; }
 footer button kbd { margin: 0 0 0 4px; }
 #guide, #notice { position: fixed; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 32px #13201955; border-radius: 6px; }
@@ -70,9 +70,6 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #map-choice { color: #f1eee0; background: #27332deb; border: 1px solid var(--line); padding: 5px; border-radius: 2px; cursor: pointer; }
 @media(max-width:700px) { .world-name { flex-direction:column;align-items:flex-start;gap:4px } }
 
-#game.sighted { cursor: none; }
-#weapon-sight {
-  position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
-  width: 3px; height: 3px; border-radius: 50%; background: #ee7860;
-  pointer-events: none;
-}
+/* The browser composites this hotspot at the OS pointer between WebGL frames. */
+#game.sighted { cursor: url("/sight-cursor.svg") 7 7, crosshair; }
+#notice { pointer-events: none; }

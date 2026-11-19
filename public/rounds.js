@@ -1,3 +1,4 @@
+import {hasStorefrontRooms,storefrontTopAt} from './storefront-layout.js';
 import { avenues, streets } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
@@ -5,7 +6,6 @@ export const firearmSpecs={
   2:{name:'Patrol sidearm',speed:39,range:84,damage:40,cooldown:21,propDamage:2},
   turret:{name:'Vehicle turret',speed:62,range:160,damage:34,cooldown:7.5,propDamage:34},
 };
-export const roundDrop=4.2;
 
 // Swept segments use a 0..1 fraction; this includes contacts between ticks.
 function slab(o,d,lo,hi,span){
@@ -49,6 +49,20 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const base={x:b.x,y:b.base-2,z:b.z},span=[0,1];
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
+    // The tower podium contains two rooms. Walk its clipped segment through
+    // the same surfaces used for movement, including the current door leaves.
+    if(CITY && hasStorefrontRooms(b)){
+      const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
+      const steps=Math.max(1,Math.ceil(length/.045));
+      for(let i=0;i<=steps;i++){
+        const f=span[0]+(span[1]-span[0])*i/steps;
+        const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
+        if(y<=storefrontTopAt(x,z,0,y,b.base+height,world.doors)){
+          accept(f,null,'scenery');break;
+        }
+      }
+      continue;
+    }
     // Clip both pitched roof planes. Flat city roofs have zero rise.
     const slope=2*b.rise/b.d;
     if(slab(round.y+slope*(round.z-b.z),d.y+slope*d.z,-Infinity,b.base+height,span) &&

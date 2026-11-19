@@ -1,3 +1,4 @@
+import {storefrontRoom} from './storefront-layout.js';
 import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
@@ -33,12 +34,10 @@ let lastPointer = null, pressedAim = null;
 const canAim = () => self && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
-  byId('weapon-sight').hidden = !active || weapon!==1;
   canvas.classList.toggle('sighted', active);
 }
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
-const footer = document.querySelector('footer');
 const headings = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const map = byId('map');
 const ctx = map.getContext('2d');
@@ -124,6 +123,7 @@ canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 function pressButton(e) {
   if (!byId('guide').hidden || (e.button !== 0 && e.button !== 2)) return;
+  lastPointer = {x: e.clientX, y: e.clientY};
   if (e.button === 2) {
     if (canAim()) {
       canvas.focus({ preventScroll: true });
@@ -132,9 +132,8 @@ function pressButton(e) {
     return;
   }
   canvas.focus({ preventScroll: true });
-  lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
-    pressedAim = camera.sighted ? {yaw:camera.yaw,pitch:camera.pitch} : scene.aimAt(lastPointer,self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
+    pressedAim = scene.aimAt(lastPointer,self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
 // Mouse events report each button in a chord (pointerdown only reports the first).
@@ -161,12 +160,13 @@ canvas.addEventListener('pointermove', e => {
   }
   const x = e.clientX, y = e.clientY;
   if (lastPointer) {
-    camera.yaw += clamp(x - lastPointer.x, -120, 120) * 0.0028;
-    camera.pitch = clamp(camera.pitch - clamp(y - lastPointer.y, -120, 120) * 0.0024, -0.95, 0.48);
+    camera.yaw += (x - lastPointer.x) * 0.0028;
+    camera.pitch = clamp(camera.pitch - (y - lastPointer.y) * 0.0024, -0.95, 0.48);
   }
   lastPointer = { x, y };
-  edgeYaw = edgeRate(x, canvas.clientWidth) * 1.35;
-  edgePitch = -edgeRate(y, footer.offsetTop) * 0.65;
+  const rect = canvas.getBoundingClientRect();
+  edgeYaw = edgeRate(x - rect.left, rect.width) * 1.35;
+  edgePitch = -edgeRate(y - rect.top, rect.height) * 0.65;
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -250,7 +250,7 @@ function tick() {
   const fire = !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || (camera.sighted ? camera : null) || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
+    (pressedAim || scene.aimAt(lastPointer,self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -480,7 +480,7 @@ function frame(time) {
     if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
     const view = isDriving() ? drivingView(boat??rover, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats);
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) });
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, boats, npcs, bullets:roundFrame(time) }, lastPointer);
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;
@@ -488,7 +488,8 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-      byId('location').textContent = CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      const interior=CITY && storefrontRoom(local.x,local.y,local.z);
+      byId('location').textContent = interior ? interior.name : CITY ? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue') : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);

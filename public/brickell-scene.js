@@ -98,7 +98,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
     shape.setAttribute('batchUv',uv);return shape;
   }
-  avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama);
+  const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade},i)=>{
@@ -134,4 +134,5 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
+  return updateDoors;
 }

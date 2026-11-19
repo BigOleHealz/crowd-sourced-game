@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import {storefrontDoors,panelCenter,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
 import {buildStorefrontRooms} from './storefront-rooms.js';
 
 // The low-rise shop and apartment entrance share the slab of the tower at (-17, 7).
-// All ground-level fittings stay behind its collision line, apart from flush street hardware.
+// The shop and lobby open onto the same sidewalk as the tower.
 export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, skyline) {
   const loader = new THREE.TextureLoader();
   function texture(path) {
@@ -52,7 +53,7 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     metal(bronze,-8.24,3.66,z,.08,.10,.13);
   }
   // Split the corner pilasters into individually cut limestone courses.
-  for(const z of [-1.83,2.35,15.79]){
+  for(const {z} of facadePiers){
     stone(shadow,-9.98,2.30,z,1.30,2.96,.51);
     for(let j=0;j<5;j++) {
       stone(j%2?sand:0xd1c5af,-9.94,1.109+j*.588,z,1.24,.578,.46);
@@ -61,28 +62,23 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
   }
   stone(sand,-10.03,2.33,16.0,1.16,3.06,.24);
   const cafeMin=2.61,cafeMax=15.52,cafeMid=(cafeMin+cafeMax)/2;
-  for(const z of [2.68,5.04,7.40,9.76,12.12,14.44,15.40]) {
-    metal(dark,front-.075,2.26,z,.105,2.75,.061);
-    metal(0xa58e73,front-.012,2.26,z+.018,.022,2.73,.015);
+  for(const z of [2.68,5.04,7.40,9.76,12.12,13.52,15.40,-1.59,-.78,1.12,2.10]) {
+    metal(dark,front-.075,2.22,z,.105,2.75,.061);
+    metal(0xa58e73,front-.012,2.22,z+.018,.022,2.73,.015);
   }
-  for(const y of [.90,3.13,3.62]) metal(dark,front-.085,y,cafeMid,.098,.064,cafeMax-cafeMin);
-  // Closed paired doors give the café a 1.88 m opening for future interior traversal.
-  for (const z of [13.52,14.46,15.40]) metal(bronze,front-.13,2.00,z,.075,2.30,.046);
-  for (const z of [14.37,14.55]) {
-    metal(0xc3a276,front-.014,1.88,z,.028,.43,.027);
-    for(const y of [1.70,2.06]) metal(bronze,front-.07,y,z,.11,.027,.026);
+  const windows=[[cafeMin,13.52,3.13],[-1.59,-.78,3.04],[1.12,2.10,3.04]];
+  for(const [lo,hi] of windows)metal(dark,front-.085,.89,(lo+hi)/2,.098,.062,hi-lo);
+  for(const [lo,hi,head,top] of [[cafeMin,cafeMax,3.13,3.62],[-1.59,2.10,3.04,3.56]]) {
+    for(const y of [head,top])metal(dark,front-.085,y,(lo+hi)/2,.098,.064,hi-lo);
   }
-  // A glazed residential door pair and sidelights reveal the second room.
-  for(const z of [-1.59,-.78,.17,1.12,2.10]) metal(dark,front-.10,2.21,z,.10,2.74,.056);
-  for(const y of [.87,3.04,3.56]) metal(bronze,front-.10,y,.26,.10,.044,3.74);
-  for(const z of [.084,.256]){
-    metal(0xbdab80,front-.01,1.82,z,.032,.40,.035);
-    for(const y of [1.67,1.97])metal(bronze,front-.055,y,z,.085,.024,.025);
+  for(const door of storefrontDoors){
+    stone(trim,doorX,storefrontFloor-.006,door.z,.43,.015,door.width);
+    metal(bronze,doorX,door.head+.044,door.z,.19,.092,door.width+.075);
+    metal(dark,doorX+.104,door.head+.059,door.z,.046,.059,.155);
   }
-  stone(trim,-9.84,.816,.25,.68,.023,3.69);
   const glass = new THREE.ShaderMaterial({
     uniforms:{skyline:{value:skyline}},
-    transparent:true,depthWrite:false,
+    transparent:true,depthWrite:false,side:THREE.DoubleSide,
     vertexShader:`varying vec3 vWorld;void main(){vec4 w=modelMatrix*vec4(position,1.);vWorld=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}`,
     fragmentShader:`uniform sampler2D skyline;varying vec3 vWorld;void main(){
       vec3 view=normalize(vWorld-cameraPosition),r=reflect(view,vec3(1.,0.,0.));
@@ -93,12 +89,29 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
       #include <colorspace_fragment>
     }`
   });
-  const glazing=new THREE.Mesh(new THREE.PlaneGeometry(cafeMax-cafeMin,2.62),glass);
-  glazing.rotation.y=Math.PI/2;glazing.position.set(front-.14,2.26,cafeMid);
-  scene.add(glazing);
-  const entryPane=new THREE.Mesh(new THREE.PlaneGeometry(3.72,2.64),glass);
-  entryPane.rotation.y=Math.PI/2;entryPane.position.set(front-.14,2.22,.25);
-  scene.add(entryPane);
+  const fixedGlass=new Batch(), pane=new THREE.PlaneGeometry().rotateY(Math.PI/2);
+  for(const [lo,hi,head] of windows)
+    fixedGlass.add(pane,0xffffff,doorX,(head+.89)/2,(lo+hi)/2,1,head-.89,hi-lo);
+  for(const [lo,hi,head,top] of [[cafeMin,cafeMax,3.13,3.62],[-1.59,2.10,3.04,3.56]])
+    fixedGlass.add(pane,0xffffff,doorX,(top+head)/2,(lo+hi)/2,1,top-head,hi-lo);
+  fixedGlass.mesh(scene,glass,false);
+  const frameMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
+  const movingLeaves=storefrontDoors.flatMap(door=>[0,1].map(side=>{
+    const width=door.width/2, bottom=storefrontFloor+.015, height=door.head-bottom;
+    const frame=new Batch(),leaf=new THREE.Group();
+    scene.add(leaf);
+    const part=(t,x,y,z,w,h,d)=>frame.add(box,t,x,y,z,w,h,d);
+    for(const z of [-1,1])part(bronze,0,(bottom+door.head)/2,z*(width/2-.018),.052,height,.036);
+    for(const y of [bottom+.044,door.head-.026])part(bronze,0,y,0,.052,.051,width);
+    part(0xc5c8b7,.028,bottom+.99,0,.006,.015,width-.08);
+    part(0xdbd4bd,.028,bottom+1.055,0,.006,.027,width-.08);
+    frame.mesh(leaf,frameMaterial,false);
+    const sheet=new THREE.Mesh(pane,glass);
+    sheet.scale.set(1,height-.078,width-.052);sheet.position.y=(bottom+door.head)/2;
+    leaf.add(sheet);
+    leaf.position.set(doorX-.046-.067*side,0,panelCenter(door,side,0));
+    return {door,side,leaf};
+  }));
   buildStorefrontRooms(scene,Batch,texture,stone);
   function fascia(title,subtitle,width,height,x,y,z,background,letter) {
     const sheet=document.createElement('canvas');sheet.width=768;sheet.height=128;
@@ -137,4 +150,13 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     metal(dark,x,.713,z,.36,.017,.70);
     for(let i=-4;i<=4;i++) metal(0x837d71,x,.724,z+i*.068,.33,.01,.027);
   }
+  let firstFrame=true;
+  return function updateDoors(state,dt) {
+    if(!state)return;
+    for(const {door,side,leaf} of movingLeaves){
+      const z=panelCenter(door,side,state[door.id]);
+      leaf.position.z=firstFrame ? z : THREE.MathUtils.damp(leaf.position.z,z,36,dt);
+    }
+    firstFrame=false;
+  };
 }
