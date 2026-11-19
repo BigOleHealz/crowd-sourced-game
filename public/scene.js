@@ -105,8 +105,17 @@ function trailDistance(x, z) {
 }
 
 function sceneryHeight(x,z) {
-  const rise = clamp((Math.max(Math.abs(x),Math.abs(z)) - MAP.bounds) / 16,0,1);
-  return terrainHeight(x,z) + rise * (18 + 9*noise(x*.059,z*.059));
+  const base=terrainHeight(x,z);
+  const beyond=Math.hypot(Math.max(0,Math.abs(x)-MAP.bounds),Math.max(0,Math.abs(z)-MAP.bounds));
+  if(!beyond) return base;
+  // Continue the actual drop-off into wooded draws. Ridge crests depend on
+  // world-space drainage and outcrops, so they do not trace the map perimeter.
+  const basin=THREE.MathUtils.smoothstep(beyond,0,13);
+  const broad=noise(x*.036+11,z*.037-7);
+  const gullies=noise(x*.072+3,z*.065-15);
+  const crest=Math.hypot(x+7,z-5)+14*(broad-.5);
+  const foothills=THREE.MathUtils.smoothstep(crest,47,77);
+  return base+basin*(3+6*gullies+foothills*(8+19*broad));
 }
 
 function addGround(scene,renderer) {
@@ -854,7 +863,7 @@ export function createScene(canvas) {
   addSky(scene); addGround(scene,renderer);
   const rng=random(4863), material=vertexMaterial();
   const forest=new Batch();
-  conifers(scene,forest,MAP.trees,sceneryHeight,renderer);
+  conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds);
   forest.mesh(scene,material);
   granite(scene,MAP.rocks,terrainHeight,renderer);
   const features=new Batch();addBridge(features,rng);addDetails(scene,features,rng);landingMarks(features);features.mesh(scene,material);

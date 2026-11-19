@@ -80,12 +80,24 @@ function faceCamera(shader) {
     `);
 }
 
-export function conifers(scene,wood,trees,ground,renderer) {
+export function conifers(scene,wood,trees,ground,renderer,bounds) {
   const rng=random(33597),trunk=new THREE.CylinderGeometry(.035,1,1,10);
   const stands=trees.map(v=>({...v,near:true}));
   for(let i=0;i<170;i++){
     const a=rng()*TAU,d=48+rng()*25,x=d*Math.cos(a),z=d*Math.sin(a);
     if(ground(x,z)>-1.3)stands.push({x,z,height:5.4+rng()*8.5,radius:.17+rng()*.22,near:false});
+  }
+  // The outer valley floor is outside the playable map. Tall forest in the
+  // sheltered draws softens the drop-off from the air and leaves clearings
+  // on the more exposed ridges.
+  const rimRandom=random(9943);
+  for(let i=0;i<1280;i++){
+    const x=(rimRandom()-.5)*132,z=(rimRandom()-.5)*132,edge=Math.max(Math.abs(x),Math.abs(z));
+    if(edge<bounds+.7 || edge>bounds+23)continue;
+    const grove=noise(x*.065+9,z*.071-3);
+    if(rimRandom()>.27+.68*grove)continue;
+    const H=7+7*grove+8*rimRandom();
+    stands.push({x,z,height:H,radius:H*.03,near:false});
   }
   const map=new THREE.TextureLoader().load('./conifer-atlas.webp',()=>{renderer.shadowMap.needsUpdate=true;});
   map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
