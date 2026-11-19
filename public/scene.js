@@ -554,7 +554,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
     healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 3.38 : 2.63),heli.z);
     group.position.set(heli.x,heli.y,heli.z);
-    group.rotation.set(-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : -Math.min(.48,drift*.15),'YXZ');
+    group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
     smoke.visible=smoking;
     if(smoking) {
