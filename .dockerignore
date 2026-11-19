@@ -1,0 +1,11 @@
+**
+!Dockerfile
+!package.json
+!package-lock.json
+!server.js
+!public/
+!public/*.html
+!public/*.css
+!public/*.js
+!test/
+!test/multiplayer.mjs
