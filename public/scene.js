@@ -401,7 +401,13 @@ function objectHealthLabel(scene,title) {
   const labelMap=new THREE.CanvasTexture(tag);
   labelMap.colorSpace=THREE.SRGBColorSpace;
   const label=new THREE.Sprite(new THREE.SpriteMaterial({map:labelMap,transparent:true,depthWrite:false}));
-  label.scale.set(1.9,.38,1);
+  const labelPosition=new THREE.Vector3();
+  label.onBeforeRender=(_renderer,_scene,camera)=>{
+    label.getWorldPosition(labelPosition);
+    const width=Math.min(1.9,labelPosition.distanceTo(camera.position)*.14);
+    label.scale.set(width,width*.2,1);
+    label.updateMatrixWorld();
+  };
   scene.add(label);
   let labelHp, labelMax, labelRecovery, labelUnpiloted;
   function update(hp,maxHp,recovery,unpiloted=false) {

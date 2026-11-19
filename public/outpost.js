@@ -78,7 +78,9 @@ export function meadow(scene,renderer,rng,trailDistance) {
   const map=new THREE.TextureLoader().load('./meadow-plants.webp');
   map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   const geometry=new THREE.PlaneGeometry(1,1).translate(0,.5,0);
-  const material=new THREE.MeshLambertMaterial({map,alphaTest:.44,side:THREE.DoubleSide,shadowSide:THREE.FrontSide});
+  // Darker roots anchor intersecting cards to the ground under diffuse light.
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute([1,1,.98,1,1,.98,.31,.34,.25,.31,.34,.25],3));
+  const material=new THREE.MeshLambertMaterial({map,vertexColors:true,alphaTest:.48,side:THREE.DoubleSide,shadowSide:THREE.FrontSide});
   material.onBeforeCompile=shader=>{
     shader.vertexShader='attribute float plantTile;\n'+shader.vertexShader
       .replace('#include <uv_vertex>','#include <uv_vertex>\n vMapUv.x=(plantTile+.006+vMapUv.x*.988)/3.;');
@@ -91,12 +93,14 @@ export function meadow(scene,renderer,rng,trailDistance) {
     const path=trailDistance(x,z);
     if(y<MAP.waterY+.27 || onBuildingLot(x,z,.18) || path<1.28 || Math.hypot(x-HELIPAD.x,z-HELIPAD.z)<2.75) continue;
     const verge=Math.min(1,(path-1.25)*.65),size=(.28+rng()*.48)*(.68+.32*verge);
-    const variant=Math.floor(rng()*3),heading=rng()*Math.PI;
+    const coverage=Math.sin(x*.30+z*.19)+.65*Math.sin(x*.78-z*.36);
+    if(coverage<-.68 && rng()<.75) continue;
+    const roll=rng(),variant=roll<.14 ? 0 : roll<.79 ? 1 : 2,heading=rng()*Math.PI;
     const shade=.60+.25*rng();
     tint.setRGB(shade,shade*.98,shade*.85);
     for(const turn of [0,Math.PI/2]) {
       matrix.position.set(x,y-.045,z);matrix.rotation.y=heading+turn;
-      matrix.scale.set(size*1.6,size,1);matrix.updateMatrix();
+      matrix.scale.set(size*(1.1+.29*rng()),size*(.71+.32*rng()),1);matrix.updateMatrix();
       plants.setMatrixAt(count,matrix.matrix);plants.setColorAt(count,tint);tiles.push(variant);count++;
     }
   }
