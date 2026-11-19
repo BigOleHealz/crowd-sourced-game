@@ -59,6 +59,7 @@ export function updateRival(actor, tick, dt, hp) {
   if (distance < 0.12) {
     actor.next = (actor.next + 1) % actor.route.points.length;
     actor.pauseUntil = tick + 55;
+    actor.state.vx=actor.state.vz=0;
     actor.moving = false;
     return;
   }

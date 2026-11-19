@@ -156,15 +156,23 @@ export function stepPlayer(state, input, dt, hp) {
   const speed = parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
-  const scale = speed * dt / Math.max(1, Math.hypot(ix, iz));
+  const scale = speed / Math.max(1, Math.hypot(ix, iz));
+  let vx=ix*scale, vz=iz*scale;
+  if(state.grounded && !parachute) {
+    const oldX=state.vx ?? 0, oldZ=state.vz ?? 0;
+    const change=Math.hypot(vx-oldX,vz-oldZ);
+    const acceleration=ix || iz ? 37 : 47;
+    const blend=Math.min(1,acceleration*dt/(change || 1));
+    vx=oldX+(vx-oldX)*blend;vz=oldZ+(vz-oldZ)*blend;
+  }
   let { x, y, z, vy = 0, grounded = false } = state;
   if (input.jump && grounded) {
     grounded = false;
     vy = JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
-  if (!blocked(x + ix * scale, y, z, hp)) x += ix * scale;
-  if (!blocked(x, y, z + iz * scale, hp)) z += iz * scale;
+  if (!blocked(x+vx*dt,y,z,hp)) x+=vx*dt; else vx=0;
+  if (!blocked(x,y,z+vz*dt,hp)) z+=vz*dt; else vz=0;
   let floor = groundHeight(x, z);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS);
   if (y >= top) floor = top;
@@ -183,7 +191,7 @@ export function stepPlayer(state, input, dt, hp) {
     }
   }
   if (y < -8 || Math.max(Math.abs(x), Math.abs(z)) > MAP.bounds) return spawn();
-  const next = { x, y, z, vy, grounded };
+  const next = { x, y, z, vx, vy, vz, grounded };
   if (parachute && !grounded) next.parachute = parachute;
   return next;
 }

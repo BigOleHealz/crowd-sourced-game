@@ -1,3 +1,4 @@
+import { newGait, advanceGait, newFoot, placeFoot } from './locomotion.js';
 import * as THREE from 'three';
 import { rangerMaterial, rangerIdentity, skinColors, heads, trouserSeat, capCrown, fieldGaiter, fieldJacket, fieldPack, fieldSleeve, fieldTrouser } from './ranger-surfaces.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
@@ -696,6 +697,8 @@ function characterLabel(root, name) {
 function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const root=new THREE.Group(), body=new THREE.Group();
   root.add(body); scene.add(root);
+  const spine=new THREE.Group(), upper=new THREE.Group();
+  spine.position.y=1.01;upper.position.y=-1.01;spine.add(upper);body.add(spine);
   const identity=rangerIdentity(id), warm=skinColors[identity];
   const coat=color(tint ?? jacketColor(id)).lerp(color(0xbab49c),.82);
   const torso=new Batch(true);
@@ -733,7 +736,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     torso.beam(0x454b3e,[side*.105,1.51,.29],[side*.151,1.55,-.094],.038);
     torso.add(trunk,0x6f7169,side*.149,1.235,.218,.034,.15,.033);
   }
-  torso.mesh(body,uniform);
+  torso.mesh(upper,uniform);
   const limbs=[];
   for(const side of [-1,1]) {
     const leg=new THREE.Group(); leg.position.set(side*.108,.975,0); body.add(leg);
@@ -741,13 +744,16 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     thigh.add(cube,0x586051,side*.099,-.17,.016,.033,.139,.103); thigh.mesh(leg,uniform);
     const knee=new THREE.Group(); knee.position.y=-.405; leg.add(knee);
     const shin=new Batch(true); shin.add(fieldGaiter,0x88917b,0,-.188,.004,.97,1,1.05);
-    shin.add(trunk,0x645743,0,-.370,.004,.096,.095,.103);
-    shin.add(round,0x584d3d,0,-.433,-.024,.097,.092,.119);
-    shin.add(round,0x5f5344,0,-.462,-.090,.103,.053,.127);
-    shin.add(round,0x373d36,0,-.507,-.065,.11,.022,.166);
-    for(let j=0;j<3;j++) shin.beam(0x95856c,[-.058,-.408-j*.008,-.115-j*.018],[.058,-.402-j*.008,-.113-j*.018],.008);
     shin.mesh(knee,uniform);
-    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); body.add(arm);
+    const ankle=new THREE.Group();ankle.position.y=-.395;knee.add(ankle);
+    const boot=new Batch(true);
+    boot.add(trunk,0x645743,0,.025,.004,.096,.095,.103);
+    boot.add(round,0x584d3d,0,-.038,-.024,.097,.092,.119);
+    boot.add(round,0x5f5344,0,-.067,-.090,.103,.053,.127);
+    boot.add(round,0x373d36,0,-.112,-.065,.11,.022,.166);
+    for(let j=0;j<3;j++) boot.beam(0x95856c,[-.058,-.013-j*.008,-.115-j*.018],[.058,-.007-j*.008,-.113-j*.018],.008);
+    boot.mesh(ankle,uniform);
+    const arm=new THREE.Group(); arm.position.set(side*.222,1.447,0); upper.add(arm);
     const sleeve=new Batch(true);
     sleeve.add(fieldSleeve,coat,0,-.014,0,1,.64,1);
     sleeve.add(cube,0xac9b75,side*.084,-.1,.006,.010,.052,.046);
@@ -759,7 +765,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
     cuff.add(round,0x5a594e,0,-.252,0,.041,.055,.043);
     cuff.add(round,warm,-side*.029,-.258,-.018,.021,.034,.022);
     cuff.mesh(forearm,uniform);
-    limbs.push({side,leg,knee,arm,forearm});
+    limbs.push({side,leg,knee,ankle,arm,forearm,foot:newFoot()});
   }
   // The mountain sun and static geometry share one cached shadow map.
   // Characters use a soft contact patch that follows their animated pose.
@@ -767,7 +773,7 @@ function hiker(scene,id,tint,material,uniform,shadowMap,name) {
   const shadow=new THREE.Mesh(new THREE.CircleGeometry(1,18).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0x27382e,map:shadowMap,transparent:true,opacity:.4,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));
   scene.add(shadow);
-  return {root,body,limbs,material,tools:makeBlasters(body,material),shadow,label:characterLabel(root,name),cycle:0,weight:0};
+  return {root,body,spine,limbs,material,gait:null,tools:makeBlasters(upper,material),shadow,label:characterLabel(root,name),cycle:0};
 }
 
 function makeParachute(root, material) {
@@ -782,10 +788,20 @@ function makeParachute(root, material) {
 }
 
 function pose(avatar,state,dt,seated=null,station=null) {
-  const active=!station && !state.dead && !!state.moving && state.grounded !== false;
-  avatar.weight=mix(avatar.weight,active ? 1:0,1-Math.exp(-dt*12));
-  avatar.cycle+=dt*(state.sprint?13:9);
-  const swing=Math.sin(avatar.cycle)*avatar.weight;
+  const onFoot=!seated && !station && !state.dead && state.grounded!==false && !state.parachute;
+  let gait=avatar.gait;
+  if(onFoot) {
+    if(!gait || Math.hypot(state.x-gait.x,state.z-gait.z)>1.8) {
+      gait=avatar.gait=newGait(state,avatar.initialized ? avatar.root.rotation.y : -state.yaw);
+      for(const limb of avatar.limbs) limb.foot.planted=false;
+    }
+    advanceGait(gait,state,Math.max(.001,dt));
+  } else gait=avatar.gait=null;
+  avatar.initialized=true;
+  const weight=gait?.weight ?? 0, run=gait?.run ?? 0;
+  const swing=gait ? Math.sin(gait.phase*TAU) : 0;
+  const roll=gait ? .046*swing*weight : 0;
+  const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
   const open = state.parachute === 'open' && !state.dead;
   if (open && !avatar.canopy) avatar.canopy = makeParachute(avatar.root,avatar.material);
@@ -802,22 +818,37 @@ function pose(avatar,state,dt,seated=null,station=null) {
   }
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
-  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  avatar.body.position.y=Math.abs(Math.cos(avatar.cycle))*.038*avatar.weight-(seated || station || airborne ? 0 : .024);
-  avatar.body.rotation.x=active ? -.075*avatar.weight : 0;
+  avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
+  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
+  avatar.spine.rotation.set(gait ? -.09*weight-.14*run+.007*breathe : 0,
+    gait ? gait.twist+swing*(.08+.10*run)*weight : 0,gait ? gait.bank-roll : 0,'YXZ');
   const bloom = state.weapon === 2;
   // Defeated hikers slump to the ground until the authoritative respawn.
   avatar.body.rotation.z = mix(avatar.body.rotation.z, state.dead ? 1.45 : 0, 1 - Math.exp(-dt * 12));
   avatar.tools[0].visible = !state.dead && !seated && !station && !bloom;
   avatar.tools[1].visible = !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
-  for(const {leg,arm,forearm,knee,side} of avatar.limbs) {
-    const ready=!station && !seated && !airborne && !state.dead;
-    const stance=ready ? (1-avatar.weight) : 0;
-    leg.position.z=side*.059*stance;
-    leg.rotation.z=side*.066*stance;
-    leg.rotation.x=station ? .08 : seated ? 1.36 : airborne ? .20*side : (.14+.058*side)*stance-side*swing*(state.sprint?.80:.59);
-    knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23*stance-Math.max(0,-side*swing)*.77;
+  for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
+    if(gait) {
+      placeFoot(gait,foot,side);
+      const c=Math.cos(gait.yaw),s=Math.sin(gait.yaw);
+      const wx=state.x+c*foot.sideOffset+s*foot.forwardOffset;
+      const wz=state.z-s*foot.sideOffset+c*foot.forwardOffset;
+      const slope=clamp(groundHeight(wx,wz)-groundHeight(state.x,state.z),-.15,.15);
+      const down=leg.position.y+gait.pelvisY-.134-foot.lift-slope;
+      const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
+      const vertical=Math.hypot(down,lateral);
+      const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
+      const hipBend=Math.acos(clamp((.405**2+distance**2-.395**2)/(.81*distance),-1,1));
+      leg.rotation.set(Math.atan2(-foot.forwardOffset,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
+      knee.rotation.x=-Math.acos(clamp((distance**2-.405**2-.395**2)/(2*.405*.395),-1,1));
+      ankle.rotation.x=foot.pitch-leg.rotation.x-knee.rotation.x;
+      ankle.rotation.z=-leg.rotation.z;
+    } else {
+      leg.rotation.set(station ? .08 : seated ? 1.36 : airborne ? .20*side : .14,0,0,'ZXY');
+      knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23;
+      ankle.rotation.set(0,0,0);
+    }
     arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
@@ -827,9 +858,13 @@ function pose(avatar,state,dt,seated=null,station=null) {
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(!seated && !state.parachute && !state.dead) {
       const kit=avatar.tools[bloom ? 1 : 0].position;
-      kit.y=1.325+.007*Math.sin(avatar.cycle*.65)-.026*avatar.weight;
-      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+(side===1 ? -.04 : .018),
-        kit.z-(side===1 ? .014 : .226),side);
+      kit.y=1.325+.005*breathe-.085*run;
+      kit.z=-.19+.045*run;
+      kit.rotation.x=-.32*run;
+      const gripZ=side===1 ? -.014 : -.226, gripY=side===1 ? -.04 : .018;
+      const sine=Math.sin(kit.rotation.x), cosine=Math.cos(kit.rotation.x);
+      gripPose(arm,forearm,kit.x+(side===1 ? .018 : -.034),kit.y+gripY*cosine-gripZ*sine,
+        kit.z+gripY*sine+gripZ*cosine,side);
     } else if(seated) {
       forearm.rotation.x=.42;
     }
