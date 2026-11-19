@@ -923,7 +923,7 @@ function makeParachute(root, material) {
 }
 
 function pose(avatar,state,dt,seated=null,station=null) {
-  const fall = state.fall;
+  const fall = state.fall, climb=state.climb;
   const onFoot=!fall && !seated && !station && !state.dead && state.grounded!==false && !state.parachute;
   let gait=avatar.gait;
   if(onFoot) {
@@ -1018,8 +1018,14 @@ function pose(avatar,state,dt,seated=null,station=null) {
     avatar.spine.rotation.x = -.13*collapse + .19*flail;
     avatar.spine.rotation.y = .12*collapse;
   }
-  avatar.tools[0].visible = !fall && !swimming && !state.dead && !seated && !station && !bloom;
-  avatar.tools[1].visible = !fall && !swimming && !state.dead && !seated && !station && bloom;
+  if(climb){
+    avatar.root.rotation.y=-climb.yaw;
+    const tuck=Math.sin(Math.PI*climb.t);
+    avatar.body.position.y-=.12*tuck;
+    avatar.spine.rotation.x=-.40*tuck;
+  }
+  avatar.tools[0].visible = !climb && !fall && !swimming && !state.dead && !seated && !station && !bloom;
+  avatar.tools[1].visible = !climb && !fall && !swimming && !state.dead && !seated && !station && bloom;
   avatar.label.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(gait) {
@@ -1051,6 +1057,16 @@ function pose(avatar,state,dt,seated=null,station=null) {
       ankle.rotation.set(.19*collapse,0,0);
       arm.rotation.set(-.18*collapse + side*.48*flail,0,side*(.88*collapse + .73*flail));
       forearm.rotation.x = (.33 + .29*side)*collapse + .65*flail;
+    } else if(climb) {
+      const reach=Math.min(1,climb.t/.23),release=1-THREE.MathUtils.smoothstep(climb.t,.76,1);
+      const lift=THREE.MathUtils.smoothstep(climb.t,.37,.75);
+      const handHeight=clamp(climb.top-state.y+.06,.83,1.93);
+      const fold=Math.sin(Math.PI*climb.t);
+      leg.rotation.set((side===1?.99:.46)*fold,0,side*.12*fold);
+      knee.rotation.x=-(side===1?1.57:1.12)*fold;
+      ankle.rotation.x=.27*fold;
+      gripPose(arm,forearm,side*.20,mix(1.42,handHeight,reach*release),
+        -.14-reach*release*(.17+.08*lift),side);
     } else if(swimming) {
       const wave=stroke+(side===1?Math.PI:0);
       leg.rotation.x=-.16+.25*Math.sin(wave);
@@ -1303,7 +1319,7 @@ export function createScene(canvas) {
     if(local.swimming || groundHeight(camera.position.x,camera.position.z)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
-    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.swimming;
+    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     const fov = sighted ? 32 : 55;

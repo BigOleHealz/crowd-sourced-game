@@ -1,3 +1,4 @@
+import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
 // Coordinates are metres. Positions refer to the player's feet, with Y up.
 // Both the authoritative server and the predicting client use this module.
@@ -183,6 +184,8 @@ export function blocked(x, y, z, hp) {
 }
 
 export function stepPlayer(state, input, dt, hp, world) {
+  const climb=state.climb || (input.jump && findLedge(state,input,hp,world));
+  if(climb) return stepClimb(state,climb,dt,hp,world);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
   const speed = state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
   const ix = Number.isFinite(input.x) ? input.x : 0;

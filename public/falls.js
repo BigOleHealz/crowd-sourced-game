@@ -8,6 +8,7 @@ export function startFall(actor, tick, impulse, cause) {
   s.vz = (s.vz || 0) + impulse.z;
   s.vy = (s.vy || 0) + impulse.y;
   s.grounded = false;
+  delete s.climb;
   delete s.parachute;
   delete s.swimming;
   const speed = Math.hypot(s.vx, s.vz);
