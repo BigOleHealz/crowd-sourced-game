@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {buildStorefrontRooms} from './storefront-rooms.js';
 
 // The low-rise shop and apartment entrance share the slab of the tower at (-17, 7).
 // All ground-level fittings stay behind its collision line, apart from flush street hardware.
@@ -10,13 +11,12 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     image.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
     return image;
   }
-  function face(map, width, height, pos, rotation, basic = false) {
-    const mat = basic ? new THREE.MeshBasicMaterial({map}) :
-      new THREE.MeshStandardMaterial({map,roughness:.9});
+  function face(map, width, height, pos, rotation) {
+    const mat = new THREE.MeshStandardMaterial({map,roughness:.9});
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width,height),mat);
     mesh.rotation.set(...rotation);
     mesh.position.set(...pos);
-    mesh.receiveShadow = !basic;
+    mesh.receiveShadow = true;
     scene.add(mesh);
     mesh.userData.impactSurface = 'solid';
     return mesh;
@@ -60,46 +60,26 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
     stone(trim,-9.98,.882,z,1.27,.15,.55);
   }
   stone(sand,-10.03,2.33,16.0,1.16,3.06,.24);
-  // The back wall sits a full metre behind the street glass for parallax at walking distance.
   const cafeMin=2.61,cafeMax=15.52,cafeMid=(cafeMin+cafeMax)/2;
-  face(texture('./avenue-cafe.webp'),cafeMax-cafeMin,2.85,[-10.56,2.36,cafeMid],[0,Math.PI/2,0],true);
-  stone(0x706659,-10.01,.86,cafeMid,1.14,.12,cafeMax-cafeMin);
-  stone(0x756954,-10.01,3.74,cafeMid,1.14,.20,cafeMax-cafeMin);
   for(const z of [2.68,5.04,7.40,9.76,12.12,14.44,15.40]) {
     metal(dark,front-.075,2.26,z,.105,2.75,.061);
     metal(0xa58e73,front-.012,2.26,z+.018,.022,2.73,.015);
   }
   for(const y of [.90,3.13,3.62]) metal(dark,front-.085,y,cafeMid,.098,.064,cafeMax-cafeMin);
-  // Window-height stools and stools' footrests sit between the glazing and the interior.
-  const round=new THREE.CylinderGeometry(1,1,1,14);
-  for(const tableZ of [4.30,6.57]) {
-    metals.add(round,0x635349,-10.02,1.22,tableZ,.033,.73,.033);
-    metals.add(round,0xb69a75,-10.02,1.60,tableZ,.281,.037,.281);
-    metals.add(round,0x625144,-10.02,.883,tableZ,.17,.033,.17);
-    for(const side of [-1,1]){
-      const z=tableZ+side*.405;
-      metals.add(round,0x9b7152,-10.04,1.31,z,.155,.048,.155);
-      for(const dx of [-.1,.1]) for(const dz of [-.085,.085])
-        metals.beam(bronze,[-10.04+dx,.879,z+dz],[-10.04+dx*.84,1.29,z+dz*.84],.024);
-      metals.beam(bronze,[-10.15,1.00,z-.082],[-9.93,1.00,z-.082],.023);
-    }
-  }
-  round.dispose();
-  // Set the cafe entry pair behind the display glazing; brass handles sit at hand height.
-  for (const z of [14.5,14.96,15.39]) metal(bronze,front-.13,2.04,z,.075,2.25,.038);
-  for (const z of [14.88,15.04]) {
+  // Closed paired doors give the café a 1.88 m opening for future interior traversal.
+  for (const z of [13.52,14.46,15.40]) metal(bronze,front-.13,2.00,z,.075,2.30,.046);
+  for (const z of [14.37,14.55]) {
     metal(0xc3a276,front-.014,1.88,z,.028,.43,.027);
     for(const y of [1.70,2.06]) metal(bronze,front-.07,y,z,.11,.027,.026);
   }
-  // A recessed vestibule with a timber-lined return distinguishes the residential entry.
-  stone(0x534338,-10.34,2.24,.15,.42,2.76,3.88);
-  for(let i=0;i<37;i++) part(masonry,i%3 ? 0x947353 : 0x806044,-10.08,2.24,-1.63+i*.096,.14,2.76,.046);
-  metal(dark,-9.90,2.29,.23,.23,2.82,1.77);
-  for(const z of [-.18,.66]) {
-    metal(0x425053,-9.765,2.25,z,.08,2.61,.777);
-    metal(0xc3ad88,-9.667,1.82,z+(z<0?.29:-.29),.055,.40,.040);
+  // A glazed residential door pair and sidelights reveal the second room.
+  for(const z of [-1.59,-.78,.17,1.12,2.10]) metal(dark,front-.10,2.21,z,.10,2.74,.056);
+  for(const y of [.87,3.04,3.56]) metal(bronze,front-.10,y,.26,.10,.044,3.74);
+  for(const z of [.084,.256]){
+    metal(0xbdab80,front-.01,1.82,z,.032,.40,.035);
+    for(const y of [1.67,1.97])metal(bronze,front-.055,y,z,.085,.024,.025);
   }
-  stone(trim,-9.92,.827,.19,1.21,.054,3.84);
+  stone(trim,-9.84,.816,.25,.68,.023,3.69);
   const glass = new THREE.ShaderMaterial({
     uniforms:{skyline:{value:skyline}},
     transparent:true,depthWrite:false,
@@ -109,17 +89,17 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
       vec2 uv=vec2(atan(r.x,-r.z)*.46+.17,clamp((asin(clamp(r.y,-1.,1.))+.16)/.69,0.,1.));
       vec3 reflection=texture2D(skyline,uv).rgb*vec3(.68,.82,.81);
       float grazing=1.-abs(view.x);
-      gl_FragColor=vec4(reflection,min(.46,.11+.45*grazing*grazing));
+      gl_FragColor=vec4(reflection,min(.32,.055+.35*grazing*grazing));
       #include <colorspace_fragment>
     }`
   });
   const glazing=new THREE.Mesh(new THREE.PlaneGeometry(cafeMax-cafeMin,2.62),glass);
   glazing.rotation.y=Math.PI/2;glazing.position.set(front-.14,2.26,cafeMid);
   scene.add(glazing);
-  for(const z of [-.18,.66]) {
-    const entryPane=new THREE.Mesh(new THREE.PlaneGeometry(.745,2.52),glass);
-    entryPane.rotation.y=Math.PI/2;entryPane.position.set(-9.72,2.25,z);scene.add(entryPane);
-  }
+  const entryPane=new THREE.Mesh(new THREE.PlaneGeometry(3.72,2.64),glass);
+  entryPane.rotation.y=Math.PI/2;entryPane.position.set(front-.14,2.22,.25);
+  scene.add(entryPane);
+  buildStorefrontRooms(scene,Batch,texture,stone);
   function fascia(title,subtitle,width,height,x,y,z,background,letter) {
     const sheet=document.createElement('canvas');sheet.width=768;sheet.height=128;
     const ctx=sheet.getContext('2d');ctx.fillStyle=background;ctx.fillRect(0,0,768,128);
