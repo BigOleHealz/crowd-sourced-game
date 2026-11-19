@@ -173,7 +173,7 @@ export function createRoverView(scene, Batch, material, shadowMap) {
     const front=groundHeight(r.x+sn*.84,r.z-cs*.84), back=groundHeight(r.x-sn*.84,r.z+cs*.84);
     const right=groundHeight(r.x+cs*.68,r.z+sn*.68), left=groundHeight(r.x-cs*.68,r.z-sn*.68);
     root.position.set(r.x,r.y,r.z);
-    root.rotation.set(Math.atan2(front-back,1.68),-r.yaw,Math.atan2(right-left,1.36),'YXZ');
+    root.rotation.set(Math.atan2(front-back,1.68),-r.yaw,Math.atan2(right-left,1.36)+(r.wrecked ? -.22 : 0),'YXZ');
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
     for(const wheel of wheels) wheel.rotation.x-=r.speed*dt/.36;
     for(let i=0;i<cargo.length;i++) cargo[i].visible=i<(r.cargo||0);

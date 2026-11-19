@@ -1,3 +1,4 @@
+import { ROVER_PAD } from './rover.js';
 import { HELIPAD } from './world.js';
 
 export const DEPOT = { x: -3, z: 23 };
@@ -18,7 +19,7 @@ export function replaySupplyRun(world) {
 export function updateSupplyRun(world, dt) {
   const { mission, rover, heli } = world;
   if (!rover) return;
-  const stopped = Math.abs(rover.speed) < 0.65;
+  const stopped = !rover.wrecked && Math.abs(rover.speed) < 0.65;
   const aircraftReady = heli.grounded && !heli.wrecked;
   let ready = false;
   let next;
@@ -40,7 +41,7 @@ export function updateSupplyRun(world, dt) {
     if (next === 'complete') mission.delivered++;
   }
   // Cargo belongs to the expedition and is reissued on vehicle recovery.
-  rover.cargo = mission.stage === 'transfer' ? 3 : 0;
+  rover.cargo = mission.stage === 'transfer' && !rover.wrecked ? 3 : 0;
   heli.cargo = mission.stage === 'delivery' && !heli.wrecked ? 3 : 0;
 }
 
@@ -54,6 +55,7 @@ export function supplyGuidance(world, local, id) {
     near(local, rover, 2.6) ? 'Press E to drive the rover.' : 'Reach the rover and press E to drive.', rover);
   const returnHeli = () => guide('Trailhead helipad', 'Fly back and land on the H.', HELIPAD);
   if (mission.stage === 'complete') return guide('Delivery complete', 'Three cases delivered. Press R for another run.', null);
+  if (rover.wrecked && (mission.stage === 'pickup' || mission.stage === 'transfer')) return guide('Trail rover','Replacement rover returning to the trailhead.',ROVER_PAD);
   if (mission.stage === 'pickup') {
     if (flying) return home ? guide('Trail rover', 'Press E to exit, then board the rover.', rover) : returnHeli();
     if (!driving && !home && heli.grounded && !heli.wrecked && heli.pilot == null && near(local, heli, 3.8))

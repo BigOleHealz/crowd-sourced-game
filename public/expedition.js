@@ -1,6 +1,6 @@
 // The server owns this transient expedition state. It survives individual joins.
 import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
-import { parkedRover } from './rover.js';
+import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
@@ -42,6 +42,14 @@ export function tracePulse(world, actors, from, direction, range, assist = true)
     if (!world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
       target = world.heli; hitKind = 'heli'; break;
     }
+    const r=world.rover;
+    if (r && !r.wrecked && Math.abs(to.y-r.y-.79)<=.79+halo) {
+      const dx=to.x-r.x, dz=to.z-r.z;
+      const side=dx*Math.cos(r.yaw)+dz*Math.sin(r.yaw), along=dx*Math.sin(r.yaw)-dz*Math.cos(r.yaw);
+      if (Math.abs(side)<=.79+halo && Math.abs(along)<=1.52+halo) {
+        target=r; hitKind='rover'; break;
+      }
+    }
     target = actors.find(actor => insideBody(to, actor.state, 0.39, 1.72, halo));
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
   }
@@ -49,7 +57,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true)
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id) return;
+  if (player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
   const bloom = player.weapon === 2;
   player.fireReady = tick + (bloom ? 21 : 6);
   const { x, y, z } = player.state;
@@ -59,7 +67,7 @@ export function fire(world, player, input, tick, players, npcs) {
   const dy = Math.sin(input.aimPitch);
   const dz = -Math.cos(input.aimYaw) * horizontal;
   const actors = [...players.values(), ...npcs].filter(actor =>
-    actor !== player && actor.id !== world.heli.pilot && actor.life.hp > 0);
+    actor !== player && actor.id !== world.heli.pilot && actor.id !== world.rover?.driver && actor.life.hp > 0);
   const { target, hitKind, to } = tracePulse(world, actors, from, {x:dx, y:dy, z:dz}, bloom ? 18 : 27);
   if (hitKind) {
     // Center a crystal burst on the formation so the visible cluster clears together.
@@ -74,10 +82,13 @@ export function fire(world, player, input, tick, players, npcs) {
         damageActor(actor, bloom ? 40 : 25, tick);
       }
     }
+    if (hitKind === 'rover' || (bloom && world.rover && withinBurst(center,world.rover,.8))) {
+      damageRover(world,bloom ? 40 : 25,players);
+    }
     if (hitKind === 'heli' || (bloom && withinBurst(center, world.heli, 1))) {
       damageHelicopter(world, bloom ? 40 : 25, players, player.id);
     }
   }
   world.shots.push({ id: nextShotId++, shooter: player.id, weapon: player.weapon, from, to,
-    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' ? 'heli' : target?.id ?? null, tick });
+    hit: Boolean(hitKind), hitKind, targetId: hitKind === 'heli' || hitKind === 'rover' ? hitKind : target?.id ?? null, tick });
 }

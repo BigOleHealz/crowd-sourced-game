@@ -12,3 +12,5 @@ Press **R** after completion to start another run. Fly the helicopter back to th
 ### Helicopter bailout
 
 Press **E** in flight to jump out. You start in free fall. Release the climb key if held, then press **Space** to open the parachute. Steer with **WASD** or the **arrow keys**. A deployed chute gives you a safe landing. A hard landing with the chute packed can cost health or trigger a respawn. The empty helicopter carries its momentum, banks and loses height until impact. The wreck stays in the world for six seconds before a replacement returns to the trailhead pad.
+
+Hikers and trail rivals have 100 HP, forestry rovers have 250 HP, and helicopters have 500 HP. Blasters damage people, vehicles and crystal outcrops. Trees stay intact. A wrecked rover releases its driver and respawns at the trailhead after six seconds.
