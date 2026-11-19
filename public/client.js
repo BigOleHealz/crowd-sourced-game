@@ -20,6 +20,12 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let roverView = null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
+const canAim = () => self && !vitals.dead && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+function showSight(active) {
+  camera.sighted = active;
+  byId('weapon-sight').hidden = !active;
+  canvas.classList.toggle('sighted', active);
+}
 let windowBlurred = false;
 let edgeYaw = 0, edgePitch = 0;
 const footer = document.querySelector('footer');
@@ -53,6 +59,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
+  showSight(false);
   held.clear();
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
@@ -83,18 +90,34 @@ window.addEventListener('keyup', e => held.delete(e.code));
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
 document.addEventListener('visibilitychange', pauseControls);
-function releasePointer() { stopLook(); mouseFire = false; }
+function releasePointer() { stopLook(); mouseFire = false; showSight(false); }
 canvas.addEventListener('pointerleave', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
-canvas.addEventListener('pointerdown', e => {
-  if (e.button !== 0 || e.pointerType === 'touch' || !byId('guide').hidden) return;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+function pressButton(e) {
+  if (!byId('guide').hidden || (e.button !== 0 && e.button !== 2)) return;
+  if (e.button === 2) {
+    if (canAim()) {
+      canvas.focus({ preventScroll: true });
+      showSight(true);
+      pressedAim = null;
+    }
+    return;
+  }
   canvas.focus({ preventScroll: true });
   lastPointer = {x: e.clientX, y: e.clientY};
   if (self && !isDriving() && !isPilot() && !vitals.dead)
-    pressedAim = scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 18 : 27,gunnerRole());
+    pressedAim = camera.sighted ? {yaw: camera.yaw, pitch: camera.pitch} : scene.aimAt(lastPointer,self,id,gunnerRole() ? turretRange : weapon===2 ? 18 : 27,gunnerRole());
   mouseFire = queuedFire = true;
+}
+// Mouse events report each button in a chord (pointerdown only reports the first).
+let pointerType;
+canvas.addEventListener('pointerdown', e => { pointerType = e.pointerType; });
+canvas.addEventListener('mousedown', e => { if (pointerType !== 'touch') pressButton(e); });
+window.addEventListener('mouseup', e => {
+  if (e.button === 0) mouseFire = false;
+  if (e.button === 2) showSight(false);
 });
-window.addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; });
 
 // An unlocked cursor stops sending deltas at the window boundary. Continue
 // turning gently in the outer band until the cursor moves inward or exits.
@@ -153,6 +176,7 @@ function connect() {
       const gunner=gunnerRole();
       if(gunner && gunner!==wasGunner) {camera.yaw=world[gunner].turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
+      if (camera.sighted && (!canAim() || authoritative.parachute)) showSight(false);
       const corrected = isPilot() || isDriving() || gunner || vitals.dead ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp), authoritative);
       // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
@@ -197,7 +221,7 @@ function tick() {
   const fire = !vitals.dead && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner) &&
-    (pressedAim || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
+    (pressedAim || (camera.sighted ? camera : null) || scene.aimAt(lastPointer,self,id,gunner ? turretRange : weapon===2 ? 18 : 27,gunner))) || camera;
   pressedAim = null;
   if (fire) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);

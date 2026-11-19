@@ -1076,6 +1076,17 @@ export function createScene(canvas) {
     camera.position.copy(target).addScaledVector(boom,distance);
     camera.lookAt(target);
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && distance>.86;
+    const sighted = onFoot && view.sighted && !local.dead;
+    const fov = sighted ? 32 : 55;
+    if (camera.fov !== fov) {
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+    if (sighted) {
+      camera.position.set(local.x, local.y + 1.3, local.z);
+      camera.lookAt(desired.copy(camera.position).sub(boom));
+      avatars.get(local.id).root.visible = false;
+    }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);
   }
