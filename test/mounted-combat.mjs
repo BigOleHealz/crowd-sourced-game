@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {newExpedition, fire, fireTurret, advanceRounds, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
 import {mountPosition,mounts} from '../public/mounts.js';
+import {CITY} from '../public/world.js';
 import {newLife} from '../public/rivals.js';
 
 for(const kind of ['rover','heli']){
@@ -18,11 +19,14 @@ for(const kind of ['rover','heli']){
   for(let tick=4;tick<60;tick++) {
     fireTurret(world,kind,crew,tick,players,[target]);
     advanceRounds(world,players,[target],tick);
-    if(tick===11)assert.equal(target.life.hp,48);
+    if(tick===(CITY && kind==='rover' ? 6 : 11))assert.equal(target.life.hp,48);
   }
   assert.equal(target.life.hp,0);
   assert.ok(world.shots.some(s=>s.weapon==='turret' && s.headshot));
-  assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.tick),[0,8,15,23,30,38,45,53]);
+  const schedule=CITY && kind==='rover'
+    ? [0,...Array.from({length:19},(_,i)=>4+i*3)]
+    : [0,8,15,23,30,38,45,53];
+  assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.tick),schedule);
   assert.equal(v.hp,v.maxHp);
   launchMissile(world,kind,{id:2},60);assert.equal(world.missiles.length,0);
   launchMissile(world,kind,{id:1},60);
@@ -66,4 +70,4 @@ const nearby={id:3,state:{x:1.3,y:15,z:-8},life:newLife(0,false)};players.set(3,
 fire(world,shooter,{aimYaw:0,aimPitch:pitch},30,players,[]);
 for(let tick=30;tick<40;tick++)advanceRounds(world,players,[],tick);
 assert.equal(target.life.hp,0);assert.equal(nearby.life.hp,100,'sidearm never damages a bystander');
-console.log('PASS: both forward missiles, independent turret direction, four shots per second, direct headshots and single-target sidearm impacts.');
+console.log('PASS: both forward missiles, independent turret direction, map-specific turret cadence, direct headshots and single-target sidearm impacts.');

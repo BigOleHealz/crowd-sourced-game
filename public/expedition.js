@@ -1,6 +1,6 @@
 import { firearmSpecs, roundDrop, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
-import { BREAKABLES, groundHeight, solidTopAt } from './world.js';
+import { CITY, BREAKABLES, groundHeight, solidTopAt } from './world.js';
 import { parkedRover, damageRover } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -165,8 +165,8 @@ const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=world[kind], ready=nextBullet.get(v) ?? tick;
   if(player.life.hp<=0 || v.gunner!==player.id || v.wrecked || tick<ready) return;
-  // The 30 Hz simulation alternates eight and seven ticks between bullets.
-  nextBullet.set(v,(tick-ready<1 ? ready : tick)+7.5);
+  const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
+  nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   sendRound(world,player.id,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
