@@ -3,7 +3,7 @@ process.env.PINEWATCH_MAP='brickell';
 const {harbor,cityGround}=await import('../public/brickell-map.js');
 const {beach}=await import('../public/beach-layout.js');
 const {ferrySlip,slipHeight,onLantern,lanternLocation}=await import('../public/lantern-point.js');
-const {lanternBuildings}=await import('../public/lantern-buildings-layout.js');
+const {lanternBuildings,berthing}=await import('../public/lantern-buildings-layout.js');
 const {MAP,groundHeight,blocked,stepPlayer}=await import('../public/world.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {driveRover}=await import('../public/rover.js');
@@ -28,6 +28,30 @@ for(const b of lanternBuildings){
   assert(blocked(b.x,.8,b.z,world.hp));
   for(const dx of [-b.w/2,b.w/2])for(const dz of [-b.d/2,b.d/2])assert(onLantern(b.x+dx,b.z+dz));
 }
+// Both pool terraces, the club loggia and Solana's shore landing are pedestrian destinations.
+function pedestrianRoute(waypoints){
+  let [x,z]=waypoints[0];
+  let p={x,z,y:groundHeight(x,z),grounded:true};
+  for(const [tx,tz] of waypoints.slice(1)){
+    const length=Math.hypot(tx-p.x,tz-p.z);
+    for(let step=0;step<length*11+40 && Math.hypot(tx-p.x,tz-p.z)>.19;step++){
+      const dx=tx-p.x,dz=tz-p.z,remain=Math.hypot(dx,dz);
+      p=stepPlayer(p,{x:dx/remain,z:dz/remain},dt,world.hp,world);
+      assert(!p.swimming);
+    }
+    assert(Math.hypot(tx-p.x,tz-p.z)<.30,'pedestrian route stopped at '+[p.x,p.z]+' en route to '+[tx,tz]);
+  }
+}
+const gangway=berthing.gangway;
+pedestrianRoute([[2,-370],[64.8,-370],[64.8,gangway.z],[gangway.x,gangway.z],[67.5,gangway.z],[59,gangway.z],[49,-374.5]]);
+pedestrianRoute([[-25,-370],[-25,-382.5],[-31.6,-382.5],[-31.6,-398.5]]);
+pedestrianRoute([[25,-419],[25,-425.2],[15.2,-425.2],[15.2,-435.3],[34,-435.3]]);
+pedestrianRoute([[25,-378],[25,-381.2],[21.7,-381.2],[21.7,-388],[30,-388]]);
+for(const x of [69.25,75.4,81.5])for(let z=-384;z<=-321;z+=1){
+  assert(groundHeight(x,z)<-1.39,'Solana castoff water depth');
+  assert(!blocked(x,-.14,z,world.hp),'unobstructed freeboard');
+}
+for(const z of [-389,-388,-387,-386])assert(groundHeight(75.4,z)<-1.39,'stern ladder swim approach');
 const car=world.rover;
 Object.assign(car,{x:2.4,z:-254,y:.7,yaw:0,driver:1});
 function drive(x,z){
@@ -56,7 +80,7 @@ assert.equal(ferry.hp,300);
 interactBoat(world,ferry,skipper);
 assert(skipper.state.grounded && skipper.state.y===.58,'step straight from the RHIB to the floating finger');
 for(let i=0;i<100 && skipper.state.x< -56;i++)skipper.state=stepPlayer(skipper.state,{x:1},dt,world.hp,world);
-assert(skipper.state.x>-57 && skipper.state.grounded && skipper.state.y===.8,'walk up from the pier to the market quay');
+assert(skipper.state.x>-57 && skipper.state.grounded && skipper.state.y===.8,'walk up from the pier to the marina quay');
 let wader={x:ferrySlip.east+1,z:-400,y:MAP.waterY-.72,swimming:true};
 for(let i=0;i<160;i++)wader=stepPlayer(wader,{x:-1},dt,world.hp,world);
 assert(wader.x<ferrySlip.west && wader.grounded && !wader.swimming);
@@ -65,4 +89,4 @@ assert.equal(lanternLocation(0,-316),'Lantern Bridge');
 assert.equal(lanternLocation(-26,-390),'Lantern Point');
 assert.equal(lanternLocation(80,-416),'Biscayne Bay');
 console.log('PASS Lantern Point dry/standable square metres',JSON.stringify({harborKey:old,lanternPoint:added}),
-  'two bridge levels, market buildings, connected street circuit, shore ramp');
+  'estate terraces, club loggia, Solana gangway and castoff, two bridge levels, connected streets, shore ramp');

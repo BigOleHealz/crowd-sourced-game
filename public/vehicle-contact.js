@@ -1,3 +1,4 @@
+import {yachtTopAt} from './yacht-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
 // The helicopter includes the 1.23 airframe model scale. Separating its cabin,
 // boom and landing gear leaves the sidewalk open underneath the elevated tail.
@@ -17,6 +18,8 @@ const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 export function vehicleContact(x,y,z,world,city,height=1.8) {
   const result={dx:0,dz:0,depth:0,floor:-Infinity,ceiling:Infinity};
   if(!world) return result;
+  const yachtTop=yachtTopAt(world.yacht,x,z);
+  if(y>=yachtTop-.31)result.floor=yachtTop;
   const boats=world.boats??[];
   for(let index=0;index<2+boats.length;index++) {
     const kind=index===0?'heli':index===1?'rover':'boat';

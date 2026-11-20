@@ -179,9 +179,15 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
+  function yachtEngine(listener,yaw,yacht){
+    const active=yacht?.driver!=null && !yacht.wrecked;
+    const speed=Math.abs(yacht?.speed??0);
+    motor('outboard',yacht,active,.57+speed*.034,.26,listener,yaw,'yacht-diesels');
+    motor('wake',yacht,active && speed>.4,.72+speed*.035,Math.min(.24,speed*.042),listener,yaw,'yacht-wake');
+  }
   function toggleMute() {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,toggleMute};
+  return {unlock,reset,events,engines,yachtEngine,toggleMute};
 }

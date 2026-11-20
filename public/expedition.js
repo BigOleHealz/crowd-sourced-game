@@ -1,3 +1,5 @@
+import {mooredYacht,damageYacht} from './superyacht.js';
+import {yachtTopAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
 import {damageLamp} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
@@ -30,7 +32,7 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
 
 export function newExpedition() {
   return {
-    ...(CITY ? {doors:newStorefrontDoors()} : {}),
+    ...(CITY ? {doors:newStorefrontDoors(),yacht:mooredYacht()} : {}),
     heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
@@ -120,6 +122,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
+    if(world.yacht && to.y>=world.yacht.y-1.25 && to.y<=yachtTopAt(world.yacht,to.x,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
@@ -152,7 +155,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.state.swimming || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
+  if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || world.rover?.driver === player.id) return;
   const spec=firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
@@ -198,6 +201,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
+    if(hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage);
     for(const b of world.boats??[]){
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }

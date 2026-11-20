@@ -1,3 +1,4 @@
+import {interactYacht,stepYacht} from './public/superyacht.js';
 import {stepFurniture} from './public/shop-furniture.js';
 import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
@@ -201,6 +202,7 @@ sockets.on('connection', ws => {
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if(world.yacht?.driver===id){world.yacht.driver=null;world.yacht.throttle=0;}
     if(!players.size)departedScores.clear();
     else if(player.score.kills || player.score.deaths || world.bullets.some(r=>r.shooter===id) || world.missiles.some(m=>m.shooter===id)){
       departedScores.set(player.scoreKey,player.score);
@@ -209,6 +211,7 @@ sockets.on('connection', ws => {
       world = newExpedition();
       npcs = newRivals();
     }
+    else if(world.heli.onYacht && world.heli.grounded && world.heli.pilot===id)world.heli.pilot=null;
     else if (world.heli.pilot === id) {
       const gunner=players.get(world.heli.gunner);
       if (gunner) interact(world,gunner);
@@ -244,6 +247,7 @@ function tick() {
   }
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
+  let yachtInput;
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   if (players.size) {
@@ -255,6 +259,7 @@ function tick() {
     if (input) player.ack = input.seq;
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
+      if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
       const role=gunnerVehicle(world,player.id);
       if(role) vehicleById(world,role).gunner=null;
       const boat=crewBoat(world,player.id);
@@ -279,9 +284,12 @@ function tick() {
         if(boat)interactBoat(world,boat,player);
         else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
-        else if (nearBoat(world,player.state)) interactBoat(world,nearBoat(world,player.state),player);
-        else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
-        else interact(world, player);
+        else if(!interactYacht(world,player)){
+          const nearby=nearBoat(world,player.state);
+          if(nearby)interactBoat(world,nearby,player);
+          else if(nearestVehicle(world,player.state)==='rover')interactRover(world,player);
+          else interact(world,player);
+        }
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
     if (world.rover.driver === player.id) {
@@ -309,6 +317,7 @@ function tick() {
       player.sprint = false;
       continue;
     }
+    if(world.yacht?.driver===player.id){yachtInput=input;continue;}
     const boat=crewBoat(world,player.id);
     if(boat?.driver===player.id){boatInputs.set(boat.id,input);continue;}
     const kind=gunnerVehicle(world,player.id);
@@ -341,6 +350,7 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  stepYacht(world,yachtInput,step,players);
   stepSuspension(world.rover,step);
   for(const b of world.boats){
     stepBoat(world,b,boatInputs.get(b.id),step,players);
@@ -361,6 +371,7 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
+  if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
