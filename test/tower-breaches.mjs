@@ -18,5 +18,7 @@ for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
   assert.equal(w.doors.towerBreaches.length,2,'next bay takes the second hit');
   const neighbor=tracePulse(w,[],{...from,y:10},dir,b.w,false,'rover');
   assert(neighbor.blocked || neighbor.hitKind==='glass','next band intact');
+  from.y=2;shoot(3);
+  assert.equal(w.doors.towerBreaches.length,3,'street-level truck missile opens the podium');
 }
 console.log('PASS localized first and second missile impacts on all Brickell towers and replicated collision');

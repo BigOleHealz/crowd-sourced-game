@@ -1,4 +1,4 @@
-import {breachedFloor} from './tower-damage.js';
+import {breachedFloor,inTowerBreach} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
@@ -148,6 +148,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
     if(postDown(doors,b) || (b.paneId && doors?.brokenPanes?.[b.paneId]) || doors?.brokenSills?.[b.sillPaneId])continue;
     const base=terrainHeight(b.x,b.z);
+    if(inTowerBreach(MAP.buildings,doors,x,Math.min(base+b.h,maxBottom),z))continue;
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
   return top;
