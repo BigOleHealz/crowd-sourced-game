@@ -577,7 +577,7 @@ function updateEquipment(local) {
   if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
-  else if(jetPilot())prompt.textContent='Mouse to steer and climb · Center to level · W/S throttle · F / click cannon · R missile · E exit';
+  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · Center to hold pitch · W/S throttle · F / click cannon · R missile · E exit';
   else if(!pilot && !isDriving() && !gunner && nearJet(world.jet,local))prompt.textContent='E · Pilot strike jet';
   else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
   else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';
@@ -717,7 +717,7 @@ function frame(time) {
     if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
-    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch*.72-.10} : isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
+    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);

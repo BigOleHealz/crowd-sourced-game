@@ -43,16 +43,18 @@ export function stepJet(world,input,dt,players){
   const response=1-Math.exp(-5*dt);
   j.roll+=((j.grounded?0:-.60*steer)-j.roll)*response;
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;
-  const climb=j.grounded?0:j.pilot==null?-6:lift*9;
-  j.pitch+=(Math.atan2(climb,Math.max(8,j.speed))-j.pitch)*response;
-  const x=clamp(j.x+Math.sin(j.yaw)*j.speed*dt,flightBounds.west,flightBounds.east);
-  const z=clamp(j.z-Math.cos(j.yaw)*j.speed*dt,flightBounds.north,flightBounds.south);
+  // Pitch is continuous across the top of a loop, including during snapshot interpolation.
+  if(j.pilot!=null && !j.grounded)j.pitch+=lift*1.6*dt;
+  const horizontal=j.speed*Math.cos(j.pitch);
+  const climb=j.grounded?0:j.pilot==null?-6:j.speed*Math.sin(j.pitch);
+  const x=clamp(j.x+Math.sin(j.yaw)*horizontal*dt,flightBounds.west,flightBounds.east);
+  const z=clamp(j.z-Math.cos(j.yaw)*horizontal*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);
   if(floor>j.y+.65){damageJet(world,j.hp,players);return;}
   const y=j.grounded?floor:Math.min(flightBounds.ceiling,j.y+climb*dt);
   if(!j.grounded && y<=floor && climb<=0){
     if(j.pilot==null || floor<=MAP.waterY || j.speed>16){damageJet(world,j.hp,players);return;}
-    j.grounded=true;j.speed=0;
+    j.grounded=true;j.speed=0;j.pitch=0;
   }
   Object.assign(j,{x,y:Math.max(floor,y),z});
 }

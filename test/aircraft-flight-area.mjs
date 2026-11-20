@@ -13,7 +13,7 @@ if(!process.env.FLIGHT_AREA_TEST){
     Object.assign(v,{pilot:1,x:land.east-1,y:air.ceiling-1,z:0,yaw:Math.PI/2,grounded:false});
     const cmd={x:1,z:0,lift:1,aimYaw:Math.PI/2,throttle:1,steer:0};
     for(let i=0;i<1000;i++){
-      if(kind==='jet')stepJet(w,cmd,dt,crew);else fly(w,cmd,dt,crew);
+      if(kind==='jet')stepJet(w,{...cmd,jetPitch:i<12?1:0},dt,crew);else fly(w,cmd,dt,crew);
     }
     assert.equal(v.y,air.ceiling);assert.equal(v.x,air.east);assert(v.hp>0);
     assert(v.y>Math.max(...MAP.buildings.map(b=>b.base+b.eave+b.rise)));
