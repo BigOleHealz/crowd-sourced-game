@@ -44,12 +44,16 @@ export function jetView(scene,Batch){
     wing(edge,[[1.37,.70],[2.77,.84],[2.75,1.10],[1.40,.94]],.981,.013);
     wing(steel,[[.39,1.44],[.68,1.48],[1.68,2.31],[1.63,2.55],[.44,2.18]],1,.068);
     wing(0x85929a,[[.38,-1.88],[.65,-1.31],[1.12,-.53],[.46,-.67]],1.07,.07);
+    // Thin access panels, flap seams and subdued wing markings break up the skin.
+    wing(0x677982,[[.78,-.86],[.89,-.75],[1.69,.15],[1.48,.08]],.979,.006);
+    wing(0x657580,[[1.57,.20],[1.74,.27],[1.95,.45],[1.64,.42]],.979,.006);
+    wing(0xb9c0bb,[[2.33,.52],[2.46,.57],[2.48,.65],[2.35,.60]],.979,.009);
     body.add(pod,steel,side*.44,0,0);
     body.add(round,0x1c262b,side*.45,.84,-1.41,.22,.185,.032);
     const fin=plate([[0,1.25],[.20,1.26],[1.19,2.03],[1.13,2.43],[.07,2.24]],.064,true);
-    body.add(fin,steel,.52*side,1.08,0,0,0,-side*.33);
+    body.add(fin,steel,.52*side,1.08,0,1,1,1,0,0,-side*.33);
     const finTip=plate([[.96,1.87],[1.19,2.03],[1.15,2.34],[.98,2.24]],.070,true);
-    body.add(finTip,edge,.52*side,1.08,0,0,0,-side*.33);
+    body.add(finTip,edge,.52*side,1.08,0,1,1,1,0,0,-side*.33);
     for(let k=0;k<3;k++)body.add(nozzle,[edge,0x494a4a,0x343639][k],side*.44,.96,2.39+k*.108,.30-k*.018,.12,.30-k*.018,Math.PI/2);
     body.add(round,0x171b1e,side*.44,.96,2.676,.228,.228,.026);
     for(let k=0;k<12;k++){
