@@ -1,3 +1,4 @@
+import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {lampDown} from './street-lamps.js';
 import {wheelStations} from './road-wheel-layout.js';
@@ -75,6 +76,13 @@ export function roverRoundContact(rover,start,delta){
   }
   return t===Infinity ? null : {t,wheel};
 }
+export function supercarRoundContact(car,from,delta){
+  if(!car || car.wrecked)return Infinity;
+  const body=box(from,delta,{x:car.x,y:car.y+.08,z:car.z},supercarLayout.halfWidth*2,.65,
+    supercarLayout.halfLength*2,car.yaw);
+  const roof=box(from,delta,{x:car.x,y:car.y+.73,z:car.z},1.43,supercarLayout.roof-.73,1.83,car.yaw);
+  return Math.min(body,roof);
+}
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
@@ -133,6 +141,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=roverRoundContact(world.rover,round,d);
     if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
+  accept(supercarRoundContact(world.supercar,round,d),world.supercar,'supercar');
   const heli=world.heli;
   if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {

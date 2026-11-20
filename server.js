@@ -17,7 +17,7 @@ import { CITY, spawn, stepPlayer } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
-import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover } from './public/rover.js';
+import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
@@ -217,6 +217,8 @@ sockets.on('connection', ws => {
       const gunner=players.get(world.rover.gunner);
       if(gunner) interactRover(world,gunner);
       world.rover={...parkedRover(),hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,cargo:world.rover.cargo};
+    } else if (world.supercar?.driver===id) {
+      interactRover(world,player,'supercar');
     } else {
       const boat=crewBoat(world,id);
       if(boat?.driver===id){boat.driver=null;boat.throttle=0;}
@@ -235,7 +237,7 @@ function tick() {
   if(CITY && players.size) {
     const pedestrians=[];
     for(const p of players.values()) {
-      if(p.life.hp && p.id!==world.rover.driver && p.id!==world.heli.pilot && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
+      if(p.life.hp && !drivenRoad(world,p.id) && p.id!==world.heli.pilot && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
     }
     stepStorefrontDoors(world.doors,pedestrians,step);
     stepRetailDoors(world.doors,pedestrians,step);
@@ -246,6 +248,7 @@ function tick() {
   const firingGunners=new Set(), boatInputs=new Map();
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
+  recoverRover(world,step,'supercar');
   if (players.size) {
     for (const npc of npcs) updateRival(npc, ticks, step, world.hp, world);
   }
@@ -260,6 +263,7 @@ function tick() {
       const boat=crewBoat(world,player.id);
       if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
+      if (world.supercar?.driver===player.id) interactRover(world,player,'supercar');
       if (respawnDue(player, ticks)) {
         player.state = spawn(player.id - 1);
         player.life = newLife(ticks);
@@ -278,19 +282,31 @@ function tick() {
         const boat=crewBoat(world,player.id);
         if(boat)interactBoat(world,boat,player);
         else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
+        else if (world.supercar?.driver===player.id) {
+          player.supercarInput=null;interactRover(world,player,'supercar');
+        }
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
-        else if (nearBoat(world,player.state)) interactBoat(world,nearBoat(world,player.state),player);
-        else if (nearestVehicle(world, player.state) === 'rover') interactRover(world, player);
-        else interact(world, player);
+        else {
+          const nearbyBoat=nearBoat(world,player.state),nearby=nearestVehicle(world,player.state);
+          if(nearbyBoat)interactBoat(world,nearbyBoat,player);
+          else if(nearby==='rover' || nearby==='supercar')interactRover(world,player,nearby);
+          else interact(world,player);
+        }
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
-    if (world.rover.driver === player.id) {
-      const before={...world.rover};
-      driveRover(world, input || idle, step, players);
-      vehicleContacts(world,'rover',before,[...players.values(),...npcs],ticks,step);
-      if (world.rover.driver !== player.id) continue;
-      if (input?.fire) launchMissile(world,'rover',player,ticks);
-      const { x,y,z,yaw } = world.rover;
+    const road=drivenRoad(world,player.id);
+    if (road) {
+      const kind=road.kind??'rover',before={...road};
+      let roadInput=input||idle;
+      if(kind==='supercar'){
+        if(input)player.supercarInput={input,car:road,until:ticks+3};
+        else if(player.supercarInput?.car===road && ticks<player.supercarInput.until)roadInput=player.supercarInput.input;
+      }
+      driveRover(world,roadInput,step,players,kind);
+      vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
+      if(road.driver!==player.id)continue;
+      if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
+      const {x,y,z,yaw}=road;
       player.state = { x,y,z,vy:0,grounded:true };
       player.yaw = yaw;
       player.moving = player.sprint = false;
@@ -363,6 +379,7 @@ function tick() {
   updateSupplyRun(world, step);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
+  if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();
 }

@@ -1,3 +1,4 @@
+import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {breakFrontage} from './frontage-glass.js';
 import {damageLamp,lampHP} from './street-lamps.js';
@@ -23,31 +24,48 @@ export function parkedRover() {
   return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
 }
 
+export function parkedSupercar(){
+  const {pad,maxHp}=supercarLayout;
+  return {...pad,kind:'supercar',y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
+    exhaust:0,steer:0,hp:maxHp,maxHp,bodyDamage:{front:0,rear:0,left:0,right:0},wrecked:false,recoverySeconds:0};
+}
+
+export function drivenRoad(world,id){
+  if(id==null)return null;
+  if(world?.rover?.driver===id)return world.rover;
+  return world?.supercar?.driver===id ? world.supercar : null;
+}
+
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
 export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
-  const {heli, rover} = world;
+  const {heli, rover, supercar} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
   const flight = (heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
   const road = (rover.driver == null || rover.gunner == null) && !rover.wrecked ? distance(rover) : Infinity;
+  const sport=supercar && supercar.driver==null && !supercar.wrecked ? distance(supercar) : Infinity;
+  if(sport<=2.9 && sport<Math.min(road<=ROVER_BOARD_RANGE?road:Infinity,flight<=BOARD_RANGE?flight:Infinity))return 'supercar';
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
   return flight <= BOARD_RANGE ? 'heli' : null;
 }
 
-export function interactRover(world, player) {
-  const r = world.rover;
+export function interactRover(world, player,kind='rover') {
+  const r = world[kind];
+  if(!r)return;
+  const sport=kind==='supercar';
   if (r.gunner === player.id) r.gunner=null;
-  else if (r.driver === player.id) {r.driver=null;stopRover(r);}
+  else if (r.driver === player.id) {r.driver=null;stopRover(r);if(sport){r.exhaust=0;r.steer=0;throttleMemory.delete(r);}}
   else {
-    if (nearestVehicle(world,player.state)!=='rover') return;
+    if (nearestVehicle(world,player.state)!==kind) return;
     if (r.driver==null) r.driver=player.id;
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
   let exit = spawn(player.id-1);
   for (let i=0; i<8; i++) {
+    const radius=sport?(i%4===0?1.56:2.75):1.7;
     const angle = r.yaw + i*Math.PI/4;
-    const x = r.x + 1.7*Math.cos(angle), z = r.z + 1.7*Math.sin(angle);
+    const x = r.x + radius*Math.cos(angle), z = r.z + radius*Math.sin(angle);
     const y = groundHeight(x,z);
     if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
     if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
@@ -57,26 +75,27 @@ export function interactRover(world, player) {
   player.state = exit;
 }
 
-export function damageRover(world, amount, players) {
-  const r=world.rover;
-  if (r.wrecked || !Number.isFinite(amount) || amount<=0) return;
+export function damageRover(world, amount, players,kind='rover') {
+  const r=world[kind];
+  if (!r || r.wrecked || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
   if (r.hp>0) return;
   const driver=players?.get(r.driver);
   if (driver) {
-    interactRover(world,driver);
+    interactRover(world,driver,kind);
     driver.inputs.length=0;
   }
   const gunner=players?.get(r.gunner);
-  if (gunner) {interactRover(world,gunner);gunner.inputs.length=0;}
-  r.driver=r.gunner=null; stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+  if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
+  r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
+  stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
-export function recoverRover(world,dt) {
-  const r=world.rover;
-  if (!r.wrecked) return;
+export function recoverRover(world,dt,kind='rover') {
+  const r=world[kind];
+  if (!r?.wrecked) return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
-  if (r.recoverySeconds < .0001) world.rover=parkedRover();
+  if (r.recoverySeconds < .0001) world[kind]=kind==='supercar'?parkedSupercar():parkedRover();
 }
 
 const bumperContacts=new WeakMap();
@@ -94,33 +113,49 @@ function registerImpact(world,r,hit,speed,players){
   const panel=Math.abs(side)>Math.abs(end)?(side>0?'right':'left'):(end<0?'front':'rear');
   const excess=Math.max(0,speed-1.65);
   const damage=Math.round(.60*excess*excess+.6*excess);
-  const reach=Math.abs(side)*.82+Math.abs(end)*(CITY?1.69:1.55);
+  const sport=r.kind==='supercar';
+  const reach=Math.abs(side)*(sport?supercarLayout.halfWidth:.82)+Math.abs(end)*(sport?supercarLayout.halfLength:CITY?1.69:1.55);
   r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-hit.nx*reach,y:r.y+.55,z:r.z-hit.nz*reach,panel,damage};
   if(damage){
     r.bodyDamage??={front:0,rear:0,left:0,right:0};
     r.bodyDamage[panel]=Math.min(1,r.bodyDamage[panel]+damage/135);
-    damageRover(world,damage,players);
+    damageRover(world,damage,players,r.kind);
   }
 }
 
-export function driveRover(world, input, dt, players) {
-  const r = world.rover;
-  if (r.driver == null) return;
+const throttleMemory=new WeakMap(), upshifts=[9,17,25,30];
+function tickExhaust(car,throttle,oldSpeed,dt){
+  car.exhaust=car.exhaust>dt+.00001 ? car.exhaust-dt : 0;
+  const last=throttleMemory.get(car)??0;
+  if(throttle>0 && (last<=0 || upshifts.some(shift=>oldSpeed<shift && car.speed>=shift)))car.exhaust=.30;
+  else if(throttle<=0 && last>0 && oldSpeed>8)car.exhaust=.22;
+  throttleMemory.set(car,throttle);
+}
+
+export function driveRover(world, input, dt, players,kind='rover') {
+  const r = world[kind];
+  if (r?.driver == null) return;
+  const sport=kind==='supercar';
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const reverseLimit=CITY ? 5.4 : 2.8;
+  const reverseLimit=sport ? supercarLayout.reverseSpeed : CITY ? 5.4 : 2.8;
+  const topSpeed=sport?supercarLayout.maxSpeed:16;
   const flats=flatTireCount(r);
   const mobility=1/(1+.47*flats);
-  const target = throttle * (throttle<0 ? reverseLimit : 16)*mobility;
+  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
-  const power = throttle>0 ? 8.6 - 4.8*clamp(r.speed/16,0,1) : (CITY ? 9.0 : 7.2);
-  const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : 18;
+  const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
+  const braking=sport ? (throttle ? 30 : 12.0) : 18;
+  const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : braking;
+  const oldSpeed=r.speed;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
+  if(sport){r.steer=steer;tickExhaust(r,throttle,oldSpeed,dt);}
 
   const pace=Math.abs(r.speed);
-  const turnRate=1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
+  const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
+    1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
   const turn=steer*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
   const yaw=r.yaw+turn;
-  const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z) ? turn : 0;
+  const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
   r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
 
   // Project the previous velocity into the rotated chassis frame. Tire grip
@@ -129,7 +164,7 @@ export function driveRover(world, input, dt, players) {
   const side=(r.lateralSpeed??0)*Math.cos(rotation)-r.speed*Math.sin(rotation)*drift;
   // Retain tire slip after an oblique impact while the suspension settles.
   const contact=bumperContacts.get(r);
-  const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
+  const grip=contact?3.5:(sport?8.7:5.2)+9*(1-drift),limit=contact?16:pace*(sport?.15:.20);
   r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
