@@ -25,7 +25,9 @@ export function updateMatchHud(match,team,local){
     byId(key+'-bill').textContent=money.format(match.scores[key]);
   }
   let objective=rule.objective;
-  if(match.phase==='waiting' || match.phase==='paused'){
+  if(match.phase==='practice'){
+    objective='Solo warm-up · Move, shoot or drive. Scoring starts when an opponent joins.';
+  }else if(match.phase==='waiting' || match.phase==='paused'){
     objective=(match.phase==='paused'?'Match paused. ':'')+(rule.minTeam===1?'Waiting for an opponent.':'Waiting for '+rule.minTeam+' players on each island.');
   }else if(match.phase==='finished'){
     objective=teamNames[match.winner]+' wins. Next round in '+match.remaining+'s.';

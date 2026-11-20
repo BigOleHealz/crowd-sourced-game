@@ -31,17 +31,29 @@ try{
   const room='/world?map=brickell&mode=total-loss',group=[];
   group.push(await join(room));
   const watch=group[0];
-  assert.equal(watch.frame.world.match.phase,'waiting');
+  async function exerciseSolo(seq){
+    await until(()=>watch.frame.world.match.phase==='practice');
+    const before=watch.frame.players[0];
+    watch.ws.send(JSON.stringify({type:'input',seq,x:1,z:0,yaw:0,weapon:1,fire:true}));
+    await until(()=>watch.frame.players[0].ack===seq && watch.frame.world.shots.some(e=>e.shooter===before.id));
+    assert(watch.frame.players[0].x>before.x);
+    assert.deepEqual(watch.frame.world.match.scores,{brickell:0,lantern:0});
+  }
+  await exerciseSolo(1);
   group.push(await join(room));
   await until(()=>watch.frame.world.match.phase==='active');
   assert.deepEqual(watch.frame.world.match.counts,{brickell:1,lantern:1});
-  group.pop().ws.close();await until(()=>watch.frame.world.match.phase==='paused');
+  const competitive=watch.frame.players.find(p=>p.id===watch.me.id);
+  assert.equal(competitive.x,watch.me.x);
+  assert.equal(competitive.weapon,4);
+  group.pop().ws.close();await exerciseSolo(2);
   group.push(await join(room));await until(()=>watch.frame.world.match.phase==='active');
+  assert.equal(watch.frame.players.find(p=>p.id===watch.me.id).x,competitive.x);
   for(let i=group.length;i<10;i++)group.push(await join(room));
   for(const g of group){
-    g.ws.send(JSON.stringify({type:'input',seq:1,x:.6,z:0,yaw:0,team:'fake',score:5000000}));
+    g.ws.send(JSON.stringify({type:'input',seq:3,x:.6,z:0,yaw:0,team:'fake',score:5000000}));
   }
-  await until(()=>watch.frame.players.every(p=>p.ack===1));
+  await until(()=>watch.frame.players.every(p=>p.ack===3));
   assert.equal(watch.frame.world.match.winner,null);
   group.pop().ws.close();await until(()=>watch.frame.players.length===9);
   assert.equal(watch.frame.world.match.phase,'active');
