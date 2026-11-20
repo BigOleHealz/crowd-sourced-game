@@ -1,3 +1,5 @@
+import {teamNames} from './island-rules.js';
+import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
 import {churchPath,churchRoom} from './ridge-church.js';
@@ -1141,7 +1143,8 @@ export function createScene(canvas) {
   }
   landingMarks(features);const featureMesh=features.mesh(scene,material);
   if(churchPanes)updateChurch=churchPanes.bind(featureMesh);
-  const updateSupplyView=createSupplyView(scene);
+  let updateCases;
+  let updateSupplyView;
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
@@ -1251,7 +1254,8 @@ export function createScene(canvas) {
     effects.wreck(heli,dt);
     displayedWorld = world;
     displayedPlayers = remotes;
-    updateSupplyView(world);
+    if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
+    else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateDoors?.(world.doors,dt,local,remotes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt);
@@ -1296,7 +1300,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || 'Hiker ' + state.id);
+        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;

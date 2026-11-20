@@ -21,11 +21,12 @@ export function interactYacht(world,player){
   }
   return prompt==='occupied' || prompt==='gunOccupied';
 }
-export function damageYacht(world,amount){
+export function damageYacht(world,amount,team){
   const y=world.yacht;
   if(!y || y.wrecked || !Number.isFinite(amount) || amount<=0)return;
   y.hp=Math.max(0,y.hp-amount);
   if(y.hp)return;
+  world.rules?.wreckVehicle(team,'yacht');
   Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,throttle:0,gangway:false,recoverySeconds:9});
   if(world.heli?.onYacht){
     delete world.heli.onYacht;world.heli.grounded=false;

@@ -1,3 +1,5 @@
+import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
+import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
 import {bridges} from './public/brickell-map.js';
 import {raisedRoadAt} from './public/bridge-driving.js';
 import {stepDrawbridges,bridgeMiddle,leafGeometry,leafLength} from './public/drawbridges.js';
@@ -45,11 +47,22 @@ const build=await clientBuild();
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
-const capacity = 16;
+const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
+const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
 const departedScores=new Map();
-let world = newExpedition();
+let match;
+function freshWorld(){
+  const w=newExpedition();
+  if(mode){
+    match=createMatch(mode);
+    w.match=match.state;
+    Object.defineProperty(w,'rules',{value:match});
+  }
+  return w;
+}
+let world = freshWorld();
 let npcs = newRivals();
 function worldView() {
   const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
@@ -123,7 +136,8 @@ const sockets = new WebSocketServer({
   perMessageDeflate: { clientNoContextTakeover: true, zlibDeflateOptions: { level: 1 } },
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
-let cityWorker;
+const cityWorkers = new Map();
+const cityRoutes=new Map([['/world?map=brickell',''],...Object.keys(modes).map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
 }
@@ -131,13 +145,16 @@ server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
   const validOrigin = !origin || origin === 'http://' + request.headers.host ||
     origin === 'https://' + request.headers.host;
-  if ((!['/world','/world?map=brickell'].includes(request.url)) || !validOrigin) {
+  const district = cityRoutes.get(request.url);
+  if ((request.url!=='/world' && district===undefined) || !validOrigin) {
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     return;
   }
   if(request.url === '/world') return accept(request,socket,head);
+  let cityWorker=cityWorkers.get(request.url);
   if(!cityWorker?.connected) {
-    cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell'}});
+    cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell',PINEWATCH_MODE:district}});
+    cityWorkers.set(request.url,cityWorker);
     cityWorker.on('error',err=>console.error('City session:',err.message));
   }
   socket.pause();
@@ -147,7 +164,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 function playerState(player) {
-  return { ...player.state, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state, team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -176,18 +193,22 @@ function acceptInput(player, data, binary) {
     player.packedSnapshots = true;
     return;
   }
-  if(input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
+  if(!mode && input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
     player.score=departedScores.get(input.key);departedScores.delete(input.key);return;
   }
   if (input?.type !== 'input' || !Number.isSafeInteger(input.seq) ||
       input.seq <= player.lastSeq || !Number.isFinite(input.x) ||
       !Number.isFinite(input.z) || !Number.isFinite(input.yaw)) return;
+  if(match && frozenPhase(world.match.phase)){
+    player.ack=player.lastSeq=input.seq;
+    return;
+  }
   const scale = Math.max(1, Math.hypot(input.x, input.z));
   player.lastSeq = input.seq;
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
-    replaySupply: input.replaySupply === true, deploy: input.deploy === true,
+    handleCase:input.handleCase===true, replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     stance: ['crouch', 'prone', 'stand'].includes(input.stance) ? input.stance : undefined,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
@@ -216,18 +237,29 @@ sockets.on('connection', ws => {
     id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 1, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
+  if(match){
+    Object.assign(player,assignTeam(players));
+    player.state=teamSpawn(player.team,player.slot);
+    player.score.team=player.team;
+  }
   players.set(id, player);
+  match?.updateRoster(players);
   ws.on('message', (data, binary) => acceptInput(player, data, binary));
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
+    match?.release(player);
     players.delete(id);
+    match?.updateRoster(players);
+    if(match && frozenPhase(world.match.phase)){
+      for(const p of players.values()){p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;}
+    }
     if(world.yacht?.driver===id){world.yacht.driver=null;world.yacht.throttle=0;}
     if(!players.size)departedScores.clear();
     else if(player.score.kills || player.score.deaths || world.bullets.some(r=>r.shooter===id) || world.missiles.some(m=>m.shooter===id)){
       departedScores.set(player.scoreKey,player.score);
     }
     if (!players.size) {
-      world = newExpedition();
+      world = freshWorld();
       npcs = newRivals();
     }
     else if(world.heli.onYacht && world.heli.grounded && world.heli.pilot===id)world.heli.pilot=null;
@@ -254,8 +286,29 @@ sockets.on('connection', ws => {
 });
 
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
-let ticks = 0;
+let ticks = 0, lobbyTicks = 0;
+function resetRound(){
+  world=freshWorld();
+  npcs=newRivals();
+  departedScores.clear();
+  for(const player of players.values()){
+    player.state=teamSpawn(player.team,player.slot);
+    player.life=newLife(ticks);
+    player.score={kills:0,deaths:0,team:player.team};
+    player.inputs.length=0;
+    player.ack=player.lastSeq;
+    player.yaw=0;player.weapon=1;player.moving=player.sprint=false;
+    player.supercarInput=null;player.chainFireUntil=0;
+  }
+  match.updateRoster(players);
+}
 function tick() {
+  if(match && !players.size)return;
+  if(match && frozenPhase(world.match.phase)){
+    if(world.match.phase==='finished' && match.step(players))resetRound();
+    if(++lobbyTicks%2===0)publish();
+    return;
+  }
   stepDrawbridges(world,bridges,step);
   if(CITY && players.size) {
     const pedestrians=[];
@@ -290,7 +343,7 @@ function tick() {
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
       if (world.supercar?.driver===player.id) interactRover(world,player,'supercar');
       if (respawnDue(player, ticks)) {
-        player.state = spawn(player.id - 1);
+        player.state = match ? teamSpawn(player.team,player.slot) : spawn(player.id - 1);
         player.life = newLife(ticks);
         player.yaw = 0;
         // Retire all inputs received during defeat. The respawn starts at rest.
@@ -300,8 +353,17 @@ function tick() {
       continue;
     }
     if (fallingBody) continue;
+    if(input?.handleCase)match?.interact(player);
+    if(world.match?.phase==='setup'){
+      const next=stepPlayer(player.state,input||idle,step,world.hp,world);
+      if(propertyTeam(next.x,next.z)===player.team)player.state=next;
+      player.moving=Boolean(input && (input.x || input.z));
+      player.sprint=!!input?.sprint;
+      if(input)player.yaw=input.yaw;
+      continue;
+    }
     if (input) {
-      if (input.replaySupply) replaySupplyRun(world);
+      if (!match && input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact && !player.state.climb) {
         const boat=crewBoat(world,player.id);
@@ -427,7 +489,8 @@ function tick() {
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
-  updateSupplyRun(world, step);
+  if(match){if(world.match.phase!=='finished')match.step(players,world);}
+  else updateSupplyRun(world, step);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);

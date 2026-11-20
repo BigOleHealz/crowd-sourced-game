@@ -63,7 +63,7 @@ export function interactRover(world, player,kind='rover') {
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
-  let exit = spawn(player.id-1);
+  let exit = world.rules?.spawn(player) ?? spawn(player.id-1);
   for (let i=0; i<8; i++) {
     const radius=sport?(i%4===0?1.56:2.75):1.7;
     const angle = r.yaw + i*Math.PI/4;
@@ -77,7 +77,7 @@ export function interactRover(world, player,kind='rover') {
   player.state = exit;
 }
 
-export function damageRover(world, amount, players,kind='rover') {
+export function damageRover(world, amount, players,kind='rover',team) {
   const r=world[kind];
   if (!r || r.wrecked || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
@@ -90,6 +90,7 @@ export function damageRover(world, amount, players,kind='rover') {
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
   r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
+  world.rules?.wreckVehicle(team,kind);
   delete r.bridgeFlight;stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
@@ -196,10 +197,13 @@ export function driveRover(world, input, dt, players,kind='rover') {
     if((hit.object.paneId || hit.object.sillPaneId) && incoming>2.3){
       const p=hit.object;
       if(p.sillPaneId)(world.doors.brokenSills??={})[p.sillPaneId]=true;
-      shatterPane(world.doors,{id:p.paneId??p.sillPaneId,x:p.x,z:p.z,bottom:r.y,top:r.y+1.4});
+      const paneId=p.paneId??p.sillPaneId;
+      if(shatterPane(world.doors,{id:paneId,x:p.x,z:p.z,bottom:r.y,top:r.y+1.4})){
+        world.rules?.brokenPane(players?.get(r.driver)?.team,p,paneId);
+      }
       remaining*=1-fraction;continue;
     }
-    if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r)){
+    if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r,world.rules && (id=>world.rules.brokenPane(players?.get(r.driver)?.team,r,id)))){
       noteGlass(world.doors,{x:r.x,y:r.y+.9,z:r.z});
       registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
       if(r.wrecked)return;
@@ -221,6 +225,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
     }
     if((hit.object.lamp!=null || hit.object.postId!=null) && incoming>2.5){
       damagePost(world.doors,hit.object,lampHP);
+      world.rules?.brokenPost(players?.get(r.driver)?.team,hit.object);
       registerImpact(world,r,hit,Math.min(incoming,4),players);
       if(r.wrecked)return;
       vx*=.86;vz*=.86;remaining*=1-fraction;continue;

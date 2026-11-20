@@ -20,16 +20,17 @@ export function parkedHelicopter() {
   return heli;
 }
 
-export function damageHelicopter(world, damage, players, shooterId = null) {
+export function damageHelicopter(world, damage, players, shooterId = null,team) {
   const heli = world.heli;
   if (heli.wrecked || !(damage > 0) || !Number.isFinite(damage)) return false;
   if (shooterId != null && shooterId === heli.pilot) return false;
   heli.hp = Math.max(0, heli.hp - damage);
   if (heli.hp === 0) {
+    world.rules?.wreckVehicle(team,'heli');
     for (const id of [heli.pilot,heli.gunner]) {
       const pilot=players?.get(id);
       if (!pilot) continue;
-      pilot.state = spawn(pilot.id - 1);
+      pilot.state = world.rules?.spawn(pilot) ?? spawn(pilot.id - 1);
       pilot.moving = false;
       pilot.sprint = false;
       pilot.inputs.length = 0;
@@ -247,7 +248,7 @@ export function interact(world, player) {
     else if (heli.gunner==null) {heli.gunner=player.id;heli.turretYaw=heli.yaw;heli.turretPitch=0;}
   } else {
     // Try both sides and the fore/aft directions before using the safe trailhead.
-    let exit = spawn(player.id - 1);
+    let exit = world.rules?.spawn(player) ?? spawn(player.id - 1);
     for (let i = 0; i < 8; i++) {
       const angle = heli.yaw + i * Math.PI / 4;
       const x = heli.x + 2.15 * Math.cos(angle);

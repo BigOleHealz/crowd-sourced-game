@@ -1,3 +1,4 @@
+import {lotHeight,lotWidth} from './island-rules.js';
 import {breachEstate,onEstate} from './estate-damage.js';
 import {windowContact} from './vehicle-glass-layout.js';
 import {noteGlass} from './pane-damage.js';
@@ -5,7 +6,7 @@ import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
 import {yachtSolidAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
-import {damagePost,lampHP} from './street-lamps.js';
+import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
@@ -153,6 +154,8 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
     }
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
+    const lot=world.match?.lots.find(l=>l.hp && l.carrier==null && Math.abs(to.x-l.x)<=lotWidth/2 && Math.abs(to.z-l.z)<=lotWidth/2 && to.y>=l.y && to.y<=l.y+lotHeight);
+    if(lot){target=lot;hitKind='insured';break;}
     if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     const crateIndex = crateBodies.findIndex(crate => world.hp[crate.id] > 0 &&
@@ -201,27 +204,32 @@ function targets(world,shooter,players,npcs,source=null) {
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
   let injury=null;
+  if(hitKind==='insured')world.rules?.damageLot(score?.team,target,damage);
   if(hitKind==='vehicleGlass'){
     const {vehicle,paneId}=target;
     (vehicle.brokenGlass??={})[paneId]=true;noteGlass(world.doors,to);
-    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage);
+    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage,score?.team);
     return null;
   }
   if(hitKind==='glass'){
-    shatterPane(world.doors,target);
+    if(shatterPane(world.doors,target))world.rules?.brokenPane(score?.team,to,target.id??(target.face.id+'-'+target.index));
     if(!areaImpact)return null;
   }
-  if(hitKind==='lamp' || hitKind==='post')damagePost(world.doors,target,damage);
+  if(hitKind==='lamp' || hitKind==='post'){
+    damagePost(world.doors,target,damage);
+    if(postDown(world.doors,target))world.rules?.brokenPost(score?.team,target);
+  }
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
-    if(areaImpact)blastPosts(world,center,3.1,lampHP);
+    if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
     for (const crystal of BREAKABLES) {
       if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
         world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);
       }
     }
     for (const actor of actors) {
+      if(score?.team && actor.team===score.team)continue;
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
@@ -239,20 +247,20 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
-    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage);
+    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage,score?.team);
     for(const b of world.boats??[]){
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       if(!areaImpact && Number.isInteger(wheel))world.rover.flatTires=(world.rover.flatTires ?? 0)|(1<<wheel);
-      else damageRover(world,vehicleDamage,players);
+      else damageRover(world,vehicleDamage,players,'rover',score?.team);
     }
     if(hitKind==='supercar' || (areaImpact && world.supercar && withinBurst(center,world.supercar,.55))){
       if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;
-      else damageRover(world,vehicleDamage,players,'supercar');
+      else damageRover(world,vehicleDamage,players,'supercar',score?.team);
     }
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
-      damageHelicopter(world, vehicleDamage, players, shooter);
+      damageHelicopter(world, vehicleDamage, players, shooter,score?.team);
     }
   }
   return injury;
@@ -287,7 +295,9 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    if(CITY && (hit.blocked || hit.hitKind==='glass'))breachEstate(world.doors,hit.to);
+    if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
+      world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);
+    }
     const injury=applyHit(world,hit,actors,players,m.shooter,tick,150,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;

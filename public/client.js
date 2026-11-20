@@ -1,3 +1,5 @@
+import {frozenPhase,modes,teamColors} from './island-rules.js';
+import {drawMatchMap,updateMatchHud} from './island-hud.js';
 import {church,churchPath,churchLot} from './ridge-church.js';
 import {casaRoomAt} from './casa-luma.js';
 import {inPalazzoMare} from './palazzo-mare.js';
@@ -32,8 +34,14 @@ window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
 window.addEventListener('pagehide',()=>audio.reset());
 const selector=byId('map-choice');
-selector.value=CITY ? 'brickell' : 'outpost';
-selector.addEventListener('change',()=>{ const url=new URL(location.href);url.searchParams.set('map',selector.value);location.assign(url); });
+const chosen=new URLSearchParams(location.search).get('mode');
+const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
+const modeGroup=document.createElement('optgroup');
+modeGroup.label='Brickell team games';
+for(const [key,rule] of Object.entries(modes))modeGroup.append(new Option(rule.name,key));
+selector.append(modeGroup);
+selector.value=mode ?? (CITY ? 'brickell' : 'outpost');
+selector.addEventListener('change',()=>{ const url=new URL(location.href);if(Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
 if(CITY) {
   document.title='Brickell · Pinewatch';
   document.querySelector('.map-title span').textContent='District map';
@@ -77,10 +85,11 @@ function canChangeStance(state) {
 
 let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
+let handleCase=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -96,6 +105,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
+  handleCase=false;
   showSight(false);
   held.clear();
   requestedStance = undefined;
@@ -142,6 +152,7 @@ window.addEventListener('keydown', e => {
     const target = e.code === 'KeyC' ? 'crouch' : 'prone';
     requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
   }
+  if(e.code==='KeyG' && mode)handleCase=true;
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
@@ -227,11 +238,11 @@ canvas.addEventListener('wheel', e => {
 
 let connectedBuild,previousScoreKey;
 let canUnpack = typeof DecompressionStream === 'function';
-const scoreStorage=CITY?'brickell-match-score':'outpost-match-score';
+const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpost-match-score';
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell' : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(mode?'&mode='+mode:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -278,6 +289,9 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
+      if(m.world.match?.phase!==world.match?.phase){
+        clearInput();pending=[];samples=[];
+      }
       const wasPilot = isPilot(), wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
@@ -321,6 +335,7 @@ function connect() {
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
+    byId('match-card').hidden=true;
     id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
@@ -333,6 +348,7 @@ function connect() {
 
 function tick() {
   if (socket?.readyState !== WebSocket.OPEN || id == null) return;
+  if(world?.match && frozenPhase(world.match.phase)){moving=sprint=false;handleCase=false;return;}
   const right = held.has('KeyD') || held.has('ArrowRight');
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
@@ -356,7 +372,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { type: 'input', seq: ++seq, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
@@ -366,6 +382,7 @@ function tick() {
   queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
+  handleCase=false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   if (pending.length > 150) { socket.close(); return; }
@@ -582,9 +599,10 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
   }
   if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
-  drawSupplyMap(ctx,sx,sy,world,player,id);
+  if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
+  else drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
-    ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = teamColors[remote.team] ?? '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }
   ctx.save(); ctx.translate(sx(player.x),sy(player.z)); ctx.rotate(yaw);
   ctx.fillStyle = '#fcf5ce'; ctx.strokeStyle = '#19291f'; ctx.lineWidth = 2.5;
@@ -608,7 +626,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
+    const local = { ...self, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
     const { players: remotes, npcs, heli, rover, supercar, yacht:sampledYacht, boats: sampledBoats=[] } = remoteFrame(time);
     const yacht=world.yacht?.driver!==sampledYacht?.driver || world.yacht?.gunner!==sampledYacht?.gunner ? world.yacht : sampledYacht;
@@ -640,7 +658,8 @@ function frame(time) {
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);
-      updateSupplyHud(world,local,id);
+      if(world.match)updateMatchHud(world.match,vitals.team,local);
+      else updateSupplyHud(world,local,id);
       drawMap(local, remotes, view.yaw);
     }
   }

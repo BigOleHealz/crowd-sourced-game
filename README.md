@@ -14,3 +14,17 @@ Press **R** after completion to start another run. Fly the helicopter back to th
 Press **E** in flight to jump out. You start in free fall. Release the climb key if held, then press **Space** to open the parachute. Steer with **WASD** or the **arrow keys**. A deployed chute gives you a safe landing. A hard landing with the chute packed can cost health or trigger a respawn. The empty helicopter carries its momentum, banks and loses height until impact. The wreck stays in the world for six seconds before a replacement returns to the trailhead pad.
 
 Hikers and trail rivals have 100 HP, forestry rovers have 250 HP, and helicopters have 500 HP. Blasters damage people, vehicles and roadside supply barricades. Trees stay intact. A wrecked rover releases its driver and respawns at the trailhead after six seconds.
+
+## Brickell team modes
+
+Choose a mode in the map menu or share its URL with the whole group. Each mode runs its own match. Brickell Avenue and Lantern Point are the two home islands. Harbor Key is neutral. Teams fill automatically up to eight a side. A round starts at five per side and pauses if either side falls below five. After a win, players get a fresh round after 15 seconds if both teams still have enough players.
+
+| Mode | Shareable path | How to reach $5 million |
+| --- | --- | --- |
+| Total Loss | `/?map=brickell&mode=total-loss` | Destroy insured enemy property. Colored cases, glazing, street fixtures, mansion wall sections and insured vehicles contribute to the repair bill. |
+| Repo Wars | `/?map=brickell&mode=repo-wars` | Destruction earns half value. Press G beside an enemy case to carry it, or commandeer an enemy pickup, GT or helicopter. Bring it to the gold auction ring on Harbor Key for full value. Stop vehicles inside the ring and land the helicopter. |
+| Moving Day | `/?map=brickell&mode=moving-day` | Each team gets 60 seconds to hide its gold case on its home island. Press G to pick it up or put it down. The hidden case is worth $2 million. Other insured property also counts. |
+
+An asset pays once per round, including vehicles that respawn. The roster, damage, possession, deliveries and payouts are verified by the server. The map shows team colors and the auction marker. Enemy gold cases are omitted from the minimap.
+
+Mode definitions, team sizes and the dollar goal live in `public/island-rules.js`. The menu and room router read the same mode registry. The server owns the lifecycle and scoring handlers in `island-match.js`. Run `node test/island-match.mjs` for rule tests and `node test/island-lobby.mjs` for a self-contained multiplayer lobby test.

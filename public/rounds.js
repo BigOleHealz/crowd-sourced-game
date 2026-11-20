@@ -1,3 +1,4 @@
+import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
@@ -141,7 +142,7 @@ export function postContact(world,from,d){
   }
   return {t,target};
 }
-export function blastPosts(world,center,radius,damage){
+export function blastPosts(world,center,radius,damage,team){
   const hit=new Set();
   for(const p of postParts){
     const id=p.postId??p.lamp;
@@ -149,12 +150,16 @@ export function blastPosts(world,center,radius,damage){
     const dy=Math.max(0,p.y-center.y,center.y-p.y-p.h);
     if(Math.hypot(center.x-p.x,dy,center.z-p.z)>radius)continue;
     damagePost(world.doors,p,damage);hit.add(id);
+    if(postDown(world.doors,p))world.rules?.brokenPost(team,p);
   }
 }
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
+  }
+  for(const lot of world.match?.lots??[]){
+    if(lot.hp && lot.carrier==null)accept(box(round,d,lot,lotWidth,lotHeight,lotWidth),lot,'insured');
   }
   visitTowerGlass(towerGlass,round,d,world.doors?.brokenPanes,box,(hit,p)=>accept(hit,p,'glass'));
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
