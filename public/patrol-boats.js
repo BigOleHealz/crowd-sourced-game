@@ -1,5 +1,6 @@
 import {damageYacht} from './superyacht.js';
 import {yachtOverlap} from './yacht-layout.js';
+import {supercarLayout} from './supercar-layout.js';
 import {CITY,MAP,insideTravelArea,groundHeight,solidTopAt,blocked} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
 import {mountPosition} from './mounts.js';
@@ -111,7 +112,8 @@ function canFloat(world,b,x,z,yaw) {
   }
   if(nearbyHull(world.boats,b,x,z,yaw,1.04,2.65))return false;
   return !(world.heli.y<MAP.waterY+1.5 && overlaps(x,z,yaw,world.heli,1.28,3.6))
-    && !(world.rover.y<MAP.waterY+.75 && overlaps(x,z,yaw,world.rover,.86,1.75));
+    && !(world.rover.y<MAP.waterY+.75 && overlaps(x,z,yaw,world.rover,.86,1.75))
+    && !(world.supercar?.y<MAP.waterY+.75 && overlaps(x,z,yaw,world.supercar,supercarLayout.halfWidth,supercarLayout.halfLength));
 }
 export function stepBoat(world,b,input,dt,players){
   if(b.wrecked){
