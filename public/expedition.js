@@ -320,7 +320,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
     if (CITY && (hit.blocked || hit.hitKind==='glass')) {
       const cell=breachTower(MAP.buildings,world.doors,hit.to);
-      if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',125_000);
+      if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',31_250);
     }
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);

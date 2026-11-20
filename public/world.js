@@ -1,4 +1,4 @@
-import {breachedFloor,inTowerBreach} from './tower-damage.js';
+import {breachedFloor,inTowerBreach,collapsedLot,towerCollapsed,rubbleHeight} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
@@ -92,6 +92,7 @@ export function onBuildingLot(x,z,margin=0) {
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return roof;
+  if(towerCollapsed(b,doors))return rubbleHeight(b,x,z);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
   const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
@@ -210,6 +211,8 @@ export function terrainHeight(x, z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const pile=collapsedLot(MAP.buildings,doors,x,z);
+    if(pile)return rubbleHeight(pile,x,z);
     const limit=estateSupportLimit(doors,x,z);
     const probe=Math.min(limit,maxBottom);
     const villa=casaFloor(x,z,probe);
@@ -353,9 +356,10 @@ export function stepPlayer(state, input, dt, hp, world) {
     y += vy * dt;
     const support=estateSupportLimit(doors,x,z);
     let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z,support)-height,mareCeiling(x,state.y,z,support)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
-    if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
-    if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
-    if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
+    const shops=CITY && !collapsedLot(MAP.buildings,doors,x,z);
+    if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
+    if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
+    if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
     if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;
