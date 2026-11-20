@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {newExpedition, fire, fireTurret, advanceRounds} from '../public/expedition.js';
 import {firearmSpecs} from '../public/rounds.js';
+import {mooredYacht} from '../public/superyacht.js';
 import {newLife} from '../public/rivals.js';
 
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7, `${a} differs from ${b}`);
@@ -9,7 +10,10 @@ for(const [weapon,spec] of Object.entries(firearmSpecs)) {
     const world=newExpedition();
     const player={id:1,weapon:Number(weapon),state:{x:0,y:180,z:0},life:newLife(0,false),fireReady:0};
     const players=new Map([[1,player]]);
-    if(weapon==='turret'){
+    if(weapon==='yachtGun'){
+      world.yacht={...mooredYacht(),x:0,y:180,z:0,yaw:.32,gunner:1,turretYaw:.32,turretPitch:pitch};
+      fireTurret(world,'superyacht',player,0,players,[]);
+    }else if(weapon==='turret'){
       Object.assign(world.heli,{x:0,y:180,z:0,gunner:1,turretYaw:.32,turretPitch:pitch});
       fireTurret(world,'heli',player,0,players,[]);
     }else fire(world,player,{aimYaw:.32,aimPitch:pitch},0,players,[]);

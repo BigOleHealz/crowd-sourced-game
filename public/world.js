@@ -1,8 +1,12 @@
+import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
+import {casaFloor,casaCeiling} from './casa-luma.js';
+import {mareFloor,mareCeiling} from './palazzo-mare.js';
+import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
 import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
 import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
-import {lampDown} from './street-lamps.js';
+import {postDown} from './street-lamps.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
 import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
@@ -61,7 +65,7 @@ export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
 MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
   MAP.rocks.push(...northRocks);
-  MAP.barriers.push({x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
+  MAP.barriers.push(...churchParts,{x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h,postId})=>({x,z,postId,w:.14,d:.15,h})),
     {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
 }
 
@@ -81,7 +85,7 @@ if (CITY) {
 }
 
 export function onBuildingLot(x,z,margin=0) {
-  return MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
+  return (!CITY && churchLot(x,z,margin)) || MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
 }
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
@@ -97,7 +101,7 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
 
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
-  let top=CITY ? parapetTop(x,z,padding,maxBottom) : -Infinity;
+  let top=CITY ? parapetTop(x,z,padding,maxBottom,doors) : -Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
@@ -106,9 +110,11 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     top=Math.max(top,surface);
   }
   for(const b of MAP.barriers ?? []){
+    // Expanding a walkable slab lip would add an invisible curb at its edge.
+    const pad=b.flushEdge ? 0 : padding;
+    if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
-    if(lampDown(doors,b))continue;
-    if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
+    if(postDown(doors,b))continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
@@ -141,7 +147,7 @@ for (let i = 0; !CITY && i < 9; i++) {
   }
 }
 
-if(!CITY)MAP.trees.push(...northernPines());
+if(!CITY)MAP.trees.push(...northernPines().filter(t=>!churchLot(t.x,t.z,2)));
 
 function smoothstep(start, end, position) {
   const t = Math.max(0, Math.min(1, (position - start) / (end - start)));
@@ -165,22 +171,27 @@ export function terrainHeight(x, z) {
   // Shape the wading shelf separately from the steep underwater basin.
   const shore = Math.max(0, Math.min(5, edge - (MAP.bounds - 6)));
   const lip = shore + 12 * smoothstep(MAP.bounds - 1, MAP.bounds, edge);
-  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief + northRise - lip;
+  const natural=0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief + northRise - lip;
+  return natural+(church.base-natural)*churchTerrace(x,z);
 }
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const villa=casaFloor(x,z,maxBottom);
+    if(villa!==undefined)return villa;
+    const palace=mareFloor(x,z,maxBottom);
+    if(Number.isFinite(palace))return palace;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
-    return beachHutFloor(x,z,lookoutFloor(x,z,cityGround(x,z,maxBottom),doors));
+    return beachHutFloor(x,z,lookoutFloor(x,z,cityGround(x,z,maxBottom,doors),doors));
   }
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&
       Math.abs(z - bridge.z) <= bridge.length / 2) {
     return bridge.y;
   }
-  return terrainHeight(x, z);
+  return Math.max(terrainHeight(x,z),churchFloor(x,z,maxBottom));
 }
 
 export function spawn(index = 0) {
@@ -263,8 +274,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=stanceBodyHeight(stance);
   const doors=world?.doors;
-  if (!blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
-  if (!blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
+  if (!yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) && !blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
+  if (!yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) && !blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
   // Water reaches every outer edge. Stay at the limit and allow movement
   // parallel to it, including a swimmer turning back toward the shoreline.
   if (x < travelBounds.west || x > travelBounds.east) vx=0;
@@ -305,7 +316,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    let ceiling=contact.ceiling;
+    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height,mareCeiling(x,state.y,z)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
     if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
@@ -318,6 +329,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 || !insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
+  if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;
   return next;

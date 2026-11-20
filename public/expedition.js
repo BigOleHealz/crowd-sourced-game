@@ -1,9 +1,12 @@
+import {civilianLooks} from './civilian-style.js';
+import {mooredYacht,damageYacht} from './superyacht.js';
+import {yachtSolidAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
-import {damageLamp} from './street-lamps.js';
+import {damagePost,lampHP} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, roverRoundContact, supercarRoundContact, segmentContact } from './rounds.js';
+import { firearmSpecs, roverRoundContact, supercarRoundContact, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -30,7 +33,8 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
 
 export function newExpedition() {
   return {
-    ...(CITY ? {doors:newStorefrontDoors(),supercar:parkedSupercar()} : {}),
+    doors:CITY?newStorefrontDoors():{},
+    ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar()} : {}),
     heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
@@ -72,8 +76,18 @@ function assistedActorHit(point, actor, halo) {
 function actorIntersection(actor,from,worldDir) {
   const feet=actor.state;
   const prone=feet.stance==='prone';
-  const {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
-  const dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  let {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
+  let dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  // Test the ray in the same scaled body frame that the civilian renderer uses.
+  const look=CITY && civilianLooks[actor.id];
+  if(look){
+    const yaw=actor.yaw??0,c=Math.cos(yaw),s=Math.sin(yaw);
+    const widthFactor=1/look.width-1;
+    const lateral=(x*c+z*s)*widthFactor;
+    x+=c*lateral;z+=s*lateral;y/=look.height;
+    const lateralRay=(dir.x*c+dir.z*s)*widthFactor;
+    dir={x:dir.x+c*lateralRay,y:dir.y/look.height,z:dir.z+s*lateralRay};
+  }
   const drop=prone ? 0 : stanceDrop(feet);
   const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
   const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69+drop)/.161, hz=(z+lean*Math.cos(yaw))/.128;
@@ -118,11 +132,17 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const sportContact=supercarRoundContact(world.supercar,from,delta);
   const hitSport=sportContact<(roverContact?.t??Infinity);
   const roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
+  const post=postContact(world,from,delta);
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
+    if(post.target && post.t*range<=d){
+      target=post.target;hitKind=target.lamp!=null?'lamp':'post';
+      to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
+    }
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
+    if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
@@ -154,7 +174,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.state.swimming || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
   const spec=firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
@@ -173,10 +193,11 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     shatterPane(world.doors,target);
     return null;
   }
-  if(hitKind==='lamp')damageLamp(world.doors,target.lamp,damage);
+  if(hitKind==='lamp' || hitKind==='post')damagePost(world.doors,target,damage);
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
+    if(areaImpact)blastPosts(world,center,3.1,lampHP);
     for (const crystal of BREAKABLES) {
       if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
         world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);
@@ -200,6 +221,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
+    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage);
     for(const b of world.boats??[]){
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }
@@ -208,7 +230,8 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       else damageRover(world,vehicleDamage,players);
     }
     if(hitKind==='supercar' || (areaImpact && world.supercar && withinBurst(center,world.supercar,.55))){
-      damageRover(world,vehicleDamage,players,'supercar');
+      if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;
+      else damageRover(world,vehicleDamage,players,'supercar');
     }
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, vehicleDamage, players, shooter);
@@ -246,7 +269,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    const injury=applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,150,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
@@ -272,10 +295,11 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   }
   const ready=nextBullet.get(v) ?? tick;
   if(tick<ready)return;
-  const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
+  const weapon=kind==='superyacht'?'yachtGun':'turret';
+  const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
-  sendRound(world,player,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
+  sendRound(world,player,weapon,kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
 
 function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){

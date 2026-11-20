@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {newExpedition,fireTurret,advanceRounds}=await import('../public/expedition.js');
+const {interactYacht,damageYacht}=await import('../public/superyacht.js');
+const {yachtGun,yachtDeckY,yachtPoint,yachtHelmFeet,yachtSmoking}=await import('../public/yacht-layout.js');
+const {mountPosition,mounts}=await import('../public/mounts.js');
+const w=newExpedition(), y=w.yacht;
+const crew=(id,feet)=>({id,state:{...feet,grounded:true},life:{hp:100}});
+const captain=crew(1,yachtHelmFeet(y)),gunner=crew(2,yachtPoint(y,0,yachtDeckY,yachtGun.z)),other=crew(3,gunner.state);
+const people=new Map([captain,gunner].map(p=>[p.id,p]));
+assert(interactYacht(w,captain));assert(interactYacht(w,gunner));interactYacht(w,other);
+assert.equal(y.driver,1);assert.equal(y.gunner,2);
+const origin=mountPosition(y,mounts.superyacht.turret);
+Object.assign(w.heli,{x:origin.x,y:origin.y+3,z:origin.z+11,grounded:false});
+y.turretYaw=Math.PI;y.turretPitch=.31;
+fireTurret(w,'superyacht',other,0);assert.equal(w.bullets.length,0);
+fireTurret(w,'superyacht',gunner,0);
+for(let tick=0;tick<9;tick++)advanceRounds(w,people,[],tick);
+assert.equal(w.heli.hp,400);assert.equal(y.hp,2000);
+y.turretYaw=Math.PI/2;y.turretPitch=.8;
+for(let tick=1;tick<30;tick++){
+  fireTurret(w,'superyacht',gunner,tick);fireTurret(w,'superyacht',gunner,tick);
+}
+assert.equal(w.shots.filter(s=>s.firedWeapon==='yachtGun').length,10);
+assert(w.bullets.every(b=>b.vy>0 && b.vx>0));
+assert(interactYacht(w,gunner));assert.equal(y.gunner,null);assert.equal(y.driver,1);
+damageYacht(w,1399);assert.equal(y.hp,601);assert.equal(yachtSmoking(y),false);
+damageYacht(w,1);assert.equal(y.hp,600);assert(yachtSmoking(y));
+interactYacht(w,gunner);damageYacht(w,599);assert(yachtSmoking(y));
+damageYacht(w,1);assert(!yachtSmoking(y));assert.equal(y.gunner,null);assert.equal(y.driver,null);
+console.log('PASS independent helm and bow gun, exclusive controls, ten rounds per second, 100 aircraft damage, smoke threshold and crew release');

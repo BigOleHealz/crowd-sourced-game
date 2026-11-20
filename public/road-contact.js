@@ -1,7 +1,8 @@
+import {raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
-import {lampDown} from './street-lamps.js';
+import {postDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
@@ -61,10 +62,12 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   if(CITY)for(const stand of stationFootprints){
     if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand,shape));
   }
+  const reach=shape.halfWidth+shape.halfLength;
   for(const b of MAP.barriers){
+    if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
-    if(lampDown(world.doors,b))continue;
+    if(postDown(world.doors,b))continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16)consider(boxContact(x,z,s,c,b,shape));
   }
@@ -72,9 +75,10 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   const heli=world.heli;
-  if(heli && heli.y-base<2)consider(roundContact(x,z,s,c,heli,1.55,shape));
+  const roof=vehicle?.kind==='supercar' ? supercarLayout.roof : 1.66;
+  if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   const parked=vehicle?.kind==='supercar'?world.rover:world.supercar;
-  if(parked && parked!==vehicle)consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
+  if(parked && parked!==vehicle && parked.y<base+roof && parked.y+(parked.kind==='supercar'?supercarLayout.roof:1.66)>base)consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
@@ -85,7 +89,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   // Keep the prior shore/bridge traversal limits as terrain safeguards.
   const cliff=Math.abs(base-groundHeight(fromX,fromZ,Infinity,world.doors))>=.34 || [-.73,.73].some(along=>
     Math.abs(groundHeight(x+along*s,z-along*c,Infinity,world.doors)-base)>.67);
-  if(boat || base<MAP.waterY+.2 || cliff){
+  if(boat || base<MAP.waterY+.2 || (cliff && !raisedRoadAt(world,x,z))){
     const dx=boat?x-boat.x:fromX-x,dz=boat?z-boat.z:fromZ-z,len=Math.hypot(dx,dz);
     return {nx:len?dx/len:0,nz:len?dz/len:1,depth:.01,object:boat||'terrain'};
   }

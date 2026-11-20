@@ -119,7 +119,7 @@ export function createGameAudio(button,slider,level) {
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
       if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
-      else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst(shot.firedWeapon==='turret' ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
+      else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
       else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
@@ -180,9 +180,15 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
+  function yachtEngine(listener,yaw,yacht){
+    const active=yacht?.driver!=null && !yacht.wrecked;
+    const speed=Math.abs(yacht?.speed??0);
+    motor('outboard',yacht,active,.57+speed*.034,.26,listener,yaw,'yacht-diesels');
+    motor('wake',yacht,active && speed>.4,.72+speed*.035,Math.min(.24,speed*.042),listener,yaw,'yacht-wake');
+  }
   function toggleMute() {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,toggleMute};
+  return {unlock,reset,events,engines,yachtEngine,toggleMute};
 }

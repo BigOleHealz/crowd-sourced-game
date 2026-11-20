@@ -1,11 +1,12 @@
 import { groundHeight } from './world.js';
 
-import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
+import { wheelsFor,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 const springs=new WeakMap();
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 const rounded=v=>Math.round(v*10000)/10000 || 0;
 
 export function stepSuspension(rover,dt,surface=groundHeight) {
+  const wheelStations=wheelsFor(rover);
   const s=Math.sin(rover.yaw),c=Math.cos(rover.yaw);
   const forward=rover.speed || 0,side=rover.lateralSpeed || 0;
   const vx=forward*s+side*c,vz=-forward*c+side*s;
@@ -23,7 +24,8 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
   }
   const ax=(vx-state.vx)/dt,az=(vz-state.vz)/dt;
   state.vx=vx;state.vz=vz;
-  const pitchLoad=clamp((ax*s-az*c)*.012,-.60,.60);
+  const sport=rover.kind==='supercar';
+  const pitchLoad=clamp((ax*s-az*c)*(sport?.005:.012),sport?-.12:-.60,sport?.09:.60);
   const rollLoad=clamp((ax*c+az*s)*.010,-.40,.40);
   for(let i=0;i<4;i++) {
     const [width,length]=wheelStations[i];
@@ -32,7 +34,7 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
     // stop in one 30 Hz server tick without an unstable rebound.
     const substeps=Math.max(1,Math.ceil(dt*120)), h=dt/substeps;
     for(let n=0;n<substeps;n++) {
-      const force=125*(target-state.heights[i])-13*state.rates[i];
+      const force=125*(target-state.heights[i])-(sport?18:13)*state.rates[i];
       state.rates[i]+=force*h;
       state.heights[i]+=state.rates[i]*h;
     }
@@ -40,8 +42,8 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
   }
   const [lf,lr,rf,rr]=state.heights;
   const center=(lf+lr+rf+rr)/4;
-  const pitch=Math.atan2((lf+rf-lr-rr)/2,1.89);
-  const roll=Math.atan2((rf+rr-lf-lr)/2,1.40);
+  const pitch=Math.atan2((lf+rf-lr-rr)/2,wheelStations[1][1]-wheelStations[0][1]);
+  const roll=Math.atan2((rf+rr-lf-lr)/2,wheelStations[2][0]-wheelStations[0][0]);
   rover.suspension={heave:rounded(center-rover.y),pitch:rounded(pitch),roll:rounded(roll),
     wheels:ground.map((contact,i)=>{
       const [x,z]=wheelStations[i];

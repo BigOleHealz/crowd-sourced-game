@@ -1,3 +1,4 @@
+import {tireContactPatch} from './tire-contact-patch.js';
 import * as THREE from 'three';
 import {roverPanelDamage} from './rover-panel-damage.js';
 import { missileLaunchers } from './mount-view.js';
@@ -240,17 +241,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       const a=i*Math.PI*2/5;
       wheelBatch.add(disc,0x41453f,side*.155,.112*Math.cos(a),.112*Math.sin(a),.021,.019,.021,0,0,Math.PI/2);
     }
-    const wheelFinish=material.clone(), rubberState={value:new THREE.Vector3(0,1,0)};
-    wheelFinish.onBeforeCompile=shader=>{
-      shader.uniforms.rubberState=rubberState;
-      shader.vertexShader='uniform vec3 rubberState;\n'+shader.vertexShader.replace('#include <begin_vertex>', `
-        #include <begin_vertex>
-        // Flatten the contact patch along axle-space down while the tread rotates.
-        float height=position.y*rubberState.y-position.z*rubberState.z;
-        float fold=step(.01,rubberState.x)*max(0.,-.356+rubberState.x-height);
-        transformed.yz+=vec2(rubberState.y,-rubberState.z)*fold;
-        transformed.x+=sign(position.x)*fold*.32;`);
-    };
+    const wheelFinish=material.clone(),rubberState=tireContactPatch(wheelFinish,.356);
     const wheel=wheelBatch.mesh(axles,wheelFinish,false);
     wheel.userData.rubberState=rubberState;
     wheel.position.set(x,.368,z);
@@ -294,13 +285,15 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     updatePanelDamage(burned ? crumpled : r.bodyDamage);
     const pose=r.suspension;
-    axles.position.set(r.x,r.y,r.z);axles.rotation.y=-r.yaw;
+    axles.position.set(r.x,r.y,r.z);
+    axles.rotation.set(r.bridgeFlight ? pose?.pitch??0 : 0,-r.yaw,0,'YXZ');
     // A collapsed front corner settles onto the axles. The six-second
     // authoritative recovery clock also places late joiners in the right pose.
     const age=burned ? Math.max(0,6-r.recoverySeconds) : 0;
     const sag=1-Math.exp(-2.8*age);
     root.position.set(r.x,r.y+(pose?.heave ?? 0)-.20*sag,r.z);
     root.rotation.set((pose?.pitch ?? 0)-.13*sag,-r.yaw,(pose?.roll ?? 0)-.18*sag,'YXZ');
+    shadow.visible=!r.bridgeFlight;
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
     if(contact){
       contact.visible=r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;

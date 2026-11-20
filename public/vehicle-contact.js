@@ -1,3 +1,4 @@
+import {yachtFloorAt,yachtCeilingAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
 // The helicopter includes the 1.23 airframe model scale. Separating its cabin,
@@ -19,6 +20,9 @@ const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 export function vehicleContact(x,y,z,world,city,height=1.8) {
   const result={dx:0,dz:0,depth:0,floor:-Infinity,ceiling:Infinity};
   if(!world) return result;
+  const yachtTop=yachtFloorAt(world.yacht,x,y,z);
+  if(y>=yachtTop-.31)result.floor=yachtTop;
+  result.ceiling=yachtCeilingAt(world.yacht,x,y,z)-height;
   const boats=world.boats??[];
   for(let index=0;index<3+boats.length;index++) {
     const kind=index===0?'heli':index===1?'rover':index===2?'supercar':'boat';

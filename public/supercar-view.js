@@ -1,3 +1,5 @@
+import {tireContactPatch} from './tire-contact-patch.js';
+import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
 import * as THREE from 'three';
 import {supercarLayout as spec} from './supercar-layout.js';
 import {alpineGlass} from './landscape.js';
@@ -212,8 +214,9 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const z of spec.wheels){
       const hub=new THREE.Group(),rotation=new THREE.Group();
       hub.position.set(side*spec.axle,spec.tire,z);root.add(hub);hub.add(rotation);
-      rotation.add(new THREE.Mesh(tire,tireMat),new THREE.Mesh(rimGeometry,wheelMaterial));
-      wheels.push({hub,rotation,front:z<0});
+      const rubber=tireMat.clone(),patch=tireContactPatch(rubber,spec.tire);
+      rotation.add(new THREE.Mesh(tire,rubber),new THREE.Mesh(rimGeometry,wheelMaterial));
+      wheels.push({hub,rotation,patch,front:z<0});
     }
   }
   const tag=document.createElement('canvas');tag.width=300;tag.height=72;
@@ -233,10 +236,18 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     root.visible=!!car;if(!car)return;
     const frame=clamp(dt,0,.1),speed=car.speed??0;
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-    body.rotation.x=car.suspension?.pitch??0;body.rotation.z=car.suspension?.roll??0;
+    const pose=car.suspension;
+    root.rotation.set(car.bridgeFlight ? pose?.pitch??0 : 0,-car.yaw,0,'YXZ');
+    body.rotation.set(car.bridgeFlight?0:pose?.pitch??0,0,pose?.roll??0);
+    under.visible=!car.bridgeFlight;
     body.position.y=car.suspension?.heave??0;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
-    for(const w of wheels){w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;}
+    for(const [i,w] of wheels.entries()){
+      const flat=isFlat(car,i);
+      w.hub.position.y=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
+      w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
+    }
     const burst=car.driver!=null && !car.wrecked ? clamp((car.exhaust??0)/.30,0,1) : 0;
     for(const [i,flame] of jets.entries()){
       flame.visible=burst>0;
