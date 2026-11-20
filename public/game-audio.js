@@ -1,3 +1,4 @@
+import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound} from './road-contact-sound.js';
 
@@ -8,6 +9,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
   if(name==='outboard' || name==='wake')return boatLoop(context,name);
@@ -118,7 +120,7 @@ export function createGameAudio(button,slider,level) {
   }
   function reset(world) {
     for(const v of voices)v.source.stop();
-    voices.clear();loops.clear();
+    voices.clear();loops.clear();lastJetRange=null;
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles=world ? {rover:world.rover,heli:world.heli} : {};
   }
@@ -190,6 +192,18 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
+  let lastJetRange=null;
+  function jetEngine(listener,yaw,jet,dt){
+    const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
+    if(!jet || jet.wrecked || Math.abs(jet.speed)<.15 || range>225 || !audible()){
+      lastJetRange=null;stopMotor('jetFan');stopMotor('jetExhaust');return;
+    }
+    const closing=lastJetRange==null?0:(lastJetRange-range)/Math.max(.001,dt);
+    lastJetRange=range;
+    const mix=jetMix(jet,listener,closing);
+    motor('jetFan',jet,true,mix.fanRate,mix.fanGain,listener,yaw);
+    motor('jetExhaust',jet,true,mix.exhaustRate,mix.exhaustGain,listener,yaw);
+  }
   function yachtEngine(listener,yaw,yacht){
     const active=yacht?.driver!=null && !yacht.wrecked;
     const speed=Math.abs(yacht?.speed??0);
@@ -200,5 +214,5 @@ export function createGameAudio(button,slider,level) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,yachtEngine,toggleMute};
+  return {unlock,reset,events,engines,jetEngine,yachtEngine,toggleMute};
 }

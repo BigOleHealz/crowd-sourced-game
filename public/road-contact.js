@@ -1,3 +1,4 @@
+import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
 import {raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -59,6 +60,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   for(const b of MAP.buildings){
+    if(towerCollapsed(b,world.doors))continue;
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>consider(boxContact(x,z,s,c,box,shape)));
     else consider(boxContact(x,z,s,c,b,shape));
   }
@@ -68,6 +70,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const reach=shape.halfWidth+shape.halfLength;
   for(const b of estateSolids(MAP.barriers,world.doors)){
     if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
+    if(collapsedLot(MAP.buildings,world.doors,b.x,b.z))continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
     if(postDown(world.doors,b) || world.doors?.brokenPanes?.[b.paneId] || world.doors?.brokenSills?.[b.sillPaneId])continue;

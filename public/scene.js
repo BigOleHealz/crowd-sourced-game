@@ -1,3 +1,4 @@
+import {noise} from './terrain-noise.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
@@ -43,7 +44,7 @@ import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, stanceDrop, stanceMuzzleHeight, terrainHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -67,19 +68,6 @@ function random(seed) {
     seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-}
-
-function hash(x, z) {
-  const h = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
-  return h - Math.floor(h);
-}
-
-function noise(x, z) {
-  const i = Math.floor(x), j = Math.floor(z);
-  let a = x - i, b = z - j;
-  a *= a * (3 - 2 * a);
-  b *= b * (3 - 2 * b);
-  return mix(mix(hash(i, j), hash(i + 1, j), a), mix(hash(i, j + 1), hash(i + 1, j + 1), a), b);
 }
 
 class Batch {
@@ -147,20 +135,6 @@ function trailDistance(x, z) {
   return Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
 }
 
-function sceneryHeight(x,z) {
-  const base=terrainHeight(x,z);
-  const beyond=Math.hypot(Math.max(0,Math.abs(x)-MAP.bounds),Math.max(0,z-MAP.bounds,MAP.northBound-z));
-  if(!beyond) return base;
-  // Continue the actual drop-off into wooded draws. Ridge crests depend on
-  // world-space drainage and outcrops, so they do not trace the map perimeter.
-  const basin=THREE.MathUtils.smoothstep(beyond,0,13);
-  const broad=noise(x*.036+11,z*.037-7);
-  const gullies=noise(x*.072+3,z*.065-15);
-  const crest=Math.hypot(x+7,z-5)+14*(broad-.5);
-  const foothills=THREE.MathUtils.smoothstep(crest,47,77);
-  return base+basin*(3+6*gullies+foothills*(8+19*broad));
-}
-
 function addGround(scene,renderer) {
   const size = 164;
   const extra=-MAP.northBound-MAP.bounds;
@@ -174,8 +148,12 @@ function addGround(scene,renderer) {
   const dark = color(0x4d573f), light = color(0xa2a27c);
   const path = color(0xb2a184), shale = color(0x85877b);
   const c = new THREE.Color();
+  // Spread the outer vertices while retaining the original trail resolution.
+  const stretch=(v,lo,hi)=>v+4.6*(Math.min(0,v-lo)+Math.max(0,v-hi));
   for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i), z = positions.getZ(i);
+    const x=stretch(positions.getX(i),-MAP.bounds-10,MAP.bounds+10);
+    const z=stretch(positions.getZ(i),MAP.northBound-10,MAP.bounds+10);
+    positions.setX(i,x);positions.setZ(i,z);
     const y = sceneryHeight(x,z);
     positions.setY(i, y);
     const patches = noise(x*.18,z*.18);
@@ -1248,6 +1226,8 @@ export function createScene(canvas) {
   }
   function render(local,remotes,view,dt,world) {
     if(!local) return;
+    const altitude=Math.max(0,local.y-20);
+    scene.fog.density=(CITY ? .005 : .0125)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
     const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
     if(lanternShadows!==insideLantern){
@@ -1272,7 +1252,7 @@ export function createScene(canvas) {
     updatePatrolBoats(world?.boats,dt);
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    updateJet(world.jet);
+    updateJet(world.jet,dt);
     const aircraft=world.jet?.pilot===local.id ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);

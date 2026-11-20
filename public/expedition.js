@@ -292,6 +292,7 @@ const scoreAtLaunch=new WeakMap();
 
 // Launch direction is captured from the authoritative body heading.
 const launchState=new WeakMap();
+const missileStep=source=>source==='jet'?2:1;
 export function launchMissile(world,kind,player,tick) {
   const v=world[kind];
   const previous=launchState.get(v);
@@ -303,7 +304,7 @@ export function launchMissile(world,kind,player,tick) {
   offset[0]*=side;
   const from=mountPosition(v,offset);
   world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
-  world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60});
+  world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60/missileStep(kind)});
   if(player.score)scoreAtLaunch.set(world.missiles.at(-1),player.score);
 }
 
@@ -313,14 +314,14 @@ export function advanceMissiles(world,players,npcs,tick) {
     if(m.source==='handLauncher')guideGameMissile(world,m);
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
-    const hit=tracePulse(world,actors,m,direction,1,false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
+    const hit=tracePulse(world,actors,m,direction,missileStep(m.source),false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
     const from={x:m.x,y:m.y,z:m.z};
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
     if (CITY && (hit.blocked || hit.hitKind==='glass')) {
       const cell=breachTower(MAP.buildings,world.doors,hit.to);
-      if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',125_000);
+      if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',31_250);
     }
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);

@@ -1,7 +1,9 @@
+import {towerRubbleView} from './tower-rubble-view.js';
 import * as THREE from 'three';
-import {bandHeight,towerBase,towerCellBounds} from './tower-damage.js';
+import {bandHeight,towerBase,towerCellBounds,towerStride,baysAcross,baysPerFloor} from './tower-damage.js';
 
 export function towerDamageView(scene,buildings,meshes,renderer) {
+  const updateRuins=towerRubbleView(scene);
   const towers=buildings.filter(b=>b.towerId!=null);
   const west=Math.floor(Math.min(...towers.map(b=>b.x-b.w/2-2)));
   const north=Math.floor(Math.min(...towers.map(b=>b.z-b.d/2-2)));
@@ -13,13 +15,13 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
   mask.format=THREE.RedFormat;
   mask.needsUpdate=true;
   const seen=new Set();
-  const cuts=new THREE.InstancedMesh(new THREE.BoxGeometry(),new THREE.MeshLambertMaterial(),towers.length*levels*16);
+  const cuts=new THREE.InstancedMesh(new THREE.BoxGeometry(),new THREE.MeshLambertMaterial(),towers.length*levels*baysPerFloor*6);
   cuts.count=0;cuts.frustumCulled=false;
   const transform=new THREE.Object3D(),depthMat=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking});
   const concrete=new THREE.Color(0x514f49);
   const edges=new THREE.Color(0x958778);
   scene.add(cuts);
-  let lastDoors, lastCount, installed=false, previous='';
+  let lastDoors, lastCount, lastRuins, installed=false, previous='|';
   function bind(mat) {
     if(seen.has(mat))return;
     seen.add(mat);
@@ -60,9 +62,11 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
   return (doors,dt)=>{
     animate(dt);
     const ids=doors?.towerBreaches??[];
-    if(lastDoors===doors && lastCount===ids.length)return;
-    lastDoors=doors;lastCount=ids.length;
-    const key=ids.join(',');
+    const collapsed=doors?.collapsedTowers??[];
+    updateRuins(towers,collapsed,dt,known!==null);
+    if(lastDoors===doors && lastCount===ids.length && lastRuins===collapsed.length)return;
+    lastDoors=doors;lastCount=ids.length;lastRuins=collapsed.length;
+    const key=ids.join(',')+'|'+collapsed.join(',');
     if(key===previous){known??=new Set(ids);return;}
     previous=key;
     if(!installed){
@@ -75,34 +79,46 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
       installed=true;
     }
     data.fill(0);cuts.count=0;
+    const lost=new Set(ids);
+    for(const tower of collapsed){
+      const b=towers[tower];
+      for(let row=0;row<levels;row++)for(let z=Math.floor(b.z-b.d/2-1.55);z<Math.ceil(b.z+b.d/2+1.55);z++){
+        const start=(row*depth+z-north)*width-west;
+        data.fill(255,start+Math.floor(b.x-b.w/2-1.55),start+Math.ceil(b.x+b.w/2+1.55));
+      }
+    }
     for(const id of ids){
-      const b=towers[Math.floor(id/64)];
+      const b=towers[Math.floor(id/towerStride)];
       if(!b)continue;
       const {x0,x1,y0,y1,z0,z1}=towerCellBounds(b,id);
-      const row=Math.floor(id%64/4);
+      const row=Math.floor(id%towerStride/baysPerFloor);
       for(let z=Math.floor(z0);z<Math.ceil(z1);z++){
         const start=(row*depth+z-north)*width-west;
         data.fill(255,start+Math.floor(x0),start+Math.ceil(x1));
       }
       // The surviving bays expose concrete cross-walls and fractured floor edges.
-      const right=id%2,back=(id>>1)%2;
-      const x=(b.x+(right?1:-1)*b.w/4),z=b.z+(back?1:-1)*b.d/4;
+      const col=id%baysAcross,line=Math.floor(id%baysPerFloor/baysAcross);
+      const left=Math.max(b.x-b.w/2,x0),right=Math.min(b.x+b.w/2,x1);
+      const front=Math.max(b.z-b.d/2,z0),back=Math.min(b.z+b.d/2,z1);
+      const x=(left+right)/2,z=(front+back)/2,w=right-left,d=back-front;
       const h=Math.min(y1,b.base+b.eave)-y0;
       if(h<=0)continue;
       if(known && !known.has(id)){
-        const signX=right?1:-1, signZ=back?1:-1;
+        const signX=x>=b.x?1:-1, signZ=z>=b.z?1:-1;
         for(let i=0;i<12;i++){
           const along=Math.random(),side=i%2===0;
-          particles.push({time:elapsed,x:side?b.x+signX*b.w/2:b.x+signX*along*b.w/2,
-            z:side?b.z+signZ*along*b.d/2:b.z+signZ*b.d/2,y:y0+.25+Math.random()*h,
+          particles.push({time:elapsed,x:side?x+signX*w/2:left+along*w,
+            z:side?front+along*d:z+signZ*d/2,y:y0+.25+Math.random()*h,
             vx:signX*(.5+Math.random()*2),vz:signZ*(.5+Math.random()*2),vy:Math.random()*2,size:.16+Math.random()*.38});
         }
         particles=particles.slice(-64);
       }
-      if(!ids.includes(id^1))block(concrete,b.x,y0+h/2,z,.12,h,b.d/2);
-      if(!ids.includes(id^2))block(concrete,x,y0+h/2,b.z,b.w/2,h,.12);
-      if(row===0 || !ids.includes(id-4))block(edges,x,y0,z,b.w/2,.18,b.d/2);
-      if(y1<b.base+b.eave && !ids.includes(id+4))block(edges,x,y1,z,b.w/2,.18,b.d/2);
+      if(col>0 && !lost.has(id-1))block(concrete,left,y0+h/2,z,.12,h,d);
+      if(col<baysAcross-1 && !lost.has(id+1))block(concrete,right,y0+h/2,z,.12,h,d);
+      if(line>0 && !lost.has(id-baysAcross))block(concrete,x,y0+h/2,front,w,h,.12);
+      if(line<baysAcross-1 && !lost.has(id+baysAcross))block(concrete,x,y0+h/2,back,w,h,.12);
+      if(row===0 || !lost.has(id-baysPerFloor))block(edges,x,y0,z,w,.18,d);
+      if(y1<b.base+b.eave && !lost.has(id+baysPerFloor))block(edges,x,y1,z,w,.18,d);
     }
     known=new Set(ids);
     if(!ids.length){particles=[];rubble.count=0;}

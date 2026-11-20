@@ -56,6 +56,8 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let lastGlass=0;
 let roverView = null, roadImpact=null;
 const held = new Set();
+let stickX=0, stickY=0;
+const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
@@ -114,6 +116,7 @@ function setGuide(open) {
 }
 function clearInput() {
   queuedMissile=false;
+  stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
   held.clear();
@@ -231,6 +234,19 @@ canvas.addEventListener('pointermove', e => {
     stopLook();
     return;
   }
+  if(jetPilot()){
+    const rect=canvas.getBoundingClientRect();
+    const radius=Math.max(36,Math.min(rect.width,rect.height)*.20);
+    if(locked()){
+      stickX=clamp(stickX+e.movementX/radius,-1,1);
+      stickY=clamp(stickY-e.movementY/radius,-1,1);
+    } else {
+      stickX=clamp((e.clientX-rect.left-rect.width/2)/radius,-1,1);
+      stickY=clamp((rect.top+rect.height/2-e.clientY)/radius,-1,1);
+    }
+    byId('flight-cursor').style.transform='translate('+stickX*radius+'px,'+-stickY*radius+'px)';
+    stopLook();return;
+  }
   if(locked()){
     camera.yaw+=e.movementX*.0028;
     camera.pitch=viewPitch(camera.pitch-e.movementY*.0024);
@@ -308,6 +324,7 @@ function connect() {
       if(m.world.match?.phase!==world.match?.phase){
         clearInput();pending=[];samples=[];
       }
+      const wasJet=jetPilot();
       const wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
@@ -318,6 +335,12 @@ function connect() {
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
       }
       world = m.world;
+      if(wasJet!==jetPilot()){
+        stickX=stickY=0;stopLook();
+        byId('flight-cursor').style.transform='';
+        camera.yaw=world.jet.yaw;
+        camera.pitch=-.10;
+      }
       predictedDriver = !vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase) ? driverPrediction(world,id) : null;
       if(predictedDriver)for(const cmd of pending.slice(-8))predictedDriver.step(cmd,step);
       if (wasDriving && !isDriving() && roverView) {
@@ -350,6 +373,7 @@ function connect() {
     roverView = null;
     audio.reset();
     byId('match-card').hidden=true;
+    byId('flight-cursor').hidden=true;
     id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
@@ -396,8 +420,9 @@ function tick() {
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     missile:jetPilot() && (queuedMissile || held.has('KeyR')),
-    throttle: driving || jetPilot() ? forward : 0, steer: driving || jetPilot() ? lateral : 0,
-    lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
+    throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
+    jetPitch:jetPilot()?stickOutput(stickY):undefined,
+    lift: pilot && !jetPilot() ? Number(held.has('Space')) - Number(descending) : 0,
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
@@ -526,9 +551,10 @@ function updateEquipment(local) {
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('flight-cursor').hidden=!jetPilot() || vitals.dead || !byId('guide').hidden || lookPaused;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : inGT() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
-  byId('space-action').parentElement.hidden = isDriving() || !!gunner;
-  byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
+  byId('space-action').parentElement.hidden = isDriving() || jetPilot() || !!gunner;
+  byId('shift-action').parentElement.hidden = local.swimming || isDriving() || jetPilot() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
@@ -551,7 +577,7 @@ function updateEquipment(local) {
   if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
-  else if(jetPilot())prompt.textContent='W/S speed · A/D turn · Space/Shift altitude · F / click cannon · R missile · E exit';
+  else if(jetPilot())prompt.textContent='Mouse to steer and climb · Center to level · W/S throttle · F / click cannon · R missile · E exit';
   else if(!pilot && !isDriving() && !gunner && nearJet(world.jet,local))prompt.textContent='E · Pilot strike jet';
   else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
   else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';
@@ -691,9 +717,10 @@ function frame(time) {
     if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
-    const view = jetPilot() ? {...camera,yaw:aircraft.yaw} : isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
+    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch*.72-.10} : isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
+    audio.jetEngine(local,view.yaw,shownJet,dt);
     scene.render(local, remotes, view, dt, { ...world, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;

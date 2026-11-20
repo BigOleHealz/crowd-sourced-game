@@ -120,3 +120,8 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 @media(max-width:700px){#match-card{left:14px;top:78px}}
 
 #launcher-status { color: #ffe6a1; font-size: 13px; margin-top: 5px; }
+
+#flight-cursor { position:fixed; left:50%; top:50%; width:12px; height:12px; margin:-7px;
+  border:1.5px solid #f5edcd; border-radius:50%; box-shadow:0 0 2px 1px #212827; pointer-events:none; }
+#flight-cursor::after { content:''; position:absolute; inset:4px; background:#f5edcd; border-radius:50%; }
+#play-reticle:has(+ #flight-cursor:not([hidden])) { display:block; }
