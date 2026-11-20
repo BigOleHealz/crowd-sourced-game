@@ -1,3 +1,4 @@
+import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
@@ -1155,6 +1156,7 @@ export function createScene(canvas) {
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
+  const updateJet=jetView(scene,Batch);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
@@ -1261,8 +1263,10 @@ export function createScene(canvas) {
     updatePatrolBoats(world?.boats,dt);
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    const piloting=heli.pilot != null && local.id===heli.pilot;
-    helicopter.update(heli,dt,piloting || local.id===heli.gunner);
+    updateJet(world.jet);
+    const aircraft=world.jet?.pilot===local.id ? world.jet : heli;
+    const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
+    helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
     const road=supercar?.driver===local.id ? supercar : rover, driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
@@ -1307,10 +1311,10 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
-      a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
+      a.root.visible=state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(seated || station) a.label.sprite.visible=false;
+      if(seated || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
@@ -1345,7 +1349,7 @@ export function createScene(canvas) {
     else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
     else if(driving) desired.set(road.x,road.y+1.03,road.z);
-    else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
+    else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
@@ -1403,7 +1407,7 @@ export function createScene(canvas) {
       if(localStation){
         const p=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
         overheadEye.set(p.x,localStation==='heli' ? Math.max(p.y+2.05,heli.y+3.65) : p.y+2.05,p.z);
-      }else if(piloting)overheadEye.set(heli.x,heli.y+3.65,heli.z);
+      }else if(piloting)overheadEye.set(aircraft.x,aircraft.y+3.65,aircraft.z);
       else if(driving)overheadEye.set(road.x,road.y+2.60,road.z);
       else if(boat)overheadEye.set(boat.x,boat.y+2.50,boat.z);
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);

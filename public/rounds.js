@@ -208,6 +208,8 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   const sportHit=roverRoundContact(world.supercar,round,d);
   if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
+  const jet=world.jet;
+  if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
   const heli=world.heli;
   if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {
