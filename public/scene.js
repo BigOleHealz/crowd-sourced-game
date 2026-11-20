@@ -1,3 +1,4 @@
+import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {routeDistance,ridgeBench} from './north-ridge.js';
 import {civilianLooks} from './civilian-style.js';
@@ -1287,8 +1288,9 @@ export function createScene(canvas) {
     const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
-    const indoors=Boolean(tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
+    const indoors=Boolean(palace || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=palace ? 1 : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     const roomBlend=indoors ? THREE.MathUtils.smoothstep(depth,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);

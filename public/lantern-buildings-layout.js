@@ -1,3 +1,4 @@
+import {mareBase,mareUpper,mareBarriers,mareLoggiaRoof} from './palazzo-mare.js';
 // Lantern Point's three properties share their geometry with the collision and chart.
 const volume=(id,x,z,w,d,h,bottom=0)=>({id,x,z,w,d,h,bottom});
 export const villaWings=[
@@ -5,13 +6,10 @@ export const villaWings=[
   volume('villa-west-wing',-36.3,-392.5,7.4,17,4.1),
   volume('villa-east-wing',-13.7,-392.5,7.4,17,4.1),
 ];
-export const limestoneBase=volume('limestone-ground-floor',25,-444,29,14,4.1);
+export const limestoneBase=mareBase;
 export const clubSalon=volume('club-salon',25,-395,24,10,4.4);
 export const lanternBuildings=[...villaWings,limestoneBase,clubSalon];
-export const upperFloors=[
-  volume('limestone-piano-nobile',24,-445.2,25,11.4,7.9,4.1),
-  volume('limestone-penthouse',21.8,-446.3,16.5,8.9,10.9,7.9),
-];
+export const upperFloors=mareUpper;
 export const pools=[
   {x:-25,z:-392.6,w:10.3,d:13.6,color:0x9bdfdb},
   {x:26.4,z:-429.8,w:17.7,d:5.6,color:0xabddd5},
@@ -31,8 +29,8 @@ export const planters=[[-40,-386],[-10,-386],[-40,-398],[-10,-398],[11,-382.5],[
   .map(([x,z])=>({x,z,w:1.35,d:1.35,h:1.05}));
 export const berthing={landing:{west:62.2,east:67,north:-382,south:-370},lip:{west:67,east:68.05,north:-376.8,south:-372.2},gangway:{x:66.38,z:-374.5}};
 export const clubRoof=volume('club-loggia',25,-390.3,26.7,11.1,4.18,3.88);
-export const loggiaRoof=volume('limestone-loggia',25,-435.5,28.2,4.6,4.12,3.86);
-export const estateBarriers=[...upperFloors,...clubColumns,...loggiaColumns,...shadeColumns,...hedges,...planters,clubRoof,loggiaRoof,
+export const loggiaRoof=mareLoggiaRoof;
+export const estateBarriers=[...mareBarriers,...clubColumns,...loggiaColumns,...shadeColumns,...hedges,...planters,clubRoof,
   volume('luma-tablet',-12.9,-378.9,3.12,.58,1.34),volume('mare-tablet',37.5,-425.3,3.12,.58,1.34),
   ...pools.map(p=>({...p,h:.18})),volume('garden-sculpture',-25,-443,1.6,2.4,3.7),
   // Bathymetry here is −2.8 m. These colliders stop swimmers and approaching RHIBs at the two visible hulls.

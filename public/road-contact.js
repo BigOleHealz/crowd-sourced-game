@@ -62,7 +62,9 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   if(CITY)for(const stand of stationFootprints){
     if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand,shape));
   }
+  const reach=shape.halfWidth+shape.halfLength;
   for(const b of MAP.barriers){
+    if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
     if(lampDown(world.doors,b))continue;
