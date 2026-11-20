@@ -1,3 +1,4 @@
+import {estateSolids,estateSupportLimit} from './estate-damage.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
 import {mareFloor,mareCeiling} from './palazzo-mare.js';
@@ -109,12 +110,12 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors);
     top=Math.max(top,surface);
   }
-  for(const b of MAP.barriers ?? []){
+  for(const b of estateSolids(MAP.barriers,doors)){
     // Expanding a walkable slab lip would add an invisible curb at its edge.
     const pad=b.flushEdge ? 0 : padding;
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
-    if(postDown(doors,b))continue;
+    if(postDown(doors,b) || (b.paneId && doors?.brokenPanes?.[b.paneId]) || doors?.brokenSills?.[b.sillPaneId])continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
@@ -177,9 +178,11 @@ export function terrainHeight(x, z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
-    const villa=casaFloor(x,z,maxBottom);
-    if(villa!==undefined)return villa;
-    const palace=mareFloor(x,z,maxBottom);
+    const limit=estateSupportLimit(doors,x,z);
+    const probe=Math.min(limit,maxBottom);
+    const villa=casaFloor(x,z,probe);
+    if(villa!==undefined)return villa<=limit+.001 ? villa : cityGround(x,z,probe,doors);
+    const palace=mareFloor(x,z,probe);
     if(Number.isFinite(palace))return palace;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
@@ -316,7 +319,8 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height,mareCeiling(x,state.y,z)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
+    const support=estateSupportLimit(doors,x,z);
+    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z,support)-height,mareCeiling(x,state.y,z,support)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
     if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);

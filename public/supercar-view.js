@@ -1,3 +1,4 @@
+import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
 import * as THREE from 'three';
@@ -6,21 +7,7 @@ import {alpineGlass} from './landscape.js';
 
 const orange=0xff7716, ember=0xf46611, carbon=0x24272a, steel=0x9ba5a4;
 const clamp=THREE.MathUtils.clamp;
-const sections=[
-  // z, half-width, centre bonnet, fender shoulder, lowest sill
-  [-2.31,.67,.40,.43,.16],[-2.18,.83,.46,.53,.15],[-1.91,.965,.53,.68,.15],
-  [-1.47,1.00,.565,.785,.16],[-1.07,.955,.61,.70,.16],[-.82,.947,.66,.67,.16],
-  [-.57,.94,.695,.65,.15],[-.10,.955,.685,.64,.15],[.43,.965,.70,.68,.15],
-  [.88,.99,.735,.76,.15],[1.18,1.01,.74,.805,.16],[1.47,1.02,.735,.83,.17],
-  [1.86,.978,.695,.79,.18],[2.12,.914,.67,.70,.20],[2.30,.817,.625,.63,.205],
-];
-function sectionAt(z){
-  for(let i=1;i<sections.length;i++)if(z<=sections[i][0]){
-    const a=sections[i-1],b=sections[i],t=clamp((z-a[0])/(b[0]-a[0]),0,1);
-    return a.map((v,k)=>THREE.MathUtils.lerp(v,b[k],t));
-  }
-  return sections.at(-1);
-}
+import {sectionAt,sections,canopy,glassQuads} from './vehicle-glass-layout.js';
 function bonnetHeight(x,z){
   const [,w,hood,shoulder]=sectionAt(z),u=Math.abs(x)/w;
   const profile=[[0,hood],[.52,hood+.012],[.78,shoulder-.012],[.91,shoulder],[.976,shoulder-.038]];
@@ -154,15 +141,14 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const x of [.20,.71])box(trim,0x272b2c,s*x,.215,2.10,.043,.155,.43,-.12);
   }
   // Sloping windscreen, tapered roof and fastback glass above a two-seat cabin.
-  const canopy=[[-.97,.72,.675],[-.69,.74,.88],[-.30,.61,1.17],[.03,.59,1.23],[.40,.596,1.20],[.71,.66,1.06],[1.15,.71,.738]];
+  const carPanes=paneBatch(glass);
+  for(const {id,corners} of glassQuads.supercar)carPanes.add(id,()=>face(glass,id==='front'||id==='rear'?0x384b50:0x293e44,...corners));
   for(let i=1;i<canopy.length;i++){
     const [z0,w0,h0]=canopy[i-1],[z1,w1,h1]=canopy[i],isRoof=i>=3&&i<=4;
-    face(isRoof?paint:glass,isRoof?orange:0x384b50,[-w0,h0-.045,z0],[-w1,h1-.045,z1],[w1,h1-.045,z1],[w0,h0-.045,z0]);
+    if(isRoof)face(paint,orange,[-w0,h0-.045,z0],[-w1,h1-.045,z1],[w1,h1-.045,z1],[w0,h0-.045,z0]);
     // Subtle transverse crown gives the painted roof its own highlight.
     if(isRoof)for(const s of sides)face(paint,orange,[0,h0,z0],[0,h1,z1],[s*w1,h1-.04,z1],[s*w0,h0-.04,z0]);
     for(const s of sides){
-      const sill0=sectionAt(z0)[2]+.016,sill1=sectionAt(z1)[2]+.016;
-      face(glass,0x293e44,[s*.785,sill0,z0],[s*.785,sill1,z1],[s*w1,h1-.045,z1],[s*w0,h0-.045,z0]);
       strip(paint,i<=2||i>=5?orange:0x362a24,[[s*w0,h0-.044,z0],[s*w1,h1-.044,z1]],i>=5?.076:.048);
     }
   }
@@ -191,7 +177,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const skin=paint.mesh(body,coat,false);
   const fittings=trim.mesh(body,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:55,specular:0x797878}),false);
   for(const m of [skin,fittings])Object.assign(m.userData,{vehicle:'supercar',impactSurface:'metal'});
-  glass.mesh(body,alpineGlass(panorama,{transparent:true,opacity:.47,depthWrite:false,side:THREE.DoubleSide}),false);
+  const updatePanes=carPanes.bind(glass.mesh(body,alpineGlass(panorama,{transparent:true,opacity:.47,depthWrite:false,side:THREE.DoubleSide}),false));
   lamps.mesh(body,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}),false);
   const wheels=[];
   const tireProfile=[[.252,-.128],[.301,-.127],[.338,-.09],[.35,-.052],[.35,.052],[.338,.09],[.301,.127],[.252,.128]];
@@ -234,6 +220,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   let spin=0,time=0;
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
+    updatePanes(car.brokenGlass);
     const frame=clamp(dt,0,.1),speed=car.speed??0;
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
     const pose=car.suspension;

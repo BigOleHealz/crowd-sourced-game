@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 
-export const hasApartmentBalconies = facade => facade === 0 || facade === 3;
+import {chamferedOutline,guardHeight,hasApartmentBalconies,railGeometry,towerBays,towerStories} from './tower-glass.js';
+import {paneBatch} from './pane-damage-view.js';
+import {paneKey} from './pane-damage.js';
+export {hasApartmentBalconies};
 
 // Crops of the glazing above the painted railings in the two residential atlas tiles.
 const windowCrops = [
@@ -8,7 +11,6 @@ const windowCrops = [
   [[806, 833, 923, 908], [1004, 833, 1120, 908], [1186, 833, 1303, 908], [806, 1027, 924, 1100]],
 ];
 const atlasSize = 1536;
-const guardHeight = 1.07;
 const picketDistance = 48;
 
 function windowGeometry([left, top, right, bottom]) {
@@ -22,13 +24,6 @@ function windowGeometry([left, top, right, bottom]) {
   return pane;
 }
 
-function chamferedOutline(x, z, cut) {
-  return [
-    [-x + cut, -z], [x - cut, -z], [x, -z + cut], [x, z - cut],
-    [x - cut, z], [-x + cut, z], [-x, z - cut], [-x, -z + cut],
-  ];
-}
-
 function wrapSlab(x, z) {
   const outline = new THREE.Shape(chamferedOutline(x, z, .65).map(([u, v]) => new THREE.Vector2(u, -v)));
   const slab = new THREE.ExtrudeGeometry(outline, {depth: 1, bevelEnabled: false});
@@ -37,12 +32,10 @@ function wrapSlab(x, z) {
 
 function addGuard(masonry, cube, infill, start, end, floor, metal, closeEnd = false) {
   const [ax, az] = start, [bx, bz] = end;
-  const dx = bx - ax, dz = bz - az;
-  const length = Math.hypot(dx, dz), yaw = Math.atan2(-dz, dx);
+  const {dx,dz,length,yaw,bays,span}=railGeometry(ax,az,bx,bz);
   const x = (ax + bx) / 2, z = (az + bz) / 2;
   masonry.add(cube, metal, x, floor + guardHeight, z, length + .046, .047, .053, 0, yaw);
   masonry.add(cube, metal, x, floor + .12, z, length, .035, .035, 0, yaw);
-  const bays = Math.ceil(length / 1.55), span = length / bays;
   for (let i = 0; i < bays + Number(closeEnd); i++) {
     masonry.add(cube, metal, ax + dx * i / bays, floor + guardHeight / 2, az + dz * i / bays,
       .044, guardHeight, .044, 0, yaw);
@@ -84,13 +77,14 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
   });
   const picketMaterial = new THREE.MeshLambertMaterial({color: 0x3e4b4a});
 
+  const updates=[];
   buildings.forEach(({x, z, w, d, eave, facade}, tower) => {
     if (!hasApartmentBalconies(facade)) return;
     const wrap = facade === 0, type = wrap ? 0 : 1;
     const height = eave - podium;
-    const floors = Math.max(1, Math.round(height / (wrap ? 3.32 : 3.14)));
-    const story = height / floors, start = base + podium;
+    const {floors,story}=towerStories({eave,facade},podium),start=base+podium;
     const masonry = new Batch(), glazing = new Batch(true), panels = new Batch(), pickets = [];
+    const sheets=paneBatch(glazing),guards=paneBatch(panels);
     const cladding = wrap ? 0xd1cfc3 : 0xcfc3ae;
     const concrete = wrap ? 0xcac9bc : 0xb3a58f;
     const frame = wrap ? 0x4e625e : 0x4c5149;
@@ -101,7 +95,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
 
     const infill = wrap
       ? (px, y, pz, yaw, span) => {
-        panels.add(guardPane, 0xffffff, px, y, pz, span - .039, guardHeight - .12, 1, 0, yaw);
+        guards.add(paneKey(px,y,pz),()=>panels.add(guardPane, 0xffffff, px,y,pz,span-.039,guardHeight-.12,1,0,yaw));
       }
       : (px, y, pz, yaw, span) => {
         const subdivisions = Math.ceil(span / .155);
@@ -132,9 +126,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
           masonry.add(shape, tint, px, y, pz, width, h, depth, 0, yaw);
         };
 
-        const bays = Math.max(2, Math.round(length / (wrap ? 4.2 : 3.65)));
-        const bay = length / bays;
-        const pier = wrap ? .66 : .98;
+        const {bays,bay,pier}=towerBays(length,wrap);
         const opening = bay - pier;
         const sill = level + .12, head = level + Math.min(2.61, story - .36);
         const panelHeight = head - sill;
@@ -154,8 +146,9 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
           const [gx, gz] = position(center, -.375);
           const glassTint = [0xc1d0cd, 0xd3ded7, 0xabbbb8, 0x9fb4af][seed % 4];
           const glassPattern = (seed ^ (seed >>> 3)) % 4;
-          glazing.add(windows[type][glassPattern], glassTint,
-            gx, (sill + head) / 2, gz, opening, panelHeight, 1, 0, yaw);
+          const y=(sill+head)/2;
+          sheets.add(paneKey(gx,y,gz),()=>glazing.add(windows[type][glassPattern],glassTint,
+            gx,y,gz,opening,panelHeight,1,0,yaw));
 
           for (const edge of [-.5, 0, .5]) {
             solid(frame, center + edge * (opening - .065), (head + sill) / 2, -.34,
@@ -192,10 +185,19 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
     }
 
     masonry.mesh(scene, stoneMaterial).userData.impactSurface = 'solid';
-    glazing.mesh(scene, glassMaterial, false).userData.impactSurface = 'solid';
-    panels.mesh(scene, panelMaterial, false);
+    const windowsMesh=glazing.mesh(scene,glassMaterial,false);
+    windowsMesh.userData.impactSurface='solid';
+    updates.push(sheets.bind(windowsMesh));
+    if(wrap)updates.push(guards.bind(panels.mesh(scene,panelMaterial,false)));
     addPicketLOD(scene, picketShape, picketMaterial, pickets, x, start + height / 2, z);
     slab?.dispose();
   });
   for (const geometry of [cube, leaves, guardPane, ...windows.flat()]) geometry.dispose();
+  let lastRevision;
+  return doors=>{
+    const revision=doors?.glassSeq??0;
+    if(revision===lastRevision)return;
+    lastRevision=revision;
+    for(const update of updates)update(doors?.brokenPanes);
+  };
 }

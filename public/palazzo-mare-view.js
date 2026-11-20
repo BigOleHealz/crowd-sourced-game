@@ -3,7 +3,7 @@ import {mareUpper,mareParts,mareFurniture,mareFlights,mareGuards,treadHeight} fr
 
 const stone=0xd6c3a0,ivory=0xf1e5ca,walnut=0x80543d,teak=0xad805c,bronze=0x675240;
 const brass=0xbd955d,green=0x466e66,blue=0x50657b,linen=0xdfcfb3;
-export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane}){
+export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,draw)=>draw()}){
   for(const p of mareParts){
     const {x,z,w,d,bottom,h,kind}=p;
     const mid=(h+bottom)/2,height=h-bottom,across=w>d;
@@ -20,9 +20,10 @@ export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane}){
     }else if(kind==='jamb' || kind==='lintel'){
       box(kind==='jamb'?walnut:stone,x,mid,z,w,height,d);
       if(kind==='lintel')box(brass,x,bottom+.04,z,w+.02,.07,d+.02);
+    }else if(kind==='sill'){
+      sill(p,()=>{masonry(ivory,x,mid,z,w,height,d);box(teak,x,h-.026,z,w+.06,.056,d+.06);});
     }else{
-      masonry(kind==='sill'?ivory:stone,x,mid,z,w,height,d);
-      if(kind==='sill')box(teak,x,h-.026,z,w+.06,.056,d+.06);
+      masonry(stone,x,mid,z,w,height,d);
     }
   }
   finishUpperFloors(scene);

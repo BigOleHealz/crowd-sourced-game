@@ -1,3 +1,4 @@
+import {identifyPane} from './pane-damage.js';
 // Heights are above the Lantern Point quay. The view, player, camera and
 // vehicle barriers all use this plan, including the two cuts in the slabs.
 export const mareBase={id:'limestone-ground-floor',x:25,z:-444,w:29,d:14,h:4.1,bottom:0};
@@ -14,7 +15,8 @@ export const mareFlights=[
 export const mareParts=[],mareFurniture=[],mareGuards=[];
 const rect=(x,z,w,d,bottom,h)=>({x,z,w,d,bottom,h});
 function part(kind,x,z,w,d,bottom,h){
-  mareParts.push({...rect(x,z,w,d,bottom,h),kind,flushEdge:kind==='slab'});
+  const p={...rect(x,z,w,d,bottom,h),kind,flushEdge:kind==='slab'};
+  mareParts.push(kind==='glass'?identifyPane(p,quay):p);
 }
 function slab(west,east,north,south,y,thickness){
   if(east>west && south>north)part('slab',(west+east)/2,(north+south)/2,east-west,south-north,y-thickness,y);
@@ -47,7 +49,9 @@ function facade(b,alongX,side,doorways){
       course('stone',start,start+.27,.25,lo,hi);
       course('stone',end-.27,end,.25,lo,hi);
       course('sill',start+.27,end-.27,.22,lo,lo+.62);
+      const sill=mareParts.at(-1);
       course('glass',start+.27,end-.27,.055,lo+.62,hi-.25);
+      sill.sillPaneId=mareParts.at(-1).paneId;
       course('stone',start+.27,end-.27,.22,hi-.25,hi);
     }
   };
@@ -154,15 +158,15 @@ export function mareFloor(x,z,probe){
   }
   return top;
 }
-export function mareCeiling(x,y,z){
+export function mareCeiling(x,y,z,support=Infinity){
   if(z<-452 || z>-433 || x<10 || x>40)return Infinity;
   let limit=Infinity;
-  for(const p of slabParts)if(on(p,x,z) && y<quay+p.bottom)limit=Math.min(limit,quay+p.bottom);
+  for(const p of slabParts)if(on(p,x,z) && quay+p.h<=support && y<quay+p.bottom)limit=Math.min(limit,quay+p.bottom);
   for(const f of mareFlights){
     const t=(x-f.start)/(f.end-f.start);
     if(t<0 || t>=1 || Math.abs(z-f.z)>f.width/2)continue;
     const underside=quay+treadHeight(f,Math.floor(t*f.count))-.22;
-    if(y<underside)limit=Math.min(limit,underside);
+    if(underside<=support && y<underside)limit=Math.min(limit,underside);
   }
   return limit;
 }
