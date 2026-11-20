@@ -1,3 +1,4 @@
+import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
 import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
 import {bridges} from './public/brickell-map.js';
@@ -21,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -164,7 +165,8 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 function playerState(player) {
-  return { ...player.state, team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  const lock=lockStatus(player,ticks);
+  return { ...player.state,...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -214,7 +216,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
-    weapon: [1,2,3].includes(input.weapon) ? input.weapon : null,
+    tracking:input.tracking===true, weapon: [1,2,3,4].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     fire: input.fire === true, interact: input.interact === true,
@@ -235,7 +237,7 @@ sockets.on('connection', ws => {
   while (players.has(id)) id++;
   const player = {
     id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
-    yaw: 0, moving: false, sprint: false, weapon: 1, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
+    yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   if(match){
     Object.assign(player,assignTeam(players));
@@ -297,7 +299,7 @@ function resetRound(){
     player.score={kills:0,deaths:0,team:player.team};
     player.inputs.length=0;
     player.ack=player.lastSeq;
-    player.yaw=0;player.weapon=1;player.moving=player.sprint=false;
+    player.yaw=0;player.weapon=4;player.launcherLock=null;player.moving=player.sprint=false;
     player.supercarInput=null;player.chainFireUntil=0;
   }
   match.updateRoster(players);
@@ -442,6 +444,7 @@ function tick() {
     player.sprint = player.moving && !player.state.swimming && !player.state.stance && input.sprint;
     if (input) {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
+      if(player.weapon===4 || player.launcherLock)trackLauncher(world,player,input,ticks,players,npcs);
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }

@@ -1,3 +1,4 @@
+import {launcherSpec,lockLabel} from './handheld-launcher.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
 import {drawMatchMap,updateMatchHud} from './island-hud.js';
 import {church,churchPath,churchLot} from './ridge-church.js';
@@ -16,6 +17,7 @@ import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout
 import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
+const equipmentSpecs={...firearmSpecs,4:launcherSpec};
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
@@ -89,7 +91,7 @@ let handleCase=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -156,7 +158,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyR' && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!inGT() && ['Digit1','Digit2','Digit3'].includes(e.code)) {
+  if (!inGT() && ['Digit1','Digit2','Digit3','Digit4'].includes(e.code)) {
     const number=Number(e.code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
@@ -191,7 +193,7 @@ function pressButton(e) {
   }
   canvas.focus({ preventScroll: true });
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
-    pressedAim = scene.aimAt(self,id,firearmSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
+    pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
 // Mouse events report each button in a chord (pointerdown only reports the first).
@@ -366,7 +368,7 @@ function tick() {
   const fire = !inGT() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
   const gunner=gunnerRole();
   const aim=(!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
-    (pressedAim || scene.aimAt(self,id,firearmSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
+    (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
@@ -377,6 +379,7 @@ function tick() {
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
+    tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
   queuedJump = queuedInteract = queuedFire = false;
@@ -489,7 +492,7 @@ function updateEquipment(local) {
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+firearmSpecs[weapon].name;
+  byId('kit').textContent = atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
@@ -511,7 +514,11 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=inGT() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
-  byId('third-tool-key').hidden=Boolean(kind);
+  byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=Boolean(kind);
+  const tracking=byId('launcher-status'),lock=vitals.launcherLock;
+  tracking.hidden=weapon!==4 || !canAim() || !!kind;
+  if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
+    camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = inGT() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   const helmPrompt=yachtPrompt(world,local,id);
