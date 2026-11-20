@@ -5,6 +5,7 @@ const {newExpedition,fire}=await import('../public/expedition.js');
 const {newLife}=await import('../public/rivals.js');
 const {parkedRover,driveRover,interactRover,damageRover,recoverRover,nearestVehicle,drivenRoad}=await import('../public/rover.js');
 const {supercarLayout}=await import('../public/supercar-layout.js');
+const {onLantern}=await import('../public/lantern-point.js');
 const {groundHeight}=await import('../public/world.js');
 const {vehicleContact}=await import('../public/vehicle-contact.js');
 
@@ -14,6 +15,7 @@ function tick(world,kind,throttle,steer,ticks){
 }
 
 const world=newExpedition(), car=world.supercar, pickup=world.rover;
+assert(onLantern(car.x,car.z),'Vesper starts on Lantern Point');
 const player={id:1,inputs:[],life:newLife(0,false),fireReady:0,weapon:1,
   state:{x:car.x+1.65,z:car.z,y:groundHeight(car.x+1.65,car.z),grounded:true}};
 const visitor={id:2,inputs:[],state:{...player.state}};
@@ -77,5 +79,6 @@ damageRover(world,car.hp,new Map([[player.id,player]]),'supercar');
 assert(car.wrecked && car.driver===null);
 for(let i=0;i<180;i++)recoverRover(world,dt,'supercar');
 assert.equal(world.supercar.hp,supercarLayout.maxHp);
+assert.deepEqual({x:world.supercar.x,z:world.supercar.z},supercarLayout.pad,'wreck recovery returns to the estate');
 assert.deepEqual(world.rover,parkedRover());
 console.log('PASS Vesper single-seat entry/exit, unarmed use, 33 vs 16 m/s, independent pickup, rapid braking, cornering, physical collision, exhaust, and recovery.');
