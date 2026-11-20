@@ -1,3 +1,4 @@
+import {inTowerBreach} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
@@ -39,9 +40,15 @@ function glassContact(from,delta,pane,doors){
 
 // The chase camera's stepped depth probe can skip a thin leaf at a shallow
 // angle. Use the same swept pane geometry as rounds within the visible span.
+function visitIntactTowerGlass(world,from,d,accept) {
+  visitTowerGlass(towerGlass,from,d,world.doors?.brokenPanes,box,(t,p)=>{
+    if (inTowerBreach(MAP.buildings,world.doors,from.x+t*d.x,from.y+t*d.y,from.z+t*d.z)) return;
+    accept(t,p);
+  });
+}
 export function firstPaneHit(world,from,delta){
   let t=Infinity,target=null;
-  const consider=(hit,pane)=>{if(hit<t){t=hit;target=pane;}};
+  const consider=(hit,pane)=>{if(hit<t && !inTowerBreach(MAP.buildings,world.doors,from.x+hit*delta.x,from.y+hit*delta.y,from.z+hit*delta.z)){t=hit;target=pane;}};
   if(CITY)for(const b of MAP.buildings){
     const entry=box(from,delta,{x:b.x,y:.82,z:b.z},b.w,3.8,b.d);
     if(entry===Infinity || entry>t)continue;
@@ -52,7 +59,7 @@ export function firstPaneHit(world,from,delta){
     if(world.doors?.brokenPanes?.[p.paneId] || Math.abs(p.z-from.z)>Math.abs(delta.z)+p.d/2 || Math.abs(p.x-from.x)>Math.abs(delta.x)+p.w/2)continue;
     consider(box(from,delta,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h});
   }
-  visitTowerGlass(towerGlass,from,delta,world.doors?.brokenPanes,box,consider);
+  visitIntactTowerGlass(world,from,delta,consider);
   return {t,target};
 }
 export function aimGlassPoint(world,from,direction,range){
@@ -156,12 +163,14 @@ export function blastPosts(world,center,radius,damage,team){
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
+    if((kind==='glass' || kind==='scenery') && Number.isFinite(value) &&
+      inTowerBreach(MAP.buildings,world.doors,round.x+d.x*value,round.y+d.y*value,round.z+d.z*value))return;
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
   for(const lot of world.match?.lots??[]){
     if(lot.hp && lot.carrier==null)accept(box(round,d,lot,lotWidth,lotHeight,lotWidth),lot,'insured');
   }
-  visitTowerGlass(towerGlass,round,d,world.doors?.brokenPanes,box,(hit,p)=>accept(hit,p,'glass'));
+  visitIntactTowerGlass(world,round,d,(hit,p)=>accept(hit,p,'glass'));
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
@@ -178,7 +187,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
     // Traverse ground-floor rooms using the same furnishings and glass as movement.
-    if(CITY && round.y+Math.min(0,d.y)<4.74){
+    if(CITY && (round.y+Math.min(0,d.y)<4.74 || (b.towerId!=null && world.doors?.towerBreaches?.length))){
       visitRoundGlass(b,world.doors,pane=>accept(glassContact(round,d,pane,world.doors),pane,'glass'));
       const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
       const steps=Math.max(1,Math.ceil(length/.045));
@@ -208,6 +217,8 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   const sportHit=roverRoundContact(world.supercar,round,d);
   if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
+  const jet=world.jet;
+  if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
   const heli=world.heli;
   if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {

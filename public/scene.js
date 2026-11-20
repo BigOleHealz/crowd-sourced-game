@@ -1,3 +1,4 @@
+import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
@@ -484,8 +485,15 @@ function makeFirearms(body) {
     meridian.add(cube,graphite,0,opticalHeight+.019*sign,-.055,.0014,.033,.0014);
   }
   meridian.add(cube,0xdfaa70,0,opticalHeight,-.055,.0021,.0021,.0014);
+  const launcher=new Batch();
+  endCap(launcher,-.12,.14,.103,.76,0x646e51);
+  for(const z of [-.51,-.30,.12,.27])endCap(launcher,z,.14,.116,.042,graphite);
+  endCap(launcher,-.534,.14,.085,.007,0x222a29);
+  launcher.add(cube,rubber,0,.0,.02,.064,.15,.07);
+  launcher.add(cube,sand,-.083,.23,-.05,.066,.074,.14);
   tube.dispose();
-  const tools=[carbine,sidearm,meridian].map(batch=>batch.mesh(body,handheldFinish,false));
+  const tools=[carbine,sidearm,meridian,launcher].map(batch=>batch.mesh(body,handheldFinish,false));
+  tools[3].name='Heat-seeking launcher';
   tools[2].name='Meridian scoped rifle';
   for(const tool of tools) tool.position.set(.12,1.33,-.20);
   return tools;
@@ -1155,16 +1163,19 @@ export function createScene(canvas) {
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
+  const updateJet=jetView(scene,Batch);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
   const sightModels=makeFirearms(camera);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
+  sightModels[3].position.set(.19,-.27,-.46);
   sightModels[2].position.set(0,-.216,-.37);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
+  let lastFocus=null;
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3(), sideways=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
@@ -1261,8 +1272,10 @@ export function createScene(canvas) {
     updatePatrolBoats(world?.boats,dt);
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    const piloting=heli.pilot != null && local.id===heli.pilot;
-    helicopter.update(heli,dt,piloting || local.id===heli.gunner);
+    updateJet(world.jet);
+    const aircraft=world.jet?.pilot===local.id ? world.jet : heli;
+    const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
+    helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
     const road=supercar?.driver===local.id ? supercar : rover, driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
@@ -1307,10 +1320,10 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
-      a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
+      a.root.visible=state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(seated || station) a.label.sprite.visible=false;
+      if(seated || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
@@ -1345,7 +1358,7 @@ export function createScene(canvas) {
     else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
     else if(driving) desired.set(road.x,road.y+1.03,road.z);
-    else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
+    else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
@@ -1357,6 +1370,11 @@ export function createScene(canvas) {
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
     const separation = watchCrash ? Math.hypot(heli.x-local.x,heli.y-local.y,heli.z-local.z) : 0;
     if (watchCrash) desired.lerp(helicopter.group.position, Math.min(.40,5/Math.max(1,separation)));
+    if(lastFocus && lastFocus.id===local.id && !watchCrash && !local.dead && !local.fall &&
+        Math.hypot(local.x-lastFocus.x,local.z-lastFocus.z)<3) {
+      target.x+=local.x-lastFocus.x;target.z+=local.z-lastFocus.z;
+    }
+    lastFocus={id:local.id,x:local.x,z:local.z};
     if(!ready || cabinDepth>=0 || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     // A slight shoulder view separates the canopy from the aircraft ahead.
@@ -1403,7 +1421,7 @@ export function createScene(canvas) {
       if(localStation){
         const p=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
         overheadEye.set(p.x,localStation==='heli' ? Math.max(p.y+2.05,heli.y+3.65) : p.y+2.05,p.z);
-      }else if(piloting)overheadEye.set(heli.x,heli.y+3.65,heli.z);
+      }else if(piloting)overheadEye.set(aircraft.x,aircraft.y+3.65,aircraft.z);
       else if(driving)overheadEye.set(road.x,road.y+2.60,road.z);
       else if(boat)overheadEye.set(boat.x,boat.y+2.50,boat.z);
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
@@ -1413,6 +1431,7 @@ export function createScene(canvas) {
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
+    sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;
     const bowSight=localStation==='superyacht' && !local.dead && !local.fall;
     const fov = bowSight ? 26 : sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;

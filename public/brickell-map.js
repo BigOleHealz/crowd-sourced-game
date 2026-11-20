@@ -57,7 +57,8 @@ const towers = [
   [-16,-53,17,8,23,0],[17,-54,12,7,31,1],[-56,69,13,7,28,1],
   [-18,69,15,7,22,3],[17,69,16,7,27,0],
 ];
-const buildings=towers.map(([x,z,w,d,eave,facade])=>({
+const buildings=towers.map(([x,z,w,d,eave,facade],towerId)=>({
+  towerId,
   x,z,w,d,eave,facade,rise:0,
   // Raised housing on the roof. Barrier heights are relative to the ground.
   housing:{x:x+w*.13,z,w:w*.45,d:d*.46,bottom:eave+.06,h:eave+1.24},
