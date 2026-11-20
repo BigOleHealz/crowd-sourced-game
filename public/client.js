@@ -93,12 +93,12 @@ function canChangeStance(state) {
 let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
-let queuedMissile=false;
+let queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -115,7 +115,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
-  queuedMissile=false;
+  queuedBomb=queuedMissile=false;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
@@ -172,6 +172,7 @@ window.addEventListener('keydown', e => {
   if(e.code==='KeyG' && mode)handleCase=true;
   if (e.code === 'KeyE') queuedInteract = true;
   if (e.code === 'KeyF') queuedFire = true;
+  if (e.code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (e.code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (e.code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
   if (!jetPilot() && !inGT() && ['Digit1','Digit2','Digit3','Digit4'].includes(e.code)) {
@@ -419,6 +420,7 @@ function tick() {
   const cmd = { type: 'input', seq: ++seq, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
+    bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || held.has('KeyR')),
     throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
@@ -430,7 +432,7 @@ function tick() {
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
-  queuedMissile=false;
+  queuedBomb=queuedMissile=false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
@@ -543,7 +545,7 @@ function updateEquipment(local) {
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = jetPilot() ? 'Strike jet · Cannon and missiles' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
@@ -577,7 +579,7 @@ function updateEquipment(local) {
   if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
-  else if(jetPilot())prompt.textContent='Mouse to steer and climb · Center to level · W/S throttle · F / click cannon · R missile · E exit';
+  else if(jetPilot())prompt.textContent='Mouse to steer and climb · Center to level · W/S throttle · F / click cannon · R missile · B drop bomb · E exit';
   else if(!pilot && !isDriving() && !gunner && nearJet(world.jet,local))prompt.textContent='E · Pilot strike jet';
   else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
   else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';

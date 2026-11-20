@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -224,7 +224,7 @@ function acceptInput(player, data, binary) {
     tracking:input.tracking===true, weapon: [1,2,3,4].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
-    missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
+    bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -412,6 +412,7 @@ function tick() {
       if(jet.pilot!==player.id)continue;
       if(input?.fire)fireTurret(world,'jet',player,ticks,players,npcs);
       if(input?.missile)launchMissile(world,'jet',player,ticks);
+      if(input?.bomb)dropJetBomb(world,player,ticks);
       player.state={x:jet.x,y:jet.y,z:jet.z,grounded:jet.grounded,vy:0};
       player.yaw=jet.yaw;player.moving=player.sprint=false;
       continue;

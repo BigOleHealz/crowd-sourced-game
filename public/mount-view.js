@@ -59,6 +59,9 @@ export function missileView(scene,Batch,onMissileMove) {
   missileModel(model,0,0,0);
   const finish=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.62,metalness:.22});
   const template=model.mesh(new THREE.Group(),finish,false);
+  const casing=new THREE.SphereGeometry(1,12,10);
+  casing.scale(.27,.27,.66);
+  const bombTemplate=new THREE.Mesh(casing,new THREE.MeshStandardMaterial({color:0x596347,roughness:.8}));
   const live=new Map(), target=new THREE.Vector3();
   return (missiles,dt)=>{
     const ids=new Set();
@@ -67,13 +70,14 @@ export function missileView(scene,Batch,onMissileMove) {
       target.set(m.x,m.y,m.z);
       let mesh=live.get(m.id);
       if(!mesh) {
-        mesh=template.clone();live.set(m.id,mesh);scene.add(mesh);
+        mesh=(m.bomb?bombTemplate:template).clone();live.set(m.id,mesh);scene.add(mesh);
         mesh.position.copy(target);
-        mesh.scale.setScalar(m.source==='heli' ? 1 : .65);
+        mesh.scale.setScalar(m.bomb || m.source==='heli' ? 1 : .65);
         mesh.rotation.set(m.pitch ?? 0,-m.yaw,0,'YXZ');
       }
       mesh.position.lerp(target,1-Math.exp(-dt*35));
-      onMissileMove?.(m,mesh.position);
+      if(m.bomb)mesh.rotation.set(m.pitch,-m.yaw,0,'YXZ');
+      else onMissileMove?.(m,mesh.position);
     }
     for(const [id,mesh] of live) if(!ids.has(id)){scene.remove(mesh);live.delete(id);}
   };
