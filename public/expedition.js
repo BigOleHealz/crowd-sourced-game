@@ -45,6 +45,8 @@ export function newExpedition() {
   };
 }
 
+const crateBodies = BREAKABLES.map(prop => ({...prop, y:groundHeight(prop.x, prop.z)}));
+
 function insideBody(point, feet, radius, height, halo) {
   return Math.hypot(point.x - feet.x, point.z - feet.z) <= radius + halo &&
     point.y >= feet.y - halo && point.y <= feet.y + height + halo;
@@ -153,8 +155,9 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
     if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
-    target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
-      insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
+    const crateIndex = crateBodies.findIndex(crate => world.hp[crate.id] > 0 &&
+      insideBody(to, crate, crate.radius, crate.height, halo));
+    target = BREAKABLES[crateIndex];
     if (target) { hitKind = 'crystal'; break; }
     if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
       target = world.heli; hitKind = 'heli'; break;

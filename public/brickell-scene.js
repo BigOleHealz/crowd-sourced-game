@@ -20,7 +20,6 @@ import { addApartmentBalconies, hasApartmentBalconies } from './apartment-balcon
 import { addBeach } from './beach-view.js';
 import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import * as THREE from 'three';
-import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './brickell-map.js';
 
@@ -179,7 +178,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addBrickellHorizon(scene,facadeMaterial.map);
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
-  addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
   const updatePosts=posts.finish();

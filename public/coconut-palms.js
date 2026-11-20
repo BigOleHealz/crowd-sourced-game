@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { MAP, groundHeight } from './world.js';
 
 // Build three palm crowns once, then instance them along the avenues.
-function palmGeometry(variant) {
+function palmGeometry(variant, distant=false) {
   const positions=[], colors=[], indices=[], uv=[];
   let seed=725+37*variant;
   const rand=()=>((seed=Math.imul(1664525,seed)+1013904223>>>0)/4294967296);
@@ -11,7 +11,7 @@ function palmGeometry(variant) {
     positions.push(x,y,z);colors.push(color.r,color.g,color.b);return positions.length/3-1;
   }
   function stem(t) {return [.53*t*t-.15*t,5.34*t,.34*Math.sin(t*1.8)*t];}
-  const segments=12, tiers=18, bark=new THREE.Color(0xe2dfcf);
+  const segments=distant ? 6 : 12, tiers=distant ? 5 : 18, bark=new THREE.Color(0xe2dfcf);
   for(let i=0;i<=tiers;i++){
     const t=i/tiers, [x,y,z]=stem(t),radius=.174+.112*Math.exp(-18*t)-.055*t+.007*Math.sin(11*t);
     for(let j=0;j<=segments;j++){
@@ -25,7 +25,8 @@ function palmGeometry(variant) {
   }
   const barkCount=indices.length;
   const [cx,cy,cz]=stem(1);
-  for(let f=0;f<23;f++){
+  const fronds=distant ? 14 : 23, sections=distant ? 8 : 23;
+  for(let f=0;f<fronds;f++){
     const angle=f*2.39996+variant*.5+rand()*.19, sn=Math.sin(angle), cs=Math.cos(angle);
     const high=f%4, length=2.95+.64*rand()-.38*high;
     const rise=.56+.48*high+.38*rand(), droop=1.50-.49*high+.36*rand(), curve=(rand()-.5)*.75;
@@ -39,16 +40,16 @@ function palmGeometry(variant) {
         vertex(point[0]+sn*width,point[1]+tangent,point[2]-cs*width,c)];
     }
     let last;
-    for(let n=0;n<=23;n++) {
-      const t=n/23, p=rachis(t);
+    for(let n=0;n<=sections;n++) {
+      const t=n/sections, p=rachis(t);
       const edge=ribbon(p,.012*(1-t),.032*(1-t)+.004,new THREE.Color(0x929352));
       if(last)indices.push(last[0],edge[0],last[1],last[1],edge[0],edge[1]);
       last=edge;
-      if(n<2 || n===23)continue;
+      if(n<2 || n===sections)continue;
       for(const side of [-1,1]){
         const spread=(.18+.52*Math.sin(Math.PI*t)**.70)*(.90+.20*rand());
         const forward=.14+.37*t, sag=spread*(.42+.27*rand());
-        const width=.040+.014*Math.sin(Math.PI*t), shade=leaf.clone().multiplyScalar(.87+.20*rand());
+        const width=(distant ? .105 : .040)+.014*Math.sin(Math.PI*t), shade=leaf.clone().multiplyScalar(.87+.20*rand());
         const mid=[p[0]+cs*forward*.48-sn*side*spread*.54,p[1]-.10*sag,p[2]+sn*forward*.48+cs*side*spread*.54];
         const root=vertex(...p,shade), leading=vertex(mid[0]-cs*width,mid[1],mid[2]-sn*width,shade);
         const fold=vertex(mid[0],mid[1]+.023,mid[2],shade.clone().multiplyScalar(1.17));
@@ -72,15 +73,50 @@ export function addPalms(scene) {
   const material=[new THREE.MeshLambertMaterial({map,vertexColors:true}),
     new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})];
   const transform=new THREE.Object3D();
-  for(let v=0;v<3;v++){
-    const trees=MAP.trees.filter((_,i)=>i%3===v);
-    const palms=new THREE.InstancedMesh(palmGeometry(v),material,trees.length);
-    trees.forEach(({x,z,height},i)=>{
+  const variants = Array.from({length:3}, (_, v) => {
+    const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height},i)=>{
       transform.position.set(x,groundHeight(x,z),z);
       transform.rotation.y=i*2.39996+v;
-      transform.scale.setScalar(height/6.9);transform.updateMatrix();
-      palms.setMatrixAt(i,transform.matrix);
+      transform.scale.setScalar(height/6.9);
+      transform.updateMatrix();
+      return {position:transform.position.clone(), matrix:transform.matrix.clone(), near:null};
     });
-    palms.userData.impactSurface='palm';palms.castShadow=true;palms.receiveShadow=true;scene.add(palms);
-  }
+    const meshes = [false,true].map(distant=>{
+      const mesh=new THREE.InstancedMesh(palmGeometry(v,distant),material,trees.length);
+      mesh.count=0;
+      mesh.userData.impactSurface='palm';
+      mesh.castShadow=mesh.receiveShadow=true;
+      scene.add(mesh);
+      return mesh;
+    });
+    return {trees,meshes};
+  });
+  const lastEye=new THREE.Vector3();
+  let lastFov=0;
+  return camera=>{
+    if(camera.fov===lastFov && camera.position.distanceToSquared(lastEye)<4)return;
+    lastEye.copy(camera.position);
+    lastFov=camera.fov;
+    // Keep close fronds detailed through scopes, with a band to avoid flicker.
+    const radius=36*Math.tan(THREE.MathUtils.degToRad(55/2))/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+    for(const {trees,meshes} of variants){
+      let changed=false;
+      for(const tree of trees){
+        const limit=radius+(tree.near ? 4 : 0);
+        const near=tree.position.distanceToSquared(lastEye)<limit*limit;
+        if(near!==tree.near){tree.near=near;changed=true;}
+      }
+      if(!changed)continue;
+      for(const mesh of meshes)mesh.count=0;
+      for(const tree of trees){
+        const mesh=meshes[tree.near?0:1];
+        mesh.setMatrixAt(mesh.count++,tree.matrix);
+      }
+      for(const mesh of meshes){
+        mesh.visible=mesh.count>0;
+        mesh.instanceMatrix.needsUpdate=true;
+        mesh.computeBoundingSphere();
+      }
+    }
+  };
 }

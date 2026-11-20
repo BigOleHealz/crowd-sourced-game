@@ -1,3 +1,4 @@
+import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
 import {churchPath,churchRoom} from './ridge-church.js';
 import {buildRidgeChurch} from './ridge-church-view.js';
@@ -1116,6 +1117,7 @@ export function createScene(canvas) {
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
+  const updatePalms=CITY ? addPalms(scene) : null;
   const features=new Batch();
   let glints, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1427,6 +1429,7 @@ export function createScene(canvas) {
       avatars.get(local.id).root.visible=false;
     }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
+    updatePalms?.(camera);
     renderer.render(scene,camera);
   }
   function showShots(shots) {
