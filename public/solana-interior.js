@@ -6,7 +6,9 @@ const ivory=0xece8db,teak=0x99714e,oak=0xb48a64,cream=0xe7dbc4,
   petrol=0x406867,brass=0xae976d,frame=0x354b50,glass=0x68959b;
 export const cabinPieces=[];
 function piece(x,y,z,w,h,d,tint,finish='solid'){
-  cabinPieces.push({x,y,z,w,h,d,tint,finish});
+  const p={x,y,z,w,h,d,tint,finish};
+  if(finish==='glass')p.paneId='cabin-'+cabinPieces.length;
+  cabinPieces.push(p);
 }
 function panel(x,y,z,w,h,d,tint){piece(x,y,z,w,h,d,tint,'trim');}
 function deck(x,z,w,d,top){
@@ -27,7 +29,8 @@ function saloon(half,fore,aft,floor,top){
   for(const sign of [-1,1]){
     const side=sign*(half-.09);
     piece(side,(floor+sill)/2,mid,.18,sill-floor,length,ivory);
-    piece(side,(sill+head)/2,mid,.14,head-sill,length,glass,'glass');
+    const count=Math.ceil(length/2);
+    for(let i=0;i<count;i++)piece(side,(sill+head)/2,fore+(i+.5)*length/count,.14,head-sill,length/count,glass,'glass');
     panel(side,sill,mid,.21,.065,length,teak);
     for(let z=fore+.1;z<aft;z+=2)
       panel(side,(sill+head)/2,z,.19,head-sill,.09,frame);
@@ -97,24 +100,27 @@ const solids=cabinPieces.filter(b=>b.finish!=='trim' && b.finish!=='pillow' && b
 function footprint(b,x,z,r){
   return Math.abs(x-b.x)<=b.w/2+r && Math.abs(z-b.z)<=b.d/2+r;
 }
-export function cabinSupport(x,y,z,r=0){
+export function cabinSupport(x,y,z,r=0,broken){
   let floor=-Infinity;
   for(const b of solids){
+    if(b.paneId && broken?.[b.paneId])continue;
     const top=b.y+b.h/2;
     if(top<=y+.30 && top>floor && footprint(b,x,z,r))floor=top;
   }
   return floor;
 }
-export function cabinCeiling(x,y,z){
+export function cabinCeiling(x,y,z,broken){
   let bottom=Infinity;
   for(const b of solids){
+    if(b.paneId && broken?.[b.paneId])continue;
     const base=b.y-b.h/2;
     if(base>y+.30 && base<bottom && footprint(b,x,z,.20))bottom=base;
   }
   return bottom;
 }
-export function cabinIntersects(x,bottom,z,top,r=0,walking=false){
+export function cabinIntersects(x,bottom,z,top,r=0,walking=false,broken){
   for(const b of solids){
+    if(b.paneId && broken?.[b.paneId])continue;
     // Tread support uses the feet center so a capsule does not catch the
     // next riser while ascending. Upper slabs still block at head height.
     if(b.y+b.h/2>bottom && b.y-b.h/2<top && footprint(b,x,z,walking && b.finish==='step'?0:r))return true;

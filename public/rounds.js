@@ -1,4 +1,5 @@
-import {yachtSolidAt} from './yacht-layout.js';
+import {cabinPieces} from './solana-interior.js';
+import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {postDown,damagePost} from './street-lamps.js';
@@ -35,19 +36,25 @@ function glassContact(from,delta,pane,doors){
 
 // The chase camera's stepped depth probe can skip a thin leaf at a shallow
 // angle. Use the same swept pane geometry as rounds within the visible span.
-export function aimGlassPoint(world,from,direction,range){
-  if(!CITY || range<=0)return null;
-  const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
-  let nearest=Infinity;
-  for(const b of MAP.buildings){
-    const entry=box(from,delta,{x:b.x,y:.82,z:b.z},b.w,2.85,b.d);
-    if(entry===Infinity || entry>nearest)continue;
-    visitRoundGlass(b,world.doors,pane=>{
-      nearest=Math.min(nearest,glassContact(from,delta,pane,world.doors));
-    });
+export function firstPaneHit(world,from,delta){
+  let t=Infinity,target=null;
+  const consider=(hit,pane)=>{if(hit<t){t=hit;target=pane;}};
+  if(CITY)for(const b of MAP.buildings){
+    const entry=box(from,delta,{x:b.x,y:.82,z:b.z},b.w,3.8,b.d);
+    if(entry===Infinity || entry>t)continue;
+    visitRoundGlass(b,world.doors,pane=>consider(glassContact(from,delta,pane,world.doors),pane));
   }
-  return nearest===Infinity ? null :
-    {x:from.x+nearest*delta.x,y:from.y+nearest*delta.y,z:from.z+nearest*delta.z};
+  for(const p of staticPanes){
+    if(world.doors?.brokenPanes?.[p.paneId] || Math.abs(p.z-from.z)>Math.abs(delta.z)+p.d/2 || Math.abs(p.x-from.x)>Math.abs(delta.x)+p.w/2)continue;
+    consider(box(from,delta,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h});
+  }
+  return {t,target};
+}
+export function aimGlassPoint(world,from,direction,range){
+  if(range<=0)return null;
+  const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
+  const {t}=firstPaneHit(world,from,delta);
+  return t===Infinity?null:{x:from.x+t*delta.x,y:from.y+t*delta.y,z:from.z+t*delta.z};
 }
 function column(a,d,c,r,h){
   const x=a.x-c.x,z=a.z-c.z,aa=d.x*d.x+d.z*d.z,bb=x*d.x+z*d.z,cc=x*x+z*z-r*r,span=[0,1];
@@ -91,10 +98,12 @@ export function roverRoundContact(rover,start,delta){
 export function supercarRoundContact(car,from,delta){
   return roverRoundContact(car,from,delta)?.t??Infinity;
 }
+const cabinPanes=cabinPieces.filter(p=>p.paneId);
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // The board, lights and brackets all share the HP of their supporting posts.
+const staticPanes=barriers.filter(p=>p.paneId);
 const postParts=barriers.filter(p=>p.postId!=null || p.lamp!=null);
 const panel=(postId,x,y,z,w,h,d,yaw=0,woodId)=>({postId,x,y,z,w,h,d,yaw,woodId});
 if(CITY){
@@ -139,7 +148,10 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
   for(const p of barriers){
     if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
-    accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+    if(world.doors?.brokenSills?.[p.sillPaneId])continue;
+    if(p.paneId){
+      if(!world.doors?.brokenPanes?.[p.paneId])accept(box(round,d,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h},'glass');
+    }else accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   }
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
@@ -193,6 +205,13 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   // Sample the stepped stern, side decks and tapered hull at the same spatial
   // interval as terrain. The shooter's muzzle stays above their own deck.
   if(world.yacht && !world.yacht.wrecked && Math.hypot(round.x-world.yacht.x,round.z-world.yacht.z)<24+Math.hypot(d.x,d.z)){
+    const yacht=world.yacht,origin=yachtLocal(yacht,round.x,round.z);
+    const end=yachtLocal(yacht,round.x+d.x,round.z+d.z),delta={x:end.x-origin.x,y:d.y,z:end.z-origin.z};
+    for(const p of cabinPanes){
+      if(yacht.brokenGlass?.[p.paneId])continue;
+      const hit=box({...origin,y:round.y-yacht.y},delta,{...p,y:p.y-p.h/2},p.w,p.h,p.d);
+      accept(hit,{vehicle:yacht,paneId:p.paneId},'vehicleGlass');
+    }
     const count=Math.max(1,Math.ceil(Math.hypot(d.x,d.y,d.z)/.12));
     const inside=f=>{
       const y=round.y+d.y*f;

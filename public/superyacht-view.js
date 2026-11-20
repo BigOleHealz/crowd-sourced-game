@@ -1,3 +1,4 @@
+import {paneBatch} from './pane-damage-view.js';
 import {cabinTop} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
@@ -114,7 +115,8 @@ export function superyachtView(scene,Batch,renderer,panorama){
     const f=i/5,y=l.top+(l.bottom-l.top)*f,z=l.fore+(l.aft-l.fore)*f;
     tubing([-l.halfWidth,y,z],[l.halfWidth,y,z],.085);
   }
-  fitSolanaInterior(root,Batch,fittings,metal,glass,wood);
+  const cabinGlass=paneBatch(glass);
+  fitSolanaInterior(root,Batch,fittings,metal,glass,wood,cabinGlass);
   for(const side of [-1,1]){
     for(const z of [-14,-10,-6,-2,2,6,10,14]){
       const w=yachtHalfBeam(z)*.982;
@@ -186,7 +188,7 @@ export function superyachtView(scene,Batch,renderer,panorama){
   const bodyMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.42,metalness:.08,side:THREE.DoubleSide});
   fittings.mesh(root,bodyMat,false);stripe.mesh(root,bodyMat,false);
   metal.mesh(root,new THREE.MeshPhongMaterial({vertexColors:true,shininess:98,specular:0xc1cbd1}),false);
-  glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100,transparent:true,opacity:.32,depthWrite:false}),false);
+  const updatePanes=cabinGlass.bind(glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100,transparent:true,opacity:.32,depthWrite:false}),false));
   const gangway=new THREE.Group();root.add(gangway);
   const ramp=new Batch();
   const end=yachtGangway.outer,start=yachtGangway.inner,drop=yachtGangway.top-yachtGangway.bottom;
@@ -207,6 +209,7 @@ export function superyachtView(scene,Batch,renderer,panorama){
   const wash=wake.mesh(root,wakeMaterial,false);
   return yacht=>{
     root.visible=!!yacht;if(!yacht)return;
+    updatePanes(yacht.brokenGlass);
     const sink=yacht.wrecked ? Math.min(1,Math.max(0,(6-yacht.recoverySeconds)/2)) : 0;
     root.position.set(yacht.x,yacht.y-sink*2.6,yacht.z);
     root.rotation.set(.055*sink,-yacht.yaw,-.12*sink,'YXZ');

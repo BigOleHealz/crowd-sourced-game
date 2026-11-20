@@ -61,7 +61,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
-  addLanternBuildings(scene,Batch,panorama);
+  const updateEstates=addLanternBuildings(scene,Batch,panorama);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
@@ -182,7 +182,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
-    updateCauseway(doors);updateLantern(doors);
+    updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);updatePosts(doors,dt);

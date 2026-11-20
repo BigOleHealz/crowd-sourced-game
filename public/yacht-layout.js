@@ -53,12 +53,12 @@ export function yachtFloorAt(yacht,x,y,z){
   const deck=yachtDeckHeight(yacht,x,z);
   if(!nearCabin(yacht,x,z))return deck;
   const p=yachtLocal(yacht,x,z);
-  return Math.max(deck,yacht.y+cabinSupport(p.x,y-yacht.y,p.z));
+  return Math.max(deck,yacht.y+cabinSupport(p.x,y-yacht.y,p.z,0,yacht.brokenGlass));
 }
 export function yachtCeilingAt(yacht,x,y,z){
   if(!nearCabin(yacht,x,z))return Infinity;
   const p=yachtLocal(yacht,x,z);
-  return yacht.y+cabinCeiling(p.x,y-yacht.y,p.z);
+  return yacht.y+cabinCeiling(p.x,y-yacht.y,p.z,yacht.brokenGlass);
 }
 export function yachtRoomDepth(yacht,x,y,z){
   if(!nearCabin(yacht,x,z))return -1;
@@ -70,14 +70,14 @@ export function yachtSolidAt(yacht,x,y,z,r=0){
   if(y<=yachtDeckHeight(yacht,x,z)+r)return true;
   if(!nearCabin(yacht,x,z))return false;
   const p=yachtLocal(yacht,x,z),h=y-yacht.y;
-  return cabinIntersects(p.x,h-r,p.z,h+r,r);
+  return cabinIntersects(p.x,h-r,p.z,h+r,r,false,yacht.brokenGlass);
 }
 // Aircraft clearance includes its footprint around the superstructure.
 export function yachtTopAt(yacht,x,z,padding=0){
   const deck=yachtDeckHeight(yacht,x,z);
   if(!nearCabin(yacht,x,z))return deck;
   const p=yachtLocal(yacht,x,z);
-  return Math.max(deck,yacht.y+cabinSupport(p.x,Infinity,p.z,padding));
+  return Math.max(deck,yacht.y+cabinSupport(p.x,Infinity,p.z,padding,yacht.brokenGlass));
 }
 export function carryOnYacht(from,to,feet){
   const p=yachtLocal(from,feet.x,feet.z);
@@ -135,7 +135,7 @@ export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   if(yachtDeckHeight(yacht,x,z)>y+.30)return true;
   const feet=y-yacht.y,p=yachtLocal(yacht,x,z);
   if(p.z>=-12.4 && p.z<=1.4 && Math.abs(p.x)<4.6 &&
-      cabinIntersects(p.x,feet+.30,p.z,feet+bodyHeight-.01,.26,true))return true;
+      cabinIntersects(p.x,feet+.30,p.z,feet+bodyHeight-.01,.26,true,yacht.brokenGlass))return true;
   if(feet<yachtRailTop+.02 && feet+bodyHeight>yachtDeckY && p.z<=15.35 && Math.abs(p.x)>yachtHalfBeam(p.z)-.65){
     for(const run of yachtRailRuns)for(let i=1;i<run.length;i++)
       if(nearSegment(p.x,p.z,run[i-1],run[i]))return true;

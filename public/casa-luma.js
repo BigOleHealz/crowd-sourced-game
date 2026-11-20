@@ -1,3 +1,4 @@
+import {identifyPane} from './pane-damage.js';
 // All local elevations are measured from the original limestone court.
 const base=.80, ground=.27, upper=3.97, terrace=4.10;
 export const villaWings=[
@@ -55,8 +56,16 @@ function facade(alongX,fixed,low,high,bottom,h,doors=[],finish='glass',side=1){
   for(const [end,next] of [...doors,[high,high]]){
     if(end>start){
       const length=end-start,mid=(start+end)/2,thick=finish==='stone'?.32:.12;
-      part(casaWalls,{x:alongX?mid:fixed,z:alongX?fixed:mid,w:alongX?length:thick,
-        d:alongX?thick:length,bottom,h,alongX,side,finish});
+      const wall={x:alongX?mid:fixed,z:alongX?fixed:mid,w:alongX?length:thick,
+        d:alongX?thick:length,bottom,h,alongX,side,finish};
+      casaWalls.push(wall);
+      if(finish==='glass'){
+        const count=Math.ceil(length/2.5),bay=length/count;
+        for(let i=0;i<count;i++){
+          const u=(i+.5)*bay-length/2;
+          casaBarriers.push(identifyPane({...wall,x:wall.x+(alongX?u:0),z:wall.z+(alongX?0:u),w:alongX?bay:thick,d:alongX?thick:bay},base));
+        }
+      }else casaBarriers.push(wall);
     }
     start=next;
   }

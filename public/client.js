@@ -41,6 +41,7 @@ if(CITY) {
 }
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
+let lastGlass=0;
 let roverView = null, roadImpact=null;
 const held = new Set();
 let lastPointer = null, pressedAim = null;
@@ -242,7 +243,7 @@ function connect() {
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = previous = m.state; facing = m.state.yaw;
       damageEdges.reset();
-      world = m.world; roadImpact=null; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
+      world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -277,6 +278,8 @@ function connect() {
       if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
       const shots=readShots(world.shots);
+      for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
+      lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
       samples.push({ time: performance.now(), bullets:world.bullets, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });

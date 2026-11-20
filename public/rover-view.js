@@ -1,3 +1,5 @@
+import {glassQuads} from './vehicle-glass-layout.js';
+import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import * as THREE from 'three';
 import {roverPanelDamage} from './rover-panel-damage.js';
@@ -91,13 +93,12 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   }
   // The cabin has actual interior volume: glazed panels sit inside its pillars.
   const glazing=new Batch();
-  panel(glazing,0x7896a0,[-.611,1.02,-.633],[.611,1.02,-.633],[.553,1.55,-.40],[-.553,1.55,-.40]);
-  if(pickup) panel(glazing,0x718e95,[-.635,1.015,.37],[-.573,1.53,.298],[.573,1.53,.298],[.635,1.015,.37]);
+  const carPanes=paneBatch(glazing);
+  for(const {id,corners} of glassQuads.rover)if(pickup || id==='front')
+    carPanes.add(id,()=>panel(glazing,id==='front'?0x7896a0:id==='rear'?0x718e95:0x6e8790,...corners));
   box(0x41473e,0,1.075,-.51,1.20,.12,.24);
   for(const side of [-1,1]) {
     const x=v=>side*v;
-    if(pickup) panel(glazing,0x6e8790,[x(.667),1.023,-.58],[x(.597),1.54,-.397],
-      [x(.599),1.53,.299],[x(.665),1.02,.356]);
     chassis.beam(green,[x(.668),1.025,-.613],[x(.59),1.55,-.4],.065);
     chassis.beam(green,[x(.665),1.02,.37],[x(.585),1.55,.302],.079);
     chassis.beam(darkGreen,[x(.67),1.023,-.60],[x(.668),1.023,.36],.043);
@@ -205,6 +206,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const trimMesh=brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
   const windows=glazing.mesh(root,glassMat,false);
+  const updatePanes=carPanes.bind(windows);
   Object.assign(windows.userData,{impactSurface:'solid',vehicle:'rover'});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
@@ -277,6 +279,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const crumpled={front:.92,rear:.42,left:.65,right:.26};
   let burned=false;
   return function update(r,dt) {
+    updatePanes(r.brokenGlass);
     if(burned!==r.wrecked){
       burned=r.wrecked;
       paint.color.setHex(burned ? 0x62584f : 0xffffff);

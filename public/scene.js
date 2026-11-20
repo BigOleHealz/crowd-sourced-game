@@ -1,3 +1,4 @@
+import {paneBatch} from './pane-damage-view.js';
 import {churchPath,churchRoom} from './ridge-church.js';
 import {buildRidgeChurch} from './ridge-church-view.js';
 import {casaRoomAt} from './casa-luma.js';
@@ -556,7 +557,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   scene.add(group);
   const hull = new Batch(), glazing=new Batch(), rotor = new Batch(), fan = new Batch();
   const olive=0x59614f, graphite=0x343b36, alloy=0x939489;
-  aircraftBody(hull,glazing);
+  const helicopterPanes=paneBatch(glazing);
+  aircraftBody(hull,glazing,helicopterPanes);
   const wheel=new THREE.TorusGeometry(1,.36,8,20);
   hull.add(round,graphite,0,1.03,-1.87,.50,.13,.22);
   hull.add(cube,0x414840,0,1.07,-1.72,.95,.16,.24,-.30);
@@ -637,7 +639,9 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const paint=fieldPaint();
   Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
-  Object.assign(glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false).userData,{impactSurface:'solid',vehicle:'heli'});
+  const windows=glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false);
+  Object.assign(windows.userData,{impactSurface:'solid',vehicle:'heli'});
+  const updateGlass=helicopterPanes.bind(windows);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
   st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
@@ -690,6 +694,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     healthLabel.sprite.visible=!crewView;
     healthLabel.update(Math.ceil(hp),maxHp,recovery,heli.abandonedFor != null);
     healthLabel.sprite.position.set(heli.x,heli.y+(wrecked ? 4.52 : 3.71),heli.z);
+    updateGlass(heli.brokenGlass);
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
@@ -771,6 +776,12 @@ function fieldEffects(scene) {
       particles.at(-1).rotation=new THREE.Quaternion().setFromUnitVectors(up,v.clone().normalize());
     }
   }
+  function glassBurst(at){
+    for(let i=0;i<23;i++){
+      const size=.035+.09*rng(),v=new THREE.Vector3((rng()-.5)*5,.4+3*rng(),(rng()-.5)*5);
+      particle(new THREE.Vector3(at.x,at.y,at.z),v,new THREE.Vector3(size,.012,size*1.7),i%3?0x85b5ba:0xe1f0ec,.36+.40*rng());
+    }
+  }
   function shot(s,sourceVehicle) {
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
@@ -812,7 +823,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,wreck,update,yachtExhaust,trail:plume.trail};
+  return {shot,burst,wreck,glassBurst,update,yachtExhaust,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1410,7 +1421,7 @@ export function createScene(canvas) {
   function showShots(shots) {
     for(const shot of shots)effects.shot(shot,shot.source);
   }
-  return {render,resize,aimAt,showShots,dispose(){scene.traverse(node=>{
+  return {render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

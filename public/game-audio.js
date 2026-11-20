@@ -4,7 +4,7 @@ import {roadContactSound} from './road-contact-sound.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
-  impact:[.13,270,3000,25], metal:[.27,470,3300,16],
+  glass:[.68,0,1800,1], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
@@ -28,6 +28,13 @@ function synth(context,name) {
       const motor=Math.sin(2*Math.PI*t*(rotor ? 53 : 64))+.33*Math.sin(2*Math.PI*t*(rotor ? 106 : 96));
       samples[i]=rotor ? .30*motor+.57*thump*(.8*Math.sin(2*Math.PI*72*t)+.7*low)
         : .37*motor+.48*thump*(Math.sin(2*Math.PI*32*t)+low);
+    } else if(name==='glass'){
+      const crack=(noise-low)*Math.exp(-48*t);
+      const chime=[.026,.079,.138,.217,.36].reduce((a,start,k)=>{
+        const u=t-start;
+        return u<0?a:a+Math.exp(-u*(18+k*2))*Math.sin(u*(12500+k*3480))*(.19-k*.02);
+      },0);
+      samples[i]=Math.min(1,t*2200)*(crack*.85+chime);
     } else if(name==='headPop') {
       phase+=2*Math.PI*bass*(1+2*Math.exp(-37*t))/rate;
       samples[i]=Math.min(1,t*950)*Math.exp(-decay*t)*(.83*Math.sin(phase)+.17*low);
@@ -60,7 +67,7 @@ export function createGameAudio(button,slider,level) {
       settings={muted:saved.muted,volume:Math.max(0,Math.min(1,saved.volume))};
   } catch {}
   let context,master,limiter;
-  let previousVehicles={};
+  let previousVehicles={},lastGlass=0;
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
     action.textContent=settings.muted ? 'Unmute' : 'Mute';
@@ -112,9 +119,12 @@ export function createGameAudio(button,slider,level) {
   function reset(world) {
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();
+    lastGlass=world?.doors?.glassSeq??0;
     previousVehicles=world ? {rover:world.rover,heli:world.heli} : {};
   }
   function events(world,listener,yaw,shots) {
+    for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
+    lastGlass=world.doors?.glassSeq??0;
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);

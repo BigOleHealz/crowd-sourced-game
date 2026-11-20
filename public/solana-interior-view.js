@@ -23,13 +23,14 @@ function chartMaterial(){
   return new THREE.MeshStandardMaterial({map,roughness:.88});
 }
 
-export function fitSolanaInterior(root,Batch,fittings,metal,glass,wood){
+export function fitSolanaInterior(root,Batch,fittings,metal,glass,wood,panes){
   const cube=new THREE.BoxGeometry(),pillow=new THREE.SphereGeometry(1,12,8);
   const cylinder=new THREE.CylinderGeometry(.5,.5,1,18), light=new Batch();
   const boards=[],uv=[];
   for(const p of cabinPieces){
     const batch=p.finish==='glass'?glass:p.finish==='light'?light:fittings;
-    if(p.finish==='pillow'){
+    if(p.paneId){panes.add(p.paneId,()=>glass.add(cube,p.tint,p.x,p.y,p.z,p.w,p.h,p.d));}
+    else if(p.finish==='pillow'){
       batch.add(pillow,p.tint,p.x,p.y,p.z,p.w*.5,p.h*.5,p.d*.5,.15,0,-.25);
     }else batch.add(cube,p.tint,p.x,p.y,p.z,p.w,p.h,p.d);
     if(p.finish==='deck' && p.y<upperSole){

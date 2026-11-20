@@ -1,3 +1,4 @@
+import {noteGlass} from './pane-damage.js';
 import {supercarLayout} from './supercar-layout.js';
 import {hotel,hotelGlass} from './maravela-hotel.js';
 import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
@@ -120,6 +121,7 @@ export function paneShattered(pane,doors) {
 }
 export function shatterPane(doors,pane) {
   if(!doors||paneShattered(pane,doors))return false;
+  noteGlass(doors,{x:pane.x,y:(pane.bottom+pane.top)/2,z:paneCenter(pane,doors)});
   if(pane.id){
     (doors.brokenPanes??={})[pane.id]=pane.slide ? {z:paneCenter(pane,doors)} : pane.hotelSlider ? {x:pane.x} : true;
   }else{
