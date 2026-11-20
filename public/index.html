@@ -14,7 +14,7 @@
   <div id="play-reticle" aria-hidden="true"></div>
   <div id="damage-edges" aria-hidden="true"></div>
   <header class="mast">
-    <div class="world-name"><h1>Pinewatch</h1><select id="map-choice" aria-label="Playable map"><option value="brickell">Brickell · Miami</option><option value="outpost">Rural Outpost</option></select></div>
+    <div class="world-name"><h1>Pinewatch</h1><select id="map-choice" aria-label="Playable map and game mode"><option value="brickell">Brickell · Miami</option><option value="outpost">Rural Outpost</option></select></div>
     <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="degrees">000°</span><span id="right-bearing">NE</span></div>
     <div class="session-controls">
       <span class="presence" role="status"><i></i><span id="presence">Connecting</span></span>
@@ -23,6 +23,12 @@
       </button>
     </div>
   </header>
+  <aside id="match-card" aria-label="Island match scoreboard" hidden>
+    <strong id="mode-title"></strong><small id="mode-target"></small>
+    <div class="team-bill"><span>Brickell <small id="brickell-players"></small></span><b id="brickell-bill"></b></div>
+    <div class="team-bill"><span>Lantern <small id="lantern-players"></small></span><b id="lantern-bill"></b></div>
+    <div id="mode-objective"></div><small id="mode-receipt"></small>
+  </aside>
   <aside id="supply-card" aria-label="Supply delivery" hidden>
     <span id="supply-step" class="subhead"></span>
     <div class="supply-heading"><strong id="supply-name"></strong><span id="supply-bearing"></span></div>

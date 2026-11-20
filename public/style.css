@@ -109,3 +109,12 @@ dd { text-align: right; color: var(--accent); margin: 0; }
   #damage-edges { transition-duration: 230ms; }
   #damage-edges.struck { opacity: .44; transition-duration: 80ms; }
 }
+
+#match-card { position:fixed; top:90px; left:30px; width:258px; max-width:72vw; padding:12px 14px; background:var(--panel); border-left:3px solid var(--accent); font-size:13px; pointer-events:none; }
+#match-card small {color:#d2d4c9;font-size:11px}
+#mode-target,#mode-receipt {display:block;margin-top:4px}
+.team-bill {display:flex;justify-content:space-between;margin-top:6px;font-variant-numeric:tabular-nums}
+.team-bill:first-of-type {color:#9dddef}
+.team-bill:nth-of-type(2) {color:#f6bb8a}
+#mode-objective {border-top:1px solid var(--line);margin-top:8px;padding-top:8px;line-height:1.4}
+@media(max-width:700px){#match-card{left:14px;top:78px}}

@@ -273,7 +273,7 @@ export function visitRoadPodium(b,x,z,doors,visit){
     }else if(!(pane.door && doors?.[pane.door]>.98))visit(pane);
   }
 }
-export function breakFrontage(doors,hit,rover){
+export function breakFrontage(doors,hit,rover,onBreak){
   const sport=rover.kind==='supercar';
   const halfWidth=sport?supercarLayout.halfWidth:.82,halfLength=sport?supercarLayout.halfLength:1.69;
   if(hit.axis==='x' && doors){
@@ -281,7 +281,9 @@ export function breakFrontage(doors,hit,rover){
     const broken=doors.brokenPanes??={};
     if(broken[hit.id])return false;
     for(const pane of galleryPlans[hit.building].panes){
-      if(pane.side===hit.side && Math.abs(pane.x-rover.x)<=pane.w/2+extent)broken[pane.id]=true;
+      if(pane.side===hit.side && Math.abs(pane.x-rover.x)<=pane.w/2+extent && !broken[pane.id]){
+        broken[pane.id]=true;onBreak?.(pane.id);
+      }
     }
     return Boolean(broken[hit.id]);
   }
@@ -291,7 +293,7 @@ export function breakFrontage(doors,hit,rover){
   const lo=rover.z-extent,hi=rover.z+extent;
   let mask=doors.broken?.[face.id]??0;
   for(const [i,[start,end]] of face.spans.entries()){
-    if(hi>=start && lo<=end)mask|=1<<i;
+    if(hi>=start && lo<=end && !(mask & (1<<i))){mask|=1<<i;onBreak?.(face.id+'-'+i);}
   }
   if(mask===doors.broken?.[face.id])return false;
   (doors.broken??={})[face.id]=mask;
