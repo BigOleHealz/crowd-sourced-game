@@ -98,6 +98,7 @@ function notice(message = '') {
 
 function setGuide(open) {
   byId('guide').hidden = !open;
+  if (open) byId('unstuck').disabled = !self || vitals.dead || (world?.match && frozenPhase(world.match.phase));
   if(open)releaseLook();
   byId('help').setAttribute('aria-expanded', String(open));
   clearInput();
@@ -130,6 +131,11 @@ function pauseControls() { releaseLook(); }
 byId('sound-mute').onclick = e => {
   audio.toggleMute();
   if (e.detail && byId('guide').hidden) canvas.focus({ preventScroll: true });
+};
+byId('unstuck').onclick = () => {
+  if (socket?.readyState !== WebSocket.OPEN || vitals.dead || !self) return;
+  socket.send(JSON.stringify({type:'unstuck'}));
+  setGuide(false);
 };
 byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);

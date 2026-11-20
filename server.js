@@ -24,7 +24,7 @@ import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
-import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
+import { stopRover, parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { recoverHelicopter } from './public/airframe.js';
@@ -193,6 +193,10 @@ function acceptInput(player, data, binary) {
     player.packedSnapshots = true;
     return;
   }
+  if (input?.type === 'unstuck') {
+    if (player.life.hp && !(match && frozenPhase(world.match.phase))) player.unstuck = true;
+    return;
+  }
   if(!mode && input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
     player.score=departedScores.get(input.key);departedScores.delete(input.key);return;
   }
@@ -298,7 +302,7 @@ function resetRound(){
     player.inputs.length=0;
     player.ack=player.lastSeq;
     player.yaw=0;player.weapon=1;player.moving=player.sprint=false;
-    player.supercarInput=null;player.chainFireUntil=0;
+    player.unstuck=false;player.supercarInput=null;player.chainFireUntil=0;
   }
   match.updateRoster(players);
 }
@@ -333,6 +337,17 @@ function tick() {
     const input = player.inputs.shift();
     if((world.heli.gunner!==player.id && world.yacht?.gunner!==player.id) || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
+    if (player.unstuck) {
+      player.unstuck = false;
+      if (player.life.hp) {
+        match?.release(player);
+        if (world.heli.pilot === player.id) interact(world,player);
+        const road = drivenRoad(world,player.id);
+        if (road) { road.driver = null; stopRover(road); }
+        player.life.immuneUntil = ticks;
+        damageActor(player,player.life.hp,ticks);
+      }
+    }
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
