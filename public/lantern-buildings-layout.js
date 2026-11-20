@@ -1,19 +1,39 @@
-// Exterior building envelopes, measured from Lantern Point's .80 m ground.
-export const lanternBuildings = [
-  {id:'fish-exchange',x:-25,z:-443,w:28,d:18,h:8.7,type:'exchange',facing:-1,
-    label:'LANTERN FISH EXCHANGE',sub:'ICE · AUCTION · WHOLESALE',body:0xa98b74,trim:0xe7d6b8,roof:0x587578,accent:0x416365},
-  {id:'customs',x:25,z:-448,w:17.5,d:15,h:10.8,type:'customs',facing:1,
-    label:'PORT CUSTOMS',sub:'HARBOR MASTER',body:0xd0bca0,trim:0xe8dcc4,roof:0x64696a,accent:0x365e63},
-  {id:'east-sheds',x:31,z:-431,w:19,d:9,h:5.7,type:'shed',facing:1,
-    label:'RIGGING & CANVAS',sub:'MARINE REPAIRS',body:0x78929a,trim:0xc8d1c7,roof:0x575e5b,accent:0xb2c1b3},
-  {id:'ferry-market',x:-26,z:-390,w:25,d:15,h:7.6,type:'market',facing:1,
-    label:'FERRY MARKET',sub:'LANTERN POINT',body:0xc7aa7e,trim:0xece0c8,roof:0x567877,accent:0x315a59},
-  {id:'west-shed',x:-31,z:-406,w:17,d:10,h:6.3,type:'shed',facing:-1,
-    label:'BAY BOATWORKS',sub:'ENGINE & HULL SERVICE',body:0xad6e52,trim:0xe1cdac,roof:0x4c5859,accent:0x5f6a62},
-  {id:'harbor-clock',x:-12,z:-405,w:8.8,d:8.9,h:16.4,type:'clock',facing:1,
-    label:'HARBOR CLOCK',sub:'LANTERN POINT',body:0xbeb3a3,trim:0xe4d7b9,roof:0x405f60,accent:0x527873},
-  {id:'workshops',x:24,z:-392,w:26,d:17,h:7.5,type:'workshops',facing:1,
-    label:'THE WORKSHOPS',sub:'LANTERN POINT',body:0xb69874,trim:0xf0debf,roof:0x596261,accent:0x47696c},
-  {id:'chandlery',x:32,z:-407,w:16,d:9.4,h:6.0,type:'chandlery',facing:-1,
-    label:'ANCHOR & LAMP',sub:'SHIP CHANDLER',body:0x9b9978,trim:0xe9dbbc,roof:0x65635a,accent:0x58675f},
+// Lantern Point's three properties share their geometry with the collision and chart.
+const volume=(id,x,z,w,d,h,bottom=0)=>({id,x,z,w,d,h,bottom});
+export const villaWings=[
+  volume('villa-gallery',-25,-405,30,8,7.4),
+  volume('villa-west-wing',-36.3,-392.5,7.4,17,4.1),
+  volume('villa-east-wing',-13.7,-392.5,7.4,17,4.1),
 ];
+export const limestoneBase=volume('limestone-ground-floor',25,-444,29,14,4.1);
+export const clubSalon=volume('club-salon',25,-395,24,10,4.4);
+export const lanternBuildings=[...villaWings,limestoneBase,clubSalon];
+export const upperFloors=[
+  volume('limestone-piano-nobile',24,-445.2,25,11.4,7.9,4.1),
+  volume('limestone-penthouse',21.8,-446.3,16.5,8.9,10.9,7.9),
+];
+export const pools=[
+  {x:-25,z:-392.6,w:10.3,d:13.6,color:0x9bdfdb},
+  {x:26.4,z:-429.8,w:17.7,d:5.6,color:0xabddd5},
+  {x:-25,z:-443,w:5.4,d:16.4,color:0x397774,reflecting:true},
+];
+export const clubColumns=[-13.0,-6.5,0,6.5,13.0].map(u=>({x:25+u,z:-385.1,w:.48,d:.48,h:3.88}));
+export const loggiaColumns=[-12.8,-6.4,0,6.4,12.8].map(u=>({x:25+u,z:-433.8,w:.54,d:.54,h:3.86}));
+export const shadeColumns=[[-37.1,-381.6],[-12.9,-381.6]].map(([x,z])=>({x,z,w:.27,d:.27,h:3.9}));
+export const hedges=[
+  ...[-38,-12].map(x=>({x,z:-443,w:1.05,d:23,h:.86})),
+  ...[-33.4,-16.6].flatMap(x=>[-454.1,-431.9].map(z=>({x,z,w:7.8,d:1.1,h:.86}))),
+  {x:-13.1,z:-380.0,w:6.8,d:1.12,h:.76},{x:-36.9,z:-380.0,w:6.8,d:1.12,h:.76},
+  {x:10.5,z:-443.8,w:.95,d:15.2,h:.75},
+];
+export const planters=[[-40,-386],[-10,-386],[-40,-398],[-10,-398],[11,-382.5],[39,-382.5],
+  [40.4,-431],[9.5,-430],[12.5,-453.6],[35.6,-454.8],[-60.8,-448],[-60.8,-424]]
+  .map(([x,z])=>({x,z,w:1.35,d:1.35,h:1.05}));
+export const berthing={landing:{west:62.2,east:67,north:-382,south:-370},lip:{west:67,east:68.05,north:-376.8,south:-372.2},gangway:{x:66.38,z:-374.5}};
+export const clubRoof=volume('club-loggia',25,-390.3,26.7,11.1,4.18,3.88);
+export const loggiaRoof=volume('limestone-loggia',25,-435.5,28.2,4.6,4.12,3.86);
+export const estateBarriers=[...upperFloors,...clubColumns,...loggiaColumns,...shadeColumns,...hedges,...planters,clubRoof,loggiaRoof,
+  volume('luma-tablet',-12.9,-378.9,3.12,.58,1.34),volume('mare-tablet',37.5,-425.3,3.12,.58,1.34),
+  ...pools.map(p=>({...p,h:.18})),volume('garden-sculpture',-25,-443,1.6,2.4,3.7),
+  // Bathymetry here is −2.8 m. These colliders stop swimmers and approaching RHIBs at the two visible hulls.
+  volume('west-sloop',-63,-439.15,6.1,1.9,3.29),volume('west-launch',-63.4,-429.9,6.1,1.9,3.29)];

@@ -59,7 +59,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addCauseway(scene,Batch,solids,material('asphalt'));
   addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch);
-  addLanternBuildings(scene,Batch);
+  addLanternBuildings(scene,Batch,panorama);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
