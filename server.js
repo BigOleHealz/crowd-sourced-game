@@ -16,6 +16,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
@@ -153,8 +154,13 @@ function playerState(player) {
 function publish() {
   if (!players.size) return;
   const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState), world: worldView() });
-  for (const { ws } of players.values()) {
-    if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 64 * 1024) ws.send(message);
+  let packed;
+  for (const { ws, packedSnapshots } of players.values()) {
+    if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) continue;
+    if (packedSnapshots) {
+      packed ??= deflateSync(message, {level: 1});
+      ws.send(packed, {compress: false});
+    } else ws.send(message);
   }
 }
 
@@ -164,6 +170,10 @@ function acceptInput(player, data, binary) {
   try {
     input = JSON.parse(data);
   } catch {
+    return;
+  }
+  if (input?.type === 'snapshotEncoding' && input.encoding === 'deflate') {
+    player.packedSnapshots = true;
     return;
   }
   if(input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
