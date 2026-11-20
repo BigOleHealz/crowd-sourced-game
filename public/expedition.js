@@ -1,3 +1,4 @@
+import {breachEstate,onEstate} from './estate-damage.js';
 import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
 import {yachtSolidAt} from './yacht-layout.js';
@@ -124,7 +125,7 @@ function actorIntersection(actor,from,worldDir) {
 }
 
 // Also used by the third-person camera to find the depth under the cursor.
-export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null) {
+export function tracePulse(world, actors, from, direction, range, assist = true, sourceVehicle = null, spacing=.2) {
   let target = null, hitKind = null, to, blocked = false, headshot=false, hitPart=null, injuryPoint=null;
   const intersections=actors.map(actor=>actorIntersection(actor,from,direction)).sort((a,b)=>a.distance-b.distance);
   const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
@@ -135,7 +136,8 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const post=postContact(world,from,delta);
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
-  for (let d = 0.2; d <= range; d += 0.2) {
+  for (let sample=1; sample*spacing<=range+.00001;sample++) {
+    const d=Math.min(range,sample*spacing);
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
     if(post.target && post.t*range<=d){
       target=post.target;hitKind=target.lamp!=null?'lamp':'post';
@@ -264,11 +266,12 @@ export function advanceMissiles(world,players,npcs,tick) {
     const actors=targets(world,m.shooter,players,npcs,m.source);
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
-    const hit=tracePulse(world,actors,m,direction,1,false,m.source);
+    const hit=tracePulse(world,actors,m,direction,1,false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
     const from={x:m.x,y:m.y,z:m.z};
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
+    if(CITY && (hit.blocked || hit.hitKind==='glass'))breachEstate(world.doors,hit.to);
     const injury=applyHit(world,hit,actors,players,m.shooter,tick,150,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;

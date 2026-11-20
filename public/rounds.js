@@ -1,3 +1,4 @@
+import {estateSolids} from './estate-damage.js';
 import {yachtSolidAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
@@ -93,8 +94,16 @@ export function supercarRoundContact(car,from,delta){
 }
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
-const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
+const roundSolids=parts=>parts.map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // The board, lights and brackets all share the HP of their supporting posts.
+const barriers=roundSolids(MAP.barriers);
+const roundCache=new WeakMap();
+function roundBarriers(doors){
+  if(!doors?.estateBreaches?.length)return barriers;
+  const parts=estateSolids(MAP.barriers,doors);
+  if(!roundCache.has(parts))roundCache.set(parts,roundSolids(parts));
+  return roundCache.get(parts);
+}
 const postParts=barriers.filter(p=>p.postId!=null || p.lamp!=null);
 const panel=(postId,x,y,z,w,h,d,yaw=0,woodId)=>({postId,x,y,z,w,h,d,yaw,woodId});
 if(CITY){
@@ -137,7 +146,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
-  for(const p of barriers){
+  for(const p of roundBarriers(world.doors)){
     if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
     accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   }

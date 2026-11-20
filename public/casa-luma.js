@@ -122,10 +122,10 @@ export function casaFloor(x,z,probe){
   }
   return top;
 }
-export function casaCeiling(x,y,z){
+export function casaCeiling(x,y,z,support=Infinity){
   if(!nearCasa(x,z))return Infinity;
   let ceiling=Infinity;
-  for(const p of casaSlabs)if(p.level!=='ground' && y<base+p.bottom && covers(p,x,z,.32))ceiling=Math.min(ceiling,base+p.bottom);
+  for(const p of casaSlabs)if(p.level!=='ground' && base+p.h<=support && y<base+p.bottom && covers(p,x,z,.32))ceiling=Math.min(ceiling,base+p.bottom);
   return ceiling;
 }
 export function casaRoomAt(x,y,z){
