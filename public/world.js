@@ -100,6 +100,34 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   return storefrontTopAt(x,z,pad,probe,roof,doors,gap);
 }
 
+// All common contact probes have a radius of two metres or less. Index
+// expanded bounds once, then run the original exact tests on local solids.
+const barrierCells = new WeakMap();
+const cellWidth = 12, maxIndexedPadding = 2, noBarriers = [];
+function nearbyBarriers(x, z, padding, doors) {
+  const parts = estateSolids(MAP.barriers, doors);
+  if (padding > maxIndexedPadding) return parts;
+  let index = barrierCells.get(parts);
+  if (!index || index.count !== parts.length || index.last !== parts.at(-1)) {
+    const columns = new Map();
+    for (const b of parts) {
+      const dx = b.w / 2 + maxIndexedPadding, dz = b.d / 2 + maxIndexedPadding;
+      for (let i = Math.floor((b.x-dx)/cellWidth); i <= Math.floor((b.x+dx)/cellWidth); i++) {
+        let rows = columns.get(i);
+        if (!rows) columns.set(i, rows = new Map());
+        for (let j = Math.floor((b.z-dz)/cellWidth); j <= Math.floor((b.z+dz)/cellWidth); j++) {
+          let cell = rows.get(j);
+          if (!cell) rows.set(j, cell = []);
+          cell.push(b);
+        }
+      }
+    }
+    index = {columns, count:parts.length, last:parts.at(-1)};
+    barrierCells.set(parts, index);
+  }
+  return index.columns.get(Math.floor(x/cellWidth))?.get(Math.floor(z/cellWidth)) ?? noBarriers;
+}
+
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
   let top=CITY ? parapetTop(x,z,padding,maxBottom,doors) : -Infinity;
@@ -110,7 +138,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors);
     top=Math.max(top,surface);
   }
-  for(const b of estateSolids(MAP.barriers,doors)){
+  for(const b of nearbyBarriers(x,z,padding,doors)){
     // Expanding a walkable slab lip would add an invisible curb at its edge.
     const pad=b.flushEdge ? 0 : padding;
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;

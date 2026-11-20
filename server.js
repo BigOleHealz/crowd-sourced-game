@@ -114,7 +114,13 @@ async function serve(request, response) {
 }
 
 const server = createServer(serve);
-const sockets = new WebSocketServer({ noServer: true, maxPayload: 1024 });
+// World snapshots repeat vehicles, NPC state and field names at 15 Hz. Keep
+// the outbound compression dictionary across frames. Tiny player inputs
+// don't benefit from retaining their own per-connection dictionary.
+const sockets = new WebSocketServer({
+  noServer: true, maxPayload: 1024,
+  perMessageDeflate: { clientNoContextTakeover: true, zlibDeflateOptions: { level: 1 } },
+});
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 let cityWorker;
 function accept(request,socket,head) {

@@ -19,10 +19,10 @@ async function until(read, label, timeout = 6000) {
   throw new Error('Timed out waiting for ' + label);
 }
 
-async function join(host) {
+async function join(host, options) {
   const url = new URL('/world', host);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-  const g = { ws: new WebSocket(url), frames: [], seq: 0 };
+  const g = { ws: new WebSocket(url, options), frames: [], seq: 0 };
   guests.push(g);
   g.ws.on('error', e => { g.error = e; });
   g.ws.on('message', raw => {
@@ -80,7 +80,9 @@ async function walkTo(guest, destination) {
 }
 
 async function checkExpedition(host) {
-  const a = await join(host), b = await join(host);
+  const a = await join(host), b = await join(host, { perMessageDeflate:false });
+  assert.equal(a.ws.extensions, 'permessage-deflate');
+  assert.equal(b.ws.extensions, '');
   const crystal = BREAKABLES.find(p => p.x === 0 && p.z === 10);
   assert.ok(crystal, 'crystal obstructs the trailhead approach');
   const hp = (state, prop) => state.hp[prop.id] ?? prop.hp;
