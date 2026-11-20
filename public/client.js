@@ -226,14 +226,40 @@ canvas.addEventListener('wheel', e => {
 }, { passive: false });
 
 let connectedBuild,previousScoreKey;
+let canUnpack = typeof DecompressionStream === 'function';
 const scoreStorage=CITY?'brickell-match-score':'outpost-match-score';
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
   socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell' : '/world'));
   let full = false;
-  socket.onmessage = ({data}) => {
-    const m = JSON.parse(data);
+  const connection = socket;
+  let incoming = Promise.resolve();
+  connection.onopen = () => {
+    if (canUnpack && !connection.extensions.includes('permessage-deflate')) {
+      connection.send(JSON.stringify({type:'snapshotEncoding', encoding:'deflate'}));
+    }
+  };
+  // WebSocket delivers binary frames as Blobs. Keep snapshot order across
+  // asynchronous decompression, and discard work belonging to closed sockets.
+  connection.onmessage = ({data}) => {
+    incoming = incoming.then(async () => {
+      if (connection !== socket || connection.readyState === WebSocket.CLOSED) return;
+      let text = data;
+      if (typeof data !== 'string') {
+        try {
+          const stream = data.stream().pipeThrough(new DecompressionStream('deflate'));
+          text = await new Response(stream).text();
+        } catch {
+          canUnpack = false;
+          connection.close();
+          return;
+        }
+      }
+      if (connection === socket && connection.readyState !== WebSocket.CLOSED) receive(JSON.parse(text));
+    }).catch(error => {console.error(error); connection.close();});
+  };
+  function receive(m) {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
@@ -289,7 +315,7 @@ function connect() {
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
     }
-  };
+  }
   socket.onclose = () => {
     damageEdges.reset();
     canvas.classList.remove('armed');

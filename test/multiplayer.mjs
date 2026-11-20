@@ -6,6 +6,7 @@ import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
+import {inflateSync} from 'node:zlib';
 import { BREAKABLES, HELIPAD, groundHeight } from '../public/world.js';
 
 const guests = [];
@@ -19,14 +20,16 @@ async function until(read, label, timeout = 6000) {
   throw new Error('Timed out waiting for ' + label);
 }
 
-async function join(host, options) {
+async function join(host, options, packed = false) {
   const url = new URL('/world', host);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   const g = { ws: new WebSocket(url, options), frames: [], seq: 0 };
   guests.push(g);
   g.ws.on('error', e => { g.error = e; });
-  g.ws.on('message', raw => {
-    const m = JSON.parse(raw);
+  if (packed) g.ws.on('open', () => g.ws.send(JSON.stringify({type:'snapshotEncoding', encoding:'deflate'})));
+  g.ws.on('message', (raw,binary) => {
+    if (binary) {assert(packed); g.receivedPacked = true;}
+    const m = JSON.parse(binary ? inflateSync(raw) : raw);
     if (m.type === 'welcome') {
       g.id = m.id;
       g.welcome = m;
@@ -80,7 +83,8 @@ async function walkTo(guest, destination) {
 }
 
 async function checkExpedition(host) {
-  const a = await join(host), b = await join(host, { perMessageDeflate:false });
+  const a = await join(host), b = await join(host, { perMessageDeflate:false }, true);
+  await until(() => b.receivedPacked, 'compressed snapshots without a WebSocket extension');
   assert.equal(a.ws.extensions, 'permessage-deflate');
   assert.equal(b.ws.extensions, '');
   const crystal = BREAKABLES.find(p => p.x === 0 && p.z === 10);
