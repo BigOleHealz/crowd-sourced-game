@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {auction,closestCase,goal,lotHeight,lotWidth,minTeam,modes,teamColors,teamNames,teams} from './island-rules.js';
+import {auction,closestCase,goal,lotHeight,lotWidth,modes,teamColors,teamNames,teams} from './island-rules.js';
 import {groundHeight} from './world.js';
 
 const money=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
@@ -21,12 +21,12 @@ export function updateMatchHud(match,team,local){
   byId('supply-card').hidden=true;
   byId('mode-title').textContent=rule.name+' · '+teamNames[team];
   for(const key of teams){
-    byId(key+'-players').textContent=match.counts[key]+' players';
+    byId(key+'-players').textContent=match.counts[key]+(match.counts[key]===1?' player':' players');
     byId(key+'-bill').textContent=money.format(match.scores[key]);
   }
   let objective=rule.objective;
   if(match.phase==='waiting' || match.phase==='paused'){
-    objective=(match.phase==='paused'?'Match paused. ':'')+'Waiting for '+minTeam+' players on each island.';
+    objective=(match.phase==='paused'?'Match paused. ':'')+(rule.minTeam===1?'Waiting for an opponent.':'Waiting for '+rule.minTeam+' players on each island.');
   }else if(match.phase==='finished'){
     objective=teamNames[match.winner]+' wins. Next round in '+match.remaining+'s.';
   }else if(match.phase==='setup'){
