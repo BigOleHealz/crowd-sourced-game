@@ -2,7 +2,7 @@ import {raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
-import {lampDown} from './street-lamps.js';
+import {postDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
@@ -65,7 +65,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const b of MAP.barriers){
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
-    if(lampDown(world.doors,b))continue;
+    if(postDown(world.doors,b))continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16)consider(boxContact(x,z,s,c,b,shape));
   }

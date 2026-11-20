@@ -3,7 +3,7 @@ import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
 import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
 import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
-import {lampDown} from './street-lamps.js';
+import {postDown} from './street-lamps.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
 import {findLedge,stepClimb} from './ledge-climb.js';
 import {lookoutFloor} from './beach-layout.js';
@@ -62,7 +62,7 @@ export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
 MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
   MAP.rocks.push(...northRocks);
-  MAP.barriers.push({x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h})=>({x,z,w:.14,d:.15,h})),
+  MAP.barriers.push({x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h,postId})=>({x,z,postId,w:.14,d:.15,h})),
     {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
 }
 
@@ -108,7 +108,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
   }
   for(const b of MAP.barriers ?? []){
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
-    if(lampDown(doors,b))continue;
+    if(postDown(doors,b))continue;
     if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);

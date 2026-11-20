@@ -37,7 +37,7 @@ export const lanternSigns=[
   {x:39.4,z:-377.2,label:'LANTERN YACHT CLUB',sub:'SOLANA BERTH   →'},
   {x:62.9,z:-379.5,label:'SOLANA',sub:'HOME BERTH   /   EAST QUAY'},
 ];
-export const signBarriers=lanternSigns.flatMap(({x,z})=>[-1,1].map(s=>({x:x+s*1.4,z,w:.14,d:.14,h:3.35})));
+export const signBarriers=lanternSigns.flatMap(({x,z},i)=>[-1,1].map(s=>({postId:'lantern-sign-'+i,x:x+s*1.4,z,w:.14,d:.14,h:3.35})));
 
 export const bollards=[-455,-447,-425,-414,-403,-392,-381].map(z=>({x:-68.2,z,w:.35,d:.35,h:.74}));
 export const benches=[-31,-15,16,32].map(x=>({x,z:-475.5,w:2.2,d:.52,h:.82}));
@@ -56,4 +56,4 @@ export const quayLamps=[
   ...[-8,8].flatMap(x=>[-376,-395,-412,-429,-450,-459].map(z=>({x,z}))),
   ...[-457,-445,-429,-415,-401,-384,-373].map(z=>({x:-55,z})),
   ...[-37,-17,17,37].map(x=>({x,z:-472})),
-].map(p=>({...p,w:.28,d:.28,h:3.85}));
+].map((p,i)=>({...p,postId:'quay-'+i,w:.28,d:.28,h:3.85}));

@@ -1,5 +1,6 @@
 import {viewPitch,zenith} from './view-pitch.js';
 import {routeDistance,ridgeBench} from './north-ridge.js';
+import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
 import {dressCivilian} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
@@ -309,7 +310,7 @@ function signFace(scene,x,z,heading,text) {
   const map=new THREE.CanvasTexture(board);map.colorSpace=THREE.SRGBColorSpace;
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.13,.31),new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}));
   sign.position.set(x+.091*Math.sin(heading),terrainHeight(x,z)+1.55,z+.091*Math.cos(heading));
-  sign.rotation.y=heading;scene.add(sign);
+  sign.rotation.y=heading;scene.add(sign);return sign;
 }
 
 function windsock(batch) {
@@ -328,11 +329,13 @@ function windsock(batch) {
   rim.dispose();
 }
 
-function addDetails(scene,batch, rng) {
+function addDetails(scene,batch, rng,posts) {
   const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
   for(const marker of trailMarkers) {
+    posts.add(marker.postId,marker.x,terrainHeight(marker.x,marker.z),marker.z,batch=>{
     addTrailMarker(batch,marker.x,marker.z,marker.heading,marker.h>2);
-    signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+    return signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+    });
   }
   const {x,z}=ridgeBench,y=terrainHeight(x,z);
   for(const side of [-1,1])batch.add(cube,0x6b6555,x+side*.82,y+.21,z,.19,.45,.42);
@@ -1099,7 +1102,9 @@ export function createScene(canvas) {
     forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
-    addDetails(scene,features,rng);
+    const posts=breakablePostView(scene,Batch);
+    addDetails(scene,features,rng,posts);
+    updateDoors=posts.finish();
     glints=water(scene,rng,renderer);
     stacks=buildOutpost(scene,renderer,Batch);
     meadow(scene,renderer,rng,trailDistance);

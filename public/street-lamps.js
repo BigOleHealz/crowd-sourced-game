@@ -7,3 +7,12 @@ export const lampDown=(doors,p)=>p.lamp!=null && doors?.lamps?.[p.lamp]===0;
 export function damageLamp(doors,id,damage){
   if(doors && id!=null)(doors.lamps??={})[id]=Math.max(0,(doors.lamps[id]??lampHP)-damage);
 }
+
+export const postDown=(state,p)=>lampDown(state,p) || (p.postId!=null && state?.posts?.[p.postId]===0);
+export function damagePost(state,p,amount){
+  if(p.lamp!=null){damageLamp(state,p.lamp,amount);return;}
+  if(!state || p.postId==null)return;
+  const hp=state.posts??={};
+  hp[p.postId]=Math.max(0,(hp[p.postId]??lampHP)-amount);
+  if(hp[p.postId]===0 && p.woodId)(state.beachWood??={})[p.woodId]??=1;
+}

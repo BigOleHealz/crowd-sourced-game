@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {verges} from './waterfront-roads.js';
 import {lanternLand,lanternRoads,lanternSigns,ferrySlip,slipHeight,marketPiers,pierDeck,bollards,benches,gardens,quayLamps} from './lantern-point.js';
 
-export function addLanternPoint(scene,solids,ground,patch) {
+export function addLanternPoint(scene,solids,ground,patch,posts) {
   const box=new THREE.BoxGeometry(),post=new THREE.CylinderGeometry(.5,.5,1,12);
   const paved=[];
   for(const strip of lanternLand){
@@ -51,7 +51,8 @@ export function addLanternPoint(scene,solids,ground,patch) {
     for(const side of [-1,1])solids.add(box,0x967352,x,1.27,z+side*.135,2.20,.12,.24);
     solids.add(box,0x987452,x,1.53,z-.216,2.20,.20,.085);
   }
-  for(const {x,z} of quayLamps){
+  for(const {x,z,postId} of quayLamps){
+    posts.add(postId,x,.8,z,solids=>{
     solids.add(post,0x465953,x,.925,z,.28,.25,.28);
     solids.add(post,0x4c6258,x,2.32,z,.112,2.9,.112);
     solids.add(post,0x9e875b,x,3.74,z,.30,.09,.30);
@@ -60,9 +61,11 @@ export function addLanternPoint(scene,solids,ground,patch) {
       solids.add(box,0x526158,x+dx,3.99,z+dz,.028,.46,.028);
     solids.add(post,0x526159,x,4.24,z,.38,.10,.38);
     solids.add(post,0x9b8255,x,4.37,z,.085,.19,.085);
+    });
   }
   const labels=new THREE.PlaneGeometry(4.5,1.22);
-  for(const {x,z,label,sub} of lanternSigns){
+  for(const [i,{x,z,label,sub}] of lanternSigns.entries()){
+    posts.add('lantern-sign-'+i,x,.8,z,solids=>{
     const canvas=document.createElement('canvas');canvas.width=768;canvas.height=208;
     const c=canvas.getContext('2d');c.fillStyle='#bd9c68';c.fillRect(0,0,768,208);
     c.fillStyle='#213c39';c.fillRect(6,6,756,196);
@@ -73,6 +76,8 @@ export function addLanternPoint(scene,solids,ground,patch) {
     face.position.set(x,3.56,z+.08);scene.add(face);
     solids.add(box,0x446768,x,3.56,z,4.53,1.25,.14);
     for(const side of [-1,1])solids.add(box,0x697c77,x+side*1.4,2.11,z,.14,2.65,.14);
+    return face;
+    });
   }
   box.dispose();post.dispose();
 }

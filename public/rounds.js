@@ -1,8 +1,10 @@
 import {yachtTopAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
-import {lampDown} from './street-lamps.js';
+import {postDown,damagePost} from './street-lamps.js';
 import {wheelStations} from './road-wheel-layout.js';
+import {harborSigns,beachSigns,signalPost,trailMarkers} from './scenery-layout.js';
+import {lanternSigns} from './lantern-point.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
@@ -87,26 +89,52 @@ export function supercarRoundContact(car,from,delta){
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
-// Match the signal pole, overhead arm and housing drawn at each intersection.
-const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
-  {x:x-6.2,y:.75,z:z-5.8,w:.16,h:4.5,d:.16},
-  {x:x-2.2,y:5.03,z:z-5.8,w:8,h:.12,d:.12},
-  {x:x+1.5,y:4.265,z:z-5.8,w:.34,h:.87,d:.32},
-])):[];
+// The board, lights and brackets all share the HP of their supporting posts.
+const postParts=barriers.filter(p=>p.postId!=null || p.lamp!=null);
+const panel=(postId,x,y,z,w,h,d,yaw=0,woodId)=>({postId,x,y,z,w,h,d,yaw,woodId});
+if(CITY){
+  for(const p of postParts.filter(p=>p.lamp!=null))
+    postParts.push({...p,x:p.x-p.side*.60,y:p.y+4.22,w:.81,h:.23,d:.31});
+  for(const x of avenues)for(const z of streets){
+    const {postId}=signalPost(x,z);
+    postParts.push(panel(postId,x-2.2,5.03,z-5.8,8,.12,.12),panel(postId,x+1.5,4.265,z-5.8,.34,.87,.32));
+  }
+  harborSigns.forEach(([x,z],i)=>postParts.push(panel('harbor-'+i,x,3.18,z,3.82,.88,.14)));
+  beachSigns.forEach(([x,z,yaw],i)=>postParts.push(panel('beach-'+i,x,2.665,z,4.64,.95,.14,yaw,'sign-'+i)));
+  lanternSigns.forEach(({x,z},i)=>postParts.push(panel('lantern-sign-'+i,x,2.935,z,4.53,1.25,.14)));
+}else{
+  for(const p of trailMarkers)postParts.push(panel(p.postId,p.x,terrainHeight(p.x,p.z)+1.395,p.z,1.13,.31,.2,p.heading));
+}
+export function postContact(world,from,d){
+  let t=Infinity,target=null;
+  for(const p of postParts){
+    if(postDown(world.doors,p) || world.doors?.beachWood?.[p.woodId])continue;
+    const hit=box(from,d,p,p.w,p.h,p.d,p.yaw);
+    if(hit<t){t=hit;target=p;}
+  }
+  return {t,target};
+}
+export function blastPosts(world,center,radius,damage){
+  const hit=new Set();
+  for(const p of postParts){
+    const id=p.postId??p.lamp;
+    if(hit.has(id) || postDown(world.doors,p))continue;
+    const dy=Math.max(0,p.y-center.y,center.y-p.y-p.h);
+    if(Math.hypot(center.x-p.x,dy,center.z-p.z)>radius)continue;
+    damagePost(world.doors,p,damage);hit.add(id);
+  }
+}
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
-  for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+  const post=postContact(world,round,d);
+  if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
   for(const p of barriers){
-    if(lampDown(world.doors,p) || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
-    if(p.lamp!=null){
-      const head={x:p.x-p.side*.60,y:p.y+4.22,z:p.z};
-      accept(box(round,d,head,.81,.23,.31),p,'lamp');
-    }
-    accept(box(round,d,p,p.w,p.h,p.d),p.lamp!=null?p:null,p.lamp!=null?'lamp':'scenery');
+    if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
+    accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   }
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;

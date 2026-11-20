@@ -1,11 +1,11 @@
 import {mooredYacht,damageYacht} from './superyacht.js';
 import {yachtTopAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
-import {damageLamp} from './street-lamps.js';
+import {damagePost,lampHP} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, roverRoundContact, supercarRoundContact, segmentContact } from './rounds.js';
+import { firearmSpecs, roverRoundContact, supercarRoundContact, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -32,7 +32,8 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
 
 export function newExpedition() {
   return {
-    ...(CITY ? {doors:newStorefrontDoors(),yacht:mooredYacht(),supercar:parkedSupercar()} : {}),
+    doors:CITY?newStorefrontDoors():{},
+    ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar()} : {}),
     heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
@@ -120,10 +121,15 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const sportContact=supercarRoundContact(world.supercar,from,delta);
   const hitSport=sportContact<(roverContact?.t??Infinity);
   const roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
+  const post=postContact(world,from,delta);
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
+    if(post.target && post.t*range<=d){
+      target=post.target;hitKind=target.lamp!=null?'lamp':'post';
+      to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
+    }
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
     if(world.yacht && to.y>=world.yacht.y-1.25 && to.y<=yachtTopAt(world.yacht,to.x,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
@@ -176,10 +182,11 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     shatterPane(world.doors,target);
     return null;
   }
-  if(hitKind==='lamp')damageLamp(world.doors,target.lamp,damage);
+  if(hitKind==='lamp' || hitKind==='post')damagePost(world.doors,target,damage);
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
+    if(areaImpact)blastPosts(world,center,3.1,lampHP);
     for (const crystal of BREAKABLES) {
       if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
         world.hp[crystal.id] = Math.max(0, world.hp[crystal.id] - crystalDamage);

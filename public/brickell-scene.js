@@ -23,7 +23,9 @@ import { addPalms } from './coconut-palms.js';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './brickell-map.js';
 
+import {breakablePostView} from './breakable-post-view.js';
 export function cityStreets(scene,renderer,Batch,panorama) {
+  const posts=breakablePostView(scene,Batch);
   const updateCourts=addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
   function material(name, options={}) {
@@ -58,7 +60,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
-  addLanternPoint(scene,solids,ground,patch);
+  addLanternPoint(scene,solids,ground,patch,posts);
   addLanternBuildings(scene,Batch,panorama);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
@@ -90,7 +92,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     paint(x-.40*dx,z-.40*dz,acrossX?2*span-.2:.11,acrossZ?2*span-.2:.11,0xece9d6);
   }
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
-  for(const [x,z,label] of harborSigns) {
+  for(const [i,[x,z,label]] of harborSigns.entries()) {
+    posts.add('harbor-'+i,x,.8,z,solids=>{
     const face=document.createElement('canvas');face.width=640;face.height=144;
     const ink=face.getContext('2d');
     ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
@@ -102,6 +105,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     sign.position.set(x,3.62,z+.08);scene.add(sign);
     solids.add(box,0x737c70,x,3.62,z,3.82,.88,.13);
     for(const side of [-1,1])solids.add(box,0x8c9287,x+side*1.3,2.05,z,.10,2.68,.10);
+    return sign;
+    });
   }
   ground('pavers',lots.map(r=>patch(r,.80)),3);
   ground('lawn',[...lawns.map(r=>patch(r,.80)),...bayfrontLawns.flatMap(r=>verges(r,streetPlan.mainland).map(l=>patch(l,.812)))],3);
@@ -115,11 +120,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
-      const {x:lx,z:lz}=signalPost(x,z);
+      const {x:lx,z:lz,postId}=signalPost(x,z);
+      posts.add(postId,lx,.75,lz,furniture=>{
       furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
       furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
       furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
       for(let k=0;k<3;k++) furniture.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
+      });
     }
   }
   // UV islands preserve the scale of windows regardless of each tower's height.
@@ -172,12 +179,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
+  const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
     updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
-    updateLamps(doors,dt);
+    updateLamps(doors,dt);updatePosts(doors,dt);
     breakables.update(doors);
     updateGallery(doors);
     debris.update(dt);

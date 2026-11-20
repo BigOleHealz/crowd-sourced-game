@@ -69,9 +69,9 @@ export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
   barriers:[...streetPlan.curbs,...lanternBuildings,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
-    ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
+    ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({
-      x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,woodId:'sign-'+i,
+      x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,postId:'beach-'+i,woodId:'sign-'+i,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:[...palms,...lanternPalms].filter(p=>!roadway(p.x,p.z)),
   buildings:[...buildings,...harborHouses],
 };

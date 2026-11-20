@@ -2,7 +2,7 @@ import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {breakFrontage} from './frontage-glass.js';
-import {damageLamp,lampHP} from './street-lamps.js';
+import {damagePost,lampHP} from './street-lamps.js';
 import { roadContact, sweepRoad } from './road-contact.js';
 import {flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -211,8 +211,8 @@ export function driveRover(world, input, dt, players,kind='rover') {
       vx*=.94;vz*=.94;remaining*=1-fraction;
       continue;
     }
-    if(hit.object.lamp!=null && incoming>2.5){
-      damageLamp(world.doors,hit.object.lamp,lampHP);
+    if((hit.object.lamp!=null || hit.object.postId!=null) && incoming>2.5){
+      damagePost(world.doors,hit.object,lampHP);
       registerImpact(world,r,hit,Math.min(incoming,4),players);
       if(r.wrecked)return;
       vx*=.86;vz*=.86;remaining*=1-fraction;continue;
