@@ -1272,7 +1272,7 @@ export function createScene(canvas) {
     updatePatrolBoats(world?.boats,dt);
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    updateJet(world.jet);
+    updateJet(world.jet,dt);
     const aircraft=world.jet?.pilot===local.id ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);

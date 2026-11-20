@@ -1,26 +1,99 @@
 import * as THREE from 'three';
 
-// A swept planform, twin fins and dark canopy give the small aircraft a distinct silhouette.
-export function jetView(scene,Batch){
-  const group=new THREE.Group(), body=new Batch(), box=new THREE.BoxGeometry();
-  const shell=new THREE.SphereGeometry(1,12,8), skin=0x718089, dark=0x303d45;
-  body.add(shell,skin,0,1,0,.58,.58,3.05);
-  body.add(shell,0x203b49,0,1.38,-.88,.40,.40,1.04);
-  for(const side of [-1,1]){
-    body.add(shell,dark,side*.49,.91,.78,.32,.36,1.65);
-    body.add(box,skin,side*1.48,.95,.38,3.05,.13,1.18,0,-side*.48);
-    body.add(box,skin,side*.91,1.04,2.12,1.61,.11,.68,0,-side*.35);
-    body.add(box,dark,side*.48,1.51,1.94,.10,1.14,.79,-.28,0,-side*.28);
-    body.add(shell,0x303339,side*.69,.61,.1,.13,.13,.76);
-    body.add(shell,0x252a2d,side*.53,.25,.64,.12,.24,.24);
+// Cross-sections along the fuselage and engine pods, in the model's -Z nose frame.
+function loft(rings){
+  const pos=[],idx=[],sides=24;
+  for(const [z,y,w,h] of rings){
+    for(let k=0;k<sides;k++){
+      const angle=k*Math.PI*2/sides;
+      pos.push(w*Math.cos(angle),y+h*Math.sin(angle),z);
+    }
   }
-  body.add(shell,dark,0,.25,-1.67,.12,.23,.23);
-  const mesh=body.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.62}));
-  mesh.userData.impactSurface='metal';scene.add(group);
-  return j=>{
-    group.visible=!!j;
-    if(!j)return;
-    group.position.set(j.x,j.y,j.z);
-    group.rotation.set(j.pitch,-j.yaw,j.wrecked?1.12:j.roll,'YXZ');
+  for(let i=0;i<rings.length-1;i++)for(let k=0;k<sides;k++){
+    const a=i*sides+k,b=i*sides+(k+1)%sides;
+    idx.push(a,b,a+sides,b,b+sides,a+sides);
+  }
+  const shape=new THREE.BufferGeometry();
+  shape.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));shape.setIndex(idx);shape.computeVertexNormals();
+  return shape;
+}
+function plate(points,thickness,vertical=false){
+  const path=new THREE.Shape(points.map(([u,v])=>new THREE.Vector2(u,-v)));
+  const shape=new THREE.ExtrudeGeometry(path,{depth:thickness,bevelEnabled:false});
+  shape.rotateX(-Math.PI/2);
+  if(vertical)shape.rotateZ(Math.PI/2);
+  return shape;
+}
+export function jetView(scene,Batch){
+  const group=new THREE.Group(),body=new Batch(),gear=new Batch(),glass=new Batch();
+  const box=new THREE.BoxGeometry(), round=new THREE.SphereGeometry(1,20,12);
+  const steel=0x657581,belly=0x839098,edge=0x485964,graphite=0x283039;
+  const fuselage=loft([[-3.25,.96,.009,.012],[-2.77,.99,.20,.19],[-2.25,1,.35,.31],[-1.36,1.01,.49,.44],
+    [-.25,1,.64,.49],[.60,.99,.71,.47],[1.55,.96,.60,.34],[2.50,.92,.31,.16],[2.78,.92,.03,.04]]);
+  body.add(fuselage,steel,0,0,0);
+  const canopy=loft([[-2.16,1.18,.04,.04],[-1.89,1.31,.26,.22],[-1.42,1.36,.34,.37],
+    [-.98,1.37,.34,.43],[-.67,1.37,.28,.34],[-.47,1.35,.12,.12]]);
+  glass.add(canopy,0xffffff,0,0,0);
+  body.add(round,0x222c31,0,1.47,-1.02,.15,.18,.14);
+  const pod=loft([[-1.42,.85,.21,.20],[-1.21,.84,.33,.27],[-.54,.88,.36,.33],[.64,.91,.38,.36],
+    [1.68,.94,.35,.32],[2.38,.96,.29,.27],[2.67,.96,.24,.24]]);
+  const nozzle=new THREE.CylinderGeometry(1,1,1,24);
+  for(const side of [-1,1]){
+    const wing=(color,pts,y,h)=>body.add(plate(pts.map(([x,z])=>[side*x,z]),h),color,0,y,0);
+    wing(belly,[[.40,-1.44],[.71,-1.20],[2.82,.64],[2.78,1.12],[1.46,.96],[.48,.63]],.88,.095);
+    wing(edge,[[1.37,.70],[2.77,.84],[2.75,1.10],[1.40,.94]],.981,.013);
+    wing(steel,[[.39,1.44],[.68,1.48],[1.68,2.31],[1.63,2.55],[.44,2.18]],1,.068);
+    wing(0x85929a,[[.38,-1.88],[.65,-1.31],[1.12,-.53],[.46,-.67]],1.07,.07);
+    body.add(pod,steel,side*.44,0,0);
+    body.add(round,0x1c262b,side*.45,.84,-1.41,.22,.185,.032);
+    const fin=plate([[0,1.25],[.20,1.26],[1.19,2.03],[1.13,2.43],[.07,2.24]],.064,true);
+    body.add(fin,steel,.52*side,1.08,0,0,0,-side*.33);
+    const finTip=plate([[.96,1.87],[1.19,2.03],[1.15,2.34],[.98,2.24]],.070,true);
+    body.add(finTip,edge,.52*side,1.08,0,0,0,-side*.33);
+    for(let k=0;k<3;k++)body.add(nozzle,[edge,0x494a4a,0x343639][k],side*.44,.96,2.39+k*.108,.30-k*.018,.12,.30-k*.018,Math.PI/2);
+    body.add(round,0x171b1e,side*.44,.96,2.676,.228,.228,.026);
+    for(let k=0;k<12;k++){
+      const a=k*Math.PI/6;
+      body.add(box,0x746b62,side*.44+.256*Math.cos(a),.96+.256*Math.sin(a),2.58,.026,.048,.16,0,0,a);
+    }
+    body.beam(graphite,[side*.09,1.56,-1.82],[side*.275,1.36,-1.95],.025);
+    gear.beam(belly,[side*.52,.74,.55],[side*.72,.25,.71],.082);
+    gear.add(round,0x23282b,side*.72,.20,.71,.092,.20,.20);
+  }
+  gear.beam(belly,[0,.68,-1.65],[0,.23,-1.57],.075);
+  gear.add(round,0x23282b,0,.18,-1.58,.085,.18,.18);
+  const hull=body.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.30}));
+  hull.userData.impactSurface='metal';
+  glass.mesh(group,new THREE.MeshPhysicalMaterial({color:0x38515b,metalness:.38,roughness:.16,clearcoat:1,transparent:true,opacity:.88}),false);
+  const wheels=gear.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8}));
+  const flameMaterial=new THREE.ShaderMaterial({
+    uniforms:{power:{value:0},clock:{value:0}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+    vertexShader:`varying float axial;
+      void main(){ axial=uv.y; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+    fragmentShader:`varying float axial; uniform float power,clock;
+      void main(){
+        float fall=1.-axial;
+        float bands=.74+.26*cos(axial*36.-clock*15.);
+        vec3 tint=mix(vec3(.26,.39,1.),vec3(1.,.57,.21),fall*fall);
+        gl_FragColor=vec4(tint,(.28+.62*bands)*pow(fall,.68)*power);
+      }`
+  });
+  const plume=new THREE.ConeGeometry(.217,1,24,8,true);
+  plume.translate(0,.5,0);plume.rotateX(Math.PI/2);
+  const exhaust=new THREE.Group();
+  for(const side of [-1,1]){
+    const fire=new THREE.Mesh(plume,flameMaterial);fire.position.x=side*.44;exhaust.add(fire);
+  }
+  exhaust.position.set(0,.96,2.68);group.add(exhaust);scene.add(group);
+  let glow=0,gearDown=1,time=0;
+  return (j,dt)=>{
+    group.visible=!!j;if(!j)return;
+    time+=dt;
+    group.position.set(j.x,j.y,j.z);group.rotation.set(j.pitch,-j.yaw,j.wrecked?1.12:j.roll,'YXZ');
+    gearDown+=((j.grounded || j.speed<13 ? 1:0)-gearDown)*(1-Math.exp(-4*dt));
+    wheels.visible=gearDown>.03;wheels.position.y=(1-gearDown)*.74;
+    glow+=((j.burner && !j.wrecked?1:0)-glow)*(1-Math.exp(-9*dt));
+    exhaust.visible=glow>.01;exhaust.scale.z=.18+1.58*glow*(1+.048*Math.sin(time*34));
+    flameMaterial.uniforms.power.value=glow;flameMaterial.uniforms.clock.value=time;
   };
 }

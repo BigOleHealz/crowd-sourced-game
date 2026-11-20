@@ -10,7 +10,7 @@ export function nearJet(jet,p){
     Math.hypot(p.x-jet.x,p.y-jet.y,p.z-jet.z)<=3.8;
 }
 export function leaveJet(jet,p){
-  jet.pilot=null;
+  jet.pilot=null;jet.burner=false;
   if(jet.grounded)jet.speed=0;
   if(!p)return;
   p.state={x:jet.x+2.7*Math.cos(jet.yaw),y:jet.y+(jet.grounded?0:.7),
@@ -35,6 +35,7 @@ export function stepJet(world,input,dt,players){
   }
   if(j.pilot==null && j.grounded)return;
   const steer=input?.steer??0,lift=input?.jetPitch??input?.lift??0,throttle=input?.throttle??0;
+  j.burner=!j.grounded && j.pilot!=null && throttle>.7;
   const max=CITY?33:22;
   const target=j.grounded ? Math.max(0,throttle)*9 : clamp(j.speed+throttle*12*dt,8,max);
   j.speed+=clamp(target-j.speed,-12*dt,12*dt);
