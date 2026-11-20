@@ -181,6 +181,14 @@ async function checkExpedition(host) {
   const fresh = await join(host);
   assert.ok(BREAKABLES.every(p => hp(fresh.welcome.world, p) === p.hp), 'empty world resets scenery');
   assert.equal(fresh.welcome.world.heli.pilot, null);
+  fresh.ws.send(JSON.stringify({type:'unstuck'}));
+  fresh.ws.send(JSON.stringify({type:'unstuck'}));
+  await until(()=>player(fresh)?.dead,'stuck player enters normal defeat');
+  assert.deepEqual(player(fresh).score,{kills:0,deaths:1});
+  await until(()=>!player(fresh).dead,'stuck player returns to spawn');
+  assert.equal(player(fresh).hp,100);
+  assert.equal(player(fresh).x,fresh.welcome.state.x);
+  assert.equal(player(fresh).z,fresh.welcome.state.z);
   await leave(fresh);
   console.log('PASS: two blasters, collision removal, exclusive flight, late join, landing, pilot disconnect and empty-world reset.');
 }
