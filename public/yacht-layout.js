@@ -1,8 +1,9 @@
+import {mainSole,cabinTop,cabinSupport,cabinCeiling,cabinIntersects,cabinDepth} from './solana-interior.js';
 // Local dimensions are metres above the waterline. Negative Z points to the bow.
 export const yachtBerth={x:75.4,z:-364,yaw:Math.PI};
 export const yachtSections=[[-20,.35],[-18,2.45],[-14,4.6],[-9,6.0],[-3,6.4],[12,6.4],[15,6.15],[18,5.45],[19,4.9]];
-export const yachtDeckY=2.55;
-export const yachtCabin={west:-4.2,east:4.2,fore:-12,aft:1,bottom:yachtDeckY,top:6.55};
+export const yachtDeckY=mainSole;
+export const yachtCabin={west:-4.2,east:4.2,fore:-12,aft:1,bottom:yachtDeckY,top:cabinTop};
 export const yachtPad={x:0,z:9.3,y:yachtDeckY,halfWidth:5.75,fore:2.5,aft:15};
 export const yachtHelm={x:0,y:yachtDeckY,z:-14.1};
 export const yachtStairs={halfWidth:2.1,fore:15,aft:19,steps:12,bottom:.30,top:yachtDeckY};
@@ -43,18 +44,45 @@ export function yachtDeckHeight(yacht,x,z){
   const local=yachtLocal(yacht,x,z);
   return yacht.y+localDeck(yacht,local.x,local.z);
 }
+function nearCabin(yacht,x,z){
+  return yacht && !yacht.wrecked && Math.abs(x-yacht.x)<14 && Math.abs(z-yacht.z)<14;
+}
+export function yachtFloorAt(yacht,x,y,z){
+  const deck=yachtDeckHeight(yacht,x,z);
+  if(!nearCabin(yacht,x,z))return deck;
+  const p=yachtLocal(yacht,x,z);
+  return Math.max(deck,yacht.y+cabinSupport(p.x,y-yacht.y,p.z));
+}
+export function yachtCeilingAt(yacht,x,y,z){
+  if(!nearCabin(yacht,x,z))return Infinity;
+  const p=yachtLocal(yacht,x,z);
+  return yacht.y+cabinCeiling(p.x,y-yacht.y,p.z);
+}
+export function yachtRoomDepth(yacht,x,y,z){
+  if(!nearCabin(yacht,x,z))return -1;
+  const p=yachtLocal(yacht,x,z);
+  return cabinDepth(p.x,y-yacht.y,p.z);
+}
+export function yachtSolidAt(yacht,x,y,z,r=0){
+  if(!yacht || yacht.wrecked || y<yacht.y-1.25-r)return false;
+  if(y<=yachtDeckHeight(yacht,x,z)+r)return true;
+  if(!nearCabin(yacht,x,z))return false;
+  const p=yachtLocal(yacht,x,z),h=y-yacht.y;
+  return cabinIntersects(p.x,h-r,p.z,h+r,r);
+}
+// Aircraft clearance includes its footprint around the superstructure.
 export function yachtTopAt(yacht,x,z,padding=0){
   const deck=yachtDeckHeight(yacht,x,z);
-  if(!Number.isFinite(deck))return deck;
-  const p=yachtLocal(yacht,x,z),c=yachtCabin;
-  return p.x>=c.west-padding && p.x<=c.east+padding && p.z>=c.fore-padding && p.z<=c.aft+padding ? yacht.y+c.top : deck;
+  if(!nearCabin(yacht,x,z))return deck;
+  const p=yachtLocal(yacht,x,z);
+  return Math.max(deck,yacht.y+cabinSupport(p.x,Infinity,p.z,padding));
 }
 export function carryOnYacht(from,to,feet){
   const p=yachtLocal(from,feet.x,feet.z);
   return {...feet,...yachtPoint(to,p.x,feet.y-from.y,p.z)};
 }
 export function aboardYacht(yacht,feet){
-  return feet?.grounded && Math.abs(feet.y-yachtTopAt(yacht,feet.x,feet.z))<.27;
+  return feet?.grounded && Math.abs(feet.y-yachtFloorAt(yacht,feet.x,feet.y,feet.z))<.27;
 }
 export function yachtPrompt(world,feet,id){
   const y=world?.yacht;
@@ -97,8 +125,10 @@ function nearSegment(x,z,[ax,az],[bx,bz]){
 }
 export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   if(!yacht || yacht.wrecked || Math.abs(x-yacht.x)>25 || Math.abs(z-yacht.z)>25)return false;
-  if(yachtTopAt(yacht,x,z,.25)>y+.30)return true;
+  if(yachtDeckHeight(yacht,x,z)>y+.30)return true;
   const feet=y-yacht.y,p=yachtLocal(yacht,x,z);
+  if(p.z>=-12.4 && p.z<=1.4 && Math.abs(p.x)<4.6 &&
+      cabinIntersects(p.x,feet+.30,p.z,feet+bodyHeight-.01,.26,true))return true;
   if(feet<yachtRailTop+.02 && feet+bodyHeight>yachtDeckY && p.z<=15.35 && Math.abs(p.x)>yachtHalfBeam(p.z)-.65){
     for(const run of yachtRailRuns)for(let i=1;i<run.length;i++)
       if(nearSegment(p.x,p.z,run[i-1],run[i]))return true;

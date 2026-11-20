@@ -1,4 +1,4 @@
-import {yachtTopAt} from './yacht-layout.js';
+import {yachtSolidAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {lampDown} from './street-lamps.js';
@@ -162,7 +162,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const count=Math.max(1,Math.ceil(Math.hypot(d.x,d.y,d.z)/.12));
     const inside=f=>{
       const y=round.y+d.y*f;
-      return y>=world.yacht.y-1.25 && y<=yachtTopAt(world.yacht,round.x+d.x*f,round.z+d.z*f);
+      return yachtSolidAt(world.yacht,round.x+d.x*f,y,round.z+d.z*f);
     };
     for(let i=0;i<=count && (i-1)/count<t;i++)if(inside(i/count)){
       let lo=Math.max(0,(i-1)/count),hi=i/count;

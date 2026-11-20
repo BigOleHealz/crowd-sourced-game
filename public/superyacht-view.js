@@ -1,3 +1,5 @@
+import {cabinTop} from './solana-interior.js';
+import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
 import {alpineGlass} from './landscape.js';
 import {yachtSections,yachtHalfBeam,yachtStairs,yachtPlatform,yachtLadder,yachtGangway,yachtPad,yachtDeckY,yachtRailRuns,yachtRailTop} from './yacht-layout.js';
@@ -67,35 +69,6 @@ function nameplate(){
   return new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false});
 }
 
-// Rounded salon and bridge decks taper independently, leaving the weather
-// decks and swimming stairs clear. Each horizontal row is an inset outline.
-function cabin(b,glazing,rows){
-  function contour(y,w,front,back){
-    const radius=Math.min(w*.38,1.25),out=[];
-    for(const [cx,cz,begin] of [[w-radius,front+radius,-Math.PI/2],[w-radius,back-radius,0],
-      [-w+radius,back-radius,Math.PI/2],[-w+radius,front+radius,Math.PI]]){
-      for(let i=0;i<=4;i++){
-        const a=begin+i*Math.PI/8;
-        out.push([cx+radius*Math.cos(a),y,cz+radius*Math.sin(a)]);
-      }
-    }
-    return out;
-  }
-  const pts=rows.map(row=>contour(...row.slice(0,4)));
-  const geo=new THREE.BufferGeometry();
-  const panel=(batch,c,a,d,e,f)=>{
-    geo.setAttribute('position',new THREE.Float32BufferAttribute([...a,...d,...e,...a,...e,...f],3));
-    geo.computeVertexNormals();batch.add(geo,c,0,0,0);
-  };
-  for(let j=1;j<rows.length;j++)for(let i=0;i<pts[j].length;i++){
-    const next=(i+1)%pts[j].length,c=rows[j][4],batch=c==='glass'?glazing:b;
-    panel(batch,c==='glass'?0x24454f:c,pts[j-1][i],pts[j][i],pts[j][next],pts[j-1][next]);
-  }
-  const top=pts.at(-1),mid=[0,rows.at(-1)[0],(rows.at(-1)[2]+rows.at(-1)[3])/2];
-  for(let i=0;i<top.length;i++)panel(b,cream,mid,top[(i+1)%top.length],top[i],mid);
-  geo.dispose();
-}
-
 export function superyachtView(scene,Batch,renderer,panorama){
   const root=new THREE.Group();root.name='Solana superyacht';root.visible=false;scene.add(root);
   const fittings=new Batch(),metal=new Batch(),glass=new Batch(),stripe=new Batch();
@@ -141,30 +114,15 @@ export function superyachtView(scene,Batch,renderer,panorama){
     const f=i/5,y=l.top+(l.bottom-l.top)*f,z=l.fore+(l.aft-l.fore)*f;
     tubing([-l.halfWidth,y,z],[l.halfWidth,y,z],.085);
   }
-  cabin(fittings,glass,[[2.54,4.17,-11.9,1.0],[2.84,4.2,-12,1.0,ivory],[3.18,4.13,-11.95,.94,ivory],
-    [4.62,3.94,-11.37,.49,'glass'],[4.82,4.26,-11.65,1.1,ivory],[4.99,4.28,-11.62,1.08,cream]]);
-  cabin(fittings,glass,[[4.99,3.54,-10.1,-.8],[5.18,3.56,-10.15,-.78,ivory],[6.16,3.25,-9.31,-1.15,'glass'],
-    [6.35,3.81,-9.72,-.63,ivory],[6.54,3.78,-9.67,-.69,cream]]);
+  fitSolanaInterior(root,Batch,fittings,metal,glass,wood);
   for(const side of [-1,1]){
-    for(let z=-10.4;z<.2;z+=2.1)fittings.beam(0x455053,[side*4.14,3.16,z],[side*3.95,4.65,z+.29],.085,.10);
-    for(let z=-8.4;z<-1.3;z+=2.2)fittings.beam(0x435258,[side*3.55,5.15,z],[side*3.26,6.16,z+.24],.065);
     for(const z of [-14,-10,-6,-2,2,6,10,14]){
       const w=yachtHalfBeam(z)*.982;
       fittings.add(ball,0x0d2631,side*w,1.34,z,.09,.247,.53);
       metal.add(ball,steel,side*(w+.008),1.32,z-.46,.035,.034,.035);
     }
   }
-  // Swept aft pilasters carry the bridge canopy down to the salon. A teak
-  // inset, recessed vents and the boarding fenders break up the white sides.
   for(const side of [-1,1]){
-    fittings.beam(ivory,[side*4.15,2.71,.92],[side*3.93,4.78,-1.25],.32,.38);
-    fittings.beam(ivory,[side*3.51,5.08,-1.05],[side*3.26,6.26,-2.11],.19,.23);
-    for(let i=0;i<6;i++)solid(0x516066,side*4.18,2.87+i*.050,-2.52,.052,.022,.76);
-    const x=side*3.48;
-    // Lounge banquettes under the flybridge overhang.
-    solid(teak,x,5.07,-.35,.79,.16,.73);
-    ellipse(0xdcd4c2,x,5.20,-.31,.41,.15,.39);
-    ellipse(0xb6bdb2,x,5.35,-.54,.36,.21,.14);
     for(const z of [-13.3,2.8,13.4]){
       const w=yachtHalfBeam(z);
       solid(steel,side*(w-.36),2.62,z,.068,.095,.32);
@@ -178,22 +136,16 @@ export function superyachtView(scene,Batch,renderer,panorama){
       ellipse(0xe2dfd1,side*(w+.13),1.89,z+.04,.148,.44,.139);
     }
   }
-  const salonBack=1.025;
-  for(const x of [-1.12,1.12]){
-    solid(0x384747,x,3.80,salonBack,2.18,1.87,.05);
-    solid(0x31535a,x,3.83,salonBack+.036,2.05,1.68,.018);
-    solid(steel,x*.16,3.75,salonBack+.058,.037,.31,.05);
-  }
   // Radomes, navigation lights, mast cross-trees and VHF whips sit forward
   // of the clear aft landing zone.
-  solid(ivory,0,6.66,-5.5,2.22,.26,1.72);
+  solid(ivory,0,cabinTop+.10,-5.5,2.22,.20,1.72);
   for(const side of [-1,1]){
-    fittings.beam(ivory,[side*.99,6.72,-4.85],[side*.54,8.11,-5.80],.25,.28);
-    ellipse(ivory,side*1.60,6.97,-6.55,.49,.49,.49);
-    fittings.add(post,0x5c6b72,side*1.60,6.68,-6.55,.67,.14,.67);
+    fittings.beam(ivory,[side*.99,cabinTop+.10,-4.85],[side*.54,8.11,-5.80],.25,.28);
+    ellipse(ivory,side*1.60,cabinTop+.49,-6.55,.49,.49,.49);
+    fittings.add(post,0x5c6b72,side*1.60,cabinTop+.10,-6.55,.67,.14,.67);
     tubing([side*.68,7.93,-5.6],[side*2.17,7.93,-5.6],.09);
     tubing([side*1.90,7.91,-5.6],[side*2.20,9.29,-5.56],.033);
-    ellipse(side<0?0xcc4c39:0x68ac84,side*3.81,6.29,-7,.078,.08,.11);
+    ellipse(side<0?0xcc4c39:0x68ac84,side*3.56,cabinTop-.08,-7,.078,.08,.11);
   }
   solid(0x39474a,0,8.16,-5.81,1.35,.22,.41);
   solid(ivory,0,8.51,-5.8,2.28,.16,.31);
@@ -229,12 +181,12 @@ export function superyachtView(scene,Batch,renderer,panorama){
     const a=i*Math.PI/6;
     fittings.add(post,0xc6dac4,4.78*Math.sin(a),2.59,9.3+4.78*Math.cos(a),.10,.022,.10);
   }
-  const name=new THREE.Mesh(new THREE.PlaneGeometry(3.4,.64),nameplate());
-  name.position.set(0,4.85,1.12);root.add(name);
+  const name=new THREE.Mesh(new THREE.PlaneGeometry(2.0,.26),nameplate());
+  name.position.set(0,4.81,1.016);root.add(name);
   const bodyMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.42,metalness:.08,side:THREE.DoubleSide});
   fittings.mesh(root,bodyMat,false);stripe.mesh(root,bodyMat,false);
   metal.mesh(root,new THREE.MeshPhongMaterial({vertexColors:true,shininess:98,specular:0xc1cbd1}),false);
-  glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100}),false);
+  glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100,transparent:true,opacity:.32,depthWrite:false}),false);
   const gangway=new THREE.Group();root.add(gangway);
   const ramp=new Batch();
   const end=yachtGangway.outer,start=yachtGangway.inner,drop=yachtGangway.top-yachtGangway.bottom;

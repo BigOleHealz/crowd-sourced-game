@@ -1,5 +1,5 @@
 import {mooredYacht,damageYacht} from './superyacht.js';
-import {yachtTopAt} from './yacht-layout.js';
+import {yachtSolidAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
 import {damageLamp} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
@@ -125,7 +125,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
-    if(world.yacht && to.y>=world.yacht.y-1.25 && to.y<=yachtTopAt(world.yacht,to.x,to.z)){target=world.yacht;hitKind=target.id;break;}
+    if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
