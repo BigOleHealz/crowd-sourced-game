@@ -1,3 +1,4 @@
+import {supercarLayout} from './supercar-layout.js';
 import {hotel,hotelGlass} from './maravela-hotel.js';
 import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
 import {fallenTop} from './shop-furniture.js';
@@ -271,8 +272,10 @@ export function visitRoadPodium(b,x,z,doors,visit){
   }
 }
 export function breakFrontage(doors,hit,rover){
+  const sport=rover.kind==='supercar';
+  const halfWidth=sport?supercarLayout.halfWidth:.82,halfLength=sport?supercarLayout.halfLength:1.69;
   if(hit.axis==='x' && doors){
-    const extent=Math.abs(Math.cos(rover.yaw))*.82+Math.abs(Math.sin(rover.yaw))*1.69+.05;
+    const extent=Math.abs(Math.cos(rover.yaw))*halfWidth+Math.abs(Math.sin(rover.yaw))*halfLength+.05;
     const broken=doors.brokenPanes??={};
     if(broken[hit.id])return false;
     for(const pane of galleryPlans[hit.building].panes){
@@ -282,7 +285,7 @@ export function breakFrontage(doors,hit,rover){
   }
   const face=hit.face;
   if(!face||!doors)return false;
-  const extent=Math.abs(Math.cos(rover.yaw))*1.69+Math.abs(Math.sin(rover.yaw))*.82+.05;
+  const extent=Math.abs(Math.cos(rover.yaw))*halfLength+Math.abs(Math.sin(rover.yaw))*halfWidth+.05;
   const lo=rover.z-extent,hi=rover.z+extent;
   let mask=doors.broken?.[face.id]??0;
   for(const [i,[start,end]] of face.spans.entries()){
