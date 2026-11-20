@@ -1,3 +1,4 @@
+import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
 import * as THREE from 'three';
 import {supercarLayout as spec} from './supercar-layout.js';
 import {alpineGlass} from './landscape.js';
@@ -234,11 +235,17 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     const frame=clamp(dt,0,.1),speed=car.speed??0;
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
     const pose=car.suspension;
-    root.rotation.set(pose?.pitch??0,-car.yaw,pose?.roll??0,'YXZ');
+    root.rotation.set(car.bridgeFlight ? pose?.pitch??0 : 0,-car.yaw,0,'YXZ');
+    body.rotation.set(car.bridgeFlight?0:pose?.pitch??0,0,pose?.roll??0);
     under.visible=!car.bridgeFlight;
     body.position.y=car.suspension?.heave??0;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
-    for(const w of wheels){w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;}
+    for(const [i,w] of wheels.entries()){
+      const flat=isFlat(car,i);
+      w.hub.position.y=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      w.hub.scale.y=flat?(spec.tire-flatWheelDrop)/spec.tire:1;
+      w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
+    }
     const burst=car.driver!=null && !car.wrecked ? clamp((car.exhaust??0)/.30,0,1) : 0;
     for(const [i,flame] of jets.entries()){
       flame.visible=burst>0;

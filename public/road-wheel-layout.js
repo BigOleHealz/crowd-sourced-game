@@ -1,5 +1,9 @@
+import {supercarLayout} from './supercar-layout.js';
 // Left front, left rear, right front, right rear in vehicle-local metres.
 export const wheelStations=[[-.70,-.94],[-.70,.95],[.70,-.94],[.70,.95]];
+
+const sportWheels=[-supercarLayout.axle,supercarLayout.axle].flatMap(x=>supercarLayout.wheels.map(z=>[x,z]));
+export const wheelsFor=car=>car.kind==='supercar'?sportWheels:wheelStations;
 
 export const flatWheelDrop=.13;
 export const isFlat=(rover,index)=>Boolean((rover.flatTires ?? 0)&(1<<index));
