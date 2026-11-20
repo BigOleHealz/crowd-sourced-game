@@ -1,3 +1,4 @@
+import {towerDamageView} from './tower-damage-view.js';
 import {estateDamageView} from './estate-damage-view.js';
 import {addLanternBuildings} from './lantern-point-buildings.js';
 import {lanternLand,lanternBridge} from './lantern-point.js';
@@ -174,16 +175,21 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
   });
   const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
-  walls.mesh(scene,facadeMaterial).userData.impactSurface='solid';
+  const towerWalls=walls.mesh(scene,facadeMaterial);
+  towerWalls.userData.impactSurface='solid';
   addBrickellHorizon(scene,facadeMaterial.map);
+  const apartmentStart=scene.children.length;
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
+  const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
-  solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
+  const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
+  citySolids.userData.impactSurface='street';
+  const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...towerParts]);
   for(const geometry of [box,...faces])geometry.dispose();
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
-    updateDamage(doors,dt);
+    updateDamage(doors,dt);updateTowers(doors);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);

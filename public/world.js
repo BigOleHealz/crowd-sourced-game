@@ -1,3 +1,4 @@
+import {breachedFloor} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
@@ -91,6 +92,8 @@ export function onBuildingLot(x,z,margin=0) {
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return roof;
+  const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
+  if(breach!=null)return breach;
   const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
   if(gallery!==undefined)return gallery;
   const face=faceAt(b,x);

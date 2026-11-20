@@ -1,3 +1,4 @@
+import {breachTower} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {breachEstate,onEstate} from './estate-damage.js';
 import {windowContact} from './vehicle-glass-layout.js';
@@ -12,7 +13,7 @@ import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
 import { firearmSpecs, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
-import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
+import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import { damageActor } from './rivals.js';
@@ -295,6 +296,10 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
+    if (CITY && (hit.blocked || hit.hitKind==='glass')) {
+      const cell=breachTower(MAP.buildings,world.doors,hit.to);
+      if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',125_000);
+    }
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);
     }
