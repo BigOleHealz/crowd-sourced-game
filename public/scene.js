@@ -1253,7 +1253,8 @@ export function createScene(canvas) {
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     updateJet(world.jet,dt);
-    const aircraft=world.jet?.pilot===local.id ? world.jet : heli;
+    const flyingJet=world.jet?.pilot===local.id;
+    const aircraft=flyingJet ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
@@ -1362,6 +1363,12 @@ export function createScene(canvas) {
     const pitch=viewPitch(view.pitch??-.12),yaw=(view.yaw||0)+bailoutOrbit;
     viewHeading=yaw;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
+    if(flyingJet){
+      camera.rotation.set(aircraft.pitch,-aircraft.yaw,aircraft.roll,'YXZ');
+      camera.up.set(0,1,0).applyQuaternion(camera.quaternion);
+      boom.set(0,.16,1).normalize().applyQuaternion(camera.quaternion);
+      target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
+    }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
     const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
@@ -1394,8 +1401,8 @@ export function createScene(canvas) {
     if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
     // At steep angles transition from the ground-limited chase boom to an
     // unobstructed vertical sightline directly above the person or station.
-    const overhead=THREE.MathUtils.smoothstep(pitch,.79,zenith);
-    if(zenith-pitch<1e-5)camera.rotation.set(pitch,-yaw,0,'YXZ');
+    const overhead=flyingJet?0:THREE.MathUtils.smoothstep(pitch,.79,zenith);
+    if(!flyingJet && zenith-pitch<1e-5)camera.rotation.set(pitch,-yaw,0,'YXZ');
     else camera.lookAt(target);
     if(overhead>0){
       if(localStation){

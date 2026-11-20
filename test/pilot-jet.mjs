@@ -5,12 +5,24 @@ const w=newExpedition(),j=w.jet,p={id:1,life:{hp:100}},other={id:2,life:{hp:100}
 assert(nearJet(j,j));j.pilot=p.id;assert(!nearJet(j,j));
 for(let n=0;n<15;n++)stepJet(w,{jetPitch:.8,throttle:1,steer:.2},1/30,players);
 assert(!j.grounded && j.pitch>0 && j.roll<0 && j.yaw>0 && j.speed>8);
-const altitude=j.y;
+const pitch=j.pitch;
 stepJet(w,{jetPitch:-.4},1/30,players);
-assert(j.y<altitude,'analog cursor descent');
-const level=j.y;
+assert(j.pitch<pitch,'moving the cursor down lowers the nose');
+const held=j.pitch;
 stepJet(w,{jetPitch:0},1/30,players);
-assert.equal(j.y,level,'centered cursor holds altitude');
+assert.equal(j.pitch,held,'centering the cursor holds its attitude');
+Object.assign(j,{x:0,y:65,z:0,pitch:0,yaw:0,roll:0,speed:16});
+const startZ=j.z,dt=Math.PI/(2*1.6*30);
+for(let quarter=1;quarter<=4;quarter++){
+  for(let n=0;n<30;n++)stepJet(w,{jetPitch:1},dt,players);
+  assert(Math.abs(j.pitch-quarter*Math.PI/2)<1e-8);
+  const at={y:j.y,z:j.z};
+  stepJet(w,{jetPitch:0},1/30,players);
+  if(quarter===1){assert(j.y>at.y);assert(Math.abs(j.z-at.z)<1e-8);}
+  if(quarter===2)assert(j.z>at.z,'inverted flight reverses horizontal direction');
+  if(quarter===3){assert(j.y<at.y);assert(Math.abs(j.z-at.z)<1e-8);}
+}
+assert(Math.abs(j.y-65)<.01 && Math.abs(j.z-startZ)<.01 && !j.wrecked);
 fireTurret(w,'jet',other,15);launchMissile(w,'jet',other,15);
 assert.equal(w.bullets.length+w.missiles.length,0);
 fireTurret(w,'jet',p,16);launchMissile(w,'jet',p,16);
