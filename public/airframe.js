@@ -78,7 +78,7 @@ export function recoverHelicopter(world, dt, players) {
   const heli = world.heli;
   if (heli.abandonedFor != null) return driftAfterBailout(world, dt, players);
   if (!heli.wrecked) return;
-  const ground = Math.max(groundHeight(heli.x, heli.z), MAP.waterY);
+  const ground = Math.max(groundHeight(heli.x, heli.z, Infinity,world.doors), MAP.waterY);
   heli.y = Math.max(ground, heli.y - dt * 6);
   heli.grounded = heli.y <= ground;
   heli.recoverySeconds = Math.max(0, heli.recoverySeconds - dt);
@@ -115,19 +115,19 @@ function onFlightDeck(yacht,h,floor){
   });
 }
 
-function landingSite(x, z, floor) {
-  const y = groundHeight(x, z);
+function landingSite(x, z, floor, doors) {
+  const y = groundHeight(x, z, Infinity, doors);
   if (y < MAP.waterY + 0.45 || floor > y + 0.05) return false;
   // Both skids need a reasonably level patch of terrain. Keep the narrow bridge clear.
   if (MAP.bridge && Math.abs(x) < MAP.bridge.width / 2 + 1 && Math.abs(z) < MAP.bridge.length / 2 + 1) return false;
   return [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) =>
-    Math.abs(groundHeight(x + dx, z + dz) - y) < 0.45);
+    Math.abs(groundHeight(x + dx, z + dz, Infinity, doors) - y) < 0.45);
 }
 
 function flightFloor(x, z, hp,world) {
   const boat=nearbyHull(world?.boats,null,x,z,world?.heli.yaw??0,1.28,3.6);
-  const surface = Math.max(groundHeight(x, z), MAP.waterY + 0.6, boat ? boat.y+1.45 : -Infinity);
-  const clearance = Math.max(solidTopAt(x,z,hp,1.8),yachtTopAt(world?.yacht,x,z,1.65));
+  const surface = Math.max(groundHeight(x, z, Infinity,world?.doors), MAP.waterY + 0.6, boat ? boat.y+1.45 : -Infinity);
+  const clearance = Math.max(solidTopAt(x,z,hp,1.8,Infinity,world?.doors),yachtTopAt(world?.yacht,x,z,1.65));
   // The woodland has low-poly canopies broader than the trunks used for walkers.
   let floor = Math.max(surface, clearance);
   for (const tree of MAP.trees) {
@@ -175,7 +175,7 @@ export function fly(world, input, dt, players) {
   const rooftop = CITY && nextY <= floor + .22 && onBuildingLot(h.x, h.z) &&
     roofSupportsWheels(h, floor, world.hp);
   const yachtLanding=onFlightDeck(world.yacht,h,floor);
-  const landable = yachtLanding || rooftop || landingSite(h.x, h.z, floor);
+  const landable = yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
   const minY = floor + (landable ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
   if (floorContact && !motion.floorContact) {
@@ -252,7 +252,7 @@ export function interact(world, player) {
       const angle = heli.yaw + i * Math.PI / 4;
       const x = heli.x + 2.15 * Math.cos(angle);
       const z = heli.z + 2.15 * Math.sin(angle);
-      const y = Math.max(yachtDeckHeight(world.yacht,x,z),CITY && onBuildingLot(x,z) ? solidTopAt(x,z,world.hp) : groundHeight(x,z));
+      const y = Math.max(yachtDeckHeight(world.yacht,x,z),CITY && onBuildingLot(x,z) ? solidTopAt(x,z,world.hp,0,Infinity,world.doors) : groundHeight(x,z,Infinity,world.doors));
       if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp) && !vehicleContact(x,y,z,world,CITY).depth) {
         exit = {x,y,z,vy:0,grounded:true,...(heli.onYacht?{onYacht:true}:{})};
         break;

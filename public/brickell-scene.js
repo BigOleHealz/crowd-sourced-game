@@ -56,8 +56,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0xbab4a4,x,.735,z,w,.12,d);
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
-  addCauseway(scene,Batch,solids,material('asphalt'));
-  addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
+  const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
+  const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch);
   addLanternBuildings(scene,Batch,panorama);
   const {northStreet,westStreet,eastStreet}=streetPlan;
@@ -174,6 +174,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   for(const geometry of [box,...faces])geometry.dispose();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
+    updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);

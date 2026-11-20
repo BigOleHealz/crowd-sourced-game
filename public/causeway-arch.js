@@ -1,3 +1,4 @@
+import {leafLength} from './drawbridges.js';
 // Transverse sections shared by the concrete mesh and the two traffic levels.
 export function causewayArch(west, east, north, south) {
   const length = south - north, middle = (north + south) / 2;
@@ -5,6 +6,12 @@ export function causewayArch(west, east, north, south) {
   const sections = Array.from({length: count + 1}, (_, i) => {
     const z = north + length * i / count;
     const crown = Math.sin(Math.PI * i / count);
+    const offset=leafLength-Math.abs(z-middle);
+    if(offset>=0){
+      const base=.70+5.80*Math.cos(Math.PI*leafLength/length)**2;
+      const road=base+(6.5-base)*offset/leafLength;
+      return {z,road,soffit:road-.65};
+    }
     return {
       z, road: .70 + 5.80 * crown ** 2,
       soffit: Math.max(-2.80, 5.72 - 8.52 * ((z - middle) / 24) ** 2),

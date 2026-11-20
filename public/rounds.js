@@ -172,7 +172,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   const above=f=>{
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y) : -Infinity);
+    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y,world.doors) : -Infinity);
   };
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){

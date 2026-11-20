@@ -3,6 +3,7 @@ import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBa
 import {keyGround} from './offshore-keys.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
+import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
 import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
@@ -18,14 +19,18 @@ export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-2
 export const causeway=causewayArch(-6,6,harbor.south,coast.north);
 export const within=contains;
 export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
-const bridges=[causeway,lanternBridge];
+export const bridges=[causeway,lanternBridge];
 const oldShores=[coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers];
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
-export function cityGround(x,z,maxBottom=Infinity) {
+export function cityGround(x,z,maxBottom=Infinity,doors) {
   const bridge=bridges.find(r=>within(r,x,z));
-  if(bridge)return maxBottom>=bridge.height(z,'soffit') ? bridge.height(z,'road') : -2.8;
+  if(bridge){
+    const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
+    const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
+    return Number.isFinite(road) && maxBottom>=soffit ? road : -2.8;
+  }
   if(z<=lanternBridge.north){
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
@@ -33,13 +38,13 @@ export function cityGround(x,z,maxBottom=Infinity) {
   return onBeach(x,z) ? sandHeight(x,z) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
 }
 
-export function parapetTop(x,z,padding,maxBottom) {
+export function parapetTop(x,z,padding,maxBottom,doors) {
   const bridge=bridges.find(b=>z>=b.north-padding && z<=b.south+padding);
   if(!bridge)return -Infinity;
   const {west,east,parapetWidth,parapetHeight}=bridge;
   if (x<west-padding || x>east+padding ||
       (x>west+parapetWidth+padding && x<east-parapetWidth-padding)) return -Infinity;
-  const road=bridge.height(z,'road');
+  const road=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0)??bridge.height(z,'road');
   return road<=maxBottom ? road+parapetHeight : -Infinity;
 }
 

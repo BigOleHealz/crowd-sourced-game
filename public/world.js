@@ -98,7 +98,7 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
 
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
-  let top=CITY ? parapetTop(x,z,padding,maxBottom) : -Infinity;
+  let top=CITY ? parapetTop(x,z,padding,maxBottom,doors) : -Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
@@ -174,7 +174,7 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
-    return beachHutFloor(x,z,lookoutFloor(x,z,cityGround(x,z,maxBottom),doors));
+    return beachHutFloor(x,z,lookoutFloor(x,z,cityGround(x,z,maxBottom,doors),doors));
   }
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&

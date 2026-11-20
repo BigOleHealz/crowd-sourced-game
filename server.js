@@ -1,3 +1,6 @@
+import {bridges} from './public/brickell-map.js';
+import {raisedRoadAt} from './public/bridge-driving.js';
+import {stepDrawbridges,bridgeMiddle,leafGeometry,leafLength} from './public/drawbridges.js';
 import {interactYacht,stepYacht} from './public/superyacht.js';
 import {stepFurniture} from './public/shop-furniture.js';
 import {stepHotelDoors} from './public/maravela-hotel.js';
@@ -14,7 +17,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import { CITY, spawn, stepPlayer } from './public/world.js';
+import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
@@ -237,6 +240,7 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
+  stepDrawbridges(world,bridges,step);
   if(CITY && players.size) {
     const pedestrians=[];
     for(const p of players.values()) {
@@ -364,7 +368,31 @@ function tick() {
     }
   }
   stepYacht(world,yachtInput,step,players);
-  stepSuspension(world.rover,step);
+  for(const kind of ['rover','supercar']){
+    const road=world[kind];if(!road)continue;
+    if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
+    const raised=raisedRoadAt(world,road.x,road.z);
+    if(raised && !road.bridgeFlight && !road.wrecked){
+      const floor=groundHeight(road.x,road.z,Infinity,world.doors);
+      if(floor>MAP.waterY)road.y=floor;
+      else road.bridgeFlight={vx:0,vz:0,vy:0};
+    }
+    if(road.bridgeFlight){
+      const f=road.bridgeFlight;
+      const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)));
+      road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
+    }else if(kind==='rover' || raised){
+      const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
+      stepSuspension(road,step,(x,z)=>{
+        const ground=groundHeight(x,z,Infinity,world.doors);
+        // Until takeoff, an unsupported axle follows the end of its ramp.
+        if(leaf && ground<=MAP.waterY && Math.abs(z-bridgeMiddle(raised))<leafLength)
+          return leaf.base+leaf.vertical;
+        return ground;
+      });
+    }
+    else delete road.suspension;
+  }
   for(const b of world.boats){
     stepBoat(world,b,boatInputs.get(b.id),step,players);
     const driver=players.get(b.driver);

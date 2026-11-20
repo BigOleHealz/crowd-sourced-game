@@ -294,13 +294,15 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     updatePanelDamage(burned ? crumpled : r.bodyDamage);
     const pose=r.suspension;
-    axles.position.set(r.x,r.y,r.z);axles.rotation.y=-r.yaw;
+    axles.position.set(r.x,r.y,r.z);
+    axles.rotation.set(r.bridgeFlight ? pose?.pitch??0 : 0,-r.yaw,0,'YXZ');
     // A collapsed front corner settles onto the axles. The six-second
     // authoritative recovery clock also places late joiners in the right pose.
     const age=burned ? Math.max(0,6-r.recoverySeconds) : 0;
     const sag=1-Math.exp(-2.8*age);
     root.position.set(r.x,r.y+(pose?.heave ?? 0)-.20*sag,r.z);
     root.rotation.set((pose?.pitch ?? 0)-.13*sag,-r.yaw,(pose?.roll ?? 0)-.18*sag,'YXZ');
+    shadow.visible=!r.bridgeFlight;
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
     if(contact){
       contact.visible=r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;

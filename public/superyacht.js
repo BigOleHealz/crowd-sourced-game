@@ -36,7 +36,9 @@ function clear(world,pose,players,old){
   const c=Math.cos(pose.yaw),s=Math.sin(pose.yaw);
   for(const [side,aft] of samples){
     const x=pose.x+c*side-s*aft,z=pose.z+s*side+c*aft;
-    if(!insideTravelArea(x,z) || groundHeight(x,z,pose.y+yachtCabin.top+1)>MAP.waterY-.35)return false;
+    const top=Math.abs(side)<=2.25 && Math.abs(aft+5.8)<1.9 ? 9.78 :
+      side>=yachtCabin.west && side<=yachtCabin.east && aft>=yachtCabin.fore && aft<=yachtCabin.aft ? yachtCabin.top : 3.6;
+    if(!insideTravelArea(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
   }
   for(const b of world.boats)if(!b.wrecked && yachtOverlap(pose,b.x,b.z,b.yaw,1.10,2.75))return false;
   const h=world.heli;

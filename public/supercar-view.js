@@ -233,7 +233,9 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     root.visible=!!car;if(!car)return;
     const frame=clamp(dt,0,.1),speed=car.speed??0;
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-    body.rotation.x=car.suspension?.pitch??0;body.rotation.z=car.suspension?.roll??0;
+    const pose=car.suspension;
+    root.rotation.set(pose?.pitch??0,-car.yaw,pose?.roll??0,'YXZ');
+    under.visible=!car.bridgeFlight;
     body.position.y=car.suspension?.heave??0;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
     for(const w of wheels){w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;}

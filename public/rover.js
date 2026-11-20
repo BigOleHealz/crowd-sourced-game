@@ -1,3 +1,4 @@
+import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {breakFrontage} from './frontage-glass.js';
@@ -66,7 +67,7 @@ export function interactRover(world, player,kind='rover') {
     const radius=sport?(i%4===0?1.56:2.75):1.7;
     const angle = r.yaw + i*Math.PI/4;
     const x = r.x + radius*Math.cos(angle), z = r.z + radius*Math.sin(angle);
-    const y = groundHeight(x,z);
+    const y = groundHeight(x,z,Infinity,world.doors);
     if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
     if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
     exit = {x,y,z,vy:0,grounded:true};
@@ -88,7 +89,7 @@ export function damageRover(world, amount, players,kind='rover') {
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
   r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
-  stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+  delete r.bridgeFlight;stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
 export function recoverRover(world,dt,kind='rover') {
@@ -134,6 +135,10 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 
 export function driveRover(world, input, dt, players,kind='rover') {
   const r = world[kind];
+  if(r?.bridgeFlight){
+    if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind);
+    return;
+  }
   if (r?.driver == null) return;
   const sport=kind==='supercar';
   const throttle=input.throttle || 0, steer=input.steer || 0;
@@ -168,6 +173,11 @@ export function driveRover(world, input, dt, players,kind='rover') {
   r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
+  const airborne=launchAtLip(world,r,vx,vz,dt);
+  if(airborne!==false){
+    advanceBridgeFlight(world,r,airborne);
+    return;
+  }
   let remaining=dt,contacted=false;
   // Preserve tangential motion. The second sweep handles the second wall of
   // an inside corner and prevents a projected slide from crossing it.
