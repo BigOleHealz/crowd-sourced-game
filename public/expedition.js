@@ -308,13 +308,42 @@ export function launchMissile(world,kind,player,tick) {
   if(player.score)scoreAtLaunch.set(world.missiles.at(-1),player.score);
 }
 
+const nextBomb=new WeakMap();
+export function dropJetBomb(world,player,tick){
+  const jet=world.jet;
+  if(jet.pilot!==player.id || !player.life.hp || jet.grounded || jet.wrecked || tick<(nextBomb.get(jet)??0))return;
+  const horizontal=jet.speed*Math.cos(jet.pitch);
+  const bomb={...mountPosition(jet,[0,-.22,0]),id:nextShotId++,source:'jet',bomb:true,shooter:player.id,
+    yaw:jet.yaw,pitch:jet.pitch,vx:Math.sin(jet.yaw)*horizontal,vz:-Math.cos(jet.yaw)*horizontal,
+    vy:jet.speed*Math.sin(jet.pitch),remaining:600};
+  world.missiles.push(bomb);
+  if(player.score)scoreAtLaunch.set(bomb,player.score);
+  nextBomb.set(jet,tick+60);
+}
+
+function traceBomb(world,actors,bomb){
+  bomb.vy-=18/30;
+  const speed=Math.hypot(bomb.vx,bomb.vy,bomb.vz);
+  if(speed<1e-8)return {to:{x:bomb.x,y:bomb.y,z:bomb.z}};
+  const direction={x:bomb.vx/speed,y:bomb.vy/speed,z:bomb.vz/speed};
+  bomb.yaw=Math.atan2(bomb.vx,-bomb.vz);
+  bomb.pitch=Math.atan2(bomb.vy,Math.hypot(bomb.vx,bomb.vz));
+  const range=speed/30;
+  const hit=tracePulse(world,actors,bomb,direction,range,false,'jet',range/Math.ceil(range/.1));
+  if(hit.to.y<=MAP.waterY && direction.y<0){
+    const distance=Math.max(0,(MAP.waterY-bomb.y)/direction.y);
+    return {to:{x:bomb.x+direction.x*distance,y:MAP.waterY,z:bomb.z+direction.z*distance},blocked:true};
+  }
+  return hit;
+}
+
 export function advanceMissiles(world,players,npcs,tick) {
   world.missiles=world.missiles.filter(m=>{
     const actors=targets(world,m.shooter,players,npcs,m.source);
     if(m.source==='handLauncher')guideGameMissile(world,m);
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
-    const hit=tracePulse(world,actors,m,direction,missileStep(m.source),false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
+    const hit=m.bomb?traceBomb(world,actors,m):tracePulse(world,actors,m,direction,missileStep(m.source),false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
     const from={x:m.x,y:m.y,z:m.z};
     Object.assign(m,hit.to);
     m.remaining--;
