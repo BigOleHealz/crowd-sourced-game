@@ -485,8 +485,15 @@ function makeFirearms(body) {
     meridian.add(cube,graphite,0,opticalHeight+.019*sign,-.055,.0014,.033,.0014);
   }
   meridian.add(cube,0xdfaa70,0,opticalHeight,-.055,.0021,.0021,.0014);
+  const launcher=new Batch();
+  endCap(launcher,-.12,.14,.103,.76,0x646e51);
+  for(const z of [-.51,-.30,.12,.27])endCap(launcher,z,.14,.116,.042,graphite);
+  endCap(launcher,-.534,.14,.085,.007,0x222a29);
+  launcher.add(cube,rubber,0,.0,.02,.064,.15,.07);
+  launcher.add(cube,sand,-.083,.23,-.05,.066,.074,.14);
   tube.dispose();
-  const tools=[carbine,sidearm,meridian].map(batch=>batch.mesh(body,handheldFinish,false));
+  const tools=[carbine,sidearm,meridian,launcher].map(batch=>batch.mesh(body,handheldFinish,false));
+  tools[3].name='Heat-seeking launcher';
   tools[2].name='Meridian scoped rifle';
   for(const tool of tools) tool.position.set(.12,1.33,-.20);
   return tools;
@@ -1163,6 +1170,7 @@ export function createScene(canvas) {
   const sightModels=makeFirearms(camera);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
+  sightModels[3].position.set(.19,-.27,-.46);
   sightModels[2].position.set(0,-.216,-.37);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
@@ -1423,6 +1431,7 @@ export function createScene(canvas) {
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
+    sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;
     const bowSight=localStation==='superyacht' && !local.dead && !local.fall;
     const fov = bowSight ? 26 : sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;

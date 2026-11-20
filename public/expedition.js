@@ -1,5 +1,6 @@
 import {breachTower} from './tower-damage.js';
 import {parkedJet,damageJet} from './jet.js';
+import {launcherSpec,lockStatus,guideGameMissile,updateLock} from './handheld-launcher.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {breachEstate,onEstate} from './estate-damage.js';
 import {windowContact} from './vehicle-glass-layout.js';
@@ -193,11 +194,26 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   return { target, hitKind, to, blocked, headshot, hitPart, injuryPoint };
 }
 
+export function trackLauncher(world,player,input,tick,players,npcs){
+  const p=player.state;
+  updateLock(world,player,{...input,from:{x:p.x,y:p.y+stanceMuzzleHeight(p),z:p.z}},tick,(w,from,dir,range)=>tracePulse(w,targets(w,player.id,players,npcs),from,dir,range,false,'handLauncher'));
+}
+
 export function fire(world, player, input, tick, players, npcs) {
   if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
-  const spec=firearmSpecs[player.weapon];
+  const spec=player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
+  if(player.weapon===4){
+    const lock=lockStatus(player,tick);
+    const id=nextShotId++;
+    const m={...from,id,shooter:player.id,source:'handLauncher',yaw:input.aimYaw,pitch:input.aimPitch,remaining:launcherSpec.range};
+    if(lock?.progress===1 && input.tracking)m.lock=lock.key;
+    world.missiles.push(m);
+    if(player.score)scoreAtLaunch.set(m,player.score);
+    world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
+    return;
+  }
   sendRound(world,player,player.weapon,null,from,input.aimYaw,input.aimPitch,tick);
 
 }
@@ -294,6 +310,7 @@ export function launchMissile(world,kind,player,tick) {
 export function advanceMissiles(world,players,npcs,tick) {
   world.missiles=world.missiles.filter(m=>{
     const actors=targets(world,m.shooter,players,npcs,m.source);
+    if(m.source==='handLauncher')guideGameMissile(world,m);
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
     const hit=tracePulse(world,actors,m,direction,1,false,m.source,CITY && onEstate(m.x,m.z) ? .04 : .2);
@@ -308,7 +325,8 @@ export function advanceMissiles(world,players,npcs,tick) {
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);
     }
-    const injury=applyHit(world,hit,actors,players,m.shooter,tick,150,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
+    const damage=m.source==='handLauncher'?launcherSpec.damage:150;
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,damage,m.source==='handLauncher'?damage:3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });

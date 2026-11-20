@@ -118,3 +118,5 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .team-bill:nth-of-type(2) {color:#f6bb8a}
 #mode-objective {border-top:1px solid var(--line);margin-top:8px;padding-top:8px;line-height:1.4}
 @media(max-width:700px){#match-card{left:14px;top:78px}}
+
+#launcher-status { color: #ffe6a1; font-size: 13px; margin-top: 5px; }
