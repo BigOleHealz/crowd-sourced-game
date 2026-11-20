@@ -30,3 +30,13 @@ stepSuspension(truck,dt,flat);
 assert(truck.suspension.roll>0,'an acceleration to the right loads the left wheels');
 settle();assert.equal(truck.suspension.roll,0);assert.equal(truck.suspension.pitch,0);
 console.log('PASS independent curb response, stationary settling, braking, impact rebound, lateral load, mount alignment and snapshot interpolation.');
+
+const gt={kind:'supercar',x:0,z:0,y:0,yaw:0,speed:0};
+stepSuspension(gt,dt,flat);
+let peak=0;
+for(let i=0;i<45;i++){
+  gt.speed+=15*dt;stepSuspension(gt,dt,flat);peak=Math.max(peak,gt.suspension.pitch);
+}
+assert(peak>.04 && peak<.085,'sports springs retain acceleration feedback without excessive squat');
+assert(gt.suspension.wheels.every(h=>Math.abs(h)<.001),'four tyres stay on the road');
+console.log('GT peak acceleration pitch', (peak*180/Math.PI).toFixed(1), 'degrees');

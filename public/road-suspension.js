@@ -24,7 +24,8 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
   }
   const ax=(vx-state.vx)/dt,az=(vz-state.vz)/dt;
   state.vx=vx;state.vz=vz;
-  const pitchLoad=clamp((ax*s-az*c)*.012,-.60,.60);
+  const sport=rover.kind==='supercar';
+  const pitchLoad=clamp((ax*s-az*c)*(sport?.005:.012),sport?-.12:-.60,sport?.09:.60);
   const rollLoad=clamp((ax*c+az*s)*.010,-.40,.40);
   for(let i=0;i<4;i++) {
     const [width,length]=wheelStations[i];
@@ -33,7 +34,7 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
     // stop in one 30 Hz server tick without an unstable rebound.
     const substeps=Math.max(1,Math.ceil(dt*120)), h=dt/substeps;
     for(let n=0;n<substeps;n++) {
-      const force=125*(target-state.heights[i])-13*state.rates[i];
+      const force=125*(target-state.heights[i])-(sport?18:13)*state.rates[i];
       state.rates[i]+=force*h;
       state.heights[i]+=state.rates[i]*h;
     }
