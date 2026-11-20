@@ -1,3 +1,4 @@
+import {casaRoomAt} from './casa-luma.js';
 import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
@@ -591,7 +592,7 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-  const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z));
+      const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : interior ? interior.name : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';

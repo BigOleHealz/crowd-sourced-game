@@ -1,3 +1,4 @@
+import {casaFloor,casaCeiling} from './casa-luma.js';
 import {yachtTopAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
@@ -171,6 +172,8 @@ export function terrainHeight(x, z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const villa=casaFloor(x,z,maxBottom);
+    if(villa!==undefined)return villa;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
@@ -306,7 +309,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    let ceiling=contact.ceiling;
+    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height):contact.ceiling;
     if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
