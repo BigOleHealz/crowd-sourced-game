@@ -1,3 +1,5 @@
+import {paneKey} from './pane-damage.js';
+import {paneBatch} from './pane-damage-view.js';
 import {addCasaLuma} from './casa-luma-view.js';
 import {furnishPalazzo} from './palazzo-mare-view.js';
 import * as THREE from 'three';
@@ -11,6 +13,7 @@ const teak=0xaa7952, brass=0xbda06b, linen=0xe9e3d4;
 // Glass, water and shaded masonry each have a single material for the district.
 export function addLanternBuildings(scene,Batch,sky){
   const main=new Batch(), stone=new Batch(true), glass=new Batch(), water=new Batch(true);
+  const panes=paneBatch(glass),sillStone=paneBatch(stone),sillTrim=paneBatch(main);
   const cube=new THREE.BoxGeometry(), plane=new THREE.PlaneGeometry();
   const drum=new THREE.CylinderGeometry(.5,.5,1,24);
   const sphere=new THREE.IcosahedronGeometry(.5,1);
@@ -111,7 +114,7 @@ export function addLanternBuildings(scene,Batch,sky){
     }
   }
   addCasaLuma({box,masonry,cyl,beam,leaf,railing,seat,trough,
-    pane:(x,y,z,w,h,yaw)=>glass.add(plane,0x738e8b,x,floor+y,z,w,h,1,0,yaw),
+    pane:(x,y,z,w,h,yaw)=>panes.add(paneKey(x,floor+y,z),()=>glass.add(plane,0x738e8b,x,floor+y,z,w,h,1,0,yaw)),
   });
   for(const x of [-37,-31.2]){
     box(dark,x,7.53,-406,2.4,.27,3.65);
@@ -123,8 +126,9 @@ export function addLanternBuildings(scene,Batch,sky){
   for(const x of [-32, -18])for(const z of [-390,-395])seat(x,z,0,x<-25?Math.PI/2:-Math.PI/2);
   // Successive limestone terraces open south. The arcade is a real cut-out
   // profile: the pedestrian loggia has headroom between its individual columns.
-  furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane:(x,y,z,width,height,across)=>
-    glass.add(plane,0x839c98,x,floor+y,z,width,height,1,0,across?0:Math.PI/2)});
+  furnishPalazzo({scene,box,masonry,cyl,beam,leaf,
+    sill:(p,draw)=>sillStone.add(p.sillPaneId,()=>sillTrim.add(p.sillPaneId,draw)),pane:(x,y,z,width,height,across)=>
+    panes.add(paneKey(x,floor+y,z),()=>glass.add(plane,0x839c98,x,floor+y,z,width,height,1,0,across?0:Math.PI/2))});
   function archRow(x,z,count,spacing,r,h,base,depth){
     const shape=new THREE.Shape();
     const left=-count*spacing/2;
@@ -291,9 +295,11 @@ export function addLanternBuildings(scene,Batch,sky){
   ink.putImageData(pixels,0,0);
   const waterMap=new THREE.CanvasTexture(poolCanvas);
   for(const map of [stoneMap,waterMap]){map.wrapS=map.wrapT=THREE.RepeatWrapping;map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;}
-  main.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='solid';
-  stone.mesh(scene,new THREE.MeshStandardMaterial({map:stoneMap,vertexColors:true,roughness:.84})).userData.impactSurface='solid';
-  glass.mesh(scene,alpineGlass(sky,{transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}),false);
+  const trimMesh=main.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));trimMesh.userData.impactSurface='solid';
+  const stoneMesh=stone.mesh(scene,new THREE.MeshStandardMaterial({map:stoneMap,vertexColors:true,roughness:.84}));stoneMesh.userData.impactSurface='solid';
+  const updateGlass=panes.bind(glass.mesh(scene,alpineGlass(sky,{transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}),false));
   water.mesh(scene,new THREE.MeshPhongMaterial({map:waterMap,vertexColors:true,shininess:90,specular:0xa6cac0}),false);
   for(const g of [cube,plane,drum,sphere,pot,ripples])g.dispose();
+  const updateStone=sillStone.bind(stoneMesh),updateTrim=sillTrim.bind(trimMesh);
+  return doors=>{updateGlass(doors?.brokenPanes);updateStone(doors?.brokenSills);updateTrim(doors?.brokenSills);};
 }

@@ -1,3 +1,5 @@
+import {windowContact} from './vehicle-glass-layout.js';
+import {noteGlass} from './pane-damage.js';
 import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
 import {yachtSolidAt} from './yacht-layout.js';
@@ -6,7 +8,7 @@ import {damagePost,lampHP} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, roverRoundContact, supercarRoundContact, postContact, blastPosts, segmentContact } from './rounds.js';
+import { firearmSpecs, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -133,10 +135,15 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const hitSport=sportContact<(roverContact?.t??Infinity);
   const roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
   const post=postContact(world,from,delta);
+  const pane=sourceVehicle && !assist ? firstPaneHit(world,from,delta):null;
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let d = 0.2; d <= range; d += 0.2) {
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
+    if(pane?.target && pane.t<=post.t && pane.t*range<=d){
+      target=pane.target;hitKind='glass';
+      to={x:from.x+delta.x*pane.t,y:from.y+delta.y*pane.t,z:from.z+delta.z*pane.t};break;
+    }
     if(post.target && post.t*range<=d){
       target=post.target;hitKind=target.lamp!=null?'lamp':'post';
       to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
@@ -189,9 +196,15 @@ function targets(world,shooter,players,npcs,source=null) {
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
   let injury=null;
+  if(hitKind==='vehicleGlass'){
+    const {vehicle,paneId}=target;
+    (vehicle.brokenGlass??={})[paneId]=true;noteGlass(world.doors,to);
+    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage);
+    return null;
+  }
   if(hitKind==='glass'){
     shatterPane(world.doors,target);
-    return null;
+    if(!areaImpact)return null;
   }
   if(hitKind==='lamp' || hitKind==='post')damagePost(world.doors,target,damage);
   if (hitKind || (areaImpact && blocked)) {
@@ -331,6 +344,10 @@ export function advanceRounds(world,players,npcs,tick){
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
+    if(hit.target && !Number.isInteger(hit.wheel) && ['heli','rover','supercar'].includes(hit.hitKind)){
+      const pane=windowContact(hit.hitKind,hit.target,to,d,CITY);
+      if(pane){(hit.target.brokenGlass??={})[pane.id]=true;noteGlass(world.doors,pane);}
+    }
     const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r));
     if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,

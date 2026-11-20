@@ -52,7 +52,7 @@ function roundContact(x,z,s,c,prop,radius,shape){
 // Outward-facing normal points from the obstacle into free space.
 export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const shape=shapeFor(vehicle);
-  const s=Math.sin(yaw),c=Math.cos(yaw),base=groundHeight(x,z,Infinity,world.doors);
+  const s=Math.sin(yaw),c=Math.cos(yaw),base=groundHeight(x,z,(vehicle?.y??0)+1.65,world.doors);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   for(const b of MAP.buildings){
@@ -63,12 +63,18 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand,shape));
   }
   const reach=shape.halfWidth+shape.halfLength;
+  // Ground-floor cars probe at chassis height inside multi-storey estates.
+  const feet=vehicle.y??base;
   for(const b of MAP.barriers){
     if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
-    if(postDown(world.doors,b))continue;
-    if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
+    if(postDown(world.doors,b) || world.doors?.brokenPanes?.[b.paneId] || world.doors?.brokenSills?.[b.sillPaneId])continue;
+    if(b.flushEdge && terrainHeight(b.x,b.z)+b.h<=feet+.32)continue;
+    if(b.level==='ground' || b.level==='upper' || b.level==='roof' || b.level==='terrace'){
+      if(terrainHeight(b.x,b.z)+b.h<=feet+.32)continue;
+    }
+    if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>feet+1.65)continue;
     if(b.h>.16)consider(boxContact(x,z,s,c,b,shape));
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
@@ -87,8 +93,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   if(z<north)return {nx:0,nz:1,depth:north-z,object:'north'};
   const boat=base<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,shape.halfWidth,shape.halfLength);
   // Keep the prior shore/bridge traversal limits as terrain safeguards.
-  const cliff=Math.abs(base-groundHeight(fromX,fromZ,Infinity,world.doors))>=.34 || [-.73,.73].some(along=>
-    Math.abs(groundHeight(x+along*s,z-along*c,Infinity,world.doors)-base)>.67);
+  const cliff=Math.abs(base-groundHeight(fromX,fromZ,feet+1.65,world.doors))>=.34 || [-.73,.73].some(along=>
+    Math.abs(groundHeight(x+along*s,z-along*c,feet+1.65,world.doors)-base)>.67);
   if(boat || base<MAP.waterY+.2 || (cliff && !raisedRoadAt(world,x,z))){
     const dx=boat?x-boat.x:fromX-x,dz=boat?z-boat.z:fromZ-z,len=Math.hypot(dx,dz);
     return {nx:len?dx/len:0,nz:len?dz/len:1,depth:.01,object:boat||'terrain'};

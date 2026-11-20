@@ -114,7 +114,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     const pad=b.flushEdge ? 0 : padding;
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
-    if(postDown(doors,b))continue;
+    if(postDown(doors,b) || (b.paneId && doors?.brokenPanes?.[b.paneId]) || doors?.brokenSills?.[b.sillPaneId])continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }

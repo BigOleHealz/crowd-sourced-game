@@ -1,31 +1,16 @@
 import * as THREE from 'three';
 
 // Cross sections from the blunt chin through the flight deck and sliding cargo doors.
-const stations=[
-  [-2.53,.13,.80,.13],[-2.43,.39,.81,.23],[-2.18,.57,.84,.30],
-  [-1.90,.65,.98,.42],[-1.55,.71,1.12,.55],[-1.17,.74,1.12,.58],
-  [-.73,.76,1.12,.59],[-.12,.77,1.12,.60],[.52,.77,1.12,.60],
-  [1.06,.74,1.15,.55],[1.53,.59,1.19,.44],[1.87,.37,1.28,.31],[2.10,.24,1.34,.23]
-];
-const last=stations.length-1, tau=Math.PI*2;
-function skin(t,theta) {
-  t=THREE.MathUtils.clamp(t,0,last);
-  const i=Math.min(last-1,Math.floor(t)),f=t-i;
-  const a=stations[Math.max(0,i-1)],b=stations[i],c=stations[i+1],d=stations[Math.min(last,i+2)];
-  function at(k) {
-    return b[k]+.5*f*((c[k]-a[k])+f*(2*a[k]-5*b[k]+4*c[k]-d[k]+f*(3*b[k]-a[k]-3*c[k]+d[k])));
-  }
-  const curve=v=>Math.sign(v)*Math.abs(v)**.42;
-  return new THREE.Vector3(at(1)*curve(Math.sin(theta)),at(2)+at(3)*curve(Math.cos(theta)),at(0));
-}
+import {last,tau,skinPoint,aircraftPane} from './vehicle-glass-layout.js';
+function skin(t,theta){return new THREE.Vector3(...skinPoint(t,theta));}
 function surfaceNormal(t,theta) {
   const along=skin(t+.005,theta).sub(skin(t-.005,theta));
   const around=skin(t,theta+.001).sub(skin(t,theta-.001));
   return along.cross(around).normalize();
 }
 
-export function aircraftBody(hull,glazing) {
-  const paint={p:[],n:[],c:[]},glass={p:[],n:[],c:[]};
+export function aircraftBody(hull,glazing,panes) {
+  const paint={p:[],n:[],c:[]},glass=new Map();
   const paintTint=new THREE.Color(),rings=last*3,slices=48;
   const points=[],normals=[];
   for(let r=0;r<=rings;r++) for(let j=0;j<=slices;j++) {
@@ -33,10 +18,9 @@ export function aircraftBody(hull,glazing) {
   }
   for(let r=0;r<rings;r++) for(let j=0;j<slices;j++) {
     const t=(r+.5)/3,angle=Math.min(j+.5,slices-j-.5)*tau/slices;
-    const windscreen=t>2.32 && t<4.67 && angle<1.33 && angle>.055;
-    const window=((t>4.67 && t<6.33) || (t>6.67 && t<7.67) || (t>8 && t<9)) && angle>.78 && angle<1.63;
-    const footlight=t>2.33 && t<3.67 && angle>1.57 && angle<2.10;
-    const pane=windscreen || window || footlight, bucket=pane ? glass : paint;
+    const pane=aircraftPane(t,angle,j<24);
+    if(pane && !glass.has(pane))glass.set(pane,{p:[],n:[],c:[]});
+    const bucket=pane?glass.get(pane):paint;
     paintTint.setHex(pane ? 0x536969 : angle>2.19 ? 0x3b4039 : 0x515648);
     const a=r*(slices+1)+j,b=a+slices+1;
     for(const k of [a,b,b+1,a,b+1,a+1]) {
@@ -45,7 +29,7 @@ export function aircraftBody(hull,glazing) {
   }
   // Continue the first skin ring into a shallow domed chin. Sharing the
   // ring's positions and normals keeps the cowling continuous at the seam.
-  const noseCenter=new THREE.Vector3(0,stations[0][2],stations[0][0]);
+  const noseCenter=new THREE.Vector3(0,skinPoint(0,Math.PI/2)[1],skinPoint(0,Math.PI/2)[2]);
   const forward=new THREE.Vector3(0,0,-1);
   const nosePaint=new THREE.Color(0x515648);
   function noseVertex(j,band) {
@@ -71,7 +55,8 @@ export function aircraftBody(hull,glazing) {
     for(let i=0;i<bucket.c.length;i++) batch.colors[offset+i]=bucket.c[i];
     geo.dispose();
   }
-  append(paint,hull);append(glass,glazing);
+  append(paint,hull);
+  for(const [id,bucket] of glass)panes.add(id,()=>append(bucket,glazing));
 
   // Thin seals follow the canopy curvature without interrupting reflections.
   function rail(t1,t2,a1,a2,width) {

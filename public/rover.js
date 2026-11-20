@@ -1,7 +1,8 @@
 import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
-import {breakFrontage} from './frontage-glass.js';
+import {noteGlass} from './pane-damage.js';
+import {breakFrontage,shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP} from './street-lamps.js';
 import { roadContact, sweepRoad } from './road-contact.js';
 import {flatTireCount} from './road-wheel-layout.js';
@@ -184,7 +185,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   for(let pass=0;pass<2 && remaining>1e-7;pass++){
     const dx=vx*remaining,dz=vz*remaining;
     const {fraction,hit}=sweepRoad(world,r,dx,dz);
-    r.x+=dx*fraction;r.z+=dz*fraction;r.y=groundHeight(r.x,r.z,Infinity,world.doors);
+    r.x+=dx*fraction;r.z+=dz*fraction;r.y=groundHeight(r.x,r.z,r.y+1.6,world.doors);
     if(!hit)break;
     contacted=true;
     const incoming=Math.max(0,-(vx*hit.nx+vz*hit.nz));
@@ -192,7 +193,14 @@ export function driveRover(world, input, dt, players,kind='rover') {
       remaining*=1-fraction;
       continue;
     }
+    if((hit.object.paneId || hit.object.sillPaneId) && incoming>2.3){
+      const p=hit.object;
+      if(p.sillPaneId)(world.doors.brokenSills??={})[p.sillPaneId]=true;
+      shatterPane(world.doors,{id:p.paneId??p.sillPaneId,x:p.x,z:p.z,bottom:r.y,top:r.y+1.4});
+      remaining*=1-fraction;continue;
+    }
     if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r)){
+      noteGlass(world.doors,{x:r.x,y:r.y+.9,z:r.z});
       registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
       if(r.wrecked)return;
       vx*=.8;vz*=.8;remaining*=1-fraction;

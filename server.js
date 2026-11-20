@@ -384,7 +384,7 @@ function tick() {
     }else{
       const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
       stepSuspension(road,step,(x,z)=>{
-        const ground=groundHeight(x,z,Infinity,world.doors);
+        const ground=groundHeight(x,z,road.y+1.65,world.doors);
         // Until takeoff, an unsupported axle follows the end of its ramp.
         if(leaf && ground<=MAP.waterY && Math.abs(z-bridgeMiddle(raised))<leafLength)
           return leaf.base+leaf.vertical;
