@@ -66,7 +66,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   avatar.root.scale.setScalar(seated ? seatedScale : 1);
   if (avatar.civilian) avatar.root.scale.set(avatar.civilian.width,avatar.civilian.height,1);
   if (seated) {
-    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,[-.322,.025,-.085]);
+    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,seated.kind==='supercar' ? [-.365,-.25,.23] : [-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {

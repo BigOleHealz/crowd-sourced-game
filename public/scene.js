@@ -20,6 +20,7 @@ import { patrolBoatView } from './patrol-boat-view.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
+import { createSupercarView } from './supercar-view.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
@@ -1109,6 +1110,7 @@ export function createScene(canvas) {
   const updateRounds=flightRounds(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
+  const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1214,11 +1216,13 @@ export function createScene(canvas) {
     updatePatrolBoats(world?.boats,dt);
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
-    const rover=world.rover, driving=rover.driver===local.id;
+    const rover=world.rover, supercar=world.supercar;
+    const road=supercar?.driver===local.id ? supercar : rover, driving=road.driver===local.id;
+    if(updateSupercar)updateSupercar(supercar,dt);
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
-    roverLabel.sprite.visible=!driving && local.id!==rover.gunner;
+    roverLabel.sprite.visible=local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const stack of stacks) {
       const {prop,mesh}=stack;
@@ -1254,7 +1258,7 @@ export function createScene(canvas) {
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
-      const seated=state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
+      const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
       const station=state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
@@ -1277,7 +1281,7 @@ export function createScene(canvas) {
       desired.set(pivot.x,pivot.y,pivot.z);
     }
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
-    else if(driving) desired.set(rover.x,rover.y+1.03,rover.z);
+    else if(driving) desired.set(road.x,road.y+1.03,road.z);
     else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
     else {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
@@ -1336,7 +1340,7 @@ export function createScene(canvas) {
         const p=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
         overheadEye.set(p.x,localStation==='heli' ? Math.max(p.y+2.05,heli.y+3.65) : p.y+2.05,p.z);
       }else if(piloting)overheadEye.set(heli.x,heli.y+3.65,heli.z);
-      else if(driving)overheadEye.set(rover.x,rover.y+2.60,rover.z);
+      else if(driving)overheadEye.set(road.x,road.y+2.60,road.z);
       else if(boat)overheadEye.set(boat.x,boat.y+2.50,boat.z);
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
       camera.position.lerp(overheadEye,overhead);
