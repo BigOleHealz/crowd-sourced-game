@@ -9,7 +9,9 @@ export const yachtStairs={halfWidth:2.1,fore:15,aft:19,steps:12,bottom:.30,top:y
 export const yachtPlatform={halfWidth:4.35,fore:19,aft:21,y:.30};
 export const yachtLadder={halfWidth:.79,fore:20.88,aft:22.0,top:.30,bottom:-1.02};
 export const yachtGangway={inner:5.9,outer:9.02,centerZ:10.5,halfWidth:.86,top:yachtDeckY,bottom:.94};
-export const yachtMaxHp=1200;
+export const yachtMaxHp=2000;
+export const yachtGun={x:0,z:-17.6,y:yachtDeckY+1.24};
+export const yachtSmoking=y=>!!y && !y.wrecked && y.hp>0 && y.hp<=y.maxHp*.30;
 export function yachtHalfBeam(z){
   if(z<yachtSections[0][0] || z>yachtSections.at(-1)[0])return 0;
   for(let i=1;i<yachtSections.length;i++){
@@ -60,9 +62,14 @@ export function yachtPrompt(world,feet,id){
   const y=world?.yacht;
   if(!y || y.wrecked || id==null)return null;
   if(y.driver===id)return 'leave';
+  if(y.gunner===id)return 'leaveGun';
   if(!aboardYacht(y,feet))return null;
   const h=yachtHelmFeet(y);
-  if(Math.hypot(h.x-feet.x,h.z-feet.z,h.y-feet.y)>2.35)return null;
+  const gun=yachtPoint(y,yachtGun.x,yachtDeckY,yachtGun.z);
+  const gunRange=Math.hypot(gun.x-feet.x,gun.z-feet.z,gun.y-feet.y);
+  const helmRange=Math.hypot(h.x-feet.x,h.z-feet.z,h.y-feet.y);
+  if(gunRange<=1.8 && gunRange<helmRange)return y.gunner==null?'gun':'gunOccupied';
+  if(helmRange>2.35)return null;
   return y.driver==null?'helm':'occupied';
 }
 

@@ -4,24 +4,29 @@ import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelm
   aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin} from './yacht-layout.js';
 
 export function mooredYacht(){
-  return {id:'superyacht',...yachtBerth,y:MAP.waterY,speed:0,throttle:0,driver:null,gangway:true,
+  return {id:'superyacht',...yachtBerth,y:MAP.waterY,speed:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
     hp:yachtMaxHp,maxHp:yachtMaxHp,wrecked:false,recoverySeconds:0};
 }
 export function interactYacht(world,player){
   const prompt=yachtPrompt(world,player.state,player.id),y=world.yacht;
   if(prompt==='leave'){y.driver=null;y.throttle=0;return true;}
+  if(prompt==='leaveGun'){y.gunner=null;return true;}
+  if(prompt==='gun'){
+    y.gunner=player.id;y.turretYaw=y.yaw;y.turretPitch=0;
+    player.moving=player.sprint=false;return true;
+  }
   if(prompt==='helm'){
     y.driver=player.id;player.state={...yachtHelmFeet(y),grounded:true,vy:0};
     player.yaw=y.yaw;player.moving=player.sprint=false;return true;
   }
-  return prompt==='occupied';
+  return prompt==='occupied' || prompt==='gunOccupied';
 }
 export function damageYacht(world,amount){
   const y=world.yacht;
   if(!y || y.wrecked || !Number.isFinite(amount) || amount<=0)return;
   y.hp=Math.max(0,y.hp-amount);
   if(y.hp)return;
-  Object.assign(y,{wrecked:true,driver:null,speed:0,throttle:0,gangway:false,recoverySeconds:9});
+  Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,throttle:0,gangway:false,recoverySeconds:9});
   if(world.heli?.onYacht){
     delete world.heli.onYacht;world.heli.grounded=false;
     if(!world.heli.wrecked && world.heli.pilot==null)world.heli.abandonedFor=0;

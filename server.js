@@ -262,7 +262,7 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
-    if(world.heli.gunner!==player.id || input?.interact || input?.seat)player.chainFireUntil=0;
+    if((world.heli.gunner!==player.id && world.yacht?.gunner!==player.id) || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
@@ -342,11 +342,11 @@ function tick() {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
         vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
-        if(CITY && kind==='heli')player.chainFireUntil=input.fire ? ticks+4 : 0;
+        if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(input.fire) firingGunners.add(player.id);
       }
       // Bridge ordinary packet jitter, and release a stalled client's trigger.
-      if(CITY && kind==='heli' && ticks<player.chainFireUntil)firingGunners.add(player.id);
+      if(CITY && (kind==='heli' || kind==='superyacht') && ticks<player.chainFireUntil)firingGunners.add(player.id);
       continue;
     }
     const falling = player.state;
@@ -398,10 +398,10 @@ function tick() {
     const driver=players.get(b.driver);
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
-  for(const kind of ['rover','heli',...world.boats.map(b=>b.id)]) {
+  for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
-    gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0};
+    gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }

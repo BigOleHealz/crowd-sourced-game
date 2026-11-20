@@ -203,7 +203,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
-    if(hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage);
+    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage);
     for(const b of world.boats??[]){
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }
@@ -276,10 +276,11 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   }
   const ready=nextBullet.get(v) ?? tick;
   if(tick<ready)return;
-  const interval=CITY && kind==='rover' ? 3 : firearmSpecs.turret.cooldown;
+  const weapon=kind==='superyacht'?'yachtGun':'turret';
+  const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
-  sendRound(world,player,'turret',kind,pivot,v.turretYaw,v.turretPitch,tick);
+  sendRound(world,player,weapon,kind,pivot,v.turretYaw,v.turretPitch,tick);
 }
 
 function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){
