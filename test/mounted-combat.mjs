@@ -35,9 +35,9 @@ for(const kind of ['rover','heli']){
   const m=world.missiles[0],start={...m};v.yaw=0;
   assert.deepEqual(world.shots.filter(s=>s.weapon==='launch').map(s=>s.id),[m.id]);
   advanceMissiles(world,players,[],61);assert.equal(m.x,start.x+1);assert.ok(Math.abs(m.z-start.z)<1e-9);
-  target.state={x:m.x+2,y:m.y-1.3,z:m.z};target.life=newLife(0,false);
+  target.state={x:m.x+2,y:m.y-1.3,z:m.z};target.life={...newLife(0,false),hp:250,maxHp:250};
   advanceMissiles(world,players,[target],62);advanceMissiles(world,players,[target],63);
-  assert.equal(target.life.hp,25);assert.equal(world.missiles.length,0);
+  assert.equal(target.life.hp,100,kind+' missile deals exactly 150 body damage');assert.equal(world.missiles.length,0);
 }
 // Unrelated missile IDs and rejected attempts cannot change which helicopter pod fires next.
 {

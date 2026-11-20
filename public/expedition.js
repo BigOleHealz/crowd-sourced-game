@@ -246,7 +246,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
-    const injury=applyHit(world,hit,actors,players,m.shooter,tick,75,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,150,3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
