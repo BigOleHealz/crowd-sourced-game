@@ -143,6 +143,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     count+glass.extra.length+glass.bays.reduce((total,bay)=>total+Math.max(1,bay.panes.length),0),galleryCount);
   const debris=glassBreakDebris(scene,paneCount);
   const breakables=breakableWindows(scene,Batch,debris);
+  const frontageStart=scene.children.length;
   const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables,debris);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
@@ -177,6 +178,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
   const towerWalls=walls.mesh(scene,facadeMaterial);
   towerWalls.userData.impactSurface='solid';
+  const podiumParts=scene.children.slice(frontageStart);
   addBrickellHorizon(scene,facadeMaterial.map);
   const apartmentStart=scene.children.length;
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
@@ -184,12 +186,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
-  const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...towerParts]);
+  const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   for(const geometry of [box,...faces])geometry.dispose();
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
-    updateDamage(doors,dt);updateTowers(doors);
+    updateDamage(doors,dt);updateTowers(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
