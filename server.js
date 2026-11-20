@@ -381,7 +381,7 @@ function tick() {
       const f=road.bridgeFlight;
       const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)));
       road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
-    }else if(kind==='rover' || raised){
+    }else{
       const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
       stepSuspension(road,step,(x,z)=>{
         const ground=groundHeight(x,z,Infinity,world.doors);
@@ -391,7 +391,7 @@ function tick() {
         return ground;
       });
     }
-    else delete road.suspension;
+
   }
   for(const b of world.boats){
     stepBoat(world,b,boatInputs.get(b.id),step,players);

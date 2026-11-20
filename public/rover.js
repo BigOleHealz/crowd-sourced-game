@@ -27,7 +27,7 @@ export function parkedRover() {
 
 export function parkedSupercar(){
   const {pad,maxHp}=supercarLayout;
-  return {...pad,kind:'supercar',y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
+  return {...pad,kind:'supercar',flatTires:0,y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
     exhaust:0,steer:0,hp:maxHp,maxHp,bodyDamage:{front:0,rear:0,left:0,right:0},wrecked:false,recoverySeconds:0};
 }
 
@@ -149,7 +149,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
-  const braking=sport ? (throttle ? 30 : 12.0) : 18;
+  const braking=sport && throttle ? 30 : 18;
   const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : braking;
   const oldSpeed=r.speed;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
@@ -169,7 +169,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const side=(r.lateralSpeed??0)*Math.cos(rotation)-r.speed*Math.sin(rotation)*drift;
   // Retain tire slip after an oblique impact while the suspension settles.
   const contact=bumperContacts.get(r);
-  const grip=contact?3.5:(sport?8.7:5.2)+9*(1-drift),limit=contact?16:pace*(sport?.15:.20);
+  const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
   r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;

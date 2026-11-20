@@ -212,7 +212,8 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       else damageRover(world,vehicleDamage,players);
     }
     if(hitKind==='supercar' || (areaImpact && world.supercar && withinBurst(center,world.supercar,.55))){
-      damageRover(world,vehicleDamage,players,'supercar');
+      if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;
+      else damageRover(world,vehicleDamage,players,'supercar');
     }
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, vehicleDamage, players, shooter);

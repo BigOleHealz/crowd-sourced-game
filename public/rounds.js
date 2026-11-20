@@ -2,7 +2,7 @@ import {yachtTopAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {lampDown} from './street-lamps.js';
-import {wheelStations} from './road-wheel-layout.js';
+import {wheelsFor} from './road-wheel-layout.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
@@ -57,6 +57,13 @@ function column(a,d,c,r,h){
 const roverBody=[[0,.56,0,1.48,.48,3.12],[0,1.04,-.10,1.35,.55,1.08],
     [0,.31,0,1.10,.26,2.50],[0,.46,-1.48,1.54,.16,.14],[0,.46,1.49,1.54,.16,.14]];
 
+// Split the GT body at its wheel wells so tire sidewalls are exposed.
+const sportBody=[
+  [0,.08,0,1.38,.52,4.55],[0,.67,0,2.00,.09,4.18],
+  [0,.22,0,2.01,.45,2.19],[0,.19,-2.04,1.89,.40,.38],
+  [0,.19,2.04,1.89,.40,.38],[0,.73,0,1.43,.50,1.83],
+];
+
 // Resolve the closest game collider before deciding if the impact belongs
 // to the wheel or the body. Axle-space coordinates rotate with either rover.
 export function roverRoundContact(rover,start,delta){
@@ -64,25 +71,22 @@ export function roverRoundContact(rover,start,delta){
   const c=Math.cos(rover.yaw),s=Math.sin(rover.yaw),x=start.x-rover.x,z=start.z-rover.z;
   const point={x:x*c+z*s,y:start.y-rover.y,z:-x*s+z*c};
   const step={x:delta.x*c+delta.z*s,y:delta.y,z:-delta.x*s+delta.z*c};
-  if(box(point,step,{x:0,y:-.34,z:0},1.84,2.34,3.56)===Infinity)return null;
+  const sport=rover.kind==='supercar', wheelStations=wheelsFor(rover);
+  if(box(point,step,{x:0,y:-.34,z:0},sport?2.18:1.84,2.34,sport?4.68:3.56)===Infinity)return null;
   // Sheet metal above the axles, narrower underbody, and the end bumpers.
   // Their overlaps leave the four visually exposed wheel wells selectable.
   let t=Infinity,wheel=null;
-  for(const [x,y,z,w,h,d] of roverBody)t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  for(const [x,y,z,w,h,d] of (sport?sportBody:roverBody))t=Math.min(t,box(point,step,{x,y,z},w,h,d));
   const across={x:point.y,y:point.x,z:point.z}, travel={x:step.y,y:step.x,z:step.z};
   for(let i=0;i<wheelStations.length;i++){
-    const [side,length]=wheelStations[i],height=.368+(rover.suspension?.wheels[i] ?? 0);
-    const value=column(across,travel,{x:height,y:side-.14,z:length},.36,.28);
+    const [side,length]=wheelStations[i],height=(sport?supercarLayout.tire:.368)+(rover.suspension?.wheels[i] ?? 0);
+    const value=column(across,travel,{x:height,y:side-(sport?.128:.14),z:length},sport?supercarLayout.tire:.36,sport?.256:.28);
     if(value<t){t=value;wheel=i;}
   }
   return t===Infinity ? null : {t,wheel};
 }
 export function supercarRoundContact(car,from,delta){
-  if(!car || car.wrecked)return Infinity;
-  const body=box(from,delta,{x:car.x,y:car.y+.08,z:car.z},supercarLayout.halfWidth*2,.65,
-    supercarLayout.halfLength*2,car.yaw);
-  const roof=box(from,delta,{x:car.x,y:car.y+.73,z:car.z},1.43,supercarLayout.roof-.73,1.83,car.yaw);
-  return Math.min(body,roof);
+  return roverRoundContact(car,from,delta)?.t??Infinity;
 }
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
@@ -142,7 +146,8 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=roverRoundContact(world.rover,round,d);
     if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
-  accept(supercarRoundContact(world.supercar,round,d),world.supercar,'supercar');
+  const sportHit=roverRoundContact(world.supercar,round,d);
+  if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
   const heli=world.heli;
   if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {
