@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import {beachHut, harborHouses} from './harbor-key-structures.js';
+import {paneBatch} from './pane-damage-view.js';
+import {beachHut, harborHouses, harborUpperWindows} from './harbor-key-structures.js';
 import {sandHeight} from './beach-layout.js';
 
-function addResidences(houses, box, gable, podiumTop) {
+function addResidences(houses, panes, box, gable, podiumTop) {
   const variation = new THREE.Color();
   for(const house of harborHouses) {
     const {x,z,w,d,base,eave,rise,siding,trim,roof,shutters,finish} = house;
@@ -43,14 +44,15 @@ function addResidences(houses, box, gable, podiumTop) {
     }
     piece(shade(roof,1.12),0,top+rise+.04,0,w+.46,.09,.24);
 
-    function window(tint, axis, side, across, y, width, height, withShutters=true) {
+    for(const {id,tint,axis,side,across,y,width,h:height,withShutters} of harborUpperWindows(house,podiumTop)){
       const line=side*(axis==='x' ? w/2 : d/2);
       const face=(color,u,v,span,tall,depth=.05,offset=.028)=>{
         if(axis==='x')piece(color,line+side*offset,v,u,depth,tall,span);
         else piece(color,u,v,line+side*offset,span,tall,depth);
       };
       face(trim,across,y,width+.17,height+.17);
-      face(tint,across,y,width,height,.037,.071);
+      face(0x343331,across,y,width,height,.018,.054);
+      panes.add(id,()=>face(tint,across,y,width,height,.037,.071));
       face(trim,across,y,.036,height,.033,.095);
       face(trim,across,y,width,.034,.031,.095);
       face(trim,across,y-height/2-.08,width+.24,.070,.19,.09);
@@ -62,20 +64,7 @@ function addResidences(houses, box, gable, podiumTop) {
         }
       }
     }
-    const glaze=finish==='stucco' ? 0x5d6765 : 0x556d70;
-    const rows=height>3.85 ? 2 : 1, spacing=height/rows;
-    for(let row=0;row<rows;row++){
-      const y=podiumTop+(row+.52)*spacing, windowHeight=Math.min(1.12,spacing*.52);
-      for(const side of [-1,1]){
-        for(const end of [-1,1]){
-          window(glaze,'x',side,end*d*.29,y,1.20,windowHeight);
-          window(glaze,'z',side,end*w*.27,y,1.16,windowHeight);
-        }
-        if(finish!=='batten')window(0x627678,'x',side,0,y,1.60,windowHeight,false);
-      }
-    }
     for(const side of [-1,1]){
-      window(0x606866,'x',side,0,top+rise*.34,finish==='batten'?.66:1.02,.58,false);
       for(const end of [-1,1]){
         piece(roof,side*(w/2-.32),podiumTop+height/2,end*(d/2+.055),.089,height,.115);
       }
@@ -163,11 +152,13 @@ export function addHarborKeyStructures(scene,Batch,podiumTop) {
   gable.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-.5,0,1,0,0,0,.5],3));
   gable.computeVertexNormals();
   const houses=new Batch(), timber=new Batch(), metal=new Batch();
-  addResidences(houses,box,gable,podiumTop);
+  const panes=paneBatch(houses);
+  addResidences(houses,panes,box,gable,podiumTop);
   addBeachShelter(scene,timber,metal,box);
   const material=new THREE.MeshLambertMaterial({vertexColors:true});
-  houses.mesh(scene,material).userData.impactSurface='solid';
+  const mesh=houses.mesh(scene,material);mesh.userData.impactSurface='solid';
   timber.mesh(scene,material).userData.impactSurface='wood';
   metal.mesh(scene,material).userData.impactSurface='metal';
   box.dispose();gable.dispose();
+  return panes.bind(mesh);
 }

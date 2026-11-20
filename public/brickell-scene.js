@@ -174,15 +174,15 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
   walls.mesh(scene,facadeMaterial).userData.impactSurface='solid';
   addBrickellHorizon(scene,facadeMaterial.map);
-  addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
-  addHarborKeyStructures(scene,Batch,base+podium);
+  const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
+  const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   addPalms(scene);
   solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='street';
   for(const geometry of [box,...faces])geometry.dispose();
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
-    updateEstates(doors);updateCauseway(doors);updateLantern(doors);
+    updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);updatePosts(doors,dt);
