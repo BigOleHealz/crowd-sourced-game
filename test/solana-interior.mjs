@@ -3,8 +3,8 @@ process.env.PINEWATCH_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {stepPlayer}=await import('../public/world.js');
 const {stepYacht}=await import('../public/superyacht.js');
-const {yachtPoint,yachtLocal,aboardYacht,yachtSolidAt}=await import('../public/yacht-layout.js');
-const {mainSole,upperSole}=await import('../public/solana-interior.js');
+const {yachtPoint,yachtLocal,aboardYacht,yachtSolidAt,yachtRoomDepth}=await import('../public/yacht-layout.js');
+const {mainSole,upperSole,lowerSole,lowerStair}=await import('../public/solana-interior.js');
 
 const world=newExpedition(), yacht=world.yacht, dt=1/30;
 const guest={id:2,state:{...yachtPoint(yacht,0,mainSole,9),grounded:true},yaw:0};
@@ -46,3 +46,20 @@ assert(solid(-3.24,mainSole+.45,-3.65));
 assert(solid(0,upperSole-.1,-5));
 assert(!solid(0,mainSole+1.6,-11.85));
 console.log('PASS main and upper deck doors, furnished salon, headroom, both directions on stairs, moving and turning cabin.');
+
+const stairX=(lowerStair.left+lowerStair.right)/2;
+walk(0,-11.22);walk(stairX,-11.22);walk(stairX,-4.93);onLevel(lowerSole);
+walk(.57,-4.93);walk(.57,-3.23);walk(1.02,-7);onLevel(lowerSole);
+assert(!guest.state.swimming && yachtRoomDepth(yacht,guest.state.x,guest.state.y,guest.state.z)>.7);
+assert(!solid(1,lowerSole+1.6,-7) && solid(1,mainSole-.09,-7));
+for(let i=0;i<45;i++){go({jump:i===0});assert(guest.state.y+1.8<=yacht.y+mainSole-.18+.001);}
+onLevel(lowerSole);
+for(let i=0;i<10;i++)go({});
+const berthed=yachtLocal(yacht,guest.state.x,guest.state.z),old={...yacht};
+for(let i=0;i<80;i++){stepYacht(world,{throttle:1,steer:.65},dt,people);go({});}
+const carried=yachtLocal(yacht,guest.state.x,guest.state.z);
+assert(Math.hypot(old.x-yacht.x,old.z-yacht.z)>4 && Math.abs(Math.sin(old.yaw-yacht.yaw))>.1);
+assert(Math.hypot(berthed.x-carried.x,berthed.z-carried.z)<1e-6 && aboardYacht(yacht,guest.state));
+walk(.57,-4.93);walk(stairX,-4.93);walk(stairX,-11.22);onLevel(mainSole);
+walk(0,-11.22);walk(0,4);onLevel(mainSole);
+console.log('PASS walk down into the furnished dry guest suite, jump under the headliner, ride through a turn and return to the helipad.');

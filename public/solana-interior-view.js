@@ -32,8 +32,8 @@ export function fitSolanaInterior(root,Batch,fittings,metal,glass,wood){
     if(p.finish==='pillow'){
       batch.add(pillow,p.tint,p.x,p.y,p.z,p.w*.5,p.h*.5,p.d*.5,.15,0,-.25);
     }else batch.add(cube,p.tint,p.x,p.y,p.z,p.w,p.h,p.d);
-    if(p.finish==='deck' && p.y<upperSole){
-      const y=upperSole+.004;
+    if(p.finish==='deck' && Math.abs(p.y+p.h/2-mainSole)>.01 && p.y<upperSole){
+      const y=p.y+p.h/2+.004;
       for(const [dx,dz] of [[-1,-1],[-1,1],[1,-1],[1,-1],[-1,1],[1,1]]){
         const x=p.x+dx*p.w/2,z=p.z+dz*p.d/2;
         boards.push(x,y,z);uv.push(x/2.8,z/5.8);

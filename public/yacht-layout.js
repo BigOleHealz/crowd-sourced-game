@@ -1,4 +1,4 @@
-import {mainSole,cabinTop,cabinSupport,cabinCeiling,cabinIntersects,cabinDepth} from './solana-interior.js';
+import {inGuestSuite,inLowerHatch,lowerSole,mainSole,cabinTop,cabinSupport,cabinCeiling,cabinIntersects,cabinDepth} from './solana-interior.js';
 // Local dimensions are metres above the waterline. Negative Z points to the bow.
 export const yachtBerth={x:75.4,z:-364,yaw:Math.PI};
 export const yachtSections=[[-20,.35],[-18,2.45],[-14,4.6],[-9,6.0],[-3,6.4],[12,6.4],[15,6.15],[18,5.45],[19,4.9]];
@@ -53,7 +53,9 @@ export function yachtFloorAt(yacht,x,y,z){
   const deck=yachtDeckHeight(yacht,x,z);
   if(!nearCabin(yacht,x,z))return deck;
   const p=yachtLocal(yacht,x,z);
-  return Math.max(deck,yacht.y+cabinSupport(p.x,y-yacht.y,p.z));
+  const h=y-yacht.y;
+  const cut=inGuestSuite(p.x,p.z) && (h<mainSole-.31 || inLowerHatch(p.x,p.z));
+  return Math.max(cut ? -Infinity : deck,yacht.y+cabinSupport(p.x,h,p.z));
 }
 export function yachtCeilingAt(yacht,x,y,z){
   if(!nearCabin(yacht,x,z))return Infinity;
@@ -67,9 +69,10 @@ export function yachtRoomDepth(yacht,x,y,z){
 }
 export function yachtSolidAt(yacht,x,y,z,r=0){
   if(!yacht || yacht.wrecked || y<yacht.y-1.25-r)return false;
-  if(y<=yachtDeckHeight(yacht,x,z)+r)return true;
-  if(!nearCabin(yacht,x,z))return false;
+  const inHull=y<=yachtDeckHeight(yacht,x,z)+r;
+  if(!nearCabin(yacht,x,z))return inHull;
   const p=yachtLocal(yacht,x,z),h=y-yacht.y;
+  if(inHull && (!inGuestSuite(p.x,p.z) || h<=lowerSole+r))return true;
   return cabinIntersects(p.x,h-r,p.z,h+r,r);
 }
 // Aircraft clearance includes its footprint around the superstructure.
@@ -132,8 +135,8 @@ function nearSegment(x,z,[ax,az],[bx,bz]){
 }
 export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   if(!yacht || yacht.wrecked || Math.abs(x-yacht.x)>25 || Math.abs(z-yacht.z)>25)return false;
-  if(yachtDeckHeight(yacht,x,z)>y+.30)return true;
   const feet=y-yacht.y,p=yachtLocal(yacht,x,z);
+  if(yachtDeckHeight(yacht,x,z)>y+.30 && (!inGuestSuite(p.x,p.z) || feet<lowerSole-.31))return true;
   if(p.z>=-12.4 && p.z<=1.4 && Math.abs(p.x)<4.6 &&
       cabinIntersects(p.x,feet+.30,p.z,feet+bodyHeight-.01,.26,true))return true;
   if(feet<yachtRailTop+.02 && feet+bodyHeight>yachtDeckY && p.z<=15.35 && Math.abs(p.x)>yachtHalfBeam(p.z)-.65){

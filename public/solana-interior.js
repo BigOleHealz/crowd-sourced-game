@@ -1,7 +1,16 @@
 // Yacht-local metres, with the bow toward negative Z. The open centerline
 // connects the landing deck, main salon and forward helm.
-export const mainSole=2.55, upperSole=4.92, cabinTop=7.19;
+export const lowerSole=.27, mainSole=2.55, upperSole=4.92, cabinTop=7.19;
 export const companionway={left:1.46,right:3.26,aft:-2.2,fore:-6.62,count:13};
+// A port-side flight descends aft from the forward salon passage to the guest suite.
+export const lowerStair={left:-2.55,right:-.94,fore:-10.45,aft:-5.65,count:13};
+export const guestSuite={left:-3.67,right:3.67,fore:-11.45,aft:.56};
+export function inGuestSuite(x,z){
+  return x>=guestSuite.left && x<=guestSuite.right && z>=guestSuite.fore && z<=guestSuite.aft;
+}
+export function inLowerHatch(x,z){
+  return x>=lowerStair.left && x<=lowerStair.right && z>=lowerStair.fore && z<=lowerStair.aft;
+}
 const ivory=0xece8db,teak=0x99714e,oak=0xb48a64,cream=0xe7dbc4,
   petrol=0x406867,brass=0xae976d,frame=0x354b50,glass=0x68959b;
 export const cabinPieces=[];
@@ -93,6 +102,50 @@ for(const [floor,ceiling] of [[mainSole,upperSole-.18],[upperSole,cabinTop-.18]]
   for(const x of [-.84,.84])panel(x,floor+.024,-5.62,.025,.008,6.33,cream);
 }
 
+// The lower suite stays above the waterline. Its headliner is split around the
+// hatch so the same opening works for a walking passenger, shots and the camera.
+const suite=guestSuite, lower=lowerStair;
+const suiteMid=(suite.fore+suite.aft)/2, suiteLength=suite.aft-suite.fore;
+deck(0,suiteMid,suite.right-suite.left,suiteLength,lowerSole);
+for(const [left,right,fore,aft] of [
+  [suite.left,lower.left,suite.fore,suite.aft],[lower.right,suite.right,suite.fore,suite.aft],
+  [lower.left,lower.right,suite.fore,lower.fore],[lower.left,lower.right,lower.aft,suite.aft],
+])deck((left+right)/2,(fore+aft)/2,right-left,aft-fore,mainSole);
+const wallHigh=mainSole-.18, wallY=(lowerSole+wallHigh)/2;
+for(const x of [suite.left,suite.right])piece(x,wallY,suiteMid,.14,wallHigh-lowerSole,suiteLength,cream);
+for(const z of [suite.fore,suite.aft])piece(0,wallY,z,suite.right-suite.left,wallHigh-lowerSole,.14,oak);
+const lowerRun=(lower.aft-lower.fore)/lower.count, stairX=(lower.left+lower.right)/2;
+for(let i=0;i<lower.count;i++){
+  const top=mainSole-(mainSole-lowerSole)*(i+1)/lower.count;
+  const z=lower.fore+(i+.5)*lowerRun;
+  piece(stairX,top-.085,z,lower.right-lower.left,.17,lowerRun,teak,'step');
+  panel(stairX,top+.003,z-lowerRun*.45,lower.right-lower.left,.012,.032,brass);
+}
+// Brass rails, open at the forward end where guests enter the stairs.
+for(const x of [lower.left-.045,lower.right+.045]){
+  for(const z of [lower.fore+.08,lower.aft-.08])piece(x,mainSole+.43,z,.055,.86,.055,brass);
+  piece(x,mainSole+.86,(lower.fore+lower.aft)/2,.064,.075,lower.aft-lower.fore,teak);
+}
+piece(stairX,mainSole+.86,lower.aft+.04,lower.right-lower.left,.075,.07,teak);
+// A double berth across the end of the suite, a writing desk and a built-in wardrobe.
+piece(1.20,lowerSole+.22,-1.12,2.28,.44,2.26,teak);
+piece(1.20,lowerSole+.52,-1.12,2.20,.20,2.2,cream);
+piece(1.20,lowerSole+.635,-1.79,2.21,.035,.56,petrol);
+piece(1.20,lowerSole+.75,.13,2.45,1.17,.14,petrol);
+for(const x of [.65,1.72])piece(x,lowerSole+.73,-.43,.87,.24,.51,cream,'pillow');
+for(const x of [-.40,2.82]){
+  piece(x,lowerSole+.30,-.19,.58,.60,.63,teak);
+  panel(x,lowerSole+.46,-.515,.23,.026,.022,brass);
+}
+piece(2.94,lowerSole+.40,-7.00,.78,.80,2.8,teak);
+piece(2.85,lowerSole+.84,-7.00,1.03,.085,2.86,oak);
+piece(2.02,lowerSole+.22,-7.07,.59,.44,.62,petrol);
+piece(2.94,lowerSole+.96,-10.35,1.12,1.92,1.40,teak);
+for(const z of [-10.55,-10.18])panel(2.372,lowerSole+1.04,z,.035,.22,.034,brass);
+for(const z of [-2.75,-6.25,-9.85]){
+  piece(.53,wallHigh-.039,z,.12,.035,.89,0xffe1a2,'light');
+}
+panel(.14,lowerSole+.009,-4.39,3.66,.012,2.02,0x68807f);
 const solids=cabinPieces.filter(b=>b.finish!=='trim' && b.finish!=='pillow' && b.finish!=='light');
 function footprint(b,x,z,r){
   return Math.abs(x-b.x)<=b.w/2+r && Math.abs(z-b.z)<=b.d/2+r;
@@ -122,6 +175,8 @@ export function cabinIntersects(x,bottom,z,top,r=0,walking=false){
   return false;
 }
 export function cabinDepth(x,y,z){
+  if(y<mainSole-.08 && y>=lowerSole-.18 && inGuestSuite(x,z))
+    return Math.min(x-suite.left,suite.right-x,z-suite.fore,suite.aft-z);
   const upper=y>=upperSole-.03, half=upper?3.44:4.04,fore=upper?-10.05:-11.85,aft=upper?-.88:.88;
   return y>=mainSole-.08 && y<cabinTop-.25 ? Math.min(half-Math.abs(x),z-fore,aft-z) : -1;
 }
