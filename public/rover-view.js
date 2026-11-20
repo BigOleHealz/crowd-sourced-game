@@ -1,3 +1,4 @@
+import {tireContactPatch} from './tire-contact-patch.js';
 import * as THREE from 'three';
 import {roverPanelDamage} from './rover-panel-damage.js';
 import { missileLaunchers } from './mount-view.js';
@@ -240,17 +241,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       const a=i*Math.PI*2/5;
       wheelBatch.add(disc,0x41453f,side*.155,.112*Math.cos(a),.112*Math.sin(a),.021,.019,.021,0,0,Math.PI/2);
     }
-    const wheelFinish=material.clone(), rubberState={value:new THREE.Vector3(0,1,0)};
-    wheelFinish.onBeforeCompile=shader=>{
-      shader.uniforms.rubberState=rubberState;
-      shader.vertexShader='uniform vec3 rubberState;\n'+shader.vertexShader.replace('#include <begin_vertex>', `
-        #include <begin_vertex>
-        // Flatten the contact patch along axle-space down while the tread rotates.
-        float height=position.y*rubberState.y-position.z*rubberState.z;
-        float fold=step(.01,rubberState.x)*max(0.,-.356+rubberState.x-height);
-        transformed.yz+=vec2(rubberState.y,-rubberState.z)*fold;
-        transformed.x+=sign(position.x)*fold*.32;`);
-    };
+    const wheelFinish=material.clone(),rubberState=tireContactPatch(wheelFinish,.356);
     const wheel=wheelBatch.mesh(axles,wheelFinish,false);
     wheel.userData.rubberState=rubberState;
     wheel.position.set(x,.368,z);

@@ -1,3 +1,4 @@
+import {tireContactPatch} from './tire-contact-patch.js';
 import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
 import * as THREE from 'three';
 import {supercarLayout as spec} from './supercar-layout.js';
@@ -213,8 +214,9 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const z of spec.wheels){
       const hub=new THREE.Group(),rotation=new THREE.Group();
       hub.position.set(side*spec.axle,spec.tire,z);root.add(hub);hub.add(rotation);
-      rotation.add(new THREE.Mesh(tire,tireMat),new THREE.Mesh(rimGeometry,wheelMaterial));
-      wheels.push({hub,rotation,front:z<0});
+      const rubber=tireMat.clone(),patch=tireContactPatch(rubber,spec.tire);
+      rotation.add(new THREE.Mesh(tire,rubber),new THREE.Mesh(rimGeometry,wheelMaterial));
+      wheels.push({hub,rotation,patch,front:z<0});
     }
   }
   const tag=document.createElement('canvas');tag.width=300;tag.height=72;
@@ -243,7 +245,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const [i,w] of wheels.entries()){
       const flat=isFlat(car,i);
       w.hub.position.y=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
-      w.hub.scale.y=flat?(spec.tire-flatWheelDrop)/spec.tire:1;
+      w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
       w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
     }
     const burst=car.driver!=null && !car.wrecked ? clamp((car.exhaust??0)/.30,0,1) : 0;
