@@ -1,4 +1,4 @@
-import { blocked, CITY, insideTravelArea, solidTopAt } from './world.js';
+import { blocked, CITY, MAP, insideTravelArea, solidTopAt } from './world.js';
 import { vehicleContact } from './vehicle-contact.js';
 
 const minRise=.72, maxRise=2.1, duration=.88, headroom=1.80;
@@ -26,19 +26,21 @@ function path(c,t) {
 }
 
 export function findLedge(state,input,hp,world) {
-  if(!input.jump || !state.grounded || state.parachute || state.swimming || state.fall || state.dead ||
+  const swimming=state.swimming && Math.abs(state.y-(MAP.waterY-.72))<.28;
+  if(!input.jump || (!state.grounded && !swimming) || (state.swimming && !swimming) || state.parachute || state.fall || state.dead ||
     (state.stance && state.stance!=='stand' && state.stance!=='standing') || input.interact || input.seat) return null;
   const {x,y,z}=state, moving=Math.hypot(input.x||0,input.z||0)>.15;
   const yaw=moving?Math.atan2(input.x,-input.z):(input.yaw??0);
   const dx=Math.sin(yaw), dz=-Math.cos(yaw);
+  const reach=swimming?1.18:.82,limit=swimming?2.75:maxRise;
   let hx=x,hz=z;
-  for(let distance=.05;distance<=.82;distance+=.05){
-    const ex=x+dx*distance,ez=z+dz*distance,top=solidTopAt(ex,ez,hp,0,y+maxRise,world?.doors);
-    if(top-y<minRise){
+  for(let distance=.05;distance<=reach;distance+=.05){
+    const ex=x+dx*distance,ez=z+dz*distance,top=solidTopAt(ex,ez,hp,0,y+limit,world?.doors);
+    if(top-y<minRise || (swimming && top<=MAP.waterY+.04)){
       if(clear(ex,y,ez,hp,world)){hx=ex;hz=ez;}
       continue;
     }
-    if(top-y>maxRise || Math.hypot(ex-hx,ez-hz)>.60) return null;
+    if(top-y>limit || Math.hypot(ex-hx,ez-hz)>.60) return null;
     let inset=.34;
     // A diagonal approach to a rounded corner needs a little more depth for both feet.
     while(inset<=.61 && !landingFits(ex+dx*inset,top,ez+dz*inset,hp,world)) inset+=.06;
