@@ -1,3 +1,5 @@
+import {casaRoomAt} from './casa-luma.js';
+import {inPalazzoMare} from './palazzo-mare.js';
 import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
@@ -7,6 +9,7 @@ import {liveShots} from './shot-events.js';
 import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt} from './gallery-lobbies.js';
 import {storefrontRoom} from './storefront-layout.js';
+import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout.js';
 import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
@@ -58,9 +61,10 @@ const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) *
 let scene, socket, id, self, previous, readShots, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
 const myBoat=()=>crewBoat(world,id);
+const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
 const myRoad = () => drivenRoad(world,id);
 const inGT = () => myRoad()?.kind==='supercar';
-const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id);
+const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id || atYachtHelm());
 const gunnerRole=()=>gunnerVehicle(world,id);
 const isPilot = () => id != null && world?.heli.pilot === id;
 
@@ -142,6 +146,7 @@ window.addEventListener('keydown', e => {
   if (!inGT() && ['Digit1','Digit2','Digit3'].includes(e.code)) {
     const number=Number(e.code.at(-1));
     const kind=seatVehicle(world,id);
+    if(atYachtHelm() || gunnerRole()==='superyacht')return;
     if(kind) {
       if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
     } else {weapon=number;if(camera.sighted)showSight(true);}
@@ -273,7 +278,7 @@ function connect() {
       const shots=readShots(world.shots);
       scene.showShots(shots);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
-      samples.push({ time: performance.now(), bullets:world.bullets, boats:world.boats, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({ time: performance.now(), bullets:world.bullets, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
       if (samples.length > 8) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -317,10 +322,11 @@ function tick() {
   pressedAim = null;
   if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
+  else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
-    sprint: sprint && !pilot, weapon, fire, interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
+    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
     throttle: driving ? forward : 0, steer: driving ? lateral : 0,
     lift: pilot ? Number(held.has('Space')) - Number(descending) : 0,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
@@ -349,7 +355,7 @@ function roundFrame(time) {
 }
 
 function remoteFrame(time) {
-  if (!samples.length) return { players: [], npcs: world.npcs, boats:world.boats, heli: world.heli, supercar:world.supercar, rover: world.rover };
+  if (!samples.length) return { players: [], npcs: world.npcs, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover };
   const target = time - 100;
   let after = samples.findIndex(s => s.time >= target);
   if (after < 0) return samples.at(-1);
@@ -401,7 +407,12 @@ function remoteFrame(time) {
       pitch:mix(old.pitch,boat.pitch,t),roll:mix(old.roll,boat.roll,t),turretYaw:angleMix(old.turretYaw,boat.turretYaw,t),
       turretPitch:mix(old.turretPitch,boat.turretPitch,t)};
   });
-  return { players, npcs, heli, rover, supercar, boats };
+  let yacht=b.yacht;
+  if(a.yacht && yacht && a.yacht.wrecked===yacht.wrecked){
+    yacht={...yacht,x:mix(a.yacht.x,yacht.x,t),z:mix(a.yacht.z,yacht.z,t),yaw:angleMix(a.yacht.yaw,yacht.yaw,t),
+      turretYaw:angleMix(a.yacht.turretYaw,yacht.turretYaw,t),turretPitch:mix(a.yacht.turretPitch,yacht.turretPitch,t)};
+  }
+  return { players, npcs, heli, rover, supercar, boats, yacht };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -429,17 +440,18 @@ function updateEquipment(local) {
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+firearmSpecs[weapon].name;
+  byId('kit').textContent = atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+firearmSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && !isDriving() && !vitals.dead && byId('guide').hidden);
-  const health = boat || (pilot ? heli : myRoad() || vitals);
+  const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
-  byId('hp-label').textContent = (boat ? 'Hull ' : pilot ? 'Airframe ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : inGT() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
-  byId('space-action').parentElement.hidden = byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
-  byId('space-action').textContent = pilot ? 'Climb' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
+  byId('space-action').parentElement.hidden = isDriving() || !!gunner;
+  byId('shift-action').parentElement.hidden = local.swimming || isDriving() || !!gunner;
+  byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
   const showStances = canChangeStance(local);
@@ -448,18 +460,25 @@ function updateEquipment(local) {
   byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
   if (local.stance) byId('shift-action').parentElement.hidden = true;
   const kind=seatVehicle(world,id);
-  byId('tool-shortcut').hidden=inGT() || local.swimming || vitals.dead;
+  byId('tool-shortcut').hidden=inGT() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=Boolean(kind);
-  byId('fire-shortcut').hidden = inGT() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-shortcut').hidden = inGT() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
+  const helmPrompt=yachtPrompt(world,local,id);
   if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
+  else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';
+  else if (helmPrompt==='gun') prompt.textContent='E  ·  Use Solana’s bow gun';
+  else if (helmPrompt==='gunOccupied') prompt.textContent='Solana’s bow gun is occupied';
+  else if (helmPrompt==='leaveGun') prompt.textContent='Look to aim  ·  Hold F / click to fire  ·  E leave bow gun';
+  else if (helmPrompt==='occupied') prompt.textContent='Solana’s helm is occupied';
   else if (boat && !gunner) prompt.textContent='W/S throttle  ·  A/D steer  ·  E disembark';
   else if (inGT()) prompt.textContent='W/S accelerate or brake  ·  A/D steer  ·  E exit Vesper GT';
   else if (!boat && nearby && !kind) prompt.textContent=nearby.driver!=null?'E  ·  Board patrol boat turret':'E  ·  Take patrol boat helm';
-  else if (local.swimming) prompt.textContent='Swimming  ·  WASD / arrows to swim to shore';
+  else if (local.swimming) prompt.textContent='Swim toward a bank or dock  ·  Space to climb out';
   else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
   else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
   else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
@@ -526,6 +545,7 @@ function drawMap(player, remotes, yaw) {
   for(const b of world.boats??[]){
     ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
   }
+  if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
   drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
     ctx.fillStyle = '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
@@ -554,7 +574,8 @@ function frame(time) {
     const t = accumulator / step;
     const local = { ...self, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
       x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const { players: remotes, npcs, heli, rover, supercar, boats: sampledBoats=[] } = remoteFrame(time);
+    const { players: remotes, npcs, heli, rover, supercar, yacht:sampledYacht, boats: sampledBoats=[] } = remoteFrame(time);
+    const yacht=world.yacht?.driver!==sampledYacht?.driver || world.yacht?.gunner!==sampledYacht?.gunner ? world.yacht : sampledYacht;
     const assigned=myBoat();
     const boats=localBoatFrame(sampledBoats,assigned,id);
     const boat=assigned && boats.find(b=>b.id===assigned.id);
@@ -562,12 +583,15 @@ function frame(time) {
     local.weapon = weapon;
     if (isPilot()) Object.assign(local, { x: heli.x, y: heli.y, z: heli.z, yaw: heli.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
+    else if (atYachtHelm() && yacht)Object.assign(local,yachtHelmFeet(yacht),{yaw:yacht.yaw});
     else if (isDriving()) Object.assign(local, { x: road.x, y: road.y, z: road.z, yaw: road.yaw });
+    if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
-    if(role) Object.assign(local,gunnerFeet(boat??(role==='rover' ? rover : heli),role));
-    const view = isDriving() ? drivingView(boat??road, dt) : camera;
+    if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
+    const view = isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
-    scene.render(local, remotes, view, dt, { ...world, heli, rover, supercar, boats, npcs, bullets:roundFrame(time) });
+    audio.yachtEngine(local,view.yaw,yacht);
+    scene.render(local, remotes, view, dt, { ...world, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;
@@ -575,8 +599,8 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
-  const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z));
-      byId('location').textContent = interior ? interior.name : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);

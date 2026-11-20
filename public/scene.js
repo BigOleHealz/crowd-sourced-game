@@ -1,5 +1,8 @@
+import {casaRoomAt} from './casa-luma.js';
+import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {routeDistance,ridgeBench} from './north-ridge.js';
+import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
 import {dressCivilian} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
@@ -9,6 +12,8 @@ import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
 import {vehicleWreckBurst} from './vehicle-wreck-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
+import {superyachtView} from './superyacht-view.js';
+import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSmoking} from './yacht-layout.js';
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
@@ -307,7 +312,7 @@ function signFace(scene,x,z,heading,text) {
   const map=new THREE.CanvasTexture(board);map.colorSpace=THREE.SRGBColorSpace;
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.13,.31),new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}));
   sign.position.set(x+.091*Math.sin(heading),terrainHeight(x,z)+1.55,z+.091*Math.cos(heading));
-  sign.rotation.y=heading;scene.add(sign);
+  sign.rotation.y=heading;scene.add(sign);return sign;
 }
 
 function windsock(batch) {
@@ -326,11 +331,13 @@ function windsock(batch) {
   rim.dispose();
 }
 
-function addDetails(scene,batch, rng) {
+function addDetails(scene,batch, rng,posts) {
   const granite=[0x7c8179,0x8a897c,0x898d83,0x777f78];
   for(const marker of trailMarkers) {
+    posts.add(marker.postId,marker.x,terrainHeight(marker.x,marker.z),marker.z,batch=>{
     addTrailMarker(batch,marker.x,marker.z,marker.heading,marker.h>2);
-    signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+    return signFace(scene,marker.x,marker.z,marker.heading,marker.text);
+    });
   }
   const {x,z}=ridgeBench,y=terrainHeight(x,z);
   for(const side of [-1,1])batch.add(cube,0x6b6555,x+side*.82,y+.21,z,.19,.45,.42);
@@ -735,6 +742,16 @@ function fieldEffects(scene) {
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
   const wreck=aircraftWreck(scene,plume.puff,particle,rng);
+  let nextHullPuff=0;
+  function yachtExhaust(yacht,dt) {
+    if(!yachtSmoking(yacht)){nextHullPuff=0;return;}
+    nextHullPuff-=dt;
+    if(nextHullPuff>0)return;
+    nextHullPuff=.18;
+    const vent=yachtPoint(yacht,-5.7,2.35,13.8);
+    plume.puff(new THREE.Vector3().copy(vent),new THREE.Vector3(.40+rng()*.26,1.5+rng()*.65,.25),
+      .65,2.9+rng(),2.5+rng()*.55,rng()>.5?0x48494a:0x615e5b,.76);
+  }
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
@@ -793,7 +810,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,wreck,update,trail:plume.trail};
+  return {shot,burst,wreck,update,yachtExhaust,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1029,12 +1046,13 @@ function pose(avatar,state,dt,seated,station) {
   updateSwimRipples(avatar,state);
 }
 
-function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false) {
+function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yacht) {
   let distance=wanted;
-  const increment=indoors ? .08 : .20, minimum=indoors ? .10 : .45;
+  const close=indoors || yacht;
+  const increment=close ? .08 : .20, minimum=close ? .10 : .45;
   for(let d=minimum;d<=wanted+increment;d+=increment) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(Math.max(groundHeight(x,z,y+.15),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
+    if(yachtSolidAt(yacht,x,y,z,.14) || Math.max(groundHeight(x,z,y+.15),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {
@@ -1097,7 +1115,9 @@ export function createScene(canvas) {
     forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
-    addDetails(scene,features,rng);
+    const posts=breakablePostView(scene,Batch);
+    addDetails(scene,features,rng,posts);
+    updateDoors=posts.finish();
     glints=water(scene,rng,renderer);
     stacks=buildOutpost(scene,renderer,Batch);
     meadow(scene,renderer,rng,trailDistance);
@@ -1110,6 +1130,8 @@ export function createScene(canvas) {
   const updateRounds=flightRounds(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
+  const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
+  const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1214,6 +1236,8 @@ export function createScene(canvas) {
     updateSupplyView(world);
     updateDoors?.(world.doors,dt,local,remotes);
     updatePatrolBoats(world?.boats,dt);
+    updateYacht?.(world.yacht,dt);
+    if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
@@ -1259,27 +1283,42 @@ export function createScene(canvas) {
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
-      const station=state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
+      const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(seated || station) a.label.sprite.visible=false;
-      if(a.root.visible) pose(a,state,dt,seated,station);
+      const skipper=world.yacht?.driver===state.id;
+      if(a.root.visible){
+        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
+        if(skipper){
+          a.root.rotation.y=-world.yacht.yaw;
+          for(const kit of a.tools)kit.visible=false;
+          for(const {arm,forearm,side} of a.limbs){arm.rotation.set(.52,0,side*.12);forearm.rotation.set(.94,0,0);}
+        }
+        if(aboardYacht(world.yacht,state))a.shadow.position.y=state.y+.027;
+      }
       applyLostParts(a,state,scene,world.hp,dt);
     }
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
-    const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const yachtHelm=world.yacht?.driver===local.id;
+    const localStation=world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
-    const indoors=Boolean(tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const nearbyYacht=world.yacht && Math.hypot(local.x-world.yacht.x,local.z-world.yacht.z)<25 ? world.yacht : null;
+    const cabinDepth=yachtRoomDepth(nearbyYacht,local.x,local.y,local.z);
+    const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
+    const villa=CITY && casaRoomAt(local.x,local.y,local.z);
+    const indoors=Boolean(cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     const roomBlend=indoors ? THREE.MathUtils.smoothstep(depth,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
     }
+    else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
     else if(driving) desired.set(road.x,road.y+1.03,road.z);
     else if(piloting) desired.set(heli.x,heli.y+1.58,heli.z);
@@ -1287,24 +1326,25 @@ export function createScene(canvas) {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
       const shoulderHeight=1.46-stanceDrop(local);
-      const clear=buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
+      const clear=!yachtSolidAt(nearbyYacht,x,local.y+shoulderHeight,z,.16) && buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
       desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : shoulderHeight),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
     const separation = watchCrash ? Math.hypot(heli.x-local.x,heli.y-local.y,heli.z-local.z) : 0;
     if (watchCrash) desired.lerp(helicopter.group.position, Math.min(.40,5/Math.max(1,separation)));
-    if(!ready || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
+    if(!ready || cabinDepth>=0 || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     // A slight shoulder view separates the canopy from the aircraft ahead.
     bailoutOrbit = mix(bailoutOrbit,watchCrash ? .31 : 0,1-Math.exp(-dt*6));
     const pitch=viewPitch(view.pitch??-.12),yaw=(view.yaw||0)+bailoutOrbit;
     viewHeading=yaw;
     boom.set(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch));
-    const onFoot=!boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
+    const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
-    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,indoors);
+    const cameraYacht=onFoot ? nearbyYacht : null;
+    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,indoors,cameraYacht);
     // When backed against an interior wall, the usual boom can collapse into
     // the character. Swing it along the wall for a short three-quarter view.
     if(indoors){
@@ -1315,14 +1355,14 @@ export function createScene(canvas) {
         let best=clearance;
         for(const sign of [first,-first]) {
           sideways.copy(boom).applyAxisAngle(up,sign*turn);
-          const available=cameraDistance(target,sideways,1.42,world.hp,0,world.doors,true);
+          const available=cameraDistance(target,sideways,1.42,world.hp,0,world.doors,true,cameraYacht);
           if(available>best+.16){orbit=sign*turn;best=available;}
         }
       }
       indoorAngle=THREE.MathUtils.damp(indoorAngle,orbit,14,dt);
       if(Math.abs(indoorAngle)>.01){
         boom.applyAxisAngle(up,indoorAngle);
-        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true);
+        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true,cameraYacht);
       }
     }else indoorAngle=0;
     // Pull in at obstructions, then ease back out as the orbit clears them.
@@ -1346,7 +1386,7 @@ export function createScene(canvas) {
       camera.position.lerp(overheadEye,overhead);
     }
     avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86) && (!onFoot || overhead<.48);
-    const sighted = onFoot && view.sighted && !local.dead && !local.fall && !local.climb && !local.swimming;
+    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     sightModels[2].visible=sighted && local.weapon===3;

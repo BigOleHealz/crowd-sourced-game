@@ -1,13 +1,17 @@
+import {yachtSolidAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
-import {lampDown} from './street-lamps.js';
-import {wheelStations} from './road-wheel-layout.js';
+import {postDown,damagePost} from './street-lamps.js';
+import {wheelsFor} from './road-wheel-layout.js';
+import {harborSigns,beachSigns,signalPost,trailMarkers} from './scenery-layout.js';
+import {lanternSigns} from './lantern-point.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
 export const firearmSpecs={
   1:{name:'Field carbine',speed:56,range:144,damage:25,cooldown:6,propDamage:1},
   2:{name:'Patrol sidearm',speed:39,range:84,damage:40,cooldown:21,propDamage:2},
   3:{name:'Meridian scoped rifle',speed:90,range:204,damage:80,headshotDamage:150,vehicleDamage:45,cooldown:33,propDamage:2},
+  yachtGun:{name:'Solana bow gun',speed:76,range:160,damage:100,cooldown:3,propDamage:100},
   turret:{name:'Vehicle turret',speed:62,range:160,damage:34,cooldown:7.5,propDamage:34},
 };
 
@@ -56,6 +60,13 @@ function column(a,d,c,r,h){
 const roverBody=[[0,.56,0,1.48,.48,3.12],[0,1.04,-.10,1.35,.55,1.08],
     [0,.31,0,1.10,.26,2.50],[0,.46,-1.48,1.54,.16,.14],[0,.46,1.49,1.54,.16,.14]];
 
+// Split the GT body at its wheel wells so tire sidewalls are exposed.
+const sportBody=[
+  [0,.08,0,1.38,.52,4.55],[0,.67,0,2.00,.09,4.18],
+  [0,.22,0,2.01,.45,2.19],[0,.19,-2.04,1.89,.40,.38],
+  [0,.19,2.04,1.89,.40,.38],[0,.73,0,1.43,.50,1.83],
+];
+
 // Resolve the closest game collider before deciding if the impact belongs
 // to the wheel or the body. Axle-space coordinates rotate with either rover.
 export function roverRoundContact(rover,start,delta){
@@ -63,49 +74,72 @@ export function roverRoundContact(rover,start,delta){
   const c=Math.cos(rover.yaw),s=Math.sin(rover.yaw),x=start.x-rover.x,z=start.z-rover.z;
   const point={x:x*c+z*s,y:start.y-rover.y,z:-x*s+z*c};
   const step={x:delta.x*c+delta.z*s,y:delta.y,z:-delta.x*s+delta.z*c};
-  if(box(point,step,{x:0,y:-.34,z:0},1.84,2.34,3.56)===Infinity)return null;
+  const sport=rover.kind==='supercar', wheelStations=wheelsFor(rover);
+  if(box(point,step,{x:0,y:-.34,z:0},sport?2.18:1.84,2.34,sport?4.68:3.56)===Infinity)return null;
   // Sheet metal above the axles, narrower underbody, and the end bumpers.
   // Their overlaps leave the four visually exposed wheel wells selectable.
   let t=Infinity,wheel=null;
-  for(const [x,y,z,w,h,d] of roverBody)t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  for(const [x,y,z,w,h,d] of (sport?sportBody:roverBody))t=Math.min(t,box(point,step,{x,y,z},w,h,d));
   const across={x:point.y,y:point.x,z:point.z}, travel={x:step.y,y:step.x,z:step.z};
   for(let i=0;i<wheelStations.length;i++){
-    const [side,length]=wheelStations[i],height=.368+(rover.suspension?.wheels[i] ?? 0);
-    const value=column(across,travel,{x:height,y:side-.14,z:length},.36,.28);
+    const [side,length]=wheelStations[i],height=(sport?supercarLayout.tire:.368)+(rover.suspension?.wheels[i] ?? 0);
+    const value=column(across,travel,{x:height,y:side-(sport?.128:.14),z:length},sport?supercarLayout.tire:.36,sport?.256:.28);
     if(value<t){t=value;wheel=i;}
   }
   return t===Infinity ? null : {t,wheel};
 }
 export function supercarRoundContact(car,from,delta){
-  if(!car || car.wrecked)return Infinity;
-  const body=box(from,delta,{x:car.x,y:car.y+.08,z:car.z},supercarLayout.halfWidth*2,.65,
-    supercarLayout.halfLength*2,car.yaw);
-  const roof=box(from,delta,{x:car.x,y:car.y+.73,z:car.z},1.43,supercarLayout.roof-.73,1.83,car.yaw);
-  return Math.min(body,roof);
+  return roverRoundContact(car,from,delta)?.t??Infinity;
 }
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
-// Match the signal pole, overhead arm and housing drawn at each intersection.
-const furniture=CITY?avenues.flatMap(x=>streets.flatMap(z=>[
-  {x:x-6.2,y:.75,z:z-5.8,w:.16,h:4.5,d:.16},
-  {x:x-2.2,y:5.03,z:z-5.8,w:8,h:.12,d:.12},
-  {x:x+1.5,y:4.265,z:z-5.8,w:.34,h:.87,d:.32},
-])):[];
+// The board, lights and brackets all share the HP of their supporting posts.
+const postParts=barriers.filter(p=>p.postId!=null || p.lamp!=null);
+const panel=(postId,x,y,z,w,h,d,yaw=0,woodId)=>({postId,x,y,z,w,h,d,yaw,woodId});
+if(CITY){
+  for(const p of postParts.filter(p=>p.lamp!=null))
+    postParts.push({...p,x:p.x-p.side*.60,y:p.y+4.22,w:.81,h:.23,d:.31});
+  for(const x of avenues)for(const z of streets){
+    const {postId}=signalPost(x,z);
+    postParts.push(panel(postId,x-2.2,5.03,z-5.8,8,.12,.12),panel(postId,x+1.5,4.265,z-5.8,.34,.87,.32));
+  }
+  harborSigns.forEach(([x,z],i)=>postParts.push(panel('harbor-'+i,x,3.18,z,3.82,.88,.14)));
+  beachSigns.forEach(([x,z,yaw],i)=>postParts.push(panel('beach-'+i,x,2.665,z,4.64,.95,.14,yaw,'sign-'+i)));
+  lanternSigns.forEach(({x,z},i)=>postParts.push(panel('lantern-sign-'+i,x,2.935,z,4.53,1.25,.14)));
+}else{
+  for(const p of trailMarkers)postParts.push(panel(p.postId,p.x,terrainHeight(p.x,p.z)+1.395,p.z,1.13,.31,.2,p.heading));
+}
+export function postContact(world,from,d){
+  let t=Infinity,target=null;
+  for(const p of postParts){
+    if(postDown(world.doors,p) || world.doors?.beachWood?.[p.woodId])continue;
+    const hit=box(from,d,p,p.w,p.h,p.d,p.yaw);
+    if(hit<t){t=hit;target=p;}
+  }
+  return {t,target};
+}
+export function blastPosts(world,center,radius,damage){
+  const hit=new Set();
+  for(const p of postParts){
+    const id=p.postId??p.lamp;
+    if(hit.has(id) || postDown(world.doors,p))continue;
+    const dy=Math.max(0,p.y-center.y,center.y-p.y-p.h);
+    if(Math.hypot(center.x-p.x,dy,center.z-p.z)>radius)continue;
+    damagePost(world.doors,p,damage);hit.add(id);
+  }
+}
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
-  for(const p of furniture)accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+  const post=postContact(world,round,d);
+  if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
   for(const p of barriers){
-    if(lampDown(world.doors,p) || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
-    if(p.lamp!=null){
-      const head={x:p.x-p.side*.60,y:p.y+4.22,z:p.z};
-      accept(box(round,d,head,.81,.23,.31),p,'lamp');
-    }
-    accept(box(round,d,p,p.w,p.h,p.d),p.lamp!=null?p:null,p.lamp!=null?'lamp':'scenery');
+    if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
+    accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
   }
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
@@ -141,7 +175,8 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=roverRoundContact(world.rover,round,d);
     if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
-  accept(supercarRoundContact(world.supercar,round,d),world.supercar,'supercar');
+  const sportHit=roverRoundContact(world.supercar,round,d);
+  if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
   const heli=world.heli;
   if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {
@@ -155,9 +190,23 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
+  // Sample the stepped stern, side decks and tapered hull at the same spatial
+  // interval as terrain. The shooter's muzzle stays above their own deck.
+  if(world.yacht && !world.yacht.wrecked && Math.hypot(round.x-world.yacht.x,round.z-world.yacht.z)<24+Math.hypot(d.x,d.z)){
+    const count=Math.max(1,Math.ceil(Math.hypot(d.x,d.y,d.z)/.12));
+    const inside=f=>{
+      const y=round.y+d.y*f;
+      return yachtSolidAt(world.yacht,round.x+d.x*f,y,round.z+d.z*f);
+    };
+    for(let i=0;i<=count && (i-1)/count<t;i++)if(inside(i/count)){
+      let lo=Math.max(0,(i-1)/count),hi=i/count;
+      for(let j=0;j<6;j++){const mid=(lo+hi)/2;if(inside(mid))hi=mid;else lo=mid;}
+      accept(hi,world.yacht,world.yacht.id);break;
+    }
+  }
   const above=f=>{
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y) : -Infinity);
+    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y,world.doors) : -Infinity);
   };
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){

@@ -1,3 +1,7 @@
+import {bridges} from './public/brickell-map.js';
+import {raisedRoadAt} from './public/bridge-driving.js';
+import {stepDrawbridges,bridgeMiddle,leafGeometry,leafLength} from './public/drawbridges.js';
+import {interactYacht,stepYacht} from './public/superyacht.js';
 import {stepFurniture} from './public/shop-furniture.js';
 import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
@@ -13,7 +17,7 @@ import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
-import { CITY, spawn, stepPlayer } from './public/world.js';
+import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, advanceRounds, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
@@ -201,6 +205,7 @@ sockets.on('connection', ws => {
   ws.on('pong', () => { player.alive = true; });
   ws.on('close', () => {
     players.delete(id);
+    if(world.yacht?.driver===id){world.yacht.driver=null;world.yacht.throttle=0;}
     if(!players.size)departedScores.clear();
     else if(player.score.kills || player.score.deaths || world.bullets.some(r=>r.shooter===id) || world.missiles.some(m=>m.shooter===id)){
       departedScores.set(player.scoreKey,player.score);
@@ -209,6 +214,7 @@ sockets.on('connection', ws => {
       world = newExpedition();
       npcs = newRivals();
     }
+    else if(world.heli.onYacht && world.heli.grounded && world.heli.pilot===id)world.heli.pilot=null;
     else if (world.heli.pilot === id) {
       const gunner=players.get(world.heli.gunner);
       if (gunner) interact(world,gunner);
@@ -234,6 +240,7 @@ sockets.on('connection', ws => {
 const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0;
 function tick() {
+  stepDrawbridges(world,bridges,step);
   if(CITY && players.size) {
     const pedestrians=[];
     for(const p of players.values()) {
@@ -246,6 +253,7 @@ function tick() {
   }
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
+  let yachtInput;
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
@@ -254,10 +262,11 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
-    if(world.heli.gunner!==player.id || input?.interact || input?.seat)player.chainFireUntil=0;
+    if((world.heli.gunner!==player.id && world.yacht?.gunner!==player.id) || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
+      if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
       const role=gunnerVehicle(world,player.id);
       if(role) vehicleById(world,role).gunner=null;
       const boat=crewBoat(world,player.id);
@@ -286,7 +295,7 @@ function tick() {
           player.supercarInput=null;interactRover(world,player,'supercar');
         }
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
-        else {
+        else if(!interactYacht(world,player)){
           const nearbyBoat=nearBoat(world,player.state),nearby=nearestVehicle(world,player.state);
           if(nearbyBoat)interactBoat(world,nearbyBoat,player);
           else if(nearby==='rover' || nearby==='supercar')interactRover(world,player,nearby);
@@ -325,6 +334,7 @@ function tick() {
       player.sprint = false;
       continue;
     }
+    if(world.yacht?.driver===player.id){yachtInput=input;continue;}
     const boat=crewBoat(world,player.id);
     if(boat?.driver===player.id){boatInputs.set(boat.id,input);continue;}
     const kind=gunnerVehicle(world,player.id);
@@ -332,11 +342,11 @@ function tick() {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
         vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
-        if(CITY && kind==='heli')player.chainFireUntil=input.fire ? ticks+4 : 0;
+        if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(input.fire) firingGunners.add(player.id);
       }
       // Bridge ordinary packet jitter, and release a stalled client's trigger.
-      if(CITY && kind==='heli' && ticks<player.chainFireUntil)firingGunners.add(player.id);
+      if(CITY && (kind==='heli' || kind==='superyacht') && ticks<player.chainFireUntil)firingGunners.add(player.id);
       continue;
     }
     const falling = player.state;
@@ -357,16 +367,41 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
-  stepSuspension(world.rover,step);
+  stepYacht(world,yachtInput,step,players);
+  for(const kind of ['rover','supercar']){
+    const road=world[kind];if(!road)continue;
+    if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
+    const raised=raisedRoadAt(world,road.x,road.z);
+    if(raised && !road.bridgeFlight && !road.wrecked){
+      const floor=groundHeight(road.x,road.z,Infinity,world.doors);
+      if(floor>MAP.waterY)road.y=floor;
+      else road.bridgeFlight={vx:0,vz:0,vy:0};
+    }
+    if(road.bridgeFlight){
+      const f=road.bridgeFlight;
+      const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)));
+      road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
+    }else{
+      const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
+      stepSuspension(road,step,(x,z)=>{
+        const ground=groundHeight(x,z,Infinity,world.doors);
+        // Until takeoff, an unsupported axle follows the end of its ramp.
+        if(leaf && ground<=MAP.waterY && Math.abs(z-bridgeMiddle(raised))<leafLength)
+          return leaf.base+leaf.vertical;
+        return ground;
+      });
+    }
+
+  }
   for(const b of world.boats){
     stepBoat(world,b,boatInputs.get(b.id),step,players);
     const driver=players.get(b.driver);
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
-  for(const kind of ['rover','heli',...world.boats.map(b=>b.id)]) {
+  for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
-    gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0};
+    gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
@@ -377,6 +412,7 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   updateSupplyRun(world, step);
+  if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);

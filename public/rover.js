@@ -1,7 +1,8 @@
+import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {breakFrontage} from './frontage-glass.js';
-import {damageLamp,lampHP} from './street-lamps.js';
+import {damagePost,lampHP} from './street-lamps.js';
 import { roadContact, sweepRoad } from './road-contact.js';
 import {flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -26,7 +27,7 @@ export function parkedRover() {
 
 export function parkedSupercar(){
   const {pad,maxHp}=supercarLayout;
-  return {...pad,kind:'supercar',y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
+  return {...pad,kind:'supercar',flatTires:0,y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
     exhaust:0,steer:0,hp:maxHp,maxHp,bodyDamage:{front:0,rear:0,left:0,right:0},wrecked:false,recoverySeconds:0};
 }
 
@@ -66,7 +67,7 @@ export function interactRover(world, player,kind='rover') {
     const radius=sport?(i%4===0?1.56:2.75):1.7;
     const angle = r.yaw + i*Math.PI/4;
     const x = r.x + radius*Math.cos(angle), z = r.z + radius*Math.sin(angle);
-    const y = groundHeight(x,z);
+    const y = groundHeight(x,z,Infinity,world.doors);
     if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
     if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
     exit = {x,y,z,vy:0,grounded:true};
@@ -88,7 +89,7 @@ export function damageRover(world, amount, players,kind='rover') {
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
   r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
-  stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
+  delete r.bridgeFlight;stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
 export function recoverRover(world,dt,kind='rover') {
@@ -134,6 +135,10 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 
 export function driveRover(world, input, dt, players,kind='rover') {
   const r = world[kind];
+  if(r?.bridgeFlight){
+    if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind);
+    return;
+  }
   if (r?.driver == null) return;
   const sport=kind==='supercar';
   const throttle=input.throttle || 0, steer=input.steer || 0;
@@ -144,7 +149,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
-  const braking=sport ? (throttle ? 30 : 12.0) : 18;
+  const braking=sport && throttle ? 30 : 18;
   const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : braking;
   const oldSpeed=r.speed;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
@@ -164,10 +169,15 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const side=(r.lateralSpeed??0)*Math.cos(rotation)-r.speed*Math.sin(rotation)*drift;
   // Retain tire slip after an oblique impact while the suspension settles.
   const contact=bumperContacts.get(r);
-  const grip=contact?3.5:(sport?8.7:5.2)+9*(1-drift),limit=contact?16:pace*(sport?.15:.20);
+  const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
   r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
+  const airborne=launchAtLip(world,r,vx,vz,dt);
+  if(airborne!==false){
+    advanceBridgeFlight(world,r,airborne);
+    return;
+  }
   let remaining=dt,contacted=false;
   // Preserve tangential motion. The second sweep handles the second wall of
   // an inside corner and prevents a projected slide from crossing it.
@@ -201,8 +211,8 @@ export function driveRover(world, input, dt, players,kind='rover') {
       vx*=.94;vz*=.94;remaining*=1-fraction;
       continue;
     }
-    if(hit.object.lamp!=null && incoming>2.5){
-      damageLamp(world.doors,hit.object.lamp,lampHP);
+    if((hit.object.lamp!=null || hit.object.postId!=null) && incoming>2.5){
+      damagePost(world.doors,hit.object,lampHP);
       registerImpact(world,r,hit,Math.min(incoming,4),players);
       if(r.wrecked)return;
       vx*=.86;vz*=.86;remaining*=1-fraction;continue;

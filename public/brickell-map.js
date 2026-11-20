@@ -1,8 +1,10 @@
-import {lanternBuildings} from './lantern-buildings-layout.js';
-import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,stallBarriers,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
+import {casaBarriers} from './casa-luma.js';
+import {clubSalon,estateBarriers,berthing} from './lantern-buildings-layout.js';
+import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
+import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
 import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
@@ -18,14 +20,18 @@ export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-2
 export const causeway=causewayArch(-6,6,harbor.south,coast.north);
 export const within=contains;
 export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
-const bridges=[causeway,lanternBridge];
-const oldShores=[coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,...lanternLand,...marketPiers];
+export const bridges=[causeway,lanternBridge];
+const oldShores=[coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers];
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
-export function cityGround(x,z,maxBottom=Infinity) {
+export function cityGround(x,z,maxBottom=Infinity,doors) {
   const bridge=bridges.find(r=>within(r,x,z));
-  if(bridge)return maxBottom>=bridge.height(z,'soffit') ? bridge.height(z,'road') : -2.8;
+  if(bridge){
+    const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
+    const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
+    return Number.isFinite(road) && maxBottom>=soffit ? road : -2.8;
+  }
   if(z<=lanternBridge.north){
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
@@ -33,13 +39,13 @@ export function cityGround(x,z,maxBottom=Infinity) {
   return onBeach(x,z) ? sandHeight(x,z) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
 }
 
-export function parapetTop(x,z,padding,maxBottom) {
+export function parapetTop(x,z,padding,maxBottom,doors) {
   const bridge=bridges.find(b=>z>=b.north-padding && z<=b.south+padding);
   if(!bridge)return -Infinity;
   const {west,east,parapetWidth,parapetHeight}=bridge;
   if (x<west-padding || x>east+padding ||
       (x>west+parapetWidth+padding && x<east-parapetWidth-padding)) return -Infinity;
-  const road=bridge.height(z,'road');
+  const road=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0)??bridge.height(z,'road');
   return road<=maxBottom ? road+parapetHeight : -Infinity;
 }
 
@@ -62,11 +68,11 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...streetPlan.curbs,...lanternBuildings,...bollards,...benches,...quayLamps,...stallBarriers,...signBarriers,...beachBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  barriers:[...streetPlan.curbs,...casaBarriers,clubSalon,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
-    ...harborSigns.flatMap(([x,z])=>[-1,1].map(side=>({x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
+    ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({
-      x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,woodId:'sign-'+i,
+      x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,postId:'beach-'+i,woodId:'sign-'+i,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:[...palms,...lanternPalms].filter(p=>!roadway(p.x,p.z)),
   buildings:[...buildings,...harborHouses],
 };

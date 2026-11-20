@@ -1,3 +1,5 @@
+import {damageYacht} from './superyacht.js';
+import {yachtOverlap} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {CITY,MAP,insideTravelArea,groundHeight,solidTopAt,blocked} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
@@ -100,7 +102,7 @@ function insideChart(x,z,yaw) {
   return insideTravelArea(x,z,halfX,halfZ);
 }
 function canFloat(world,b,x,z,yaw) {
-  if(!insideChart(x,z,yaw))return false;
+  if(!insideChart(x,z,yaw) || yachtOverlap(world.yacht,x,z,yaw,1.10,2.75))return false;
   const c=Math.cos(yaw),s=Math.sin(yaw);
   // Enclose the collar, outboard, crew and stern aerial through pitch and roll.
   const clearance=b.y+2.5;
@@ -141,6 +143,7 @@ export function stepBoat(world,b,input,dt,players){
       if(amount>0 && insideChart(x,z,b.yaw)){
         const other=nearbyHull(world.boats,b,x,z,b.yaw,1.04,2.65);
         if(other)damageBoat(world,other,amount,players);
+        if(yachtOverlap(world.yacht,x,z,b.yaw,1.10,2.75))damageYacht(world,amount);
         damageBoat(world,b,amount,players);
       }
       b.speed=0;
