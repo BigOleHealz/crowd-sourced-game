@@ -1,3 +1,4 @@
+import {church,churchPath,churchLot} from './ridge-church.js';
 import {casaRoomAt} from './casa-luma.js';
 import {inPalazzoMare} from './palazzo-mare.js';
 import {lanternBuildings} from './lantern-buildings-layout.js';
@@ -528,9 +529,13 @@ function drawMap(player, remotes, yaw) {
   ctx.strokeStyle = '#638e8b'; ctx.lineWidth = 10;
   ctx.beginPath(); ctx.moveTo(0,sy(0)); ctx.lineTo(w,sy(0)); ctx.stroke();
   ctx.strokeStyle = '#c1ac7f'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
-  for(const path of [MAP.trail,MAP.northTrail]){
+  for(const path of [MAP.trail,MAP.northTrail,churchPath]){
     ctx.beginPath();path.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
   }
+  }
+  if(!CITY){
+    ctx.fillStyle='#f2dfc2';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
+    ctx.fillText('Church',sx(church.x),sy(church.z));
   }
   ctx.fillStyle = '#e8bb71'; ctx.fillRect(sx(MAP.lookout.x)-4,sy(MAP.lookout.z)-4,8,8);
   for (const piece of BREAKABLES) {
@@ -602,7 +607,7 @@ function frame(time) {
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
-        : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
+        : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       updateEquipment(local);
       updateSupplyHud(world,local,id);
       drawMap(local, remotes, view.yaw);

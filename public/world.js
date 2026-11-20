@@ -1,3 +1,4 @@
+import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
 import {mareFloor,mareCeiling} from './palazzo-mare.js';
 import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
@@ -64,7 +65,7 @@ export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
 MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
   MAP.rocks.push(...northRocks);
-  MAP.barriers.push({x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h,postId})=>({x,z,postId,w:.14,d:.15,h})),
+  MAP.barriers.push(...churchParts,{x:ridgeBench.x,z:ridgeBench.z,w:2.35,d:.55,h:.77},...trailMarkers.map(({x,z,h,postId})=>({x,z,postId,w:.14,d:.15,h})),
     {x:HELIPAD.x+3.20,z:HELIPAD.z-2.85,w:.09,d:.09,h:3.18});
 }
 
@@ -84,7 +85,7 @@ if (CITY) {
 }
 
 export function onBuildingLot(x,z,margin=0) {
-  return MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
+  return (!CITY && churchLot(x,z,margin)) || MAP.buildings.some(b=>Math.abs(x-b.x)<b.w/2+margin && Math.abs(z-b.z)<b.d/2+margin);
 }
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
@@ -146,7 +147,7 @@ for (let i = 0; !CITY && i < 9; i++) {
   }
 }
 
-if(!CITY)MAP.trees.push(...northernPines());
+if(!CITY)MAP.trees.push(...northernPines().filter(t=>!churchLot(t.x,t.z,2)));
 
 function smoothstep(start, end, position) {
   const t = Math.max(0, Math.min(1, (position - start) / (end - start)));
@@ -170,7 +171,8 @@ export function terrainHeight(x, z) {
   // Shape the wading shelf separately from the steep underwater basin.
   const shore = Math.max(0, Math.min(5, edge - (MAP.bounds - 6)));
   const lip = shore + 12 * smoothstep(MAP.bounds - 1, MAP.bounds, edge);
-  return 0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief + northRise - lip;
+  const natural=0.8 - (1 - bank) * (3.0 - 2.6 * ford) + ridge + relief + northRise - lip;
+  return natural+(church.base-natural)*churchTerrace(x,z);
 }
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
@@ -189,7 +191,7 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
       Math.abs(z - bridge.z) <= bridge.length / 2) {
     return bridge.y;
   }
-  return terrainHeight(x, z);
+  return Math.max(terrainHeight(x,z),churchFloor(x,z,maxBottom));
 }
 
 export function spawn(index = 0) {
@@ -314,7 +316,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height,mareCeiling(x,state.y,z)-height):contact.ceiling;
+    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height,mareCeiling(x,state.y,z)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
     if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);

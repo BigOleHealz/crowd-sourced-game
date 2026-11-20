@@ -1,3 +1,5 @@
+import {churchPath,churchRoom} from './ridge-church.js';
+import {buildRidgeChurch} from './ridge-church-view.js';
 import {casaRoomAt} from './casa-luma.js';
 import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
@@ -137,7 +139,7 @@ class Batch {
 
 const up = new THREE.Vector3(0,1,0);
 function trailDistance(x, z) {
-  return Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z));
+  return Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
 }
 
 function sceneryHeight(x,z) {
@@ -1115,6 +1117,7 @@ export function createScene(canvas) {
     forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
+    buildRidgeChurch(features);
     const posts=breakablePostView(scene,Batch);
     addDetails(scene,features,rng,posts);
     updateDoors=posts.finish();
@@ -1309,10 +1312,11 @@ export function createScene(canvas) {
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
     const nearbyYacht=world.yacht && Math.hypot(local.x-world.yacht.x,local.z-world.yacht.z)<25 ? world.yacht : null;
     const cabinDepth=yachtRoomDepth(nearbyYacht,local.x,local.y,local.z);
+    const chapel=!CITY && churchRoom(local.x,local.y,local.z);
     const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
     const villa=CITY && casaRoomAt(local.x,local.y,local.z);
-    const indoors=Boolean(cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const indoors=Boolean(chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     const roomBlend=indoors ? THREE.MathUtils.smoothstep(depth,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
