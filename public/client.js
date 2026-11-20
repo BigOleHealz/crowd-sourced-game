@@ -694,6 +694,7 @@ function frame(time) {
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw} : isDriving() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
+    audio.jetEngine(local,view.yaw,shownJet,dt);
     scene.render(local, remotes, view, dt, { ...world, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time) });
     if (time >= nextHud) {
       nextHud = time + 80;
