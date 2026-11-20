@@ -75,9 +75,10 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   const heli=world.heli;
-  if(heli && heli.y-base<2)consider(roundContact(x,z,s,c,heli,1.55,shape));
+  const roof=vehicle?.kind==='supercar' ? supercarLayout.roof : 1.66;
+  if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   const parked=vehicle?.kind==='supercar'?world.rover:world.supercar;
-  if(parked && parked!==vehicle)consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
+  if(parked && parked!==vehicle && parked.y<base+roof && parked.y+(parked.kind==='supercar'?supercarLayout.roof:1.66)>base)consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
