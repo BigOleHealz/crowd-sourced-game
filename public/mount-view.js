@@ -85,7 +85,7 @@ export function turretView(scene,kind,Batch,material) {
   scene.add(base);base.add(swivel);swivel.add(cradle);
   const metal=new Batch(), stand=new Batch(), box=new THREE.BoxGeometry(1,1,1);
   const cylinder=new THREE.CylinderGeometry(1,1,1,12);
-  if(kind==='rover'){
+  if(kind==='rover' || kind==='superyacht'){
     stand.add(cylinder,0x525b53,0,-.62,0,.093,1.24,.093);
     stand.add(cylinder,0x53574d,0,-1.22,0,.22,.052,.22);
   } else stand.add(cylinder,0x53574d,0,.085,0,.22,.18,.22);
@@ -105,6 +105,11 @@ export function turretView(scene,kind,Batch,material) {
     metal.beam(0x49524d,[side*.073,0,.095],[side*.177,-.004,.19],.038);
     metal.add(cylinder,0x423c33,side*.177,-.062,.19,.032,.13,.032);
   }
+  if(kind==='superyacht'){
+    metal.add(box,0x455763,0,.15,-.04,.31,.22,.38);
+    metal.add(cylinder,0x34434a,0,.04,-.80,.047,.54,.047,Math.PI/2);
+    for(const side of [-1,1])metal.add(box,0x60727c,side*.29,.10,-.18,.30,.48,.075,0,side*.13);
+  }
   stand.mesh(base,material,false);metal.mesh(cradle,material,false);
   box.dispose();cylinder.dispose();
   const offset=mounts[kind].turret;
@@ -113,7 +118,7 @@ export function turretView(scene,kind,Batch,material) {
     const pivot=mountPosition(v,offset);
     base.position.set(pivot.x,pivot.y,pivot.z);
     base.visible=!v.wrecked;
-    if(kind==='rover'||kind==='boat') {
+    if(kind==='rover'||kind==='boat'||kind==='superyacht') {
       const deck=kind==='boat'?v:v.suspension;
       base.rotation.set(deck?.pitch ?? 0,-v.yaw,deck?.roll ?? 0,'YXZ');
       // Keep the pedestal on the deck and the occupied barrel on its world aim.

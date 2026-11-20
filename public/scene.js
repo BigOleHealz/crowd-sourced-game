@@ -11,7 +11,7 @@ import {vehicleWreckBurst} from './vehicle-wreck-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {superyachtView} from './superyacht-view.js';
-import {aboardYacht,yachtHelmFeet,yachtTopAt} from './yacht-layout.js';
+import {aboardYacht,yachtHelmFeet,yachtTopAt,yachtPoint,yachtSmoking} from './yacht-layout.js';
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
@@ -740,6 +740,16 @@ function fieldEffects(scene) {
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
   const wreck=aircraftWreck(scene,plume.puff,particle,rng);
+  let nextHullPuff=0;
+  function yachtExhaust(yacht,dt) {
+    if(!yachtSmoking(yacht)){nextHullPuff=0;return;}
+    nextHullPuff-=dt;
+    if(nextHullPuff>0)return;
+    nextHullPuff=.18;
+    const vent=yachtPoint(yacht,-5.7,2.35,13.8);
+    plume.puff(new THREE.Vector3().copy(vent),new THREE.Vector3(.40+rng()*.26,1.5+rng()*.65,.25),
+      .65,2.9+rng(),2.5+rng()*.55,rng()>.5?0x48494a:0x615e5b,.76);
+  }
   function chips(contact) {
     const {point,normal,surface}=contact;
     const metal=surface==='metal', wood=surface==='wood';
@@ -798,7 +808,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,wreck,update,trail:plume.trail};
+  return {shot,burst,wreck,update,yachtExhaust,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1117,6 +1127,7 @@ export function createScene(canvas) {
   const updateRounds=flightRounds(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
+  const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
@@ -1222,7 +1233,8 @@ export function createScene(canvas) {
     updateSupplyView(world);
     updateDoors?.(world.doors,dt,local,remotes);
     updatePatrolBoats(world?.boats,dt);
-    updateYacht?.(world.yacht);
+    updateYacht?.(world.yacht,dt);
+    if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     const piloting=heli.pilot != null && local.id===heli.pilot;
     helicopter.update(heli,dt,piloting || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
@@ -1268,7 +1280,7 @@ export function createScene(canvas) {
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
-      const station=state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
+      const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
@@ -1289,7 +1301,7 @@ export function createScene(canvas) {
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
     const yachtHelm=world.yacht?.driver===local.id;
-    const localStation=boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const localStation=world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
     const indoors=Boolean(tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));

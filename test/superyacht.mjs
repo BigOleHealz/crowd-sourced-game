@@ -59,18 +59,18 @@ const combat=new Map([[7,shooter],[8,target]]);
 fire(w,shooter,{aimYaw:y.yaw,aimPitch:0},100,combat,[]);
 for(let t=101;t<108;t++){stepYacht(w,{throttle:.65},dt,combat);advanceRounds(w,combat,[],t);}
 assert(y.speed>3);
-assert.equal(target.life.hp,75);assert.equal(y.hp,1200);
+assert.equal(target.life.hp,75);assert.equal(y.hp,2000);
 fire(w,shooter,{aimYaw:y.yaw-Math.PI/2,aimPitch:0},120,combat,[]);
 for(let t=121;t<128;t++){stepYacht(w,{throttle:.65},dt,combat);advanceRounds(w,combat,[],t);}
-assert(y.hp<1200);
+assert(y.hp<2000);
 damageYacht(w,2000);assert(y.wrecked && y.driver===null);
 for(let i=0;i<300;i++)stepYacht(w,null,dt,new Map());
-assert(w.yacht.gangway && w.yacht.hp===1200);
+assert(w.yacht.gangway && w.yacht.hp===2000);
 const outer=newExpedition(),oy=outer.yacht;
 Object.assign(oy,{x:80,z:-330,yaw:Math.PI/2,driver:1,gangway:false});
 for(let i=0;i<240;i++)stepYacht(outer,{throttle:1},dt,new Map());
 assert(oy.x>85 && oy.x<89.1 && oy.speed<.2,'bow rejects travel past chart edge');
-assert.equal(oy.hp,1200,'chart edges do not damage the hull');
+assert.equal(oy.hp,2000,'chart edges do not damage the hull');
 const boat=outer.boats[0];Object.assign(oy,{x:74,z:-323,yaw:0,driver:null});Object.assign(boat,{x:61,z:-323,yaw:Math.PI/2,driver:1});
 for(let i=0;i<150;i++)stepBoat(outer,boat,{throttle:1},dt,new Map());
 assert(boat.x>62.5 && boat.x<67,'small vessel stays outside broadside');
