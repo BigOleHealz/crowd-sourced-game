@@ -27,7 +27,7 @@ import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mo
 import { parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
-import { recoverHelicopter } from './public/airframe.js';
+import { flightState, recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
 import { advanceFall } from './public/falls.js';
@@ -72,7 +72,7 @@ function worldView() {
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
-  return { ...world, bullets, heli:heliView, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
+  return { ...world, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',

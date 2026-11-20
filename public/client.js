@@ -1,3 +1,4 @@
+import {driverPrediction} from './driver-prediction.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
 import {drawMatchMap,updateMatchHud} from './island-hud.js';
 import {church,churchPath,churchLot} from './ridge-church.js';
@@ -68,7 +69,7 @@ const ctx = map.getContext('2d');
 const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
-let scene, socket, id, self, previous, readShots, facing = 0, moving = false, sprint = false;
+let scene, socket, id, self, readShots, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
 const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
@@ -88,6 +89,7 @@ let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
+let predictedDriver, nextFrame=0;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
 const controls = new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','KeyF','KeyE','KeyC','KeyZ']);
 
@@ -278,10 +280,11 @@ function connect() {
       if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
-      id = m.id; self = previous = m.state; facing = m.state.yaw;
+      id = m.id; self = m.state; facing = m.state.yaw;
       damageEdges.reset();
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
+      predictedDriver=null;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
@@ -292,7 +295,7 @@ function connect() {
       if(m.world.match?.phase!==world.match?.phase){
         clearInput();pending=[];samples=[];
       }
-      const wasPilot = isPilot(), wasDriving = isDriving(), wasGunner=gunnerRole();
+      const wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
       else damageEdges.update(vitals,authoritative);
@@ -302,6 +305,8 @@ function connect() {
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
       }
       world = m.world;
+      predictedDriver = !vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase) ? driverPrediction(world,id) : null;
+      if(predictedDriver)for(const cmd of pending.slice(-8))predictedDriver.step(cmd,step);
       if (wasDriving && !isDriving() && roverView) {
         camera.yaw = roverView.yaw;
         camera.pitch = roverView.pitch;
@@ -314,10 +319,6 @@ function connect() {
       if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
       const corrected = isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
-      // Keep sub-tick rendering continuous as an acknowledgement updates the simulation base.
-      previous = { ...previous, x: previous.x + corrected.x - self.x,
-        y: previous.y + corrected.y - self.y, z: previous.z + corrected.z - self.z };
-      if (wasPilot !== isPilot() || wasDriving !== isDriving() || wasGunner!==gunner || changedLife) previous = corrected;
       self = corrected;
       const shots=readShots(world.shots);
       for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
@@ -346,9 +347,7 @@ function connect() {
   };
 }
 
-function tick() {
-  if (socket?.readyState !== WebSocket.OPEN || id == null) return;
-  if(world?.match && frozenPhase(world.match.phase)){moving=sprint=false;handleCase=false;return;}
+function movementInput() {
   const right = held.has('KeyD') || held.has('ArrowRight');
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
@@ -358,9 +357,17 @@ function tick() {
   const length = Math.max(1, Math.hypot(lateral, forward));
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
-  moving = Boolean(lateral || forward);
+  const moving = Boolean(lateral || forward);
   const effectiveStance = requestedStance ?? self.stance;
-  sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
+  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
+  return {x,z,lateral,forward,moving,sprint};
+}
+
+function tick() {
+  if (socket?.readyState !== WebSocket.OPEN || id == null) return;
+  if(world?.match && frozenPhase(world.match.phase)){moving=sprint=false;handleCase=false;return;}
+  const {x,z,lateral,forward,...motion}=movementInput();
+  moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
   const fire = !inGT() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
@@ -385,8 +392,8 @@ function tick() {
   handleCase=false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
+  predictedDriver?.step(cmd,step);
   if (pending.length > 150) { socket.close(); return; }
-  previous = self;
   if (!pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp, world);
 }
 
@@ -611,7 +618,9 @@ function drawMap(player, remotes, yaw) {
 
 function frame(time) {
   // On high-refresh displays keep the prototype's visual workload near 60 frames/s.
-  if (time - lastTime < 1000 / 60 - 0.75) { requestAnimationFrame(frame); return; }
+  if (time+.75 < nextFrame) { requestAnimationFrame(frame); return; }
+  const interval=1000/60;
+  nextFrame=nextFrame && time-nextFrame<interval ? nextFrame+interval : time+interval;
   const dt = clamp((time - lastTime) / 1000, 0, .14);
   lastTime = time;
   if (edgeYaw || edgePitch) {
@@ -626,9 +635,18 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const local = { ...self, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing, moving, sprint,
-      x: mix(previous.x,self.x,t), y: mix(previous.y,self.y,t), z: mix(previous.z,self.z,t) };
-    const { players: remotes, npcs, heli, rover, supercar, yacht:sampledYacht, boats: sampledBoats=[] } = remoteFrame(time);
+    const free=!vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
+    const motion=free ? movementInput() : null;
+    const display=free ? stepPlayer(self,{...motion,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
+    const local = { ...display, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+      moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
+    const traffic={...remoteFrame(time)};
+    if(predictedDriver){
+      const kind=predictedDriver.kind, pose=predictedDriver.pose(t);
+      if(kind==='boat')traffic.boats=world.boats.map(b=>b.driver===id ? {...b,...pose} : traffic.boats.find(v=>v.id===b.id)??b);
+      else traffic[kind]={...world[kind],...pose};
+    }
+    const {players:remotes,npcs,heli,rover,supercar,yacht:sampledYacht,boats:sampledBoats=[]}=traffic;
     const yacht=world.yacht?.driver!==sampledYacht?.driver || world.yacht?.gunner!==sampledYacht?.gunner ? world.yacht : sampledYacht;
     const assigned=myBoat();
     const boats=localBoatFrame(sampledBoats,assigned,id);
