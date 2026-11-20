@@ -158,15 +158,15 @@ export function mareFloor(x,z,probe){
   }
   return top;
 }
-export function mareCeiling(x,y,z){
+export function mareCeiling(x,y,z,support=Infinity){
   if(z<-452 || z>-433 || x<10 || x>40)return Infinity;
   let limit=Infinity;
-  for(const p of slabParts)if(on(p,x,z) && y<quay+p.bottom)limit=Math.min(limit,quay+p.bottom);
+  for(const p of slabParts)if(on(p,x,z) && quay+p.h<=support && y<quay+p.bottom)limit=Math.min(limit,quay+p.bottom);
   for(const f of mareFlights){
     const t=(x-f.start)/(f.end-f.start);
     if(t<0 || t>=1 || Math.abs(z-f.z)>f.width/2)continue;
     const underside=quay+treadHeight(f,Math.floor(t*f.count))-.22;
-    if(y<underside)limit=Math.min(limit,underside);
+    if(underside<=support && y<underside)limit=Math.min(limit,underside);
   }
   return limit;
 }

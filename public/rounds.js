@@ -1,3 +1,4 @@
+import {estateSolids} from './estate-damage.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
 import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
@@ -45,7 +46,8 @@ export function firstPaneHit(world,from,delta){
     if(entry===Infinity || entry>t)continue;
     visitRoundGlass(b,world.doors,pane=>consider(glassContact(from,delta,pane,world.doors),pane));
   }
-  for(const p of staticPanes){
+  for(const p of world.doors?.estateBreaches?.length ? roundBarriers(world.doors) : staticPanes){
+    if(!p.paneId)continue;
     if(world.doors?.brokenPanes?.[p.paneId] || Math.abs(p.z-from.z)>Math.abs(delta.z)+p.d/2 || Math.abs(p.x-from.x)>Math.abs(delta.x)+p.w/2)continue;
     consider(box(from,delta,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h});
   }
@@ -104,8 +106,16 @@ const towerGlass=CITY?towerGlassIndex(MAP.buildings):[];
 const cabinPanes=cabinPieces.filter(p=>p.paneId);
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
-const barriers=(MAP.barriers??[]).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
+const roundSolids=parts=>parts.map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // The board, lights and brackets all share the HP of their supporting posts.
+const barriers=roundSolids(MAP.barriers);
+const roundCache=new WeakMap();
+function roundBarriers(doors){
+  if(!doors?.estateBreaches?.length)return barriers;
+  const parts=estateSolids(MAP.barriers,doors);
+  if(!roundCache.has(parts))roundCache.set(parts,roundSolids(parts));
+  return roundCache.get(parts);
+}
 const staticPanes=barriers.filter(p=>p.paneId);
 const postParts=barriers.filter(p=>p.postId!=null || p.lamp!=null);
 const panel=(postId,x,y,z,w,h,d,yaw=0,woodId)=>({postId,x,y,z,w,h,d,yaw,woodId});
@@ -150,7 +160,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
-  for(const p of barriers){
+  for(const p of roundBarriers(world.doors)){
     if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
     if(world.doors?.brokenSills?.[p.sillPaneId])continue;
     if(p.paneId){
