@@ -1,3 +1,4 @@
+import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
 import {yachtTopAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
@@ -74,8 +75,18 @@ function assistedActorHit(point, actor, halo) {
 function actorIntersection(actor,from,worldDir) {
   const feet=actor.state;
   const prone=feet.stance==='prone';
-  const {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
-  const dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  let {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
+  let dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  // Test the ray in the same scaled body frame that the civilian renderer uses.
+  const look=CITY && civilianLooks[actor.id];
+  if(look){
+    const yaw=actor.yaw??0,c=Math.cos(yaw),s=Math.sin(yaw);
+    const widthFactor=1/look.width-1;
+    const lateral=(x*c+z*s)*widthFactor;
+    x+=c*lateral;z+=s*lateral;y/=look.height;
+    const lateralRay=(dir.x*c+dir.z*s)*widthFactor;
+    dir={x:dir.x+c*lateralRay,y:dir.y/look.height,z:dir.z+s*lateralRay};
+  }
   const drop=prone ? 0 : stanceDrop(feet);
   const lean=actor.moving ? .095 : 0, yaw=actor.yaw || 0;
   const hx=(x-lean*Math.sin(yaw))/.128, hy=(y-1.69+drop)/.161, hz=(z+lean*Math.cos(yaw))/.128;
