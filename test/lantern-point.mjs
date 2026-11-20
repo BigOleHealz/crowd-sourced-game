@@ -3,7 +3,7 @@ process.env.PINEWATCH_MAP='brickell';
 const {harbor,cityGround}=await import('../public/brickell-map.js');
 const {beach}=await import('../public/beach-layout.js');
 const {ferrySlip,slipHeight,onLantern,lanternLocation}=await import('../public/lantern-point.js');
-const {lanternBuildings,berthing}=await import('../public/lantern-buildings-layout.js');
+const {lanternBuildings,limestoneBase,berthing}=await import('../public/lantern-buildings-layout.js');
 const {MAP,groundHeight,blocked,stepPlayer}=await import('../public/world.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {driveRover}=await import('../public/rover.js');
@@ -25,7 +25,8 @@ function survey(w,e,n,s){
 const old=survey(harbor.west,beach.east,harbor.north,harbor.south),added=survey(-70,78,-481,-352);
 for(const k of ['dry','walkable'])assert(Math.abs(added[k]/old[k]-1)<.12);
 for(const b of lanternBuildings){
-  assert(blocked(b.x-b.w/2,.8,b.z,world.hp));
+  if(b===limestoneBase)assert.equal(blocked(b.x,.8,b.z,world.hp),false);
+  else assert(blocked(b.x-b.w/2,.8,b.z,world.hp));
   for(const dx of [-b.w/2,b.w/2])for(const dz of [-b.d/2,b.d/2])assert(onLantern(b.x+dx,b.z+dz));
 }
 // Both pool terraces, the club loggia and Solana's shore landing are pedestrian destinations.

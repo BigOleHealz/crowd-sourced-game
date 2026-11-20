@@ -1,7 +1,8 @@
 import {addCasaLuma} from './casa-luma-view.js';
+import {furnishPalazzo} from './palazzo-mare-view.js';
 import * as THREE from 'three';
 import {alpineGlass} from './landscape.js';
-import {limestoneBase,clubSalon,upperFloors,pools,clubColumns,loggiaColumns,shadeColumns,hedges,planters,berthing} from './lantern-buildings-layout.js';
+import {clubSalon,pools,clubColumns,loggiaColumns,shadeColumns,hedges,planters,berthing} from './lantern-buildings-layout.js';
 
 const floor=.80;
 const cream=0xe5ddc6, limestone=0xccb994, bronze=0x79654c, dark=0x41443f;
@@ -122,18 +123,8 @@ export function addLanternBuildings(scene,Batch,sky){
   for(const x of [-32, -18])for(const z of [-390,-395])seat(x,z,0,x<-25?Math.PI/2:-Math.PI/2);
   // Successive limestone terraces open south. The arcade is a real cut-out
   // profile: the pedestrian loggia has headroom between its individual columns.
-  const tiers=[limestoneBase,...upperFloors];
-  for(const [i,b] of tiers.entries()){
-    glazing(b.x,b.z,b.w,b.d,b.bottom,b.h-b.bottom,'stone');
-    masonry(0xd6c3a0,b.x-b.w*.28,b.bottom+(b.h-b.bottom)*.50,b.z,b.w*.25,b.h-b.bottom,b.d+.12);
-    if(i>0){
-      for(const side of [-1,1]){
-        const bx=b.x+side*b.w*.44;
-        masonry(limestone,bx,b.bottom+(b.h-b.bottom)/2,b.z,b.w*.12,b.h-b.bottom,b.d+.14);
-      }
-    }
-    slab(b.x,b.h-.035,b.z,b.w+.72,b.d+.72,.30);
-  }
+  furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane:(x,y,z,width,height,across)=>
+    glass.add(plane,0x839c98,x,floor+y,z,width,height,1,0,across?0:Math.PI/2)});
   function archRow(x,z,count,spacing,r,h,base,depth){
     const shape=new THREE.Shape();
     const left=-count*spacing/2;
@@ -162,7 +153,7 @@ export function addLanternBuildings(scene,Batch,sky){
   for(const x of [30.8,35.6])for(const z of [-448.7,-442.1])box(bronze,x,9.03,z,.13,2.26,.13);
   seat(32.1,-444.1,7.91);seat(34.25,-444.1,7.91);
   trough(22.4,7.91,-439.95,19.0,true);railing(33.1,7.91,-439.85,5.4,true);
-  trough(24.5,4.13,-436.55,21,true);
+  trough(20.8,4.13,-436.55,13.6,true);
   for(const x of [14.4,28.9]){
     masonry(cream,x,11.13,-446.3,.18,.44,8.63);
   }

@@ -1,4 +1,5 @@
 import {casaFloor,casaCeiling} from './casa-luma.js';
+import {mareFloor,mareCeiling} from './palazzo-mare.js';
 import {yachtTopAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
@@ -108,9 +109,11 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     top=Math.max(top,surface);
   }
   for(const b of MAP.barriers ?? []){
+    // Expanding a walkable slab lip would add an invisible curb at its edge.
+    const pad=b.flushEdge ? 0 : padding;
+    if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
     if(postDown(doors,b))continue;
-    if(Math.abs(x-b.x)>b.w/2+padding || Math.abs(z-b.z)>b.d/2+padding) continue;
     const base=terrainHeight(b.x,b.z);
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
   }
@@ -174,6 +177,8 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
     const villa=casaFloor(x,z,maxBottom);
     if(villa!==undefined)return villa;
+    const palace=mareFloor(x,z,maxBottom);
+    if(Number.isFinite(palace))return palace;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
@@ -309,7 +314,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height):contact.ceiling;
+    let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z)-height,mareCeiling(x,state.y,z)-height):contact.ceiling;
     if(CITY && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(CITY && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);

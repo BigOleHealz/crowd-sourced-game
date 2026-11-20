@@ -1,4 +1,5 @@
 import {casaRoomAt} from './casa-luma.js';
+import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {routeDistance,ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
@@ -1305,9 +1306,10 @@ export function createScene(canvas) {
     const localStation=world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
+    const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
     const villa=CITY && casaRoomAt(local.x,local.y,local.z);
-    const indoors=Boolean(villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const indoors=Boolean(palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     const roomBlend=indoors ? THREE.MathUtils.smoothstep(depth,0,.85) : 0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
