@@ -86,6 +86,14 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 }
 #game.armed:not(.look-paused):hover + #play-reticle,#game.armed.captured + #play-reticle {display:block}
 #game.sighted + #play-reticle {width:3px;height:3px;border-radius:50%;background:#fc876c}
+#game.bow-sight + #play-reticle {
+  display:block; width:42px; height:42px; border:2px solid #413b2e; border-radius:50%;
+  box-shadow:0 0 0 1px #d9d1a376, inset 0 0 0 1px #d9d1a376;
+  background:radial-gradient(circle,#ffb86e 0 1.5px,transparent 2px),
+    linear-gradient(#3b3429,#3b3429) left center/10px 2px no-repeat,
+    linear-gradient(#3b3429,#3b3429) right center/10px 2px no-repeat,
+    linear-gradient(#3b3429,#3b3429) center bottom/2px 13px no-repeat;
+}
 #notice { pointer-events:none }
 
 #damage-edges {
