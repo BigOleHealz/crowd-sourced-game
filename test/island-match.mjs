@@ -18,21 +18,22 @@ const first=n=>new Map([...players].slice(0,n));
 const [a,b]=players.values();
 for(const mode of ['total-loss','repo-wars','moving-day']){
   const match=createMatch(mode),{state}=match;
-  match.updateRoster(first(9));assert.equal(state.phase,'waiting');
+  const minimum=mode==='total-loss'?2:10;
+  match.updateRoster(first(minimum-1));assert.equal(state.phase,'waiting');
   match.damageLot(b.team,state.lots[0],500);assert.equal(state.lots[0].hp,120);
-  match.updateRoster(first(10));
+  match.updateRoster(first(minimum));
   for(const lot of state.lots){assert.equal(propertyTeam(lot.x,lot.z),lot.owner);assert(!blocked(lot.x,lot.y,lot.z,{}));}
   if(mode==='moving-day'){
     const jewel=state.lots.find(l=>l.owner===a.team && l.jewel);
     a.state={...jewel};match.interact(a);assert.equal(jewel.carrier,a.id);
     a.state={...teamSpawn(a.team,2)};match.step(players);
-    const x=jewel.x;match.updateRoster(first(9));assert.equal(state.phase,'paused');
+    const x=jewel.x;match.updateRoster(first(minimum-1));assert.equal(state.phase,'paused');
     match.updateRoster(players);
     for(let i=0;i<1799;i++)match.step(players);
     assert.equal(jewel.x,x);assert.equal(jewel.carrier,null);
   }
   assert.equal(state.phase,'active');
-  match.updateRoster(first(9));assert.equal(state.phase,'paused');
+  match.updateRoster(first(minimum-1));assert.equal(state.phase,'paused');
   match.updateRoster(players);assert.equal(state.phase,'active');
   assert(!match.damageProperty(a.team,teamSpawn(a.team,0),'own','Own',500));
   assert(!match.damageProperty(a.team,auction,'neutral','Neutral',500));

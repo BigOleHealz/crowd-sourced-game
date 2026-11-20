@@ -3,14 +3,14 @@ export const teams = ['brickell', 'lantern'];
 export const teamNames = {brickell:'Brickell Avenue', lantern:'Lantern Point'};
 export const teamColors = {brickell:'#79d5ed', lantern:'#f3ab67'};
 export const auction = {x:0,z:-205};
-export const minTeam = 5, maxTeam = 8, goal = 5_000_000;
+export const maxTeam = 8, goal = 5_000_000;
 export const lotWidth = 1.5, lotHeight = 1.65;
 export const modes = {
-  'total-loss': {name:'Total Loss', wreckRate:1, setup:0,
+  'total-loss': {name:'Total Loss', minTeam:1, wreckRate:1, setup:0,
     objective:'Damage enemy property. Each insured loss pays once.'},
-  'repo-wars': {name:'Repo Wars', wreckRate:.5, setup:0, auction:true,
+  'repo-wars': {name:'Repo Wars', minTeam:5, wreckRate:.5, setup:0, auction:true,
     objective:'Auction enemy cars, helicopters or cases on Harbor Key for full value. Wreck property for half.'},
-  'moving-day': {name:'Moving Day', wreckRate:1, setup:60, jewel:true,
+  'moving-day': {name:'Moving Day', minTeam:5, wreckRate:1, setup:60, jewel:true,
     objective:'Find the enemy’s hidden $2M gold case or damage other insured property.'},
 };
 export const caseSites = {

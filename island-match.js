@@ -1,4 +1,4 @@
-import {auction,caseSites,closestCase,goal,maxTeam,minTeam,modes,teams} from './public/island-rules.js';
+import {auction,caseSites,closestCase,goal,maxTeam,modes,teams} from './public/island-rules.js';
 import {coast,within} from './public/brickell-map.js';
 import {onLantern} from './public/lantern-point.js';
 import {blocked,groundHeight} from './public/world.js';
@@ -48,7 +48,7 @@ export function createMatch(mode){
   function updateRoster(players){
     for(const team of teams)state.counts[team]=0;
     for(const p of players.values())state.counts[p.team]++;
-    const ready=teams.every(t=>state.counts[t]>=minTeam);
+    const ready=teams.every(t=>state.counts[t]>=rules.minTeam);
     if(!ready && (state.phase==='active' || state.phase==='setup')){
       resumePhase=state.phase;state.phase='paused';
     }else if(ready && state.phase==='paused'){

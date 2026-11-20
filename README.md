@@ -17,7 +17,7 @@ Hikers and trail rivals have 100 HP, forestry rovers have 250 HP, and helicopter
 
 ## Brickell team modes
 
-Choose a mode in the map menu or share its URL with the whole group. Each mode runs its own match. Brickell Avenue and Lantern Point are the two home islands. Harbor Key is neutral. Teams fill automatically up to eight a side. A round starts at five per side and pauses if either side falls below five. After a win, players get a fresh round after 15 seconds if both teams still have enough players.
+Choose a mode in the map menu or share its URL with the whole group. Each mode runs its own match. Brickell Avenue and Lantern Point are the two home islands. Harbor Key is neutral. Teams fill automatically up to eight a side. For playtesting, Total Loss starts with one player per side and pauses if a team empties. Repo Wars and Moving Day start at five per side and pause if either side falls below five. After a win, players get a fresh round after 15 seconds if both teams still have enough players.
 
 | Mode | Shareable path | How to reach $5 million |
 | --- | --- | --- |
