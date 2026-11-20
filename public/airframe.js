@@ -1,7 +1,7 @@
 import {yachtTopAt,yachtDeckHeight,yachtLocal,yachtPad,yachtDeckY} from './yacht-layout.js';
 import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { CITY, MAP, travelBounds, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
+import { CITY, MAP, flightBounds, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -50,11 +50,9 @@ export function damageHelicopter(world, damage, players, shooterId = null,team) 
 }
 
 // Advance the same airframe after the seat is released, even without pilot input.
-function airPosition(world,h,motion,dt,defaultLimit){
-  const limit=MAP.flightLimit??defaultLimit;
-  const west=world.yacht?travelBounds.west+3:-limit,east=world.yacht?travelBounds.east-3:limit;
-  const north=world.yacht?travelBounds.north+3:MAP.flightNorth??-limit,south=world.yacht?travelBounds.south-3:limit;
-  return {x:clamp(h.x+motion.vx*dt,west,east),z:clamp(h.z+motion.vz*dt,north,south)};
+function airPosition(h,motion,dt){
+  return {x:clamp(h.x+motion.vx*dt,flightBounds.west,flightBounds.east),
+    z:clamp(h.z+motion.vz*dt,flightBounds.north,flightBounds.south)};
 }
 
 function driftAfterBailout(world, dt, players) {
@@ -68,8 +66,8 @@ function driftAfterBailout(world, dt, players) {
   }
   motion.vy = coasting ? approach(motion.vy, -.35, 3*dt) : Math.max(-14, motion.vy-7*dt);
   h.yaw += (coasting ? .09 : .48) * dt;
-  const {x,z}=airPosition(world,h,motion,dt,32);
-  const y = Math.min(MAP.flightCeiling ?? 23, h.y + motion.vy*dt);
+  const {x,z}=airPosition(h,motion,dt);
+  const y = Math.min(flightBounds.ceiling, h.y + motion.vy*dt);
   const floor = flightFloor(x, z, world.hp,world);
   if (y <= floor) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
@@ -193,8 +191,8 @@ export function fly(world, input, dt, players) {
     damageHelicopter(world, impactDamage(stoppedSpeed), players);
   }
   motion.floorContact = floorContact;
-  h.y = clamp(nextY, minY, MAP.flightCeiling ?? 23);
-  if (floorContact || h.y === (MAP.flightCeiling ?? 23)) motion.vy = 0;
+  h.y = clamp(nextY, minY, flightBounds.ceiling);
+  if (floorContact || h.y === (flightBounds.ceiling)) motion.vy = 0;
   h.grounded = landable && floorContact;
   if(h.grounded && yachtLanding)h.onYacht=true;else delete h.onYacht;
   if (h.grounded || h.wrecked) {
@@ -207,7 +205,7 @@ export function fly(world, input, dt, players) {
 
   motion.vx += (motion.tiltX - drag * motion.vx) * dt;
   motion.vz += (motion.tiltZ - drag * motion.vz) * dt;
-  const {x,z}=airPosition(world,h,motion,dt,30);
+  const {x,z}=airPosition(h,motion,dt);
   const clear = (tx, tz) => h.y > flightFloor(tx, tz, world.hp,world) + 0.04;
   let stoppedX = 0, stoppedZ = 0;
   if (clear(x, z)) {

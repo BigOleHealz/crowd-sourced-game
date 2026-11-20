@@ -1,3 +1,4 @@
+import {noise} from './terrain-noise.js';
 import {breachedFloor,inTowerBreach} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
@@ -58,6 +59,12 @@ export const MAP = CITY ? brickellMap : {
 // this chart, including swimmers and dismounted or falling crew.
 export const travelBounds={west:MAP.westBound ?? -MAP.bounds,east:MAP.bounds,
   north:MAP.northBound ?? -MAP.bounds,south:MAP.bounds};
+const flightMargin=CITY?220:120;
+export const flightBounds={
+  west:travelBounds.west-flightMargin,east:travelBounds.east+flightMargin,
+  north:travelBounds.north-flightMargin,south:travelBounds.south+flightMargin,
+  ceiling:CITY?220:150
+};
 export function insideTravelArea(x,z,halfX=0,halfZ=halfX) {
   return x-halfX>=travelBounds.west && x+halfX<=travelBounds.east &&
     z-halfZ>=travelBounds.north && z+halfZ<=travelBounds.south;
@@ -208,6 +215,20 @@ export function terrainHeight(x, z) {
   return natural+(church.base-natural)*churchTerrace(x,z);
 }
 
+export function sceneryHeight(x,z) {
+  const base=terrainHeight(x,z);
+  const beyond=Math.hypot(Math.max(0,Math.abs(x)-MAP.bounds),Math.max(0,z-MAP.bounds,MAP.northBound-z));
+  if(!beyond) return base;
+  // Continue the actual drop-off into wooded draws. Ridge crests depend on
+  // world-space drainage and outcrops, so they do not trace the map perimeter.
+  const basin=smoothstep(0,13,beyond);
+  const broad=noise(x*.036+11,z*.037-7);
+  const gullies=noise(x*.072+3,z*.065-15);
+  const crest=Math.hypot(x+7,z-5)+14*(broad-.5);
+  const foothills=smoothstep(47,77,crest);
+  return base+basin*(3+6*gullies+foothills*(8+19*broad));
+}
+
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
     const limit=estateSupportLimit(doors,x,z);
@@ -226,7 +247,7 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
       Math.abs(z - bridge.z) <= bridge.length / 2) {
     return bridge.y;
   }
-  return Math.max(terrainHeight(x,z),churchFloor(x,z,maxBottom));
+  return Math.max(sceneryHeight(x,z),churchFloor(x,z,maxBottom));
 }
 
 export function spawn(index = 0) {
@@ -311,12 +332,14 @@ export function stepPlayer(state, input, dt, hp, world) {
   const doors=world?.doors;
   if (!yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) && !blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
   if (!yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) && !blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
-  // Water reaches every outer edge. Stay at the limit and allow movement
-  // parallel to it, including a swimmer turning back toward the shoreline.
-  if (x < travelBounds.west || x > travelBounds.east) vx=0;
-  if (z < travelBounds.north || z > travelBounds.south) vz=0;
-  x=Math.max(travelBounds.west,Math.min(travelBounds.east,x));
-  z=Math.max(travelBounds.north,Math.min(travelBounds.south,z));
+  // Bailouts inherit the flight area. After landing outside the walking map,
+  // allow the crew to move back in without snapping them across the chart.
+  const limits=parachute?flightBounds:travelBounds;
+  const west=Math.min(state.x,limits.west),east=Math.max(state.x,limits.east);
+  const north=Math.min(state.z,limits.north),south=Math.max(state.z,limits.south);
+  if(x<west || x>east)vx=0;
+  if(z<north || z>south)vz=0;
+  x=Math.max(west,Math.min(east,x));z=Math.max(north,Math.min(south,z));
   let contact=vehicleContact(x,y,z,world,CITY,height);
   // Project out of the hull and remove only the velocity into its surface.
   // Recheck adjacent sections when a corner touches more than one shape.
@@ -363,7 +386,7 @@ export function stepPlayer(state, input, dt, hp, world) {
       grounded = true;
     }
   }
-  if (y < -8 || !insideTravelArea(x,z)) return spawn();
+  if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;

@@ -1,4 +1,4 @@
-import {CITY,MAP,groundHeight,solidTopAt,travelBounds,spawn} from './world.js';
+import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parkedJet(){
   const x=CITY?0:4,z=24;
@@ -45,11 +45,11 @@ export function stepJet(world,input,dt,players){
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;
   const climb=j.grounded?0:j.pilot==null?-6:lift*9;
   j.pitch+=(Math.atan2(climb,Math.max(8,j.speed))-j.pitch)*response;
-  const x=clamp(j.x+Math.sin(j.yaw)*j.speed*dt,travelBounds.west+2,travelBounds.east-2);
-  const z=clamp(j.z-Math.cos(j.yaw)*j.speed*dt,travelBounds.north+2,travelBounds.south-2);
+  const x=clamp(j.x+Math.sin(j.yaw)*j.speed*dt,flightBounds.west,flightBounds.east);
+  const z=clamp(j.z-Math.cos(j.yaw)*j.speed*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);
   if(floor>j.y+.65){damageJet(world,j.hp,players);return;}
-  const y=j.grounded?floor:Math.min(MAP.flightCeiling??30,j.y+climb*dt);
+  const y=j.grounded?floor:Math.min(flightBounds.ceiling,j.y+climb*dt);
   if(!j.grounded && y<=floor && climb<=0){
     if(j.pilot==null || floor<=MAP.waterY || j.speed>16){damageJet(world,j.hp,players);return;}
     j.grounded=true;j.speed=0;
