@@ -1,6 +1,7 @@
+import {addCasaLuma} from './casa-luma-view.js';
 import * as THREE from 'three';
 import {alpineGlass} from './landscape.js';
-import {villaWings,limestoneBase,clubSalon,upperFloors,pools,clubColumns,loggiaColumns,shadeColumns,hedges,planters,berthing} from './lantern-buildings-layout.js';
+import {limestoneBase,clubSalon,upperFloors,pools,clubColumns,loggiaColumns,shadeColumns,hedges,planters,berthing} from './lantern-buildings-layout.js';
 
 const floor=.80;
 const cream=0xe5ddc6, limestone=0xccb994, bronze=0x79654c, dark=0x41443f;
@@ -92,20 +93,6 @@ export function addLanternBuildings(scene,Batch,sky){
     }
     canopy.dispose();
   }
-  // The front court is framed by two one-storey garden suites. A taller glazed
-  // gallery and a broad floating timber brise-soleil close its northern end.
-  for(const [i,b] of villaWings.entries()){
-    const height=i?4.1:3.70;
-    glazing(b.x,b.z,b.w,b.d,0,height,'villa');
-    if(!i){
-      glazing(b.x,b.z,b.w-.8,b.d-.6,height,height,'villa');
-      masonry(0xa99576,b.x-10.1,3.64,b.z,4.1,7.28,b.d+.14);
-      for(let s=0;s<16;s++)box(teak,b.x+5.5+s*.46,5.55,b.z+b.d/2+.21,.16,3.43,.44,0,-.36);
-    }else{
-      masonry(0xd3c7ae,b.x,b.h*.5,b.z+b.d/2-.34,b.w,b.h,.72);
-      for(let s=0;s<11;s++)box(teak,b.x-2.7+s*.51,2.13,b.z+b.d/2+.04,.15,3.47,.26,0,-.34);
-    }
-  }
   function railing(x,y,z,span,alongX){
     const count=Math.ceil(span/1.48);
     for(let k=0;k<count;k++){
@@ -122,12 +109,9 @@ export function addLanternBuildings(scene,Batch,sky){
       leaf(k%1>.4?0x779060:0x587448,xx,y+.62,zz,.68,.45,.72,-.13,k);
     }
   }
-  for(const x of [-36.3,-13.7]){
-    const bal=4.11;
-    railing(x,bal,-384.14,7.05,true);
-    for(const dx of [-3.53,3.53])railing(x+dx,bal,-392.45,16.6,false);
-    trough(x,bal,-399.5,6.12,true);seat(x, -388.1,bal,Math.PI);seat(x+1.5,-388.1,bal,Math.PI);
-  }
+  addCasaLuma({box,masonry,cyl,beam,leaf,railing,seat,trough,
+    pane:(x,y,z,w,h,yaw)=>glass.add(plane,0x738e8b,x,floor+y,z,w,h,1,0,yaw),
+  });
   for(const x of [-37,-31.2]){
     box(dark,x,7.53,-406,2.4,.27,3.65);
     glass.add(plane,0x6b8e90,x,floor+7.68,-406,2.22,3.48,1,-Math.PI/2);

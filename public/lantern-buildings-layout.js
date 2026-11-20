@@ -1,10 +1,7 @@
+import {villaWings} from './casa-luma.js';
+export {villaWings};
 // Lantern Point's three properties share their geometry with the collision and chart.
 const volume=(id,x,z,w,d,h,bottom=0)=>({id,x,z,w,d,h,bottom});
-export const villaWings=[
-  volume('villa-gallery',-25,-405,30,8,7.4),
-  volume('villa-west-wing',-36.3,-392.5,7.4,17,4.1),
-  volume('villa-east-wing',-13.7,-392.5,7.4,17,4.1),
-];
 export const limestoneBase=volume('limestone-ground-floor',25,-444,29,14,4.1);
 export const clubSalon=volume('club-salon',25,-395,24,10,4.4);
 export const lanternBuildings=[...villaWings,limestoneBase,clubSalon];

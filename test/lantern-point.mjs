@@ -25,7 +25,7 @@ function survey(w,e,n,s){
 const old=survey(harbor.west,beach.east,harbor.north,harbor.south),added=survey(-70,78,-481,-352);
 for(const k of ['dry','walkable'])assert(Math.abs(added[k]/old[k]-1)<.12);
 for(const b of lanternBuildings){
-  assert(blocked(b.x,.8,b.z,world.hp));
+  assert(blocked(b.x-b.w/2,.8,b.z,world.hp));
   for(const dx of [-b.w/2,b.w/2])for(const dz of [-b.d/2,b.d/2])assert(onLantern(b.x+dx,b.z+dz));
 }
 // Both pool terraces, the club loggia and Solana's shore landing are pedestrian destinations.
