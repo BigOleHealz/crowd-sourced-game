@@ -1,4 +1,4 @@
-import {inTowerBreach} from './tower-damage.js';
+import {inTowerBreach,towerCollapsed} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
@@ -187,7 +187,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
     // Traverse ground-floor rooms using the same furnishings and glass as movement.
-    if(CITY && (round.y+Math.min(0,d.y)<4.74 || (b.towerId!=null && world.doors?.towerBreaches?.length))){
+    if(CITY && (round.y+Math.min(0,d.y)<4.74 || (b.towerId!=null && (world.doors?.towerBreaches?.length || towerCollapsed(b,world.doors))))){
       visitRoundGlass(b,world.doors,pane=>accept(glassContact(round,d,pane,world.doors),pane,'glass'));
       const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
       const steps=Math.max(1,Math.ceil(length/.045));
@@ -195,7 +195,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
         const f=span[0]+(span[1]-span[0])*i/steps;
         const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
         if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors,true)){
-          accept(f,null,'scenery');break;
+          accept(f,null,towerCollapsed(b,world.doors)?'rubble':'scenery');break;
         }
       }
       continue;
