@@ -63,10 +63,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   if (open && avatar.makeCanopy && !avatar.canopy) avatar.canopy = avatar.makeCanopy(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
-  avatar.root.scale.setScalar(seated ? seatedScale : 1);
+  const lowCockpit=seated?.kind==='supercar';
+  avatar.root.scale.setScalar(lowCockpit ? .80 : seated ? seatedScale : 1);
   if (avatar.civilian) avatar.root.scale.set(avatar.civilian.width,avatar.civilian.height,1);
   if (seated) {
-    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,seated.kind==='supercar' ? [-.365,-.25,.23] : [-.322,.025,-.085]);
+    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,lowCockpit ? [-.365,-.27,-.045] : [-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
@@ -96,6 +97,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
     avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
+  }
+  if(lowCockpit){
+    // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
+    avatar.spine.rotation.x=.50;avatar.head.rotation.x=-.32;
   }
   if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
@@ -221,6 +226,12 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       const handZ=side===1 ? .037 : bloom ? .031 : -.21;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
       gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
+    } else if(lowCockpit) {
+      // Convert each upper wheel spoke from the lowered seat to the reclined torso.
+      const scale=avatar.root.scale.x,angle=avatar.spine.rotation.x;
+      const y=(.868+.27)/scale-1.01,z=(-.352+.045)/scale;
+      gripPose(arm,forearm,(.005+side*.119)/scale,
+        1.01+Math.cos(angle)*y+Math.sin(angle)*z,Math.cos(angle)*z-Math.sin(angle)*y,side);
     } else if(seated?.id) {
       // Hold the upper left/right spokes in the same frame as the cushion.
       const {y,z,radius,tilt}=helmWheel, up=radius*.5;
