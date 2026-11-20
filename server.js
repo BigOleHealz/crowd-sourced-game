@@ -232,6 +232,39 @@ function acceptInput(player, data, binary) {
   });
 }
 
+// Keep the competitive simulation parked while the lone player practices.
+let parkedRound;
+function updateRoom() {
+  match?.updateRoster(players);
+  if(mode!=='total-loss')return;
+  if(!players.size){parkedRound=null;return;}
+  if(parkedRound && players.size>1){
+    const saved=parkedRound;
+    parkedRound=null;
+    world=saved.world;match=world.rules;npcs=saved.npcs;ticks=saved.tick;
+    for(const p of players.values()){
+      if(p.id===saved.player.id){
+        saved.player.ack=saved.player.lastSeq=p.lastSeq;
+        saved.player.packedSnapshots=p.packedSnapshots;
+        saved.player.alive=p.alive;
+        players.set(p.id,saved.player);
+      }else p.life=newLife(ticks);
+    }
+    match.updateRoster(players);
+  }else if(!parkedRound && players.size===1 && ['waiting','paused'].includes(match.state.phase)){
+    const [p]=players.values();
+    p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;
+    parkedRound={world,npcs,tick:ticks,player:p};
+    world=freshWorld();npcs=newRivals();
+    players.set(p.id,{id:p.id,ws:p.ws,team:p.team,slot:p.slot,scoreKey:p.scoreKey,
+      alive:p.alive,packedSnapshots:p.packedSnapshots,lastSeq:p.lastSeq,ack:p.lastSeq,inputs:[],
+      state:teamSpawn(p.team,p.slot),life:newLife(ticks),score:{kills:0,deaths:0,team:p.team},
+      yaw:0,moving:false,sprint:false,weapon:4,fireReady:0});
+    match.updateRoster(players);
+    match.state.phase='practice';
+  }
+}
+
 sockets.on('connection', ws => {
   ws.on('error', () => ws.terminate());
   if (players.size >= capacity) {
@@ -251,10 +284,11 @@ sockets.on('connection', ws => {
     player.score.team=player.team;
   }
   players.set(id, player);
-  match?.updateRoster(players);
-  ws.on('message', (data, binary) => acceptInput(player, data, binary));
-  ws.on('pong', () => { player.alive = true; });
+  updateRoom();
+  ws.on('message', (data, binary) => acceptInput(players.get(id), data, binary));
+  ws.on('pong', () => { players.get(id).alive = true; });
   ws.on('close', () => {
+    const player=players.get(id);
     match?.release(player);
     players.delete(id);
     match?.updateRoster(players);
@@ -288,9 +322,10 @@ sockets.on('connection', ws => {
       const kind=gunnerVehicle(world,id);
       if(kind) vehicleById(world,kind).gunner=null;
     }
+    updateRoom();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', build, scoreKey:player.scoreKey, id, state: playerState(player), world: worldView() }));
+  ws.send(JSON.stringify({ type: 'welcome', build, scoreKey:player.scoreKey, id, state: playerState(players.get(id)), world: worldView() }));
   publish();
 });
 
@@ -309,7 +344,7 @@ function resetRound(){
     player.yaw=0;player.weapon=4;player.launcherLock=null;player.moving=player.sprint=false;
     player.unstuck=false;player.supercarInput=null;player.chainFireUntil=0;
   }
-  match.updateRoster(players);
+  updateRoom();
 }
 function tick() {
   if(match && !players.size)return;
