@@ -11,6 +11,11 @@ const COAST_SECONDS = 1.5;
 // Velocity and contact history belong to the server, not its public snapshots.
 const flightStates = new WeakMap();
 
+export function flightState(heli) { return flightStates.get(heli); }
+export function restoreFlightState(heli) {
+  flightStates.set(heli,{...heli.motion});
+}
+
 export function parkedHelicopter() {
   const heli = {
     ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,

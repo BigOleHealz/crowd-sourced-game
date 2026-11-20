@@ -1167,6 +1167,7 @@ export function createScene(canvas) {
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
+  let lastFocus=null;
   const avatars=new Map(), target=new THREE.Vector3(), boom=new THREE.Vector3();
   const desired=new THREE.Vector3(), sideways=new THREE.Vector3();
   let clock=0,lastWidth=0,lastHeight=0,ready=false;
@@ -1361,6 +1362,11 @@ export function createScene(canvas) {
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
     const separation = watchCrash ? Math.hypot(heli.x-local.x,heli.y-local.y,heli.z-local.z) : 0;
     if (watchCrash) desired.lerp(helicopter.group.position, Math.min(.40,5/Math.max(1,separation)));
+    if(lastFocus && lastFocus.id===local.id && !watchCrash && !local.dead && !local.fall &&
+        Math.hypot(local.x-lastFocus.x,local.z-lastFocus.z)<3) {
+      target.x+=local.x-lastFocus.x;target.z+=local.z-lastFocus.z;
+    }
+    lastFocus={id:local.id,x:local.x,z:local.z};
     if(!ready || cabinDepth>=0 || desired.distanceToSquared(target)>36) {target.copy(desired);ready=true;}
     else target.lerp(desired,1-Math.exp(-dt*24));
     // A slight shoulder view separates the canopy from the aircraft ahead.
