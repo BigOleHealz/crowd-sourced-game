@@ -1394,7 +1394,8 @@ export function createScene(canvas) {
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     sightModels[2].visible=sighted && local.weapon===3;
-    const fov = sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;
+    const bowSight=localStation==='superyacht' && !local.dead && !local.fall;
+    const fov = bowSight ? 26 : sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -1403,6 +1404,13 @@ export function createScene(canvas) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       avatars.get(local.id).root.visible = false;
+    }
+    if(bowSight){
+      const pivot=mountPosition(world.yacht,mounts.superyacht.turret);
+      camera.rotation.set(pitch,-yaw,0,'YXZ');
+      camera.position.set(pivot.x,pivot.y,pivot.z);
+      camera.translateZ(-1.12);
+      avatars.get(local.id).root.visible=false;
     }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
     renderer.render(scene,camera);

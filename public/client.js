@@ -242,6 +242,7 @@ function connect() {
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = previous = m.state; facing = m.state.yaw;
       damageEdges.reset();
+      canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
@@ -266,6 +267,7 @@ function connect() {
         roverView = null;
       }
       const gunner=gunnerRole();
+      canvas.classList.toggle('bow-sight',gunner==='superyacht' && !vitals.dead);
       if(gunner && gunner!==wasGunner) {camera.yaw=vehicleById(world,gunner).turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
