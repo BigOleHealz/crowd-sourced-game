@@ -1,5 +1,5 @@
 import {paneBatch} from './pane-damage-view.js';
-import {cabinTop} from './solana-interior.js';
+import {cabinTop,lowerStair} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
 import {alpineGlass} from './landscape.js';
@@ -50,13 +50,25 @@ function hullShell(stations){
   return new THREE.Mesh(g,new THREE.MeshPhongMaterial({vertexColors:true,specular:0x41515c,shininess:62,side:THREE.DoubleSide}));
 }
 
-function deckSurface(stations,height,material){
+function deckSurface(stations,height,material,hole){
   const points=[],uv=[],indices=[];
-  for(const [z,w] of stations){
-    const y=typeof height==='function'?height(z):height;
-    for(const x of [-w,w]){points.push(x,y,z);uv.push(x/2.8,z/5.8);}
+  function strip(rows){
+    const offset=points.length/3;
+    for(const [z,left,right] of rows){
+      const y=typeof height==='function'?height(z):height;
+      for(const x of [left,right]){points.push(x,y,z);uv.push(x/2.8,z/5.8);}
+    }
+    for(let i=1;i<rows.length;i++){const a=offset+i*2-2;indices.push(a,a+2,a+1,a+1,a+2,a+3);}
   }
-  for(let i=1;i<stations.length;i++){const a=i*2-2;indices.push(a,a+2,a+1,a+1,a+2,a+3);}
+  if(hole){
+    const zs=[...new Set([...stations.map(s=>s[0]),hole.fore,hole.aft])].sort((a,b)=>a-b);
+    const rows=zs.map(z=>[z,-yachtHalfBeam(z),yachtHalfBeam(z)]);
+    strip(rows.filter(([z])=>z<=hole.fore));
+    const hatchRows=rows.filter(([z])=>z>=hole.fore && z<=hole.aft);
+    strip(hatchRows.map(([z,left])=>[z,left,hole.left]));
+    strip(hatchRows.map(([z,,right])=>[z,hole.right,right]));
+    strip(rows.filter(([z])=>z>=hole.aft));
+  }else strip(stations.map(([z,w])=>[z,-w,w]));
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(indices);g.computeVertexNormals();
   const mesh=new THREE.Mesh(g,material);mesh.receiveShadow=true;return mesh;
@@ -79,7 +91,7 @@ export function superyachtView(scene,Batch,renderer,panorama){
   const ellipse=(c,x,y,z,w,h,d)=>fittings.add(ball,c,x,y,z,w,h,d);
   root.add(hullShell(yachtSections));
   const main=yachtSections.filter(([z])=>z<=yachtStairs.fore);
-  root.add(deckSurface(main,yachtDeckY,wood));
+  root.add(deckSurface(main,yachtDeckY+.004,wood,lowerStair));
   const stern=yachtSections.at(-1);
   solid(navy,0,.10,stern[0]-.06,stern[1]*2,.34,.18);
   const st=yachtStairs,pl=yachtPlatform,l=yachtLadder;
