@@ -1,6 +1,6 @@
 import {casaFloor,casaCeiling} from './casa-luma.js';
 import {mareFloor,mareCeiling} from './palazzo-mare.js';
-import {yachtTopAt,yachtWalkBlocked} from './yacht-layout.js';
+import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
 import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
@@ -327,7 +327,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 || !insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
-  const yachtSurface=yachtTopAt(world?.yacht,x,z);
+  const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;

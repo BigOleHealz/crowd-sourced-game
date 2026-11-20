@@ -1,6 +1,6 @@
 import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
-import {yachtTopAt} from './yacht-layout.js';
+import {yachtSolidAt} from './yacht-layout.js';
 import {shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
@@ -142,7 +142,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
     }
     if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
-    if(world.yacht && to.y>=world.yacht.y-1.25 && to.y<=yachtTopAt(world.yacht,to.x,to.z)){target=world.yacht;hitKind=target.id;break;}
+    if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
     const halo = assist ? Math.min(0.7, d * 0.05) : 0;
     target = BREAKABLES.find(crystal => world.hp[crystal.id] > 0 &&
       insideBody(to, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.radius, crystal.height, halo));
