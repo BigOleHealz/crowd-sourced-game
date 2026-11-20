@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import {church,churchParts} from './ridge-church.js';
+import {church,churchParts,rose} from './ridge-church.js';
 
-export function buildRidgeChurch(batch){
+export function buildRidgeChurch(batch,panes){
   const box=new THREE.BoxGeometry(), stone=0xb7ac94, trim=0xd8cbb2, oak=0x664735, slate=0x424c51;
   const colors={stone,floor:0xaa9982,landing:oak,step:0x916c4c,rail:stone,cap:slate};
   const add=(color,x,y,z,w,h,d,roll=0)=>batch.add(box,color,x,church.base+y,church.z+z,w,h,d,0,0,roll);
@@ -18,8 +18,10 @@ export function buildRidgeChurch(batch){
       add(0xcdbda0,p.x,1.08,z,.69,.06,.83);
     }else if(p.kind==='glass'){
       const tones=[0x527982,0xa77346,0x595d83,0x875554];
-      for(let i=0;i<4;i++)for(let j=0;j<5;j++)
-        add(tones[(i+j*3)%4],p.x,1.44+(j+.5)*h/5,z+(i-1.5)*p.d/4,.11,h/5-.023,p.d/4-.022);
+      panes.add(p.paneId,()=>{
+        for(let i=0;i<4;i++)for(let j=0;j<5;j++)
+          add(tones[(i+j*3)%4],p.x,1.44+(j+.5)*h/5,z+(i-1.5)*p.d/4,.11,h/5-.023,p.d/4-.022);
+      });
       for(const edge of [-1,1])add(trim,p.x,2.65,z+edge*.90,.43,2.55,.11);
       add(trim,p.x,1.42,z,.48,.14,1.94);
       add(trim,p.x,3.88,z,.45,.15,1.94);
@@ -39,7 +41,8 @@ export function buildRidgeChurch(batch){
       add(trim,side*5.17,.40,z,.70,.78,.68);
     }
   }
-  for(const z of [-6,7]){
+  {
+    const z=-6;
     const verts=new Float32Array([-5,5.3,z,5,5.3,z,0,7.70,z]);
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.BufferAttribute(verts,3));g.setIndex([0,1,2,2,1,0]);g.computeVertexNormals();
@@ -55,12 +58,21 @@ export function buildRidgeChurch(batch){
     const a=(i+.5)*Math.PI/11;
     add(trim,1.54*Math.cos(a),2.65+1.00*Math.sin(a),7.19,.42,.30,.31,a-Math.PI/2);
   }
+  const front=new THREE.Shape();
+  front.moveTo(-5,5.30);front.lineTo(5,5.30);front.lineTo(0,7.70);front.closePath();
+  const hole=new THREE.Path();hole.absarc(0,6.13,.75,0,2*Math.PI,true);front.holes.push(hole);
+  const gable=new THREE.ExtrudeGeometry(front,{depth:.16,bevelEnabled:false,curveSegments:24});
+  batch.add(gable,stone,0,church.base,church.z+6.92);gable.dispose();
+  const ring=new THREE.TorusGeometry(.79,.083,7,32);
+  batch.add(ring,trim,0,church.base+6.13,church.z+7.08);ring.dispose();
   const disk=new THREE.CylinderGeometry(1,1,1,24);
-  for(const [r,c,dz] of [[1.04,trim,.22],[.83,0x485f72,.28],[.26,0xc29b61,.34]])
-    batch.add(disk,c,0,church.base+5.18,church.z+7+dz,r,.11,r,Math.PI/2);
+  panes.add(rose.paneId,()=>{
+    batch.add(disk,0x485f72,0,church.base+6.13,church.z+7,.75,.10,.75,Math.PI/2);
+    batch.add(disk,0xc29b61,0,church.base+6.13,church.z+7.053,.23,.012,.23,Math.PI/2);
+  });
   for(let i=0;i<8;i++){
     const a=i*Math.PI/4;
-    beam([0,5.18,7.35],[.8*Math.cos(a),5.18+.8*Math.sin(a),7.35],trim,.055,.07);
+    beam([0,6.13,7.075],[.75*Math.cos(a),6.13+.75*Math.sin(a),7.075],trim,.045,.056);
   }
   for(const z of [-4.25,-.95,2.35,5.65])add(oak,0,5.0,z,9.85,.19,.19);
   const bell=new THREE.LatheGeometry([new THREE.Vector2(.56,0),new THREE.Vector2(.61,.08),new THREE.Vector2(.45,.23),new THREE.Vector2(.32,.63),new THREE.Vector2(.16,.72)],24);

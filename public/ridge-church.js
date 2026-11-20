@@ -1,3 +1,4 @@
+import {identifyPane} from './pane-damage.js';
 // Heights above the churchyard terrace. The nave faces south towards the trail.
 export const church={x:0,z:-60,base:10.4};
 export const churchPath=[[5,-47],[0,-50],[0,-53]];
@@ -5,6 +6,7 @@ export const churchParts=[],churchSteps=[];
 const floors=[];
 function part(kind,x,z,w,d,bottom,h,walkable=false){
   const p={kind,x,z:z+church.z,w,d,bottom,h,flushEdge:walkable};
+  if(kind==='glass' || kind==='rose')identifyPane(p,church.base);
   churchParts.push(p);
   if(walkable)floors.push(p);
   return p;
@@ -39,6 +41,14 @@ for(const side of [-1,1]){
   part('rail',side*2.74,-9.72,.19,7.50,7.23,8.06);
 }
 part('stone',0,7,3.1,.38,3.48,5.3);
+export const rose=part('rose',0,7,1.50,.12,5.38,6.88);
+// Horizontal stone courses above the front lintel leave a circular opening.
+for(let i=0;i<20;i++){
+  const low=5.30+i*.12, hi=low+.12, mid=(low+hi)/2;
+  const edge=(7.70-mid)/.48,inside=Math.sqrt(Math.max(0,.75**2-(mid-6.13)**2));
+  if(edge<=inside)continue;
+  for(const side of [-1,1])part('gable',side*(edge+inside)/2,7,edge-inside,.16,low,hi);
+}
 part('stone',0,-13.45,5.8,.36,.08,7.64);
 part('stone',0,-6,5.6,.32,4.45,7.23);
 part('rail',0,-13.40,5.55,.18,7.23,8.06);

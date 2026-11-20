@@ -1117,7 +1117,7 @@ export function createScene(canvas) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const features=new Batch();
-  let glints, stacks, updateDoors;
+  let glints, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
@@ -1128,7 +1128,8 @@ export function createScene(canvas) {
     forest.mesh(scene,material).userData.impactSurface='wood';
     granite(scene,MAP.rocks,terrainHeight,renderer);
     addBridge(scene,renderer,rng);
-    buildRidgeChurch(features);
+    churchPanes=paneBatch(features);
+    buildRidgeChurch(features,churchPanes);
     const posts=breakablePostView(scene,Batch);
     addDetails(scene,features,rng,posts);
     updateDoors=posts.finish();
@@ -1136,7 +1137,8 @@ export function createScene(canvas) {
     stacks=buildOutpost(scene,renderer,Batch);
     meadow(scene,renderer,rng,trailDistance);
   }
-  landingMarks(features);features.mesh(scene,material);
+  landingMarks(features);const featureMesh=features.mesh(scene,material);
+  if(churchPanes)updateChurch=churchPanes.bind(featureMesh);
   const updateSupplyView=createSupplyView(scene);
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
@@ -1249,6 +1251,7 @@ export function createScene(canvas) {
     displayedPlayers = remotes;
     updateSupplyView(world);
     updateDoors?.(world.doors,dt,local,remotes);
+    updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt);
     updateYacht?.(world.yacht,dt);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}

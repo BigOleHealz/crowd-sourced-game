@@ -1,3 +1,4 @@
+import {terracePanes,skylights,clubPanes} from './estate-exterior-glass.js';
 import {paneKey} from './pane-damage.js';
 import {paneBatch} from './pane-damage-view.js';
 import {addCasaLuma} from './casa-luma-view.js';
@@ -47,13 +48,11 @@ export function addLanternBuildings(scene,Batch,sky){
     slab(x,bottom+.14,z,w+.22,d+.22,.26);
     slab(x,ceiling-.13,z,w+.30,d+.30,.24);
     box(0xa59479,x,bottom+h/2,z,w*.76,h-.5,d*.53);
-    for(const side of [-1,1])for(const alongX of [true,false]){
-      const span=alongX?w:d,offset=(alongX?d:w)*side/2,parts=Math.ceil(span/2.50);
-      for(let i=0;i<parts;i++){
-        const u=(i+.5)*span/parts-span*.5,t=span/parts;
-        const cx=x+(alongX?u:offset),cz=z+(alongX?offset:u);
+    for(const p of clubPanes){
+        const {alongX,side,bay:t,index:i,x:cx,z:cz}=p;
+        const offset=(alongX?d:w)*side/2, u=alongX?cx-x:cz-z;
         const yaw=alongX?(side>0?0:Math.PI):side*Math.PI/2;
-        glass.add(plane,0x738e8b,cx,floor+bottom+h/2,cz,t-.06,h-.36,1,0,yaw);
+        panes.add(p.paneId,()=>glass.add(plane,0x738e8b,cx,floor+bottom+h/2,cz,t-.06,h-.36,1,0,yaw));
         const frameX=alongX?cx+t/2:cx,frameZ=alongX?cz:cz+t/2;
         box(frame,frameX,bottom+h/2,frameZ,alongX?.068:.13,h-.32,alongX?.13:.068);
         if((i+Number(side>0))%3===0){
@@ -63,7 +62,6 @@ export function addLanternBuildings(scene,Batch,sky){
               alongX?.14:.1,h-.52,alongX?.1:.14);
           }
         }
-      }
     }
   }
   function shade(x,z,w,d,y){
@@ -98,11 +96,9 @@ export function addLanternBuildings(scene,Batch,sky){
     canopy.dispose();
   }
   function railing(x,y,z,span,alongX){
-    const count=Math.ceil(span/1.48);
-    for(let k=0;k<count;k++){
-      const t=-span/2+(k+.5)*span/count;
-      glass.add(plane,0x91afb0,x+(alongX?t:0),floor+y+.50,z+(alongX?0:t),span/count-.027,.90,1,0,alongX?0:Math.PI/2);
-      box(bronze,x+(alongX?t:0),y+.13,z+(alongX?0:t),.06,.26,.06);
+    for(const p of terracePanes(x,y,z,span,alongX)){
+      panes.add(p.paneId,()=>glass.add(plane,0x91afb0,p.x,floor+y+.50,p.z,Math.max(p.w,p.d),.90,1,0,alongX?0:Math.PI/2));
+      box(bronze,p.x,y+.13,p.z,.06,.26,.06);
     }
     box(bronze,x,y+.98,z,alongX?span:.05,.052,alongX?.05:span);
   }
@@ -116,9 +112,9 @@ export function addLanternBuildings(scene,Batch,sky){
   addCasaLuma({box,masonry,cyl,beam,leaf,railing,seat,trough,
     pane:(x,y,z,w,h,yaw)=>panes.add(paneKey(x,floor+y,z),()=>glass.add(plane,0x738e8b,x,floor+y,z,w,h,1,0,yaw)),
   });
-  for(const x of [-37,-31.2]){
-    box(dark,x,7.53,-406,2.4,.27,3.65);
-    glass.add(plane,0x6b8e90,x,floor+7.68,-406,2.22,3.48,1,-Math.PI/2);
+  for(const p of skylights){
+    box(dark,p.x,7.53,p.z,2.4,.27,3.65);
+    panes.add(p.paneId,()=>glass.add(plane,0x6b8e90,p.x,floor+7.68,p.z,p.w,p.d,1,-Math.PI/2));
   }
   deck(-25,-390.9,29,19.7);
   shade(-25,-382.8,24.4,2.65,3.79);

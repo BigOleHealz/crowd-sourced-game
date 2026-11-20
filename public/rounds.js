@@ -1,3 +1,4 @@
+import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
 import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -48,6 +49,7 @@ export function firstPaneHit(world,from,delta){
     if(world.doors?.brokenPanes?.[p.paneId] || Math.abs(p.z-from.z)>Math.abs(delta.z)+p.d/2 || Math.abs(p.x-from.x)>Math.abs(delta.x)+p.w/2)continue;
     consider(box(from,delta,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h});
   }
+  visitTowerGlass(towerGlass,from,delta,world.doors?.brokenPanes,box,consider);
   return {t,target};
 }
 export function aimGlassPoint(world,from,direction,range){
@@ -98,6 +100,7 @@ export function roverRoundContact(rover,start,delta){
 export function supercarRoundContact(car,from,delta){
   return roverRoundContact(car,from,delta)?.t??Infinity;
 }
+const towerGlass=CITY?towerGlassIndex(MAP.buildings):[];
 const cabinPanes=cabinPieces.filter(p=>p.paneId);
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
@@ -143,6 +146,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
+  visitTowerGlass(towerGlass,round,d,world.doors?.brokenPanes,box,(hit,p)=>accept(hit,p,'glass'));
   for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
