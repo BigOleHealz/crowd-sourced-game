@@ -3,6 +3,7 @@
 !package.json
 !package-lock.json
 !server.js
+!island-match.js
 !public/
 !public/*.html
 !public/*.css
