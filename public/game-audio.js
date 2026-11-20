@@ -162,9 +162,10 @@ export function createGameAudio(button,slider,level) {
     track.gain.gain.setTargetAtTime(volume*place.gain,now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
-  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false) {
+  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null) {
     motor('chainGun',heli,chainFiring,1,.94,listener,yaw);
     motor('engine',rover,rover.driver!=null && !rover.wrecked,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
+    if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'vesper-engine');
     motor('rotor',heli,(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked,heli.grounded ? .83 : 1.12,.38,listener,yaw);
     const present=new Set();
     for(const boat of boats) {
