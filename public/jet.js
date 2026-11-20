@@ -34,11 +34,11 @@ export function stepJet(world,input,dt,players){
     return;
   }
   if(j.pilot==null && j.grounded)return;
-  const steer=input?.steer??0,lift=input?.lift??0,throttle=input?.throttle??0;
+  const steer=input?.steer??0,lift=input?.jetPitch??input?.lift??0,throttle=input?.throttle??0;
   const max=CITY?33:22;
   const target=j.grounded ? Math.max(0,throttle)*9 : clamp(j.speed+throttle*12*dt,8,max);
   j.speed+=clamp(target-j.speed,-12*dt,12*dt);
-  if(j.grounded && lift>0){j.grounded=false;j.speed=Math.max(8,j.speed);}
+  if(j.grounded && lift>.12){j.grounded=false;j.speed=Math.max(8,j.speed);}
   const response=1-Math.exp(-5*dt);
   j.roll+=((j.grounded?0:-.60*steer)-j.roll)*response;
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;

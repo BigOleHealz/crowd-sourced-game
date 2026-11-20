@@ -227,6 +227,7 @@ function acceptInput(player, data, binary) {
     missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
+    jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
     lift: input.lift === 1 || input.lift === -1 ? input.lift : 0,
   });
 }
