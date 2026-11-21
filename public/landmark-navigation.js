@@ -4,7 +4,7 @@ import {roadGarages} from './road-garages.js';
 import {churchPath} from './ridge-church.js';
 
 export const destinations=CITY?new Map([
-  ['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  ['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Biscayne Mutual Bank',[-20,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
 for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);
@@ -25,7 +25,7 @@ function path(coords){
   }
 }
 if(CITY){
-  for(const z of streets)path([-71,...avenues,...(z===-45?[-16]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
+  for(const z of streets)path([-71,...avenues,...(z===-45?[-20,-16]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
   for(const x of avenues)path([x===0?-60:-55,...streets,...(x===0?[14]:[]),...(x===32?[roadGarages[0].z]:[]),71].sort((a,b)=>a-b).map(z=>[x,z]));
   const outer=[streetPlan.westStreet,0,streetPlan.eastStreet];
   for(const z of [harbor.crossing,streetPlan.northStreet])path((z===harbor.crossing?[...outer,19.1].sort((a,b)=>a-b):outer).map(x=>[x,z]));
