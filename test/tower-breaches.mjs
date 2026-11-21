@@ -21,7 +21,15 @@ for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
   assert.equal(w.doors.towerBreaches.length,2,'next bay takes the second hit');
   const neighbor=tracePulse(w,[],{...from,y:10},dir,b.w,false,'rover');
   assert(neighbor.blocked || neighbor.hitKind==='glass','next band intact');
-  from.y=2;shoot(3);
+  from.y=2;
+  if(b.towerId===8){
+    // Club Lucero now occupies the old test origin west of this block.
+    // Its east wall stops the first ground-level shot. Move into the
+    // pedestrian passage to exercise the tower facade itself.
+    shoot(3);assert.equal(w.doors.towerBreaches.length,2,'neighbor shields the podium');
+    from.x=b.x-b.w/2-1.10;
+  }
+  shoot(4);
   assert.equal(w.doors.towerBreaches.length,3,'street-level truck missile opens the podium');
 }
 for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
