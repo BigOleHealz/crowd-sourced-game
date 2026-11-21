@@ -7,13 +7,14 @@ const wrap=x=>Math.atan2(Math.sin(x),Math.cos(x));
 const tau=2*Math.PI;
 
 export function newGait(state,yaw) {
-  return {x:state.x,z:state.z,yaw,turnRate:0,vx:0,vz:0,speed:0,weight:0,run:0,phase:0,
+  return {x:state.x,z:state.z,yaw,turnRate:0,vx:0,vz:0,loadX:0,loadZ:0,brace:0,speed:0,weight:0,run:0,phase:0,
     duty:.58,span:0,gazeYaw:yaw,shoulderYaw:yaw,neckYaw:0,twist:0,bank:0,pelvisY:-.045,pelvisX:0,footLift:0,pivot:0};
 }
 
 export function advanceGait(g,state,dt) {
   const dx=state.x-g.x,dz=state.z-g.z;
   const blend=follow(17,dt),distance=Math.hypot(dx,dz);
+  const oldVx=g.vx,oldVz=g.vz;
   g.vx+=(dx/dt-g.vx)*blend;
   g.vz+=(dz/dt-g.vz)*blend;
   g.x=state.x;g.z=state.z;
@@ -33,7 +34,16 @@ export function advanceGait(g,state,dt) {
   g.twist=clamp(wrap(g.shoulderYaw-g.yaw),-.57,.57);
   g.neckYaw=clamp(wrap(g.gazeYaw-g.yaw-g.twist),-.72,.72);
   const turning=turn/dt;
-  g.bank+=(clamp(-turning*g.speed*.0055,-.19,.19)-g.bank)*follow(10,dt);
+  // A cut loads the body toward its change in velocity. Keeping this in
+  // world space lets the runner look around while travelling straight.
+  const load=.014*(.16+.84*g.run),damping=follow(8,dt);
+  const targetX=(g.vx-oldVx)*load/dt,targetZ=(g.vz-oldVz)*load/dt;
+  const limit=Math.max(1,Math.hypot(targetX,targetZ)/.42);
+  g.loadX+=(targetX/limit-g.loadX)*damping;
+  g.loadZ+=(targetZ/limit-g.loadZ)*damping;
+  const c=Math.cos(g.yaw),s=Math.sin(g.yaw);
+  g.bank=clamp(-c*g.loadX+s*g.loadZ,-.25,.25);
+  g.brace=clamp(-s*g.loadX-c*g.loadZ,-.15,.15);
   g.pivot+=(clamp(Math.abs(turning)/3,0,1)*(1-g.weight)-g.pivot)*follow(18,dt);
 
   // A full cycle is two steps. Faster runners lengthen the stride and spend
@@ -54,8 +64,8 @@ export function advanceGait(g,state,dt) {
   const bounce=-Math.cos(tau*(2*g.phase-g.duty));
   // A loaded rear hip supports the idle stance; weight transfers across the
   // planted leg, with a smaller vertical excursion as cadence increases.
-  g.pelvisY=-.065-g.weight*(.031+.071*g.run)+bounce*g.weight*(.017+.018*g.run);
-  g.pelvisX=.016*(1-g.weight)+.029*Math.cos(tau*(g.phase-g.duty/2))*g.weight;
+  g.pelvisY=-.065-g.weight*(.031+.071*g.run)+bounce*g.weight*(.017+.018*g.run)-.15*Math.hypot(g.bank,g.brace);
+  g.pelvisX=.016*(1-g.weight)+.029*Math.cos(tau*(g.phase-g.duty/2))*g.weight-.13*g.bank;
   g.footLift=g.weight*(.065+.245*g.run)+g.pivot*.11+(settling?.045:0);
 }
 
