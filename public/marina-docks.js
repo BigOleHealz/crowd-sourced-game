@@ -13,6 +13,8 @@ export function dockHeight(x,z){
   if(contains(marinaSpine,x,z) || marinaFingers.some(r=>contains(r,x,z)))return berthDeckY;
 }
 export const marinaFittings=[
+  ...[[60.3,-424.8],[65.65,-432.7],[65.7,-416.4]].map(([x,z])=>({x,z,w:.65,d:.65,h:.7})),
+  ...[[60.4,-425.8],[66.3,-425.8],[66.3,-432],[60.4,-432]].map(([x,z])=>({x,z,w:.08,d:.08,h:2.95})),
   {x:62.8,z:-422.2,w:.34,d:3.9,h:2.13},
   ...[-427.6,-430.5].map(z=>({x:64.1,z,w:2.25,d:.92,h:.82})),
   ...[-448,-440,-428,-414].map(z=>({x:70.24,z,w:.24,d:.24,h:.82})),
