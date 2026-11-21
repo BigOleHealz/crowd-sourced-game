@@ -71,7 +71,7 @@ export function addLanternPoint(scene,solids,ground,patch,posts) {
     c.fillStyle='#213c39';c.fillRect(6,6,756,196);
     c.textAlign='center';c.fillStyle='#f2ead5';c.font='63px Georgia,serif';c.fillText(label,384,105,696);
     c.fillStyle='#e1c597';c.font='27px sans-serif';c.fillText(sub,384,162);
-    const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
+    const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
     const face=new THREE.Mesh(labels,new THREE.MeshBasicMaterial({map}));
     face.position.set(x,3.56,z+.08);scene.add(face);
     solids.add(box,0x446768,x,3.56,z,4.53,1.25,.14);

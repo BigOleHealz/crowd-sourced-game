@@ -1,3 +1,4 @@
+import {skyDarkness} from './road-lighting.js';
 import {coastProfile,mangroveKeys} from './offshore-keys.js';
 import * as THREE from 'three';
 
@@ -27,7 +28,7 @@ function material(facades){
   const foliage=new THREE.TextureLoader().load('./coastal-canopies.webp');
   foliage.colorSpace=THREE.SRGBColorSpace;
   const mat=new THREE.ShaderMaterial({
-    uniforms:{mist:{value:fogColor},sun:{value:skyLight},facades:{value:facades},foliage:{value:foliage}},
+    uniforms:{skyDarkness,mist:{value:fogColor},sun:{value:skyLight},facades:{value:facades},foliage:{value:foliage}},
     vertexShader:`
       attribute vec3 color;
       attribute float style;
@@ -36,7 +37,7 @@ function material(facades){
       gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}
     `,
     fragmentShader:`
-      uniform sampler2D facades,foliage;uniform vec3 mist,sun;
+      uniform float skyDarkness; uniform sampler2D facades,foliage;uniform vec3 mist,sun;
       varying vec2 tile;varying float kind;varying vec3 tint,pos,norm;
       void main(){
         vec3 n=normalize(norm),v=normalize(cameraPosition-pos);
@@ -67,6 +68,8 @@ function material(facades){
         }
         float haze=1.-exp(-.0000067*distanceToEye*distanceToEye);
         lit=mix(lit,mist,min(.94,haze));
+        lit*=mix(vec3(1.),vec3(.10,.15,.24),skyDarkness);
+        if(kind>.5 && kind<2.5)lit+=skyDarkness*vec3(.22,.15,.06)*step(.80,fract(sin(dot(floor(tile*3.),vec2(2.7,5.1)))*312.1))*step(.5,fract(tile.y*3.));
         gl_FragColor=vec4(lit,1.);
         #include <colorspace_fragment>
       }`,

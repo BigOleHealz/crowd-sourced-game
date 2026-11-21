@@ -131,3 +131,9 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #marina-card summary {cursor:pointer; color:#a9f4df;}
 #marina-card ol {padding-left:22px;max-height:20vh;overflow:auto;}
 @media(max-width:700px){#marina-card{top:70px;right:10px;width:160px;}}
+
+#lighting-choice{pointer-events:auto;background:var(--panel);color:#fff9e5;border:1px solid var(--line);border-radius:2px;padding:5px;font:inherit;font-size:12px;}
+.session-controls {grid-template-columns:auto auto;align-items:center;}
+.session-controls .presence {grid-column:1 / -1;}
+@media(min-width:701px){#marina-card{top:105px;}}
+@media(max-width:700px){#marina-card{top:96px;}}
