@@ -45,7 +45,7 @@ export function marketPanel(panel,badge,{send,enter,leave}){
       takeAll.disabled=!!pending || !Object.values(stock.stock).some(n=>n);
     }else panel.querySelector('[data-keeper]').textContent='';
     const items=Object.entries(wallet.items);
-    inventory.replaceChildren(...items.map(([item,n])=>row(item,n,'Use','use',false)));
+    inventory.replaceChildren(...items.map(([item,n])=>row(item,n,item==='sidearm'?'Equip':'Use','use',false)));
     if(!items.length)inventory.textContent='Your bag is empty.';
   }
   function close(){if(panel.open)panel.close();}
@@ -57,6 +57,7 @@ export function marketPanel(panel,badge,{send,enter,leave}){
   panel.querySelector('[data-done]').onclick=close;takeAll.onclick=()=>transact('takeAll');
   panel.addEventListener('close',()=>{shop=null;leave();});
   return {
+    collectSidearm(id){send({type:'market',action:'collectSidearm',drop:id,seq:++seq});},
     open,close,get current(){return panel.open;},get chart(){return !!wallet?.chart;},
     update(world,near,available){
       market=world?.market??null;badge.hidden=!market || !wallet;badge.disabled=!available;

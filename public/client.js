@@ -1,3 +1,4 @@
+import {nearbySidearm} from './market-goods.js';
 import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
@@ -325,6 +326,8 @@ function pressAction(code){
   if(code==='KeyG' && mode)handleCase=true;
   if(code==='KeyI')openBag();
   if(code==='KeyE'){
+    const pickup=canChangeStance(self) && !vitals.use && nearbySidearm(self,world?.market);
+    if(pickup){market.collectSidearm(pickup.id);return;}
     const shop=counter();
     if(shop){market.open(shop);return;}
     const bank=teller();
@@ -475,6 +478,8 @@ function connect() {
   function receive(m) {
     if(m.type==='wallet'){
       market.receive(m);
+      if(m.equipped===2){weapon=2;if(camera.sighted)showSight(true);}
+      if(m.message?.startsWith('Picked up patrol sidearm'))showBankReceipt(m.message);
       if(m.message?.startsWith('Bank payout')){
         showBankReceipt(m.message+(vitals.wanted?.stars?' Patrol in pursuit.':''));
       }
@@ -800,6 +805,7 @@ function updateEquipment(local) {
   if(event.textContent!==bulletin)event.textContent=bulletin;
   event.hidden=!bulletin;
   byId('bank-receipt').hidden=bankReceiptUntil<=performance.now();
+  const pickupLabel=!vitals.use && canChangeStance(self) && nearbySidearm(self,world.market)?'Pick up patrol sidearm':null;
   const shop=counter(),shopLabel=shop && (world.market.shops[shop.id].down?'Loot counter':'Shop with '+(world.npcs.find(n=>n.id===shop.owner)?.name??shop.name));
   market.update(world,shop,canChangeStance(self));
   const person=!talk.current && speaker();
@@ -814,6 +820,7 @@ function updateEquipment(local) {
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
   else if(bank)prompt.textContent=bank.action?'E  ·  '+bank.detail:bulletin?'':bank.detail;
+  else if(pickupLabel)prompt.textContent='E  ·  '+pickupLabel;
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
@@ -839,7 +846,7 @@ function updateEquipment(local) {
   if(touch.active){
     const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=pickupLabel || clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);

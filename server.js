@@ -81,8 +81,8 @@ function freshWorld(){
   const w=newExpedition();
   w.traffic=newCityTraffic();
   if(CITY && !mode){
-    const trading=harborTrade(w,(p,tick,message,seq)=>{
-      if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
+    const trading=harborTrade(w,(p,tick,message,seq,equipped)=>{
+      if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq,equipped}));
     });
     Object.defineProperty(w,'trading',{value:trading});
     w.market=trading.state;w.bank=bank.state;
