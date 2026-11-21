@@ -336,7 +336,7 @@ function connect() {
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = m.state; facing = m.state.yaw;
-      damageEdges.reset();
+      damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       predictedDriver=null;
