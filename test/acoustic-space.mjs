@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {acousticSpace,transmission}=await import('../public/acoustic-space.js');
+const world={doors:{}},street=acousticSpace({x:-16,y:.7,z:-47},world),door={x:-16,y:.824,z:-49.5};
+const closed=acousticSpace(door,world),inside=acousticSpace({x:-16,y:.824,z:-53},world);
+assert.equal(closed.id,inside.id);assert.equal(transmission(inside,closed),1);
+world.doors.hotel={city:1};
+const open=acousticSpace(door,world);
+assert(transmission(open,street)>transmission(closed,street)*4);
+assert.equal(transmission(open,street),transmission(street,open));
+assert(acousticSpace({x:0,y:0,z:-106},world).reflection>inside.reflection);
+assert.equal(acousticSpace({x:0,y:8,z:-106},world).reflection,0);
+console.log('PASS same room, door opening in either direction, shelter beneath the causeway and open deck.');
