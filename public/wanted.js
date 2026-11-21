@@ -3,7 +3,7 @@ import {advanceFall} from './falls.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
 
-const thresholds=[1,3,6,10,15],points={theft:1,defeat:2,wreck:2,officer:3};
+const thresholds=[1,3,6,10,15],points={theft:1,defeat:2,wreck:2,officer:3,bank:6};
 const stars=heat=>thresholds.reduce((n,start)=>n+(heat>=start),0);
 const inactive={enabled:false,stars:0,phase:'off',escapeSeconds:0};
 const fresh=player=>({player,heat:0,lastContact:0,nextDispatch:0});

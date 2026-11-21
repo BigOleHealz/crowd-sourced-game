@@ -1,3 +1,4 @@
+import {createBank} from './bank-claim.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
@@ -69,6 +70,7 @@ const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
 const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
+const bank=CITY && !mode ? createBank() : null;
 const marina=CITY && !mode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
@@ -83,7 +85,7 @@ function freshWorld(){
       if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
     });
     Object.defineProperty(w,'trading',{value:trading});
-    w.market=trading.state;
+    w.market=trading.state;w.bank=bank.state;
   }
   if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
   if(mode){
@@ -228,6 +230,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='clubSeat'){
     if(!CITY || mode)return;
@@ -364,6 +367,7 @@ sockets.on('connection', ws => {
   ws.on('close', () => {
     const player=players.get(id);
     match?.release(player);
+    bank?.leave(player);
     world.wanted?.set(player,false);
     if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
     players.delete(id);
@@ -694,6 +698,7 @@ function tick() {
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight,world.tank?.driver);
   if(players.size)world.trading?.step(players,npcs,ticks);
   world.wanted?.step(npcs,ticks);
+  bank?.step(world,players,ticks);
   localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
