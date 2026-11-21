@@ -1,3 +1,4 @@
+import {bankFrontage} from './biscayne-bank-view.js';
 import {maravelaHotelView} from './maravela-hotel-view.js';
 import {furnitureRanges} from './shop-furniture-view.js';
 import {frontageGlassMaterial} from './frontage-glass-material.js';
@@ -7,6 +8,7 @@ import {galleryPlans,galleryPanes,galleryDoorPanes,galleryFloor as floor,gallery
 // A single material and spatially culled architectural batch per building. Real
 // tilted lamps, display tables and overlapping lounge cushions provide parallax.
 export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
+  const updateBank=bankFrontage(scene,Batch);
   const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris,panorama);
   const loader=new THREE.TextureLoader();
   function surface(name){
@@ -193,7 +195,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   const dummy=new THREE.Object3D(), visible=new Array(panes.length);
   let prior,received=false;
   function update(doors){
-    moveHotelDoors(doors);
+    moveHotelDoors(doors);updateBank(doors);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;
