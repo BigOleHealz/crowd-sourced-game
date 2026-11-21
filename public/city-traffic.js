@@ -2,6 +2,7 @@ import {avenues,streets} from './brickell-map.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
 import {driveRover,interactRover,stopRover} from './rover.js';
+import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
 // A clockwise right-lane circuit around the shops east of Brickell Avenue.
@@ -157,6 +158,18 @@ function gapAhead(car,actors,vehicles){
   return gap;
 }
 
+// A cleared wreck returns to its own empty curbside bay. Its former driver
+// stays on foot, and an occupied bay delays recovery instead of displacing anyone.
+function recoverTrafficCar(world,car,actors,dt){
+  car.recoverySeconds=Math.max(0,car.recoverySeconds-dt);
+  if(car.recoverySeconds>.0001)return;
+  const x=avenues[2]+3.7,z=2+world.traffic.indexOf(car)*8,y=groundHeight(x,z);
+  if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
+  Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
+    bodyDamage:{front:0,rear:0,left:0,right:0}});
+  delete car.contactSound;delete car.suspension;
+}
+
 export function stepCityTraffic(world,players,npcs,dt){
   if(!world.traffic?.length)return;
   const vehicles=[...world.traffic,world.rover,world.supercar];
@@ -167,14 +180,15 @@ export function stepCityTraffic(world,players,npcs,dt){
   for(const car of world.traffic){
     const npc=npcs.find(n=>n.id===(car.npcDriver??car.takeover?.npcId));
     if(car.takeover){advanceTakeover(world,car,npc,dt);continue;}
-    if(!car.npcDriver)continue;
-    if(car.wrecked || !npc?.life.hp){
+    if(car.npcDriver && (car.wrecked || !npc?.life.hp)){
       if(npc){
         const exit=exitPoint(world,car);
         letDriverWalk(world,car,npc,exit?.endX??car.x,exit?.endZ??car.z);
       }
-      car.npcDriver=null;stopRover(car);continue;
+      car.npcDriver=null;stopRover(car);
     }
+    if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
+    if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
     const gap=gapAhead(car,actors,vehicles);
     if(gap<.07)route.wait=.75;
