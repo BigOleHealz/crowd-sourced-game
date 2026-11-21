@@ -1,5 +1,5 @@
 import {civilianProfiles} from './civilian-fleet.js';
-import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
+import {launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {noteGlass} from './pane-damage.js';
@@ -193,6 +193,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
     advanceBridgeFlight(world,r,airborne);
     return;
   }
+  const startHeight=r.y;
   let remaining=dt,contacted=false;
   // Preserve tangential motion. The second sweep handles the second wall of
   // an inside corner and prevents a projected slide from crossing it.
@@ -252,6 +253,10 @@ export function driveRover(world, input, dt, players,kind='rover') {
     if(Math.hypot(vx,vz)<.12){vx=vz=0;break;}
     remaining*=1-fraction;
   }
+  // Ground-following wheels also strike the lower surface at a discrete ledge.
+  // Ignore smooth ramps and grade changes within normal suspension travel.
+  const drop=startHeight-r.y;
+  if(!r.wrecked && drop>.25)roadTouchdown(r,Math.sqrt(2*19*drop));
   if(contacted){
     r.speed=vx*sn-vz*cs;r.lateralSpeed=vx*cs+vz*sn;
   }else if(contact){

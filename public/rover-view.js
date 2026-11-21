@@ -1,3 +1,4 @@
+import {shapedBodywork,paintedFinish} from './rover-bodywork.js';
 import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
@@ -19,7 +20,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
   const pickup=CITY;
-  const green=pickup?0x748480:0x696e50, darkGreen=pickup?0x566661:0x4e5543;
+  const green=pickup?0x6a8490:0x6d7355, darkGreen=pickup?0x41555d:0x505943;
   const trim=pickup?0xb2b3a6:0x747861, steel=0x626660, rubber=0x2c302e;
   const box=(t,x,y,z,w,h,l) => {
     const widePanel=y<1.1 && (w>.75 || l>.75);
@@ -60,9 +61,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
   }
   shell(rubber,[[-1.45,.48,.40,.63],[-1.25,.61,.34,.65],[1.28,.61,.34,.65],[1.48,.49,.40,.63]],.075);
-  shell(green,[[-1.48,.62,.62,.88],[-1.34,.70,.61,.96],[-.67,.72,.57,1.02],[-.55,.70,.57,1.02]],.055);
+  shell(darkGreen,[[-1.49,.46,.55,.826],[-1.33,.52,.50,.909],[-.68,.54,.47,.935],[-.56,.54,.47,.939]],.049);
+  shapedBodywork(chassis,pickup,green,darkGreen,cube);
   shell(green,[[-.60,.69,.56,1.04],[-.36,.72,.50,1.02],[.30,.71,.5,1.01],[.42,.68,.56,1.02]],.045);
-  box(steel,0,.48,-1.49,1.54,.125,.14);
+  box(darkGreen,0,.49,-1.47,1.29,.106,.14);
   const trimMap=new THREE.TextureLoader().load('./vehicle-trim.webp');
   trimMap.colorSpace=THREE.SRGBColorSpace;
   const facingMaterial=new THREE.MeshPhongMaterial({map:trimMap,specular:0x555958,shininess:36,vertexColors:true});
@@ -78,12 +80,15 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const rimFace=trimFace(new THREE.CircleGeometry(1,32),pickup?1:0,0);
   const nose=pickup?-1.67:-1.51;
   brightwork.add(grilleFace,0xc6c6bf,0,.753,nose-.021,.925,.213,1,0,Math.PI);
-  if(pickup) shell(green,[[-1.66,.64,.65,.88],[-1.51,.73,.60,.97],[-.67,.72,.58,1.02]],.055);
+  if(pickup) shell(green,[[-1.655,.65,.658,.857],[-1.56,.70,.63,.881],[-1.41,.67,.608,.914]],.040);
   box(rubber,0,.753,nose,.94,.223,.04);
   if(pickup) {
     for(let row=0;row<3;row++) box(steel,0,.679+row*.071,nose-.030,.89,.012,.017);
-    box(steel,0,.568,nose+.004,1.55,.115,.12);
-    box(0x9a9e95,0,.99,-.98,.68,.034,.64);
+    box(darkGreen,0,.907,nose+.015,1.18,.028,.08);
+    for(const side of [-1,1]){
+      chassis.beam(trim,[side*.46,.859,nose-.03],[side*.58,.877,nose-.024],.023);
+      box(0xdce4e3,side*.551,.869,nose-.057,.205,.020,.022);
+    }
   } else {
     for(let slot=-3;slot<=3;slot++) box(green,slot*.090,.756,nose-.023,.036,.211,.035);
     for(const side of [-1,1]) {
@@ -113,24 +118,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     chassis.add(seatForm,0x615d4d,x(.323),.991,-.034,.257,.115,.229);
     chassis.add(seatForm,0x605c4f,x(.322),1.127,.091,.247,.256,.104,-.10);
     chassis.add(seatForm,0x555347,x(.322),1.365,.117,.129,.10,.064);
-    // Curved fender lips cover the tire shoulders rather than a squared-off cap.
-    for(const z of [-.94,.95]){
-      for(let i=0;i<12;i++){
-        const arc=(angle,radius,width)=>[x(width),.369+radius*Math.sin(angle),z+radius*Math.cos(angle)];
-        const a=(i/12)*Math.PI, b=((i+1)/12)*Math.PI;
-        const inner=arc(a,.409,.747), outer=arc(a,.468,.811);
-        const inner2=arc(b,.409,.747), outer2=arc(b,.468,.811);
-        const top=arc(a,.477,.677), top2=arc(b,.477,.677);
-        // Both sides share paint and each arch carries twelve small facets.
-        if(side>0){
-          panel(chassis,darkGreen,inner,inner2,outer2,outer);
-          panel(chassis,green,outer,outer2,top2,top);
-        }else{
-          panel(chassis,darkGreen,outer,outer2,inner2,inner);
-          panel(chassis,green,top,top2,outer2,outer);
-        }
-      }
-    }
     brightwork.add(lensFace,0xf9f9ef,x(.555),pickup?.830:.810,nose-.053,pickup?.184:.084,pickup?.104:.084,1,0,Math.PI);
     if(pickup) {
       box(rubber,x(.58),.824,nose,.276,.155,.055);
@@ -156,8 +143,20 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     }
     box(darkGreen,0,.705,1.52,1.38,.17,.37);
     box(green,0,.932,1.69,1.36,.42,.06);
+    for(const side of [-1,1]){
+      box(0x484e50,side*.633,.945,1.728,.112,.285,.025);
+      box(0xb74036,side*.633,.999,1.744,.082,.143,.019);
+      box(0xd9c8a7,side*.633,.891,1.744,.081,.048,.018);
+    }
+    box(steel,0,.586,1.695,1.48,.10,.125);
+    box(rubber,0,.644,1.705,1.31,.031,.148);
   } else {
+    chassis.beam(green,[-.599,1.565,-.405],[.599,1.565,-.405],.060);
     chassis.beam(rubber,[-.575,1.62,.32],[.575,1.62,.32],.071);
+    for(const x of [-.337,.338]){
+      chassis.add(cube,0x69705e,x,1.045,-.606,.172,.048,.096,.30);
+      chassis.beam(rubber,[x,1.075,-.633],[x+.164,1.176,-.593],.013);
+    }
     const spare=new THREE.TorusGeometry(.216,.070,10,22);
     chassis.add(spare,rubber,-.21,.986,1.55,1,1,1);
     chassis.add(disc,green,-.21,.986,1.60,.165,.085,.165,Math.PI/2);
@@ -201,10 +200,12 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     chassis.beam(steel,[side*.62,.566,-.52],[side*.83,.49,-.52],.046);
   }
   eye.dispose();
-  const paint=fieldPaint(), body=chassis.mesh(root,paint,false);
+  const paint=fieldPaint();
+  paintedFinish(paint,panorama,pickup);
+  const body=chassis.mesh(root,paint,false);
   Object.assign(body.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
   const trimMesh=brightwork.mesh(root,facingMaterial,false);
-  const glassMat=alpineGlass(panorama,{transparent:true,opacity:.50,depthWrite:false,side:THREE.DoubleSide});
+  const glassMat=alpineGlass(panorama,{transparent:true,opacity:pickup?.39:.31,depthWrite:false,side:THREE.DoubleSide});
   const windows=glazing.mesh(root,glassMat,false);
   const updatePanes=carPanes.bind(windows);
   Object.assign(windows.userData,{impactSurface:'solid',vehicle:'rover'});
@@ -223,19 +224,22 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const wheels=[];
   const tireSection=[[.18,-.11],[.245,-.139],[.309,-.136],[.356,-.095],[.36,.087],[.31,.136],[.246,.14],[.18,.111]]
     .map(([r,w])=>new THREE.Vector2(r,w));
-  const tire = new THREE.LatheGeometry(tireSection,20);
+  const tire = new THREE.LatheGeometry(tireSection,36);
   for(const [x,z] of wheelStations) {
     const side=Math.sign(x);
     const wheelBatch=new Batch();
     wheelBatch.add(tire,rubber,0,0,0,1,1,1,0,0,Math.PI/2);
-    for(let i=0;i<16;i++){
-      const a=i*Math.PI/8;
+    for(let i=0;i<30;i++){
+      const a=i*Math.PI/15;
       for(const row of [-1,1]){
         const t=a+row*.043;
         wheelBatch.add(cube,0x3d403c,row*.061,.356*Math.cos(t),.356*Math.sin(t),
-          .126,.023,.064,t,row*.18,0);
+          .117,.012,.047,t,row*.22,0);
       }
     }
+    const bead=new THREE.TorusGeometry(.203,.010,6,32);
+    wheelBatch.add(bead,0x4e5350,side*.14,0,0,1,1,1,0,Math.PI/2);
+    bead.dispose();
     wheelBatch.add(disc,0x48514b,side*.087,0,0,.193,.077,.193,0,0,Math.PI/2);
     wheelBatch.add(disc,0xb0ada0,side*.13,0,0,.152,.045,.152,0,0,Math.PI/2);
     wheelBatch.add(disc,steel,side*.157,0,0,.070,.037,.070,0,0,Math.PI/2);

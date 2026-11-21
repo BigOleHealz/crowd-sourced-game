@@ -5,11 +5,15 @@ import * as THREE from 'three';
 import {supercarLayout as spec} from './supercar-layout.js';
 import {alpineGlass} from './landscape.js';
 
-const orange=0xff7716, ember=0xf46611, carbon=0x24272a, steel=0x9ba5a4;
+const orange=0xf26413, ember=0xc44b10, carbon=0x24272a, steel=0x9ba5a4;
 const clamp=THREE.MathUtils.clamp;
 import {sectionAt,sections,canopy,glassQuads} from './vehicle-glass-layout.js';
+function fenderHeight(z,shoulder){
+  const dz=Math.min(...spec.wheels.map(axle=>Math.abs(z-axle)));
+  return dz>=spec.archRadius?shoulder:Math.max(shoulder,spec.tire+Math.sqrt(spec.archRadius**2-dz**2)+.055);
+}
 function bonnetHeight(x,z){
-  const [,w,hood,shoulder]=sectionAt(z),u=Math.abs(x)/w;
+  const [,w,hood,baseShoulder]=sectionAt(z),u=Math.abs(x)/w,shoulder=fenderHeight(z,baseShoulder);
   const profile=[[0,hood],[.52,hood+.012],[.78,shoulder-.012],[.91,shoulder],[.976,shoulder-.038]];
   for(let i=1;i<profile.length;i++){
     const [v,h]=profile[i],[v0,h0]=profile[i-1];
@@ -18,7 +22,7 @@ function bonnetHeight(x,z){
   return shoulder-.04;
 }
 function lacquer(panorama){
-  const material=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:115,specular:0xc9ae99});
+  const material=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:86,specular:0xb5aba2});
   if(panorama)material.onBeforeCompile=shader=>{
     shader.uniforms.bodySky={value:panorama};
     shader.fragmentShader='uniform sampler2D bodySky;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
@@ -28,8 +32,9 @@ function lacquer(panorama){
       vec3 sky=texture2D(bodySky,suv).rgb;
       float fresnel=pow(1.-clamp(dot(normal,eye),0.,1.),3.);
       float horizon=exp(-pow((ray.y-.065)*5.6,2.));
-      float clearcoat=.03+.13*fresnel+.17*horizon;
-      outgoingLight=outgoingLight*vec3(1.25,1.18,1.)+sky*vec3(.75,.56,.33)*clearcoat;
+      float clearcoat=.050+.24*fresnel+.13*horizon;
+      vec3 reflected=mix(vec3(.055,.063,.067),sky,smoothstep(-.36,.08,ray.y));
+      outgoingLight=mix(outgoingLight,reflected,clearcoat)+vec3(.12,.105,.09)*horizon*fresnel;
       #include <opaque_fragment>`);
   };
   return material;
@@ -43,15 +48,22 @@ function face(batch,tint,a,b,c,d){
 }
 function bodywork(batch){
   const positions=[],indices=[],stations=sections.map(s=>s[0]);
-  for(const axle of spec.wheels)for(let i=0;i<=24;i++)stations.push(axle-.385*Math.cos(Math.PI*i/24));
+  for(const axle of spec.wheels)for(let i=0;i<=24;i++)stations.push(axle-spec.archRadius*Math.cos(Math.PI*i/24));
+  // Sample the taper between major body stations so the nose and rear
+  // quarters carry a continuous shoulder highlight in the chase camera.
+  for(let i=1;i<sections.length;i++)stations.push((sections[i-1][0]+sections[i][0])/2);
   const slices=[...new Set(stations)].sort((a,b)=>a-b);
   for(const [i,z] of slices.entries()){
     const [,w,hood,shoulder,sill]=sectionAt(z);
     const dz=Math.min(...spec.wheels.map(axle=>Math.abs(z-axle)));
-    const arch=dz<.385 ? spec.tire+Math.sqrt(.385**2-dz**2) : sill;
+    const arch=dz<spec.archRadius ? spec.tire+Math.sqrt(spec.archRadius**2-dz**2) : sill;
     const rail=Math.max(sill,arch);
-    const half=[[0,hood],[w*.52,hood+.012],[w*.78,shoulder-.012],[w*.91,shoulder],
-      [w*.976,shoulder-.038],[w,Math.max(rail+.015,shoulder-.11)],[w*.988,rail],[w*.795,rail+.002]];
+    const crown=fenderHeight(z,shoulder);
+    const belt=Math.max(rail+.015,crown-.11);
+    const half=[[0,hood],[w*.30,hood+.008],[w*.52,hood+.012],
+      [w*.68,hood+.012+(crown-hood-.024)*.615],[w*.78,crown-.012],[w*.88,crown+.004],
+      [w*.94,crown-.009],[w*.976,crown-.038],[w,belt],
+      [w*.997,belt*.70+rail*.30],[w*.975,belt*.25+rail*.75],[w*.961,rail],[w*.795,rail+.002]];
     const ring=[...half.slice(1).reverse().map(([x,y])=>[-x,y]),...half];
     for(const [x,y] of ring)positions.push(x,y,z);
     const n=ring.length;
@@ -84,6 +96,14 @@ function jetGeometry(){
   const g=surface(vertices,index);g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));return g;
 }
 
+// A grounded hub follows its chassis-local suspension axis until the tire
+// touches the sampled road height. The root already carries any airborne tilt.
+export function placeGTWheel(position,x,z,hubY,body,axis){
+  position.set(x,0,z).applyQuaternion(body.quaternion);
+  const travel=(hubY-body.position.y-position.y)/axis.y;
+  position.addScaledVector(axis,travel);
+  position.y=hubY;
+}
 export function createSupercarView(scene,Batch,shadowMap,panorama){
   const root=new THREE.Group(),body=new THREE.Group();root.name='Vesper GT';root.add(body);scene.add(root);
   const paint=new Batch(),trim=new Batch(),glass=new Batch(),lamps=new Batch();
@@ -105,7 +125,14 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     const onHood=(x,z,raise)=>[s*x,bonnetHeight(x,z)+raise,z];
     const optic=[[.42,-2.23],[.76,-2.14],[.89,-1.87],[.70,-2.00]].map(([x,z])=>onHood(x,z,.021));
     face(trim,0x142023,...optic);
-    strip(lamps,0xebfaff,[[.45,-2.214],[.735,-2.127],[.866,-1.911]].map(([x,z])=>onHood(x,z,.037)),.026,.018);
+    // Recessed projector barrels and perimeter seals give the lights depth.
+    strip(trim,0x384247,[...optic,optic[0]],.023,.018);
+    for(const [x,z] of [[.68,-2.09],[.77,-2.01]]){
+      const [px,py,pz]=onHood(x,z,.028);
+      trim.add(sphere,0x59666d,px,py,pz,.046,.020,.061);
+      lamps.add(sphere,0xb7cad2,px,py+.008,pz-.01,.027,.012,.032);
+    }
+    strip(lamps,0xe3eced,[[.45,-2.214],[.735,-2.127],[.866,-1.911]].map(([x,z])=>onHood(x,z,.037)),.026,.018);
     for(let k=0;k<3;k++)strip(lamps,0xcce3ed,[[.56+.060*k,-2.166+.029*k],[.62+.059*k,-2.123+.029*k]].map(([x,z])=>onHood(x,z,.042)),.024);
     const vents=[[.36,-1.59],[.51,-1.54],[.62,-1.18],[.49,-1.24]];
     face(trim,0x333737,...vents.map(([x,z])=>onHood(x,z,.016)));
@@ -117,8 +144,8 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     // True arch cut-outs above the spinning wheels, with dark wheelhouse liners.
     for(const axle of spec.wheels){
       const line=[];for(let i=0;i<=22;i++){
-        const a=Math.PI*i/22,z=axle-.383*Math.cos(a),w=sectionAt(z)[1];
-        line.push([s*w*.987,spec.tire+.383*Math.sin(a)+.008,z]);
+        const a=Math.PI*i/22,z=axle-spec.archRadius*Math.cos(a),w=sectionAt(z)[1];
+        line.push([s*w*.987,spec.tire+spec.archRadius*Math.sin(a)+.008,z]);
       }
       strip(trim,0x28272a,line,.023);
     }
@@ -127,11 +154,14 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     // A dark inset, floating orange blade and lower door crease form the side scoop.
     face(trim,0x23282a,...hand([[.971,.48,.03],[.997,.60,.88],[1,.38,.96],[.978,.25,.64]]));
     strip(paint,orange,hand([[.981,.477,.04],[1.006,.621,.79],[1.001,.647,.88]]),.036);
-    strip(trim,0x45413a,hand([[.93,.636,-.69],[.952,.47,-.68],[.968,.29,-.47],[.973,.266,.38],[.97,.51,.59],[.961,.653,.50]]),.012);
+    strip(trim,0x655043,hand([[.93,.636,-.69],[.952,.47,-.68],[.968,.29,-.47],[.973,.266,.38],[.97,.51,.59],[.961,.653,.50]]),.007);
     box(trim,0x333d3d,s*.966,.604,.28,.018,.023,.137);
     trim.beam(carbon,...hand([[.69,.83,-.50],[.945,.842,-.50]]),.047);
     paint.add(sphere,orange,s*.932,.869,-.485,.09,.043,.126);
     trim.add(sphere,0x797f80,s*.934,.867,-.396,.073,.030,.028);
+    // Sculpt the intake as a recessed opening under the rear quarter shoulder.
+    face(paint,ember,...hand([[.957,.39,.38],[.997,.57,.86],[.991,.46,.91],[.959,.32,.55]]));
+    for(let n=0;n<3;n++)trim.beam(0x414749,...hand([[.985,.38+n*.038,.65],[.996,.396+n*.046,.85]]),.011);
     // Rear diffuser blades and two wraparound red lamp signatures.
     face(trim,0x24282a,...hand([[.04,.505,2.312],[.76,.51,2.311],[.79,.384,2.298],[.11,.367,2.314]]));
     for(let i=0;i<7;i++)box(trim,0x495053,s*(.12+i*.093),.435,2.319,.021,.084,.012,0,0,s*-.3);
@@ -161,7 +191,14 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const e of sides)trim.add(sphere,0x454849,bx+e*.186,.75,.37,.070,.170,.087);
     box(trim,0xca743a,bx,.775,.383,.036,.29,.015,-.15);
   }
-  box(trim,0x2c3438,0,.72,-.565,1.34,.121,.30);
+  // The cowl follows the bottom of the windshield, with a recessed binnacle
+  // and short defroster slots instead of a flat rectangular shelf.
+  trim.add(sphere,0x252a2c,0,.703,-.59,.679,.085,.26);
+  trim.add(sphere,0x202528,-.355,.775,-.52,.192,.082,.13);
+  for(const s of sides){
+    strip(trim,0x202427,[[s*.53,.727,-.83],[s*.28,.743,-.79],[s*.13,.743,-.77]],.014,.008);
+    strip(trim,0x252b2d,[[s*.61,.754,-.78],[s*.48,.805,-.685],[s*.21,.845,-.643]],.012,.009);
+  }
   box(trim,0x434b50,0,.655,-.02,.225,.15,.67);
   trim.add(torus,0x393b3c,-.36,.802,-.325,.144,.144,.144,-.40);
   lamps.add(cube,0x6ea6af,-.34,.811,-.503,.25,.077,.014,-.36);
@@ -177,22 +214,28 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const skin=paint.mesh(body,coat,false);
   const fittings=trim.mesh(body,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:55,specular:0x797878}),false);
   for(const m of [skin,fittings])Object.assign(m.userData,{vehicle:'supercar',impactSurface:'metal'});
-  const updatePanes=carPanes.bind(glass.mesh(body,alpineGlass(panorama,{transparent:true,opacity:.47,depthWrite:false,side:THREE.DoubleSide}),false));
+  const updatePanes=carPanes.bind(glass.mesh(body,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false,side:THREE.DoubleSide}),false));
   lamps.mesh(body,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}),false);
   const wheels=[];
   const tireProfile=[[.252,-.128],[.301,-.127],[.338,-.09],[.35,-.052],[.35,.052],[.338,.09],[.301,.127],[.252,.128]];
   const tire=new THREE.LatheGeometry(tireProfile.map(([r,x])=>new THREE.Vector2(r,x)),40).rotateZ(Math.PI/2);
   const tireMat=new THREE.MeshPhongMaterial({color:0x26292a,specular:0x505153,shininess:27,side:THREE.DoubleSide});
-  const wheelMaterial=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,specular:0xa6adac,shininess:83});
+  const wheelMaterial=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,specular:0x7d8789,shininess:69});
+  const caliperMaterial=new THREE.MeshPhongMaterial({color:0x914037,shininess:45});
+  const caliperShape=new THREE.BoxGeometry(.061,.16,.077);
   for(const side of sides){
     const rim=new Batch(),faceX=side*.123;
     rim.add(disc,0x383e40,side*.09,0,0,.252,.05,.252,0,0,Math.PI/2);
-    rim.add(disc,0x41484a,side*.105,0,0,.203,.035,.203,0,0,Math.PI/2);
+    rim.add(disc,0x6b7476,side*.105,0,0,.203,.035,.203,0,0,Math.PI/2);
     rim.add(torus,steel,faceX,0,0,.247,.247,.247,0,Math.PI/2);
+    for(let j=0;j<15;j++){
+      const a=j*Math.PI*2/15;
+      rim.add(disc,0x333a3c,side*.125,.179*Math.cos(a),.179*Math.sin(a),.009,.006,.009,0,0,Math.PI/2);
+    }
     for(let i=0;i<6;i++){
       const a=i*Math.PI/3;
       const edge=(r,t)=>[faceX,r*Math.cos(t),r*Math.sin(t)];
-      for(const e of sides)rim.beam(0xbec5c4,edge(.071,a),edge(.239,a+e*.24),.035,.045);
+      for(const e of sides)rim.beam(0x849194,edge(.071,a),edge(.239,a+e*.24),.035,.045);
       rim.add(disc,0xd5d8d0,side*.145,.054*Math.cos(a),.054*Math.sin(a),.012,.012,.012,0,0,Math.PI/2);
     }
     rim.add(disc,0x474f50,side*.14,0,0,.068,.034,.068,0,0,Math.PI/2);
@@ -200,9 +243,11 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     for(const z of spec.wheels){
       const hub=new THREE.Group(),rotation=new THREE.Group();
       hub.position.set(side*spec.axle,spec.tire,z);root.add(hub);hub.add(rotation);
+      const caliper=new THREE.Mesh(caliperShape,caliperMaterial);
+      caliper.position.set(side*.112,.022,.165);hub.add(caliper);
       const rubber=tireMat.clone(),patch=tireContactPatch(rubber,spec.tire);
       rotation.add(new THREE.Mesh(tire,rubber),new THREE.Mesh(rimGeometry,wheelMaterial));
-      wheels.push({hub,rotation,patch,front:z<0});
+      wheels.push({hub,rotation,patch,x:side*spec.axle,z,front:z<0});
     }
   }
   const tag=document.createElement('canvas');tag.width=300;tag.height=72;
@@ -218,6 +263,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const jets=spec.exhaust.map(([x,y,z])=>{const m=new THREE.Mesh(jet,hot);m.position.set(x,y,z+.075);m.visible=false;body.add(m);return m;});
   for(const g of [cube,sphere,disc,torus])g.dispose();
   let spin=0,time=0;
+  const suspensionAxis=new THREE.Vector3();
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
     updatePanes(car.brokenGlass);
@@ -229,9 +275,11 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     under.visible=!car.bridgeFlight;
     body.position.y=car.suspension?.heave??0;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
+    suspensionAxis.set(0,1,0).applyQuaternion(body.quaternion);
     for(const [i,w] of wheels.entries()){
       const flat=isFlat(car,i);
-      w.hub.position.y=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      const hubY=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      placeGTWheel(w.hub.position,w.x,w.z,hubY,body,suspensionAxis);
       w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
       w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
     }

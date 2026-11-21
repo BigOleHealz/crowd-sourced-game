@@ -1,7 +1,7 @@
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
-import {roadContactSound} from './road-contact-sound.js';
+import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
@@ -13,6 +13,7 @@ function synth(context,name) {
   if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
+  if(name.startsWith('landing-'))return roadLandingSound(context,name==='landing-hard');
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
   if(name==='outboard' || name==='wake')return boatLoop(context,name);
   const loop=name==='engine' || name==='rotor';
@@ -124,7 +125,11 @@ export function createGameAudio(button,slider,level) {
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();lastJetRange=null;
     lastGlass=world?.doors?.glassSeq??0;
-    previousVehicles=world ? {rover:world.rover,heli:world.heli} : {};
+    previousVehicles={};
+    if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
+  }
+  function roadAndAirVehicles(world){
+    return [['rover',world.rover],['heli',world.heli],['supercar',world.supercar],...(world.traffic??[]).map(c=>[c.id,c])].filter(([,v])=>v);
   }
   function events(world,listener,yaw,shots) {
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
@@ -139,9 +144,11 @@ export function createGameAudio(button,slider,level) {
       else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
       if(shot.injury==='headPop')burst('headPop',shot.injuryPoint ?? shot.to,listener,yaw,.84,shot.id);
     }
-    for(const kind of ['rover','heli']) {
-      const vehicle=world[kind],prior=previousVehicles[kind];
-      const bump=kind==='rover' && vehicle.contactSound;
+    for(const [kind,vehicle] of roadAndAirVehicles(world)) {
+      const prior=previousVehicles[kind],bump=vehicle.contactSound,landing=vehicle.landingSound;
+      if(prior && landing && landing.id!==prior.landingSound?.id){
+        burst(landing.speed>=5?'landing-hard':'landing-soft',landing,listener,yaw,Math.min(1.35,.28+.10*landing.speed),landing.id);
+      }
       const contact=prior && bump && bump.id!==prior.contactSound?.id;
       if(contact) {
         const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');
