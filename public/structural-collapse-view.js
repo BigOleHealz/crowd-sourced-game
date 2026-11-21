@@ -22,8 +22,10 @@ export function structuralCollapseView(scene,buildings){
       void main(){vec4 eye=modelViewMatrix*vec4(position,1.);alpha=opacity;
       gl_Position=projectionMatrix*eye;gl_PointSize=clamp(diameter*430./max(1.,-eye.z),1.,150.);}`,
     fragmentShader:`varying float alpha;void main(){vec2 p=2.*gl_PointCoord-1.;
-      float edge=dot(p,p)+.08*sin(9.*p.x+4.*p.y)*cos(6.*p.y);
-      gl_FragColor=vec4(.68,.63,.55,alpha*(1.-smoothstep(.02,1.,edge)));
+      float billow=sin(7.*p.x+2.*p.y)*cos(8.*p.y)+.52*sin(13.*p.y-6.*p.x);
+      float edge=dot(p,p)+.11*billow;
+      vec3 tone=mix(vec3(.43,.395,.35),vec3(.80,.77,.70),clamp(.63-.27*p.y+.18*billow,0.,1.));
+      gl_FragColor=vec4(tone,alpha*(1.-smoothstep(.02,1.,edge)));
       #include <colorspace_fragment>
       }`});
   const houseMaterial=material.clone();
@@ -87,11 +89,19 @@ export function structuralCollapseView(scene,buildings){
       v.mesh.instanceMatrix.needsUpdate=true;
       const {position,opacity,diameter}=v.dust.geometry.attributes;
       v.motes.forEach(({p,dx,dz,r,life},i)=>{
-        const u=Math.max(0,Math.min(1,(t-p.land)/life));
-        const ground=p.low-p.drop;
-        position.setXYZ(i,p.x+p.dx+dx*(p.w*.37+r*u*2.5)+p.ux*u*.6,ground+.2+u*.95,p.z+p.dz+dz*(p.d*.37+r*u*2.5)+p.uz*u*.6);
-        diameter.setX(i,.32+(2.3+r)*u);
-        opacity.setX(i,.48*Math.min(1,u*12)*(1-u));
+        // Small falls shed chips at release; larger contact puffs follow each
+        // landing, then a low, slowly spreading veil settles across the pile.
+        const stage=i%5,early=stage===0,settling=stage===4;
+        const start=early?p.delay:settling?p.land+.18:p.land;
+        const duration=early?Math.min(.66,p.duration):settling?1.04:life;
+        const u=Math.max(0,Math.min(1,(t-start)/duration));
+        const flow=settling?4.1:early?.55:2.5;
+        const x=early?p.x:p.x+p.dx,z=early?p.z:p.z+p.dz;
+        const height=early?p.low+p.h*.6-u*u*1.28:p.low-p.drop+.18+u*(settling?.48:1.24);
+        position.setXYZ(i,x+dx*(p.w*.37+r*u*flow)+p.ux*u*.6,height,z+dz*(p.d*.37+r*u*flow)+p.uz*u*.6);
+        diameter.setX(i,early?.11+.29*u:settling?.86+(2.9+r)*u:.30+(2.24+r)*u);
+        opacity.setX(i,(early?.74:settling?.35:.59)*Math.min(1,u*14)*(1-u));
+
       });
       position.needsUpdate=diameter.needsUpdate=opacity.needsUpdate=true;
     }
