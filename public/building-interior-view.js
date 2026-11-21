@@ -28,6 +28,16 @@ export function buildingInteriorView(scene){
     if(next!==open)sliding.add(d.id);else sliding.delete(d.id);
     const yaw=d.axis==='x'?0:Math.PI/2;
     const add=(col,u,y,w,h,t,depth=.0)=>part(col,d.x+Math.cos(yaw)*u+Math.sin(yaw)*depth,d.y+y,d.z-Math.sin(yaw)*u+Math.cos(yaw)*depth,w,h,t,yaw);
+    if(d.shutter){
+      const bottom=next*d.height,height=d.height-bottom;
+      if(height>.015){
+        add(0x878e86,0,bottom+height/2,d.width,height,.065);
+        for(let y=.11;y<height;y+=.22)add(0x60685e,0,bottom+y,d.width,.024,.078);
+        add(0x494d48,0,bottom+.035,d.width,.07,.087);
+      }
+      for(const side of [-1,1])add(0x5f665c,side*(d.width/2+.02),d.height/2,.045,d.height,.11);
+      add(0x676e67,0,d.height+.12,d.width+.13,.24,.24);return;
+    }
     // The leaves retract into shallow pockets, without protruding into another doorway.
     for(const s of [-1,1]){
       const w=d.width*.5*(1-next),u=s*(d.width-w)*.5;

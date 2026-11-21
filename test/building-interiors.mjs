@@ -96,6 +96,20 @@ if(!process.env.INTERIOR_TEST_MAP){
       assert(cross(d,1)>.35,b.name+' exit');
       p.state=feet(d.x,d.y,d.z+.6);send({door:d.id,open:false});assert(!doorIsOpen(d,w.doors));
       assert(cross(d,-1)<-.15,b.name+' closed door');
+      for(const g of b.entrances.filter(d=>d.shutter)){
+        assert(cross(g,-1)<-.15,'closed shutter');
+        p.state=feet(g.x,g.y,g.z+.61);send({door:g.id,open:true});
+        assert(doorIsOpen(g,w.doors),'shutter control');
+        assert(cross(g,-1)>.35,'walk under shutter');assert(cross(g,1)>.35,'exit shutter');
+      }
+      for(const pane of b.glazing){
+        const {buildingTopAt}=await import('../public/world.js');
+        const y=(pane.sill+pane.head)/2;
+        assert(buildingTopAt(pane.x,pane.z,0,y,w.doors)>=pane.head-.001);
+        (w.doors.brokenPanes??={})[pane.paneId]=true;
+        assert(buildingTopAt(pane.x,pane.z,0,y,w.doors)<y,'rural pane opens actual wall');
+        assert(buildingTopAt(pane.x,pane.z,0,pane.sill-.1,w.doors)>=pane.sill-.01);
+      }
     }
   }
   console.log('PASS interior entry, exit and operable doors',process.env.INTERIOR_TEST_MAP,rooms,'rooms',trips,'lift rides');
