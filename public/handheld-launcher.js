@@ -7,7 +7,7 @@ export function lockVehicle(world,key){
   return world.boats?.find(b=>b.id===key)??world.traffic?.find(c=>c.id===key);
 }
 export function lockLabel(key){
-  if(key?.startsWith('city-car-'))return 'Civilian car';
+  if(key?.startsWith('city-car-') || key?.startsWith('outpost-car-'))return 'Civilian car';
   return {heli:'Helicopter',rover:'Pickup',supercar:'Supercar',superyacht:'Yacht'}[key]??'Patrol boat';
 }
 function candidateRange(world,from,dir){

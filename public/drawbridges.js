@@ -1,7 +1,11 @@
+import {civilianProfiles} from './civilian-fleet.js';
+
 // Two hinged roadway leaves meet at the crown of each Brickell crossing.
 export const leafLength=16;
 export const maxLift=25*Math.PI/180;
 export const bridgeMiddle=bridge=>(bridge.north+bridge.south)/2;
+
+export const trafficStopLine=car=>leafLength+civilianProfiles[car.model].halfLength+1;
 
 export function leafGeometry(bridge,angle){
   const middle=bridgeMiddle(bridge), hinge=middle-leafLength;
@@ -27,7 +31,9 @@ export function stepDrawbridges(world,bridges,dt){
     const distance=Math.hypot(y.x-(bridge.east+bridge.west)/2,y.z-bridgeMiddle(bridge));
     // A hysteresis band keeps the leaves up while the stern clears the channel.
     const near=!y.wrecked && distance<(angle>0 ? 76 : 65);
-    const target=near?maxLift:0,step=maxLift*dt/5;
+    const occupied=near && angle===0 && world.traffic?.some(car=>car.npcDriver && Math.abs(car.x)<5 &&
+      Math.abs(car.z-bridgeMiddle(bridge))<trafficStopLine(car)-.08);
+    const target=near && !occupied?maxLift:0,step=maxLift*dt/5;
     lifts[key]=angle+Math.max(-step,Math.min(step,target-angle));
   }
 }

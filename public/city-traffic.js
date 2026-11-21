@@ -1,43 +1,24 @@
-import {avenues,streets} from './brickell-map.js';
+import {bridges} from './brickell-map.js';
+import {bridgeMiddle,trafficStopLine} from './drawbridges.js';
+import {cityServices,outpostServices} from './traffic-routes.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
 import {driveRover,interactRover,stopRover} from './rover.js';
 import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
-// A clockwise right-lane circuit around the shops east of Brickell Avenue.
-const west=avenues[1]+2.55,east=avenues[2]-2.55;
-const north=streets[1]+2,south=streets[3]-2,radius=2.5;
-const vertical=south-north-2*radius,horizontal=east-west-2*radius;
-const lengths=[vertical,horizontal,vertical,horizontal],arc=radius*Math.PI/2;
-const loopLength=2*(vertical+horizontal)+4*arc;
-const starts=[[west,south-radius],[west+radius,north],[east,north+radius],[east-radius,south]];
 const path=new WeakMap();
-const fleet=[['sedan','rival-omar'],['hatchback','rival-maia'],['van','rival-diego']];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
-function pathPose(distance){
-  let d=distance%loopLength;
-  for(let side=0;side<4;side++){
-    const yaw=side*Math.PI/2,[x,z]=starts[side],s=Math.sin(yaw),c=Math.cos(yaw),length=lengths[side];
-    if(d<=length)return {x:x+d*s,z:z-d*c,yaw};
-    d-=length;
-    if(d<=arc || side===3){
-      const turn=yaw+d/radius;
-      return {x:x+length*s+radius*(c-Math.cos(turn)),z:z-length*c+radius*(s-Math.sin(turn)),yaw:turn};
-    }
-    d-=arc;
-  }
-}
-
 export function newCityTraffic(){
-  if(!CITY)return [];
-  return fleet.map(([model,npcDriver],i)=>{
-    const distance=streets[3]-streets[2]+i*loopLength/fleet.length,pose=pathPose(distance),id='city-car-'+(i+1);
-    const car={id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed:civilianProfiles[model].cruise,
+  const services=CITY?cityServices:outpostServices;
+  return services.map(([route,offset,model,name,bay,cruise],i)=>{
+    const distance=route.length*offset,pose=route.pose(distance);
+    const npcDriver='rival-'+name,id=(CITY?'city-car-':'outpost-car-')+(i+1);
+    const car={id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed:cruise??civilianProfiles[model].cruise,
       lateralSpeed:0,engineLoad:.36,driver:null,npcDriver,takeover:null,hp:250,maxHp:250,
       wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
-    path.set(car,{distance,wait:0});
+    path.set(car,{track:route,bay,cruise,distance,wait:0});
     return car;
   });
 }
@@ -116,14 +97,15 @@ function letDriverWalk(world,car,npc,x,z){
   npc.state={x,z,y:groundHeight(x,z,car.y+1,world.doors),vy:0,grounded:true};
   // Give the ejected resident a local walking route to a sidewalk, without
   // sending them across the map to their former pedestrian circuit.
-  const verticalLane=Math.abs(Math.cos(car.yaw))>=Math.abs(Math.sin(car.yaw));
-  const axis=verticalLane?avenues:streets,position=verticalLane?x:z;
-  const center=axis.reduce((a,b)=>Math.abs(a-position)<Math.abs(b-position)?a:b);
-  const curb=center+(Math.sign(position-center)||1)*(verticalLane?6.3:4.8);
-  const cx=verticalLane?curb:x,cz=verticalLane?z:curb;
-  const clear=(u,v)=>!blocked(u,groundHeight(u,v),v,world.hp,world.doors);
-  const sidewalk=[[cx,cz],[cx+(verticalLane?0:2.5),cz+(verticalLane?2.5:0)]].filter(([u,v])=>clear(u,v));
-  const points=sidewalk.length>1?sidewalk:[[x,z],...sidewalk];
+  const c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const side=Math.sign((x-car.x)*c+(z-car.z)*s)||1;
+  const points=[[x,z]];
+  for(const [across,along] of [[2,0],[2,2.5]]){
+    const u=x+c*side*across+s*along,v=z+s*side*across-c*along;
+    const floor=groundHeight(u,v,car.y+1,world.doors);
+    if(floor>MAP.waterY+.2 && Math.abs(floor-car.y)<1.2 && !blocked(u,floor,v,world.hp,world.doors))points.push([u,v]);
+  }
+  if(points.length===1)points.push([x,z]);
   npc.route={id:npc.id,name:npc.name,points};
   npc.next=0;npc.pauseUntil=0;npc.moving=false;
 }
@@ -137,7 +119,7 @@ function advanceTakeover(world,car,npc,dt){
   car.takeover=null;
 }
 
-function gapAhead(car,actors,vehicles){
+function gapAhead(car,actors,vehicles,jet){
   const c=Math.cos(car.yaw),s=Math.sin(car.yaw),profile=civilianProfiles[car.model];
   let gap=Infinity;
   function consider(p,width,length,buffer){
@@ -151,9 +133,26 @@ function gapAhead(car,actors,vehicles){
     if(other===car)continue;
     // Project the other vehicle's oriented footprint into this lane.
     const otherShape=civilianProfiles[other.model];
-    const width=otherShape?.halfWidth??.86,length=otherShape?.halfLength??1.7;
+    const width=other===jet?2.82:otherShape?.halfWidth??.86;
+    const length=other===jet?3.25:otherShape?.halfLength??1.7;
     const delta=car.yaw-other.yaw,side=Math.abs(Math.sin(delta)),along=Math.abs(Math.cos(delta));
     consider(other,width*along+length*side,length*along+width*side,.28);
+  }
+  return gap;
+}
+
+// Stop before the hinge while the channel is reserved for a yacht. Drivers
+// already on the leaves clear them before the bridge starts lifting.
+function bridgeGap(world,car){
+  if(!CITY || Math.abs(car.x)>5)return Infinity;
+  const direction=-Math.sign(Math.cos(car.yaw));
+  let gap=Infinity;
+  for(const bridge of bridges){
+    const middle=bridgeMiddle(bridge),yacht=world.yacht;
+    if(!(world.doors?.bridgeLifts?.[bridge.north]>0) &&
+        (!yacht || yacht.wrecked || Math.hypot(yacht.x,yacht.z-middle)>=65))continue;
+    const remaining=(middle-car.z)*direction-trafficStopLine(car);
+    if(remaining>=-.08)gap=Math.min(gap,Math.max(0,remaining));
   }
   return gap;
 }
@@ -163,7 +162,7 @@ function gapAhead(car,actors,vehicles){
 function recoverTrafficCar(world,car,actors,dt){
   car.recoverySeconds=Math.max(0,car.recoverySeconds-dt);
   if(car.recoverySeconds>.0001)return;
-  const x=avenues[2]+3.7,z=2+world.traffic.indexOf(car)*8,y=groundHeight(x,z);
+  const [x,z]=path.get(car).bay,y=groundHeight(x,z);
   if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
@@ -172,7 +171,8 @@ function recoverTrafficCar(world,car,actors,dt){
 
 export function stepCityTraffic(world,players,npcs,dt){
   if(!world.traffic?.length)return;
-  const vehicles=[...world.traffic,world.rover,world.supercar];
+  const vehicles=[...world.traffic,world.rover];
+  if(world.supercar)vehicles.push(world.supercar);
   if(world.tank)vehicles.push(world.tank);
   if(world.heli.grounded)vehicles.push(world.heli);
   if(world.jet.grounded)vehicles.push(world.jet);
@@ -191,17 +191,20 @@ export function stepCityTraffic(world,players,npcs,dt){
     if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
-    const gap=gapAhead(car,actors,vehicles);
+    const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
-    const target=route.wait?0:Math.min(profile.cruise,Math.sqrt(2*brake*gap));
+    const target=route.wait?0:Math.min(route.cruise??profile.cruise,Math.sqrt(2*brake*gap));
     const acceleration=profile.driveForce/profile.mass*.68;
     const change=clamp(target-car.speed,-brake*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
-    route.distance=(route.distance+car.speed*dt)%loopLength;
-    Object.assign(car,pathPose(route.distance));
+    route.distance=(route.distance+car.speed*dt)%route.track.length;
+    Object.assign(car,route.track.pose(route.distance));
     car.y=groundHeight(car.x,car.z,car.y+1,world.doors);
+    if(!CITY || bridges.some(b=>Math.abs(car.x)<6 && car.z<b.south && car.z>b.north)){
+      stepSuspension(car,dt,(x,z)=>groundHeight(x,z,car.y+1.65,world.doors));
+    }else if(car.suspension)delete car.suspension;
     placeDriver(car,npc);
   }
 }

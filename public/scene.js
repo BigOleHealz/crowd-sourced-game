@@ -1,6 +1,7 @@
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
+import {serviceTracks} from './traffic-routes.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
@@ -135,7 +136,11 @@ class Batch {
 
 const up = new THREE.Vector3(0,1,0);
 function trailDistance(x, z) {
-  return Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
+  let distance=Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
+  if(!CITY && x>=-25 && x<=22 && z>=-20 && z<=24){
+    for(const track of serviceTracks)distance=Math.min(distance,routeDistance(track,x,z));
+  }
+  return distance;
 }
 
 function addGround(scene,renderer) {
@@ -1142,7 +1147,7 @@ export function createScene(canvas) {
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
-  const updateTraffic=CITY ? cityTrafficView(scene,Batch,shadowMap,panorama) : null;
+  const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
@@ -1266,7 +1271,7 @@ export function createScene(canvas) {
     const inTank=world.tank?.driver===local.id;
     updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
-    updateTraffic?.(cars,dt);
+    updateTraffic(cars,dt,local);
     const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
@@ -1296,6 +1301,10 @@ export function createScene(canvas) {
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
       const inTraffic=cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
+      if(inTraffic?.npcDriver===state.id && Math.hypot(state.x-local.x,state.z-local.z)>55*detailScale){
+        if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
+        continue;
+      }
       if(!entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;

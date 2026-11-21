@@ -330,15 +330,19 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
     shadow:new THREE.MeshBasicMaterial({map:shadowMap,color:0x1c2d31,opacity:.68,transparent:true,depthWrite:false}),
   };
   const views=new Map();
-  return (cars,dt)=>{
+  return (cars,dt,local)=>{
     for(const car of cars){
       let view=views.get(car.id);
+      if(Math.hypot(car.x-local.x,car.z-local.z)>185){
+        if(view)view.root.visible=false;
+        continue;
+      }
       if(!view){
         view=model(Batch,car.model,materials);views.set(car.id,view);
         view.root.name='Traffic '+car.id;scene.add(view.root);
       }
       const {root,chassis,wheels,door,brake}=view;
-      root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
+      root.visible=true;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       chassis.rotation.set(car.suspension?.pitch??0,0,car.suspension?.roll??0);
       chassis.position.y=car.suspension?.heave??0;
       for(const wheel of wheels)wheel.rotation.x-=car.speed*dt/view.tire;

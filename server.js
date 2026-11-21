@@ -59,7 +59,7 @@ const departedScores=new Map();
 let match;
 function freshWorld(){
   const w=newExpedition();
-  if(CITY)w.traffic=newCityTraffic();
+  w.traffic=newCityTraffic();
   if(mode){
     match=createMatch(mode);
     w.match=match.state;
@@ -70,7 +70,7 @@ function freshWorld(){
 let world = freshWorld();
 function freshResidents(){
   const residents=newRivals();
-  if(CITY)syncTrafficDrivers(world,residents);
+  syncTrafficDrivers(world,residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -384,7 +384,7 @@ function tick() {
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
   if (players.size) {
-    if(CITY)stepCityTraffic(world,players,npcs,step);
+    stepCityTraffic(world,players,npcs,step);
     for (const npc of npcs) if(!trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
