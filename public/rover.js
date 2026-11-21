@@ -1,3 +1,4 @@
+import {beginRoadBoarding} from './road-cabin.js';
 import {strikeFittings} from './road-fittings.js';
 import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -90,13 +91,13 @@ export function interactRover(world, player,kind='rover') {
   const wasGunner=r.gunner===player.id;
   if (wasGunner) r.gunner=null;
   else if (r.driver === player.id) {
-    r.driver=null;stopRover(r);
+    r.driver=null;delete r.boarding;stopRover(r);
     if(r.takeover)r.takeover.playerId=null;
     if(sport){r.exhaust=0;r.steer=0;throttleMemory.delete(r);}
   }
   else {
     if (nearestVehicle(world,player.state)!==kind) return;
-    if (r.driver==null) r.driver=player.id;
+    if (r.driver==null){r.driver=player.id;beginRoadBoarding(r,player.state);}
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
