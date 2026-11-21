@@ -138,8 +138,8 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #lighting-choice{pointer-events:auto;background:var(--panel);color:#fff9e5;border:1px solid var(--line);border-radius:2px;padding:5px;font:inherit;font-size:12px;}
 .session-controls {grid-template-columns:auto auto;align-items:center;}
 .session-controls .presence {grid-column:1 / -1;}
-@media(min-width:701px){#marina-card{top:105px;}}
-@media(max-width:700px){#marina-card{top:96px;}}
+@media(min-width:701px){.mast .session-controls{grid-template-columns:repeat(3,auto)}#marina-card{top:105px;}}
+@media(max-width:700px){#marina-card{top:126px;}}
 
 #wanted-toggle { pointer-events:auto; min-height:32px; padding:5px 9px; color:#f8f4e3; background:var(--panel); border:1px solid var(--line); font:inherit; font-size:12px; cursor:pointer; }
 #wanted-toggle[aria-pressed="true"], #wanted-status { color:#ffd779; }
