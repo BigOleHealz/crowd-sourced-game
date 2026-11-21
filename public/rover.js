@@ -20,7 +20,7 @@ export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function stopRover(r) {
-  r.speed=0;r.steer=0;r.braking=false;
+  r.speed=0;r.steer=0;r.braking=false;delete r.directionChange;delete r.rebounding;
   r.lateralSpeed=0;
   if(r.model)r.engineLoad=0;
 }
@@ -203,7 +203,6 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const surface=roadGrip(r.x,r.z);
   const flats=flatTireCount(r);
   const mobility=flatMobility(r);
-  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility*surface.pace;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
   const braking=sport && throttle ? 30 : 18;
@@ -211,9 +210,18 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const brakePower=profile ? profile.brakeForce/profile.mass : braking;
   const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;
   if(profile)r.engineLoad=Math.abs(throttle);
-  const oldSpeed=r.speed;
-  r.braking=!!throttle && oldSpeed*throttle<-.01;
-  r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
+  const oldSpeed=r.speed,direction=Math.sign(throttle);
+  if(r.directionChange?.direction!==direction)delete r.directionChange;
+  const opposing=oldSpeed*direction<0;
+  r.braking=opposing || !!r.directionChange;
+  const target=r.braking?0:throttle*(direction<0?reverseLimit:topSpeed)*mobility*surface.pace;
+  r.speed+=clamp(target-r.speed,-acceleration*dt,acceleration*dt);
+  // Reverse and first engage only after the brakes have actually stopped the wheels.
+  if(r.directionChange){
+    r.directionChange={direction,remaining:r.directionChange.remaining-dt};
+    if(r.directionChange.remaining<=.00001)delete r.directionChange;
+  }else if(opposing && r.speed===0 && !r.rebounding)r.directionChange={direction,remaining:.3};
+  if(r.speed===0)delete r.rebounding;
   r.steer=steer;
   if(sport)tickExhaust(r,throttle,oldSpeed,dt);
 
@@ -305,7 +313,9 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const drop=startHeight-r.y;
   if(!r.wrecked && drop>.25)roadTouchdown(r,Math.sqrt(2*19*drop));
   if(contacted){
-    r.speed=vx*sn-vz*cs;r.lateralSpeed=vx*cs+vz*sn;
+    const forward=vx*sn-vz*cs;
+    if(forward*r.speed<0)r.rebounding=true;
+    r.speed=forward;r.lateralSpeed=vx*cs+vz*sn;
   }else if(contact){
     contact.clearTime+=dt;
     if(contact.clearTime>.18)bumperContacts.delete(r);
