@@ -1,4 +1,5 @@
 import {stepDistrictFires} from './public/district-fire.js';
+import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
 import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
@@ -202,7 +203,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -228,6 +229,14 @@ function acceptInput(player, data, binary) {
     return;
   }
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
+  if(input?.type==='clubSeat'){
+    if(!CITY || mode)return;
+    if(input.action==='leave' && player.clubSince!=null)leaveClubSeat(player);
+    else if(input.action==='join' && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
+      !gunnerVehicle(world,player.id) && world.heli.pilot!==player.id && world.jet.pilot!==player.id &&
+      world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
+    return;
+  }
   if(input?.type==='wantedMode'){
     if(typeof input.enabled==='boolean')world.wanted?.set(player,input.enabled);
     return;
@@ -463,6 +472,7 @@ function tick() {
         damageActor(player,player.life.hp,ticks);
       }
     }
+    if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
@@ -486,6 +496,10 @@ function tick() {
       continue;
     }
     if (fallingBody) continue;
+    if(player.clubSince!=null){
+      if(ticks-player.clubSince<30*45)continue;
+      leaveClubSeat(player);
+    }
     if(input?.handleCase && world.tank?.driver!==player.id)match?.interact(player);
     if(world.match?.phase==='setup'){
       const next=stepPlayer(player.state,input||idle,step,world.hp,world);

@@ -1,4 +1,5 @@
 import {addFuelStop} from './pelican-fuel-view.js';
+import {clubInterior} from './club-lucero-view.js';
 import {lightBaySurface} from './biscayne-water.js';
 import {addQuayMasonry} from './quay-masonry.js';
 import {junctionSignalView} from './junction-signal-view.js';
@@ -34,6 +35,7 @@ import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './br
 
 import {breakablePostView} from './breakable-post-view.js';
 export function cityStreets(scene,renderer,Batch,panorama) {
+  clubInterior(scene,Batch);
   const posts=breakablePostView(scene,Batch);
   const updateCourts=addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();

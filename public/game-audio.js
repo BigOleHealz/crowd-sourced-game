@@ -1,3 +1,4 @@
+import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
 import {doorBuffer,doorCue} from './car-door-sound.js';
 import {roadHandle} from './road-cabin.js';
@@ -112,6 +113,15 @@ export function createGameAudio(button,slider,level) {
   let listenerSpace=acousticSpace(null,null);
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const collapse=fallAudioTracker(MAP.buildings);
+  let clubTrackLoading=false;
+  async function loadClubTrack(){
+    if(clubTrackLoading)return;
+    clubTrackLoading=true;
+    try{
+      const response=await fetch('./audio/lucero-trio.ogg');
+      if(response.ok)buffers.set('lucero',await context.decodeAudioData(await response.arrayBuffer()));
+    }catch{/* Browsers without an Opus decoder keep the other district sounds. */}
+  }
   let recordingsStarted=false;
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
@@ -221,6 +231,9 @@ export function createGameAudio(button,slider,level) {
     if(context && context.currentTime>=nextEnvironment){
       nextEnvironment=context.currentTime+.2;
       const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
+      const inEarshot=world.map==='brickell' && Math.hypot(listener.x-clubSpeaker.x,listener.z-clubSpeaker.z)<19;
+      if(inEarshot && audible() && !buffers.has('lucero'))loadClubTrack();
+      motor('lucero',clubSpeaker,inEarshot && buffers.has('lucero'),1,.56,listener,yaw);
       const local=new Set();
       for(const layer of [bed,water]){
         if(!layer || layer.gain<.009)continue;
