@@ -118,6 +118,7 @@ const types = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.ogg': 'audio/ogg',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
@@ -446,7 +447,7 @@ function tick() {
   if (players.size) {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
-    stepCityTraffic(world,players,npcs,step);
+    stepCityTraffic(world,players,npcs,step,ticks);
     for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
@@ -678,7 +679,7 @@ function tick() {
   stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
-  stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
+  stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight,world.tank?.driver);
   if(players.size)world.trading?.step(players,npcs,ticks);
   world.wanted?.step(npcs,ticks);
   bank?.step(world,players,ticks);

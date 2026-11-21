@@ -1,4 +1,8 @@
+import {lightBaySurface} from './biscayne-water.js';
+import {addQuayMasonry} from './quay-masonry.js';
+import {junctionSignalView} from './junction-signal-view.js';
 import {furnishMarketStreet} from './harbor-market-view.js';
+import {residentialRuinView} from './residential-ruin-view.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
@@ -14,7 +18,7 @@ import { addBrickellHorizon } from './brickell-horizon.js';
 import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
 import {streetLampView} from './street-lamp-view.js';
-import {harborSigns,signalPost} from './scenery-layout.js';
+import {harborSigns} from './scenery-layout.js';
 import {galleryPlans,galleryPanes,galleryDoorPanes} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
 import { streetShops } from './street-shops.js';
@@ -51,9 +55,11 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
     const mesh=batch.mesh(scene,material(name,options),false);
     mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
+    return mesh;
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.28});
+  const bay=ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.30});
+  lightBaySurface(bay.material,panorama);
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.map(r=>patch(r,.70))],5);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
@@ -62,12 +68,14 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0xbab4a4,x,.735,z,w,.12,d);
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
+  addQuayMasonry(scene,solids,renderer);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
   const estateStart=scene.children.length;
   const updateEstates=addLanternBuildings(scene,Batch,panorama);
-  const updateDamage=estateDamageView(scene,scene.children.slice(estateStart),MAP.barriers);
+  const estateMeshes=scene.children.slice(estateStart);
+  const updateDamage=estateDamageView(scene,estateMeshes,MAP.barriers);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
@@ -126,13 +134,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
-      const {x:lx,z:lz,postId}=signalPost(x,z);
-      posts.add(postId,lx,.75,lz,furniture=>{
-      furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
-      furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
-      furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
-      for(let k=0;k<3;k++) furniture.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
-      });
+
     }
   }
   // UV islands preserve the scale of windows regardless of each tower's height.
@@ -184,23 +186,27 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const podiumParts=scene.children.slice(frontageStart);
   addBrickellHorizon(scene,facadeMaterial.map);
   const apartmentStart=scene.children.length;
-  const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
+  const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
   const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
+  const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
+  const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
+  const updateHomes=residentialRuinView(scene,[...estateMeshes,...harborMeshes,...podiumParts,citySolids],renderer);
   const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   for(const geometry of [box,...faces])geometry.dispose();
+  const updateJunctions=junctionSignalView(scene,posts);
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
-  return (doors,dt,local,remotes)=>{
-    updateDamage(doors,dt);updateTowers(doors,dt);updateFalls(doors,dt);
+  return (doors,dt,local,remotes,tick)=>{
+    updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
-    updateLamps(doors,dt);updatePosts(doors,dt);
+    updateLamps(doors,dt);updatePosts(doors,dt);updateJunctions(doors,tick);
     breakables.update(doors);
     updateGallery(doors);
     debris.update(dt);

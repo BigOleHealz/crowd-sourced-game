@@ -63,7 +63,7 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
     animate(dt);
     const ids=doors?.towerBreaches??[];
     const collapsed=doors?.collapsedTowers??[];
-    updateRuins(towers,collapsed,doors?.structureFalls);
+    updateRuins(towers,collapsed,doors?.structureFalls,doors?.towerDirections);
     if(lastDoors===doors && lastCount===ids.length && lastRuins===collapsed.length)return;
     lastDoors=doors;lastCount=ids.length;lastRuins=collapsed.length;
     const key=ids.join(',')+'|'+collapsed.join(',');

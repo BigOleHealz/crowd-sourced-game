@@ -1,3 +1,4 @@
+import {castActorShadow} from './actor-sun-shadow.js';
 import * as THREE from 'three';
 import {CITY,MAP,groundHeight} from './world.js';
 import {wheelsFor,isFlat,flatWheelDrop} from './road-wheel-layout.js';
@@ -19,19 +20,21 @@ export function contactShadows(scene){
   const capacity=176,geometry=new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2);
   const strengths=new THREE.InstancedBufferAttribute(new Float32Array(capacity),1);
   strengths.setUsage(THREE.DynamicDrawUsage);geometry.setAttribute('contactWeight',strengths);
-  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
-    uniforms:{skyDarkness},vertexShader:`attribute float contactWeight;varying float weight;varying vec2 point;
-      void main(){point=uv*2.-1.;weight=contactWeight;
-        gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying float weight;varying vec2 point;uniform float skyDarkness;
-      void main(){float r=dot(point,point);float a=(1.-smoothstep(.02,1.,r))*weight;
-        gl_FragColor=vec4(.035,.038,.043,a*(1.-.19*skyDarkness));}`});
+  const shadow=THREE.ShaderLib.shadow;
+  const material=new THREE.ShaderMaterial({transparent:true,depthWrite:false,lights:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-2,
+    uniforms:{...THREE.UniformsUtils.clone(shadow.uniforms),skyDarkness},
+    vertexShader:'attribute float contactWeight; varying float weight; varying vec2 point;\n'+
+      shadow.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nweight=contactWeight;point=uv*2.-1.;'),
+    fragmentShader:'varying float weight; varying vec2 point; uniform float skyDarkness;\n'+
+      shadow.fragmentShader.replace('opacity * ( 1.0 - getShadowMask() )',
+        '(1.-smoothstep(.02,1.,dot(point,point)))*abs(weight)*(weight<0.?getShadowMask()*(1.-skyDarkness):1.-.19*skyDarkness)')});
+  material.uniforms.color.value.setRGB(.012,.016,.021);
   const mesh=new THREE.InstancedMesh(geometry,material,capacity),pose=new THREE.Object3D();
-  mesh.name='Ground contact shadows';mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.receiveShadow=true;mesh.name='Ground contact shadows';mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.count=0;scene.add(mesh);
-  let n=0;
+  let n=0,actors=0,frameWorld;
   function blob(x,y,z,yaw,width,length,alpha,pitch=0){
-    if(n>=capacity || alpha<.025)return;
+    if(n>=capacity || Math.abs(alpha)<.025)return;
     pose.position.set(x,y+.012,z);pose.rotation.set(pitch,-yaw,0,'YXZ');pose.scale.set(width,1,length);pose.updateMatrix();
     mesh.setMatrixAt(n,pose.matrix);strengths.setX(n++,alpha);
   }
@@ -48,13 +51,17 @@ export function contactShadows(scene){
   }
   return {
     begin(world,local){
-      n=0;
+      n=0;actors=0;frameWorld=world;
       wheels(world.rover,local,world.doors);wheels(world.supercar,local,world.doors);
       for(const car of world.traffic??[])wheels(car,local,world.doors);
+      for(const car of world.patrolCars??[])wheels(car,local,world.doors);
     },
     boots(a,state,local){
       if(!a.gait || !state.grounded || state.dead || state.swimming || state.climb || state.parachute || state.stance==='prone' ||
         Math.hypot(state.x-local.x,state.z-local.z)>18)return;
+      if(a.root && skyDarkness.value<.94 && actors<6 && Math.abs(local.y-state.y)<4){
+        castActorShadow(a,state,frameWorld,blob);actors++;
+      }
       for(const {foot,side} of a.limbs){
         if(!Number.isFinite(foot.wx) || state.lostParts?.[side<0?'leftLeg':'rightLeg'])continue;
         const yaw=-a.gait.yaw,gap=Math.max(0,foot.lift??0);
