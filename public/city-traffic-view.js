@@ -1,4 +1,3 @@
-import {signalingCruiser} from './pursuit-signals.js';
 import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
 import {poseRoadBoarding} from './ranger-pose.js';
@@ -67,7 +66,8 @@ function wheelModel(Batch,tire,depth,van){
 }
 
 function model(Batch,type,materials,patrol=false){
-  const {paint,roofEnd,cabinEnd,topFront}=fleet[type];
+  const {roofEnd,cabinEnd,topFront}=fleet[type];
+  const paint=patrol?0x253747:fleet[type].paint;
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
   const van=type==='van',hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
@@ -104,7 +104,7 @@ function model(Batch,type,materials,patrol=false){
     for(const [a,b] of [[nose,front],[front+.008,post-.008],[post,tail]]){
       const zs=[a,...slices.filter(z=>z>a && z<b),b];
       const moving=a===front+.008 && side===-1,part=moving?leaf:body;
-      skin(part,paint,zs.map(z=>sideRow(side,z,moving?-hinge:0,moving?-front:0)));
+      skin(part,patrol && a===front+.008?0xe3e6e1:paint,zs.map(z=>sideRow(side,z,moving?-hinge:0,moving?-front:0)));
     }
     // Rolled wheel lips have a shaded liner inside the actual body opening.
     for(const axle of axles){
@@ -307,7 +307,7 @@ function model(Batch,type,materials,patrol=false){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
-  const beacon=patrol && markPatrolSedan(chassis,body,box);
+  const beacon=patrol && markPatrolSedan(chassis,door,body,box);
   const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
   const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
@@ -371,7 +371,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const {root,chassis,wheels,door,brake}=view;
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-      if(view.beacon)view.beacon(signalingCruiser(car),performance.now()*.001+index*.23);
+      if(view.beacon)view.beacon(car,performance.now()*.001);
       const sag=view.wreckFinish(car);view.fittings(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
       chassis.position.y=(car.suspension?.heave??0)-.17*sag;
