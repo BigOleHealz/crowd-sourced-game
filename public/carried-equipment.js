@@ -183,13 +183,30 @@ function ember(b){
     b.beam(black,[side*.070,.078,.059],[side*.084,-.025,-.030],.019);
     b.beam(black,[side*.084,-.025,-.030],[side*.075,.026,-.175],.019);
   }
-  axial(b,metal,-.288,.095,.048,.160);
-  optic(b,black,[[-.304,.053],[-.354,.065],[-.427,.079],[-.440,.067]],.095);
-  for(const z of [-.344,-.365,-.391])axial(b,0x837a62,z,.095,.063,.008);
-  axial(b,0x825237,-.430,.095,.061,.004);
-  axial(b,0xe2a65d,-.433,.095,.031,.005);
-  b.add(box,black,0,.188,.009,.054,.016,.139);
-  for(const z of [.061,-.051])b.add(box,metal,0,.170,z,.036,.036,.023);
+  // Enamel side pods, stencilled cheek plates and a broad scalloped cowl
+  // make the arcade tool readable from a few steps away.
+  for(const side of [-1,1]){
+    const x=side*.097;
+    b.add(box,paint,x,.112,-.116,.028,.119,.23);
+    b.add(box,0x2e4549,x+side*.017,.114,-.116,.007,.084,.19);
+    for(let i=0;i<4;i++)b.add(box,i===0?0xffc368:0xec9049,x+side*.023,.117,-.048-i*.03,.006,.047,.011,-.33);
+    b.beam(brass,[side*.114,.151,-.219],[side*.114,.163,-.054],.008);
+    b.beam(black,[side*.057,.149,.099],[side*.057,.228,.070],.020);
+    b.beam(metal,[side*.057,.228,.070],[side*.057,.228,-.106],.021);
+    b.beam(black,[side*.057,.228,-.106],[side*.057,.148,-.148],.020);
+  }
+  axial(b,metal,-.284,.095,.052,.145);
+  optic(b,black,[[-.304,.056],[-.354,.075],[-.429,.09],[-.451,.078],[-.451,.057],[-.395,.046]],.095);
+  for(const z of [-.327,-.349])axial(b,brass,z,.095,.065,.012);
+  for(let n=0;n<8;n++){
+    const a=n*Math.PI/4,x=Math.cos(a),y=Math.sin(a);
+    b.beam(n%2?metal:brass,[x*.075,.095+y*.075,-.365],[x*.089,.095+y*.089,-.430],.012);
+  }
+  axial(b,0x723d35,-.411,.095,.061,.010);
+  axial(b,0xf5a154,-.418,.095,.042,.005);
+  axial(b,0xffdc81,-.422,.095,.020,.005);
+  b.add(box,black,0,.229,.073,.126,.018,.024);
+  b.add(box,0xd49357,0,.225,-.105,.123,.021,.026);
 }
 // In the eye-relief view the scene already uses the scoped camera FOV. Render
 // the near eyepiece around that image; the tube and mount belong to the carried view.

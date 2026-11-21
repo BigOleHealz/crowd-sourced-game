@@ -1060,7 +1060,8 @@ export function createScene(canvas,onFootfall) {
   const sightModels=carriedEquipment(camera,scene,Batch);
   sightModels[0].position.set(0,-.214,-.40);
   sightModels[1].position.set(0,-.125,-.40);
-  sightModels[4].position.set(.115,-.186,-.45);
+  sightModels[4].position.set(.15,-.203,-.80);
+  sightModels[4].rotation.set(.04,.23,-.04);
   sightModels[3].position.set(.136,-.240,-.55);
   camera.remove(sightModels[2]);
   sightModels[2]=scopedEyepiece(camera,Batch);
@@ -1142,7 +1143,9 @@ export function createScene(canvas,onFootfall) {
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
   let sprintGate,drawMarket;
+  let localActorId;
   function render(local,remotes,view,dt,world) {
+    localActorId=local?.id;
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
       sprintGate??=createSprintGate(scene,Batch);
@@ -1435,7 +1438,20 @@ export function createScene(canvas,onFootfall) {
     renderer.render(scene,camera);
   }
   function showShots(shots) {
-    for(const shot of shots)effects.shot(shot,shot.source);
+    for(const shot of shots){
+      if(shot.weapon==='ember'){
+        const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
+        if(tool){
+          const from=tool.localToWorld(new THREE.Vector3(0,.095,-.451));
+          // A close wall can be between the server origin and the visual nozzle.
+          const toward=new THREE.Vector3().subVectors(shot.to,shot.from);
+          if(toward.dot(new THREE.Vector3().subVectors(shot.to,from))>0){
+            effects.shot({...shot,from},shot.source);continue;
+          }
+        }
+      }
+      effects.shot(shot,shot.source);
+    }
   }
   return {resetSurfaceMarks:marks.reset,setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}

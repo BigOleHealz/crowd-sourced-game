@@ -1,26 +1,28 @@
 import * as THREE from 'three';
+import {emberStreams} from './ember-stream.js';
 import {flameSheets} from './flame-sheets.js';
 import {fireSite} from './district-fire.js';
 
 // All smoke and glow use the scene's existing bounded billboard pool.
 export function districtFireEffects(scene,puff,random){
-  const sheets=flameSheets(scene);
+  const sheets=flameSheets(scene),streams=emberStreams(scene);
   const at=new THREE.Vector3(),velocity=new THREE.Vector3();
   let delay=0,sequence=0;
   function pulse(shot){
     const dx=shot.to.x-shot.from.x,dy=shot.to.y-shot.from.y,dz=shot.to.z-shot.from.z;
     const length=Math.hypot(dx,dy,dz);
     if(length<.01)return;
-    const count=Math.max(1,Math.ceil(length/.72));
-    for(let i=0;i<count;i++){
-      const t=(i+.55)/count,w=(.04+t*.16);
-      at.set(shot.from.x+dx*t+(random()-.5)*w,shot.from.y+dy*t,shot.from.z+dz*t+(random()-.5)*w);
-      velocity.set(dx*.18,.46+dy*.18,dz*.18);
-      puff(at,velocity.clone(),.12+t*.30,.20+t*.48,.12+t*.09,i%3?0xff9b32:0xffda73,.93);
+    streams.pulse(shot);
+    // The last few wisps peel off the visible end within the shared particle cap.
+    for(let i=0;i<3;i++){
+      const t=.72+.21*random();
+      at.set(shot.from.x+dx*t,shot.from.y+dy*t,shot.from.z+dz*t);
+      velocity.set((random()-.5)*.52,.64+random()*.62,(random()-.5)*.52);
+      puff(at,velocity.clone(),.13,.38,.16+random()*.14,i===0?0xffcf73:0xe47836,.74);
     }
   }
   function update(doors,local,dt){
-    sheets.tick(dt);
+    sheets.tick(dt);streams.update(dt);
     if(!doors?.fires){sheets.begin();sheets.finish();return;}
     delay-=dt;if(delay>0)return;
     delay=.12;sequence++;sheets.begin();
