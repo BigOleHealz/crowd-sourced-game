@@ -98,7 +98,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   // foot strike and lets the head lead the torso into a change of direction.
   avatar.head.position.set(0,1.525,0);
   avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
-    gait ? .28*gait.twist-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
+    gait ? gait.neckYaw-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
