@@ -26,6 +26,25 @@ function arrival(world,player,players,number){
   if(fallback){fallback.id='officer-'+(++serial);return fallback;}
 }
 
+function approachOnFoot(officer,destination,world){
+  const state=officer.state,dx=destination.x-state.x,dz=destination.z-state.z;
+  const distance=Math.hypot(dx,dz),stop=officer.visible?5.5:1.2;
+  const gap=Math.max(0,distance-stop);
+  // A small dead band keeps someone standing still when the target shifts a little.
+  const moving=gap>(officer.moving ? .12 : .6);
+  const desired=distance>.20?Math.atan2(dx,-dz):officer.yaw;
+  const angle=Math.atan2(Math.sin(desired-officer.yaw),Math.cos(desired-officer.yaw));
+  officer.yaw+=Math.max(-.13,Math.min(.13,angle));
+  officer.sprint=moving && gap>(officer.sprint?4.5:6);
+  // Turn into a change of direction and ease the last two metres into a walk.
+  const pace=moving?Math.min(1,gap/2)*(.24+.76*Math.max(0,Math.cos(angle))):0;
+  if(pace || state.vx || state.vz || !state.grounded){
+    officer.state=stepPlayer(state,{x:Math.sin(officer.yaw)*pace,z:-Math.cos(officer.yaw)*pace,
+      sprint:officer.sprint},1/30,world.hp,world);
+  }
+  officer.moving=Math.hypot(officer.state.vx??0,officer.state.vz??0)>.12;
+}
+
 export function createWanted(world,players,{stepCruisers}={}){
   const sessions=new Map(),officers=[],projectiles=new WeakMap();
   let actors,now=0;
@@ -89,13 +108,7 @@ export function createWanted(world,players,{stepCruisers}={}){
           if(o.visible){s.lastContact=tick;s.lastKnown={x:p.state.x,z:p.state.z};}
         }
         o.lastKnown=s.lastKnown;
-        if(!o.cruiserId){
-          const x=s.lastKnown.x-o.state.x,z=s.lastKnown.z-o.state.z,remaining=Math.hypot(x,z);
-          o.yaw=Math.atan2(x,-z);o.moving=remaining>(o.visible?6:1.5);o.sprint=o.moving&&remaining>10;
-          if(o.moving){
-            o.state=stepPlayer(o.state,{x:x/remaining,z:z/remaining,sprint:o.sprint},1/30,world.hp,world);
-          }
-        }
+        if(!o.cruiserId)approachOnFoot(o,s.lastKnown,world);
         if(o.visible&&dist<=18&&tick>=o.nextShot){
           o.nextShot=tick+Math.max(35,90-10*level);
           const sight=patrolSight(world,o,p,players);

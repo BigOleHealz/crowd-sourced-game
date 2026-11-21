@@ -143,6 +143,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
   }
+  if(state.officer && gait){
+    const target=state.searching || state.sprint ? 1 : 0;
+    avatar.officerCarry=(avatar.officerCarry??target)+(target-(avatar.officerCarry??target))*(-Math.expm1(-6*dt));
+    if(state.searching)avatar.head.rotation.y+=.24*Math.sin(avatar.cycle*.77+Number(state.id?.split('-').at(-1)||0))*(1-.55*run);
+  }
   if(lowCockpit){
     // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
     avatar.spine.rotation.x=.35;avatar.head.rotation.x=-.25;
@@ -259,6 +264,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
       kit.z=(bloom ? -.322 : -.185)+.037*run;
       weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
+      if(state.officer && gait){
+        const lowered=avatar.officerCarry??0;
+        kit.y-=.12*lowered;kit.z+=.060*lowered;
+        weapon.rotation.x-=.77*lowered;
+      }
       if(prone) {
         kit.set(bloom ? .060 : .099,1.515+.014*swing*weight,bloom ? -.037 : -.010);
         weapon.rotation.set(-avatar.body.rotation.x-avatar.spine.rotation.x,-.035,.012,'YXZ');
