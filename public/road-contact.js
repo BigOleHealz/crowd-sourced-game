@@ -83,7 +83,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   const heli=world.heli;
-  const roof=vehicle?.kind==='supercar' ? supercarLayout.roof : 1.66;
+  const roof=shape.roof??1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
     if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(shapeFor(parked).roof??1.66)<=base)return;
