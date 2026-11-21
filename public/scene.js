@@ -1,6 +1,7 @@
 import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
+import {airborneCapsules} from './molotov-view.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
@@ -674,6 +675,15 @@ function fieldEffects(scene) {
   }
   function shot(s,sourceVehicle) {
     if(s.weapon==='ember'){fireView.pulse(s);return;}
+    if(s.weapon==='molotov'){
+      const at=new THREE.Vector3().copy(s.to);at.y+=.075;
+      for(let i=0;i<12;i++){
+        const angle=i*Math.PI/6+rng()*.16,spread=1.15+rng()*1.6;
+        const v=new THREE.Vector3(Math.cos(angle)*spread,.53+rng()*.98,Math.sin(angle)*spread);
+        plume.puff(at,v,.16,.52,.32+rng()*.20,s.water?0xb4d7d0:i%2?0xffa342:0xf37635,.89);
+      }
+      return;
+    }
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
@@ -1057,9 +1067,12 @@ export function createScene(canvas,onFootfall) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
+  const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
   sightModels[0].position.set(0,-.214,-.40);
   sightModels[1].position.set(0,-.125,-.40);
+  sightModels[5].position.set(.147,-.071,-.78);
+  sightModels[5].rotation.z=-.31;
   sightModels[4].position.set(.115,-.186,-.45);
   sightModels[3].position.set(.136,-.240,-.55);
   camera.remove(sightModels[2]);
@@ -1210,6 +1223,7 @@ export function createScene(canvas,onFootfall) {
     }
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
+    drawCapsules(world.throwables,world.simTick,dt,local.id,view.sighted);
     effects.fireView.update(world.doors,local,dt);
     effects.update(dt);
     contacts.begin(world,local);
@@ -1239,6 +1253,11 @@ export function createScene(canvas,onFootfall) {
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
+      if(state.weapon===6){
+        const flight=world.throwables?.find(c=>c.shooter===state.id && world.simTick-c.born<12);
+        if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
+      }
+      a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
       a.label.sprite.visible = !state.bankRole && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
@@ -1401,6 +1420,7 @@ export function createScene(canvas,onFootfall) {
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
+    sightModels[5].visible=sighted && local.weapon===6 && !avatars.get(local.id)?.throwSwing;
     sightModels[4].visible=sighted && local.weapon===5;
     sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;

@@ -16,7 +16,7 @@ export function createRangerRig() {
     const arm=joint(upper,side*.203,1.447),forearm=joint(arm,0,-.275);
     return {side,leg,knee,ankle,arm,forearm,foot:newFoot()};
   });
-  return {root,body,spine,upper,head,limbs,tools:Array.from({length:5},()=>new THREE.Group()),cycle:0,gait:null};
+  return {root,body,spine,upper,head,limbs,tools:Array.from({length:6},()=>new THREE.Group()),cycle:0,gait:null};
 }
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
 const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
@@ -27,7 +27,8 @@ const carryFits=[
   {forward:-.322,side:-.026,height:-.052,reach:.050},
   {forward:-.290,side:-.031,height:.047,reach:-.148},
   {forward:-.238,side:-.067,height:.066,reach:-.152},
-  {forward:-.245,side:-.065,height:.041,reach:-.137}
+  {forward:-.245,side:-.065,height:.041,reach:-.137},
+  {forward:-.271,side:-.058,height:-.072,reach:.045}
 ];
 
 // Solve the two visible arm segments in body space. An outward elbow bend keeps
@@ -203,7 +204,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   }
   const toolIndex=(state.weapon ?? 1)-1;
   const carrying=!climb && !fall && !swimming && !state.dead && !seated && !station;
-  avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex;});
+  avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0);});
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(prone) {
@@ -266,6 +267,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const travel=(gait ? foot.forwardOffset : 0)*person.swing*(bag?.36:1);
       arm.rotation.set(.025+travel,side*.04,side*(bag?.145:.092));
       forearm.rotation.x=(bag?.39:.15)+Math.max(0,travel)*.48;
+    } else if(toolIndex===5 && carrying && avatar.throwSwing>0){
+      const reach=Math.sin(avatar.throwSwing*Math.PI*.70);
+      arm.rotation.set(side===1?1.03+reach*1.44:.28,side*.05,side*(.11+.09*reach));
+      forearm.rotation.x=side===1?.24+.37*(1-reach):.67;
     } else if(!seated && !state.parachute && !state.dead && !swimming) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position,fit=carryFits[toolIndex];

@@ -1,6 +1,7 @@
 // Exterior display meshes. The local actor, remote actors and aim camera clone
-// the same five templates. Nothing in this module participates in simulation.
+// the same equipment templates. Nothing in this module participates in simulation.
 import * as THREE from 'three';
+import {capsuleProp} from './molotov-view.js';
 import {carriedFinish,equipmentPlate} from './equipment-finish.js';
 
 const metal=0x606b72, edge=0x9ca39e, black=0x242c30, rubber=0x343739;
@@ -212,7 +213,7 @@ export function scopedEyepiece(camera,Batch){
 
 const models=[
   ['Field carbine',carbine],['Patrol sidearm',pistol],['Meridian scoped rifle',meridian],
-  ['Heat-seeking launcher',launcher],['Ember projector',ember]
+  ['Heat-seeking launcher',launcher],['Ember projector',ember],['Arcade Molotov',capsuleProp]
 ];
 export function carriedEquipment(parent,scene,Batch){
   let templates=shapesByScene.get(scene);

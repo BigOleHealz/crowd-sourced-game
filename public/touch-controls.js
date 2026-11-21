@@ -194,7 +194,7 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay}){
+export function touchLayout({role,active,throwable,use,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(use)quick.push(['KeyE',use]);
@@ -203,7 +203,7 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(foot?canAim:['heli','jet','armed-car','turret','tank'].includes(role)){
-    const label=heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':'Fire';
+    const label=heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':foot && throwable?'Throw':'Fire';
     quick.push(['KeyF',label]);
   }
   if(foot){
