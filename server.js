@@ -81,7 +81,7 @@ const players = new Map();
 const departedScores=new Map();
 let match;
 function freshWorld(){
-  const w=newExpedition();
+  const w=newExpedition({civilianMarina:!mode});
   w.traffic=newCityTraffic();
   if(CITY){
     w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];

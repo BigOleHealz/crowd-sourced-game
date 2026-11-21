@@ -41,7 +41,7 @@ export function stepCargoHook(world,input,dt,onLanding){
     if(input?.lower){
       let nearest=1.5;
       for(const v of vehicles){
-        if(v.wrecked || v.sling || v.takeover)continue;
+        if(v.wrecked || v.sling || v.takeover || v.boatModel)continue;
         const d=Math.hypot(v.x-h.x,v.z-h.z),reach=mount-v.y-slingHitch(v);
         if(d>=nearest || reach<.55 || reach>maxLine || hook.length<reach-.15 || hook.length>reach+1.1)continue;
         nearest=d;load=v;

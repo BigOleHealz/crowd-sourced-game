@@ -256,37 +256,6 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     box(0xb2a78f,62.45,.59,z,.38,1.12,.38);
     box(0xefe4bc,62.45,1.13,z,.31,.14,.31);
   }
-  function tender(x,z,c,isSail){
-    // A waterline chine, flared bow and flat transom describe each moored hull.
-    const sections=[[-3,.68],[-2.1,.96],[.6,1],[2.12,.66],[3.35,.05]];
-    const vertices=[];
-    const tri=(a,b,c)=>vertices.push(...a,...b,...c);
-    for(let i=0;i<sections.length-1;i++){
-      const [u,v]=sections[i],[s,t]=sections[i+1];
-      tri([u,.36,-v],[s,.36,t],[s,.36,-t]);tri([u,.36,-v],[u,.36,v],[s,.36,t]);
-      for(const side of [-1,1]){
-        const a=[u,.36,v*side],b=[u,-.35,v*.65*side],d=[s,.36,t*side],e=[s,-.35,t*.65*side];
-        if(side>0){tri(a,d,b);tri(b,d,e);}else{tri(a,b,d);tri(b,e,d);}
-      }
-    }
-    tri([-3,.36,-.68],[-3,-.35,-.44],[-3,.36,.68]);tri([-3,.36,.68],[-3,-.35,-.44],[-3,-.35,.44]);
-    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.computeVertexNormals();
-    main.add(g,c,x,.09,z);g.dispose();
-    box(linen,x-.37,-.30,z,3.95,.13,1.54);
-    box(isSail?cream:0xd2bc9a,x+.05,-.12,z,2.19,.30,1.30);
-    if(isSail){
-      cyl(bronze,x+.32,2.94,z,.075,6.78);
-      beam(bronze,[x+.32,.49,z],[x-2.08,.49,z],.075);
-      for(const end of [-2.7,2.95])beam(0x8c9290,[x+.32,6.18,z],[x+end,-.28,z],.029);
-      for(const side of [-1,1])beam(0x8c9290,[x+.32,4.36,z],[x-.1,-.27,z+side*.92],.026);
-      box(0x536c72,x-.78,.54,z,2.35,.22,.18);
-    }else{
-      box(0x4b686b,x+.18,.16,z,1.35,.48,1.26);
-      box(linen,x+.15,.46,z,1.70,.12,1.48);
-      box(teak,x-1.65,-.22,z,.61,.28,1.12);
-    }
-  }
-  tender(-63,-439.15,0x537079,true);tender(-63.4,-429.9,0xa46f52,false);
   const stoneMap=new THREE.TextureLoader().load('./avenue-limestone.webp');
   // Sunlit tiled pool finish with a seamless, crossed network of small caustics.
   const poolCanvas=document.createElement('canvas');poolCanvas.width=poolCanvas.height=192;

@@ -1,4 +1,5 @@
 import {waterHelm} from './water-helm.js';
+import {hullSize} from './marina-fleet-layout.js';
 import {damageBoat} from './patrol-boats.js';
 import {CITY,MAP,groundHeight,insideTravelArea} from './world.js';
 import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelmFeet,yachtPrompt,
@@ -48,7 +49,10 @@ function clear(world,pose,players,old){
       side>=yachtCabin.west && side<=yachtCabin.east && aft>=yachtCabin.fore && aft<=yachtCabin.aft ? yachtCabin.top : 3.6;
     if(!insideTravelArea(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
   }
-  for(const b of world.boats)if(!b.wrecked && yachtOverlap(pose,b.x,b.z,b.yaw,1.10,2.75))return false;
+  for(const b of world.boats){
+    const {halfWidth,halfLength}=hullSize(b);
+    if(!b.wrecked && yachtOverlap(pose,b.x,b.z,b.yaw,halfWidth,halfLength))return false;
+  }
   const h=world.heli;
   if(!h.onYacht && !h.wrecked && h.y<pose.y+yachtCabin.top && yachtOverlap(pose,h.x,h.z,h.yaw,1.3,4.3)){
     const hcos=Math.cos(h.yaw),hsin=Math.sin(h.yaw);
@@ -107,7 +111,10 @@ export function stepYacht(world,input,dt,players){
         if(inBounds){
           const owner=world.wanted?.session(players?.get(y.driver));
           damageYacht(world,impact,undefined,owner);
-          const hull=world.boats.find(b=>!b.wrecked && yachtOverlap(next,b.x,b.z,b.yaw,1.1,2.75));
+          const hull=world.boats.find(b=>{
+            const {halfWidth,halfLength}=hullSize(b);
+            return !b.wrecked && yachtOverlap(next,b.x,b.z,b.yaw,halfWidth,halfLength);
+          });
           if(hull)damageBoat(world,hull,impact,players,owner);
         }
       }

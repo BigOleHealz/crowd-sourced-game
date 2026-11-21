@@ -29,6 +29,7 @@ import {galleryRoomAt} from './gallery-lobbies.js';
 import {storefrontRoom} from './storefront-layout.js';
 import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout.js';
 import {crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
+import {marinaModel} from './marina-fleet-layout.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {flameProjector} from './fire-sites.js';
@@ -344,7 +345,7 @@ function pressAction(code){
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(code)) {
+  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(code)) {
     const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
@@ -602,7 +603,7 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !self.ride && !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
+  const fire = !self.ride && !unarmedRoad() && !myBoat()?.boatModel && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
   const gunner=gunnerRole();
   const aim=(inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -743,7 +744,8 @@ function drivingView(rover, dt, wheeled) {
   roverView.yaw = angleMix(roverView.yaw + (wheeled ? mouseTurn : turn), camera.yaw, blend);
   roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
   roverView.road=wheeled ? roadFraming(roverView.road,rover,dt) : null;
-  roverView.distance = camera.distance;
+  const marina=marinaModel(rover);
+  roverView.distance = marina?Math.max(camera.distance,marina.length*.68):camera.distance;
   // The rearward angle lives only in the rendered view. Steering and the
   // driver's saved mouse orbit continue in their normal coordinate frame.
   const rear=wheeled && down('KeyV');
@@ -756,12 +758,13 @@ function updateEquipment(local) {
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const boat=myBoat();
+  const marina=marinaModel(boat);
   const trafficCar=myRoad()?.model && myRoad();
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? carNames[trafficCar.model] : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = marina?boat.name+' · '+marina.title:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? carNames[trafficCar.model] : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
@@ -782,7 +785,7 @@ function updateEquipment(local) {
   byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
   if (local.stance) byId('shift-action').parentElement.hidden = true;
   const kind=seatVehicle(world,id);
-  byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
+  byId('tool-shortcut').hidden=!!marina || jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
@@ -920,7 +923,7 @@ function drawMap(player, remotes, yaw) {
   ctx.fillStyle = '#ffe085'; ctx.fillText('R',sx(world.rover.x),sy(world.rover.z)-4);
   if(world.supercar){ctx.fillStyle='#ff9651';ctx.fillText('GT',sx(world.supercar.x),sy(world.supercar.z)-4);}
   for(const b of world.boats??[]){
-    ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
+    ctx.fillStyle=b.wrecked?'#7b8181':b.boatModel?'#edcf9b':'#eff3df';ctx.fillText(b.boatModel?'◆':'B',sx(b.x),sy(b.z));
   }
   if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
   ctx.fillStyle='#f4cc70';ctx.font='bold 10px sans-serif';

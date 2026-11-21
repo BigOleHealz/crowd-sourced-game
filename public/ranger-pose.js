@@ -1,5 +1,5 @@
 import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
-import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
+import {boatHelm,helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
 import {groundHeight,waterBlend} from './world.js';
@@ -114,9 +114,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.position.set(state.x,state.y,state.z);
   const trafficSeat=seated?.model && seated.npcDriver!==undefined;
   const helm=seated?.id && !trafficSeat;
+  const helmPosition=helm?boatHelm(seated):null;
   const cabin=seated && !helm ? roadCabin(seated) : null;
   const lowCockpit=seated?.kind==='supercar';
-  avatar.root.scale.setScalar(cabin?.scale??(helm ? seatedScale : 1));
+  avatar.root.scale.setScalar(cabin?.scale??helmPosition?.scale??1);
   if (avatar.civilian){avatar.root.scale.x*=avatar.civilian.width;avatar.root.scale.y*=avatar.civilian.height;}
   if (seated) {
     const seat=helm ? helmFeet(seated) : mountPosition(seated,cabin.seat);
@@ -297,10 +298,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       holdWorld(avatar,arm,forearm,side,roadWheelGrip(seated,side));
     } else if(helm) {
       // Hold the upper left/right spokes in the same frame as the cushion.
-      const {y,z,radius,tilt}=helmWheel, up=radius*.5;
-      gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/seatedScale,
-        (y+up*Math.cos(tilt)-helmOffset[1])/seatedScale,
-        (z+up*Math.sin(tilt)-helmOffset[2])/seatedScale,side);
+      const {offset,wheel,scale}=helmPosition,{y,z,radius,tilt}=wheel,up=radius*.5;
+      gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/scale,
+        (y+up*Math.cos(tilt)-offset[1])/scale,
+        (z+up*Math.sin(tilt)-offset[2])/scale,side);
     }
     if(water>0){
       const wave=stroke+(side===1?Math.PI:0),mix=THREE.MathUtils.lerp;
