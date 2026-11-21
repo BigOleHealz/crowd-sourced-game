@@ -73,18 +73,79 @@ function breathing(h,time){
 }
 const round=v=>Math.round(v*1000)/1000;
 
+// A few overlapping volumes follow the animated mesh's silhouette. Transform
+// the entire swept segment into model space so a fast round cannot skip it.
+const volumes=[
+  [0,-.04,.03,.47,.41,1.08], [0,.01,-1.06,.23,.22,.45],
+  [0,.01,1.41,.30,.11,.49],
+];
+function localPoint(point,pose,size) {
+  const dx=(point.x-pose.x)/size,dy=(point.y-pose.y)/size,dz=(point.z-pose.z)/size;
+  const c=Math.cos(pose.yaw),s=Math.sin(pose.yaw);
+  const x=c*dx+s*dz,z=-s*dx+c*dz;
+  const cp=Math.cos(pose.pitch),sp=Math.sin(pose.pitch);
+  const y=cp*dy+sp*z,cr=Math.cos(pose.roll),sr=Math.sin(pose.roll);
+  return [cr*x+sr*y,-sr*x+cr*y,-sp*dy+cp*z];
+}
+
+export function manateeContact(states,start,end) {
+  let nearest=null;
+  for (const [index,pose] of (states??[]).entries()) {
+    if (pose.hp<=0) continue;
+    const size=manateeHabitats[index].size,pad=2*size;
+    if (pose.x<Math.min(start.x,end.x)-pad || pose.x>Math.max(start.x,end.x)+pad ||
+        pose.z<Math.min(start.z,end.z)-pad || pose.z>Math.max(start.z,end.z)+pad ||
+        pose.y<Math.min(start.y,end.y)-pad || pose.y>Math.max(start.y,end.y)+pad) continue;
+    const a=localPoint(start,pose,size),b=localPoint(end,pose,size);
+    for (const [x,y,z,rx,ry,rz] of volumes) {
+      const ox=(a[0]-x)/rx,oy=(a[1]-y)/ry,oz=(a[2]-z)/rz;
+      const dx=(b[0]-a[0])/rx,dy=(b[1]-a[1])/ry,dz=(b[2]-a[2])/rz;
+      const length=dx*dx+dy*dy+dz*dz,dot=ox*dx+oy*dy+oz*dz;
+      const offset=ox*ox+oy*oy+oz*oz-1,disc=dot*dot-length*offset;
+      if (offset>0 && (length===0 || disc<0)) continue;
+      const t=offset<=0?0:(-dot-Math.sqrt(disc))/length;
+      if (t>=0 && t<=1 && (!nearest || t<nearest.t)) nearest={index,t};
+    }
+  }
+  return nearest;
+}
+export function damageManatee(states,index,amount,kind,point) {
+  const animal=states?.[index];
+  if (!animal || animal.hp<=0 || !Number.isFinite(amount) || amount<=0) return false;
+  animal.hp=Math.max(0,animal.hp-amount);
+  animal.hitSeq++;
+  animal.ageSinceHit=0;
+  animal.hitX=round(point?.x??animal.x);
+  animal.hitY=round(point?.y??animal.y);
+  animal.hitZ=round(point?.z??animal.z);
+  if (animal.hp===0) {
+    animal.deathKind=kind;
+    animal.air=-1;
+  }
+  return true;
+}
+
 export function createManatees(world,water) {
   let time=0;
   const motion=manateeHabitats.map(h=>{
     const p=orbit(h,0),ahead=orbit(h,.1);
     return {...p,y:water-.77,yaw:Math.atan2(ahead.x-p.x,p.z-ahead.z),vx:0,vz:0,roll:0,stroke:h.phase,air:-1,pitch:0};
   });
-  const state=motion.map(s=>({x:round(s.x),y:round(s.y),z:round(s.z),yaw:round(s.yaw),pitch:0,roll:0,stroke:round(s.stroke),air:-1}));
+  const state=motion.map((s,i)=>({maxHp:Math.round(120*manateeHabitats[i].size),hp:Math.round(120*manateeHabitats[i].size),
+    hitSeq:0,ageSinceHit:null,deathKind:null,x:round(s.x),y:round(s.y),z:round(s.z),yaw:round(s.yaw),pitch:0,roll:0,stroke:round(s.stroke),air:-1}));
   function step(dt) {
     time+=dt;
     const vessels=[...(world.boats??[]),...(world.yacht?[world.yacht]:[])].filter(b=>!b.wrecked && !b.sling);
     for(const [i,p] of motion.entries()){
       const h=manateeHabitats[i],goal=orbit(h,time+1.9),breath=breathing(h,time),padding=1.92*h.size;
+      const animal=state[i];
+      if (animal.ageSinceHit!==null) animal.ageSinceHit=Math.min(150,animal.ageSinceHit+dt);
+      if (animal.hp===0) {
+        if (animal.ageSinceHit<150) continue;
+        const spawn=orbit(h,time);
+        Object.assign(p,spawn,{y:water-.77,vx:0,vz:0});
+        Object.assign(animal,{hp:animal.maxHp,ageSinceHit:null,deathKind:null,hitX:null,hitY:null,hitZ:null});
+      }
       let ax=(goal.x-p.x)*.52,az=(goal.z-p.z)*.52,pressure=0,dive=0;
       const keel=boat=>(boat.y??water)+(boat===world.yacht?-1.25:(marinaModel(boat)?.keel??-.58))-.56*h.size;
       for(const boat of vessels){

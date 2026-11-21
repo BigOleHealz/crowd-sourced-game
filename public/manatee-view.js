@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import {manateeHabitats} from './manatee-swim.js';
 import {manateeAssets,manateeMaterial} from './manatee-model.js';
 
+import {aquaticImpactView} from './aquatic-impact-view.js';
+
 const cap=3,limit=52;
 const mix=THREE.MathUtils.lerp;
 const nearby=(a,b,t)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
@@ -21,6 +23,7 @@ function rippleMap(){
 export function manateeView(scene,waterline){
   const clock={value:0},muzzle=new THREE.Vector3();
   const animals=Array(manateeHabitats.length);
+  const updateImpacts=aquaticImpactView(scene,waterline,manateeHabitats.map(h=>h.size));
   let kit,rings,snapshot,source,shown,age=0;
   function make(index){
     kit??=manateeAssets();rings??=rippleMap();
@@ -43,6 +46,7 @@ export function manateeView(scene,waterline){
   }
 
   return (states,local,simTick,dt)=>{
+    updateImpacts(states,local,dt);
     if(!states?.length){
       for(const animal of animals)if(animal){animal.root.visible=false;for(const r of animal.ripples)r.visible=false;}
       snapshot=source=shown=undefined;return;
@@ -70,6 +74,11 @@ export function manateeView(scene,waterline){
         continue;
       }
       const a=animals[i]??=make(i),p=shown[i];
+      const state=states[i],down=state.hp===0,elapsed=(state.ageSinceHit??0)+age;
+      if(down && (state.deathKind==='blast' || elapsed>=14)){
+        a.root.visible=false;for(const ring of a.ripples)ring.visible=false;
+        continue;
+      }
       const high=near.d<(a.high?19:17);
       if(high!==a.high){
         const lod=high?kit.high:kit.low;
@@ -80,6 +89,10 @@ export function manateeView(scene,waterline){
       const {root,tail,fins,ripples}=a,beat=Math.sin(p.stroke);
       root.visible=true;root.position.set(p.x,p.y,p.z);
       root.rotation.set(p.pitch,-p.yaw,p.roll,'YXZ');
+      if(down){
+        const settle=1-Math.exp(-elapsed*.8);
+        root.rotation.z+=settle*.97;root.position.y-=.024*elapsed;
+      }
       tail.rotation.set(.245*beat+.059*Math.sin(p.stroke*2-.48),.031*Math.sin(p.stroke-.75),0);
       for(const [j,fin] of fins.entries()){
         const side=2*j-1,stroke=Math.sin(p.stroke-.52-side*.47);
@@ -88,7 +101,7 @@ export function manateeView(scene,waterline){
       root.localToWorld(muzzle.set(0,.075,-1.45));
       for(const [j,ripple] of ripples.entries()){
         const t=p.air-j*.53;
-        ripple.visible=p.air>=0 && t>=0 && t<2.65 && near.d<36;
+        ripple.visible=!down && p.air>=0 && t>=0 && t<2.65 && near.d<36;
         if(!ripple.visible)continue;
         const drift=t*.29,r=.27+t*(.53+j*.13);
         ripple.position.set(muzzle.x-Math.sin(p.yaw)*drift,waterline+.020+j*.002,muzzle.z+Math.cos(p.yaw)*drift);

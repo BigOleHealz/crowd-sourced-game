@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {manateeHabitats,createManatees} from '../public/manatee-swim.js';
+import {createSharks} from '../public/shark-swim.js';
+import {marineContact,hitMarineWildlife} from '../public/marine-contacts.js';
+
+const manatees=createManatees({},-.14).state,sharks=createSharks().state;
+const world={manatees,sharks},animal=manatees[0],shark=sharks[0];
+const {x,z}=manateeHabitats[0],y=-1;
+Object.assign(animal,{x,y,z,yaw:0});
+Object.assign(shark,{x:x+3,y,z,yaw:0});
+const west={x:x-5,y,z},east={x:x+7,y,z};
+assert.equal(marineContact(world,west,east).target,animal);
+assert.equal(marineContact(world,east,west).target,shark);
+hitMarineWildlife(world,shark,shark,25,0);
+assert.equal(shark.hp,shark.maxHp-25);
+assert.equal(animal.hp,animal.maxHp);
+hitMarineWildlife(world,shark,shark,500,3.5);
+assert.equal(shark.hitSeq,2);
+assert.equal(animal.hitSeq,1);
+assert.equal(shark.deathKind,'blast');
+assert.equal(animal.deathKind,'blast');
+assert.equal(marineContact(world,east,west),null);
+console.log('Nearest wildlife intercepts rounds and both species share one blast event.');

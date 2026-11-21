@@ -19,6 +19,7 @@ import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {sharkView} from './shark-view.js';
 import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -708,6 +709,7 @@ function fieldEffects(scene) {
     }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
+    if(s.hitKind==='manatee' || s.hitKind==='shark')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
@@ -1040,6 +1042,7 @@ export function createScene(canvas,onFootfall) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
@@ -1477,7 +1480,7 @@ export function createScene(canvas,onFootfall) {
       camera.position.lerp(overheadEye,overhead);
     }
     avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
-    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
+    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && (!local.swimming || local.swimArmed);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     sightModels[5].visible=sighted && local.weapon===6 && !avatars.get(local.id)?.throwSwing;
@@ -1514,6 +1517,7 @@ export function createScene(canvas,onFootfall) {
       camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
+    updateSharks?.(world.sharks,local,world.simTick,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}

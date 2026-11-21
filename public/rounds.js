@@ -1,3 +1,4 @@
+import {hasMarineWildlife,marineContact} from './marine-contacts.js';
 import {roomDoorTop} from './building-interiors.js';
 import {ruinedHouseAt} from './residential-sites.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -286,9 +287,18 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
       accept(hi,world.yacht,world.yacht.id);break;
     }
   }
+  // In wildlife waters a firearm round can continue through the shallow layer.
+  // Thrown items and fire still terminate at the surface.
+  const wildlifeRound=Object.hasOwn(firearmSpecs,round.weapon) && hasMarineWildlife(world);
+  const waterStop=wildlifeRound ? MAP.waterY-3.5 : MAP.waterY;
+  if(wildlifeRound){
+    const end={x:round.x+d.x,y:round.y+d.y,z:round.z+d.z};
+    const contact=marineContact(world,round,end);
+    if(contact)accept(contact.t,contact.target,contact.kind);
+  }
   const above=f=>{
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-    return y-Math.max(MAP.waterY,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y,world.doors) : -Infinity);
+    return y-Math.max(waterStop,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y,world.doors) : -Infinity);
   };
   const steps=Math.max(1,Math.ceil(Math.hypot(d.x,d.z)/.12));
   for(let i=0;i<=steps;i++){

@@ -57,3 +57,31 @@ for(const [boatModel,model] of Object.entries(marinaModels)){
   const boat={x:94,z:-420,yaw:0,boatModel,speed:0};
   assert(Math.abs(manateeHullClearance(boat,boat.x,boat.z+model.halfLength+1).distance-1)<.002);
 }
+
+const {manateeContact,damageManatee}=await import('../public/manatee-swim.js');
+const sim=createManatees({},water);
+const animal=sim.state[0],origin={x:animal.x-6,y:animal.y,z:animal.z},end={...origin,x:animal.x+6};
+assert.deepEqual(sim.state.map(a=>a.maxHp),manateeHabitats.map(h=>Math.round(120*h.size)));
+const hit=manateeContact(sim.state,origin,end);
+assert.equal(hit.index,0);
+assert(hit.t>0 && hit.t<.5);
+assert.equal(manateeContact(sim.state,{...origin,y:water+5},{...end,y:water+5}),null);
+const impact={x:origin.x+12*hit.t,y:origin.y,z:origin.z};
+assert(damageManatee(sim.state,0,20,'shot',impact));
+assert.equal(animal.hp,animal.maxHp-20);
+assert.equal(animal.deathKind,null);
+assert.equal(animal.hitX,Math.round(impact.x*1000)/1000);
+assert(damageManatee(sim.state,0,500,'blast'));
+assert.equal(animal.deathKind,'blast');
+assert.equal(manateeContact(sim.state,origin,end),null);
+assert.equal(damageManatee(sim.state,0,10,'shot'),false);
+assert.equal(animal.hitSeq,2);
+const stop=[animal.x,animal.y,animal.z,animal.stroke];
+for(let i=0;i<60;i++) sim.step(dt);
+assert.deepEqual([animal.x,animal.y,animal.z,animal.stroke],stop);
+assert.equal(animal.air,-1);
+for(let i=0;i<150*30;i++) sim.step(dt);
+assert.equal(animal.hp,animal.maxHp);
+assert.equal(animal.ageSinceHit,null);
+assert.equal(animal.deathKind,null);
+assert.equal(animal.hitSeq,2);
