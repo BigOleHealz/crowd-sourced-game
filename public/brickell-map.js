@@ -1,3 +1,4 @@
+import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
 import {bankSite} from './bank-site.js';
 import {stationBarriers} from './fire-sites.js';
 import {club,clubSolids} from './club-lucero.js';
@@ -30,7 +31,7 @@ export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
 // replaces the old short curb here; both drawing and walking use this plan.
 streetPlan.curbs=streetPlan.curbs.filter(c=>Math.abs(c.x-club.x)>club.w/2 || Math.abs(c.z-club.z)>club.d/2);
 export const bridges=[causeway,lanternBridge];
-const oldShores=[coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers];
+const oldShores=[coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
@@ -43,6 +44,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
     return Number.isFinite(road) && maxBottom>=soffit ? road : -2.8;
   }
   if(z<=lanternBridge.north){
+    const marina=dockHeight(x,z);if(marina!==undefined)return marina;
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
   }
@@ -79,7 +81,7 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  barriers:[...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

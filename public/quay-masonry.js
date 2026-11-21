@@ -1,3 +1,4 @@
+import {marinaDecks} from './marina-docks.js';
 import * as THREE from 'three';
 import {coast,harbor,bridges} from './brickell-map.js';
 import {beach} from './beach-layout.js';
@@ -5,7 +6,7 @@ import {lanternLand,ferrySlip,marketPiers} from './lantern-point.js';
 import {berthing} from './lantern-buildings-layout.js';
 
 const shores=[coast,harbor,...lanternLand];
-const adjoining=[...shores,beach,ferrySlip,berthing.lip,...marketPiers,...bridges];
+const adjoining=[...shores,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges];
 // Render the exposed boundary of the land union. Overlapping survey strips,
 // bridge entries, the sand and the marina slipway retain their open approaches.
 export function quaySegments(){

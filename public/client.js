@@ -3,6 +3,7 @@ import {nearbySidearm} from './market-goods.js';
 import {yachtDoorAction} from './yacht-layout.js';
 import {elevatorControls} from './elevator-controls.js';
 import {buildingAction,doorIsOpen,roomAtFeet} from './building-interiors.js';
+import {marinaDecks} from './marina-docks.js';
 import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
@@ -985,7 +986,7 @@ function drawMap(player, remotes, yaw) {
     }
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
-    for(const r of [...lanternLand,ferrySlip,...marketPiers])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
+    for(const r of [...lanternLand,ferrySlip,...marketPiers,...marinaDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])

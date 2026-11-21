@@ -1,9 +1,11 @@
+import {addMarinaDocks} from './marina-dock-view.js';
 import * as THREE from 'three';
 import {verges} from './waterfront-roads.js';
 import {lanternLand,lanternRoads,lanternSigns,ferrySlip,slipHeight,marketPiers,pierDeck,bollards,benches,gardens,quayLamps} from './lantern-point.js';
 
 export function addLanternPoint(scene,solids,ground,patch,posts) {
   const box=new THREE.BoxGeometry(),post=new THREE.CylinderGeometry(.5,.5,1,12);
+  addMarinaDocks(scene,solids);
   const paved=[];
   for(const strip of lanternLand){
     const [x,,z,w,d]=patch(strip,.8);
