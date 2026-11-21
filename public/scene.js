@@ -1247,7 +1247,7 @@ export function createScene(canvas) {
   let sprintGate;
   function render(local,remotes,view,dt,world) {
     if(CITY && !world.match){
-      sprintGate??=createSprintGate(scene);
+      sprintGate??=createSprintGate(scene,Batch);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
     if(!local) return;
