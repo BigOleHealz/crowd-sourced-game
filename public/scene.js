@@ -22,7 +22,8 @@ import {viewPitch,zenith} from './view-pitch.js';
 import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
-import {dressCivilian} from './civilian-view.js';
+import {patrolProfile} from './patrol-uniform.js';
+import {dressPerson} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
 import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
@@ -1181,20 +1182,21 @@ export function createScene(canvas) {
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
   const distant=CITY ? distantResidents(scene) : null;
-  let civilianMaterials;
+  let civilianFaces,patrolFaces,civilianShirts,patrolShirts;
   function civilianTexture(path){
     const map=new THREE.TextureLoader().load(path);
     map.colorSpace=THREE.SRGBColorSpace;
     map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return new THREE.MeshLambertMaterial({map});
   }
-  function resident(id,name){
-    civilianMaterials??={
-      faces:civilianTexture('./brickell-faces.webp'),
-      shirts:civilianTexture('./brickell-clothing.webp'),
-    };
+  function resident(id,name,officer=false){
+    const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
+      (civilianFaces??=civilianTexture('./brickell-faces.webp'));
+    const shirts=officer?(patrolShirts??=civilianTexture('./pinewatch-patrol-shirt.webp')):
+      (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressCivilian(rig,civilianLooks[id],Batch,material,civilianMaterials);
+    dressPerson(rig,officer?patrolProfile(id):civilianLooks[id],Batch,material,{faces,shirts});
+    if(officer)rig.tools=makeFirearms(rig.upper);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
   }
@@ -1334,7 +1336,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.officer ? 0x35689a : state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && civilianLooks[state.id]) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
