@@ -1,3 +1,4 @@
+import {signalGap} from './junction-signals.js';
 import {gapAhead,roadUsers} from './lane-clearance.js';
 import {beginRoadBoarding} from './road-cabin.js';
 import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
@@ -150,8 +151,10 @@ function recoverTrafficCar(world,car,actors,dt){
   delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
-export function stepCityTraffic(world,players,npcs,dt){
+const trafficClocks=new WeakMap();
+export function stepCityTraffic(world,players,npcs,dt,tick){
   if(!world.traffic?.length)return;
+  if(CITY && tick==null){tick=(trafficClocks.get(world)??0)+dt*30;trafficClocks.set(world,tick);}
   const {vehicles,actors}=roadUsers(world,players,npcs);
   for(const car of world.traffic){
     const npc=npcs.find(n=>n.id===(car.npcDriver??car.takeover?.npcId));
@@ -167,7 +170,7 @@ export function stepCityTraffic(world,players,npcs,dt){
     if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
-    const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
+    const gap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
     const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);
