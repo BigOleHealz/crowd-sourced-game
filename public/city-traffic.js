@@ -1,3 +1,4 @@
+import {beginRoadBoarding} from './road-cabin.js';
 import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
 import {roadGrip} from './road-surface.js';
 import {flatMobility} from './road-wheel-layout.js';
@@ -87,7 +88,7 @@ export function tryTrafficInteract(world,player,npcs){
     car.takeover={npcId:npc.id,playerId:player.id,progress:0,...exit,
       startX:player.state.x,startY:player.state.y,startZ:player.state.z};
     car.npcDriver=null;car.blink=false;car.turnSignal=0;
-  }
+  }else beginRoadBoarding(car,player.state);
   car.driver=player.id;
   stopRover(car);
   return true;

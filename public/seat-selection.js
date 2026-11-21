@@ -16,7 +16,7 @@ export function selectSeat(world,player,kind,seat) {
   if(v.wrecked || v[to]!=null) return false;
   if(v[from]===player.id) {
     v[from]=null;
-    if(from==='driver' && kind==='rover') stopRover(v);
+    if(from==='driver' && kind==='rover'){delete v.boarding;stopRover(v);}
     if(from==='driver' && v.id) v.throttle=0;
     if(from==='pilot' && !v.grounded) v.abandonedFor=0;
   }

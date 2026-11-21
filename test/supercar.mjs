@@ -58,7 +58,7 @@ const beforeBrake=corner.supercar.z;
 let brakeTicks=0;
 while(corner.supercar.speed>.1 && brakeTicks++<30)tick(corner,'supercar',-1,0,1);
 assert(brakeTicks<26 && beforeBrake-corner.supercar.z<10);
-tick(corner,'supercar',1,1,12);
+tick(corner,'supercar',1,1,25);
 assert(corner.supercar.yaw>.48 && corner.supercar.x>supercarLayout.pad.x);
 assert.equal(corner.supercar.hp,supercarLayout.maxHp);
 

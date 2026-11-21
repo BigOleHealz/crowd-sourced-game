@@ -1,3 +1,5 @@
+import {frontWheelAngle} from './road-steering.js';
+import {roadEngineIdle} from './road-engine-idle.js';
 import {shapedBodywork,paintedFinish} from './rover-bodywork.js';
 import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -6,7 +8,7 @@ import * as THREE from 'three';
 import {roverPanelDamage} from './rover-panel-damage.js';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
-import { CITY, groundHeight } from './world.js';
+import { CITY } from './world.js';
 import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
@@ -22,7 +24,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const sheet = new THREE.BoxGeometry(1,1,1,5,2,5);
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
-  const pickup=CITY;
+  const pickup=CITY,idle=roadEngineIdle(pickup?'pickup':'jeep');
   const green=pickup?0x6a8490:0x6d7355, darkGreen=pickup?0x41555d:0x505943;
   const trim=pickup?0xb2b3a6:0x747861, steel=0x626660, rubber=0x2c302e;
   const box=(t,x,y,z,w,h,l) => {
@@ -255,6 +257,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     const wheel=wheelBatch.mesh(axles,wheelFinish,false);
     wheel.userData.rubberState=rubberState;
     wheel.position.set(x,.368,z);
+  wheel.rotation.order='YXZ';
     const trimBatch=new Batch(true);
     trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
     trimBatch.mesh(wheel,facingMaterial,false);
@@ -273,15 +276,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.3,3.5).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x28352a,transparent:true,opacity:.36,depthWrite:false}));
   scene.add(shadow);
-  // Short contact shadows under the four individual tires anchor the pickup on the avenue's
-  // asphalt and raised sidewalk, including when part of the axle is still below the curb.
-  const contact=CITY ? new THREE.InstancedMesh(
-    new THREE.PlaneGeometry(.46,.72).rotateX(-Math.PI/2),
-    new THREE.MeshBasicMaterial({map:shadowMap,color:0x332e26,transparent:true,opacity:.66,depthWrite:false}),
-    wheelStations.length) : null;
-  const footprint=new THREE.Object3D();
-  if(contact){contact.frustumCulled=false;contact.visible=false;scene.add(contact);}
-
   sheet.dispose(); cube.dispose(); disc.dispose();
   const scorchedGlass=new THREE.MeshLambertMaterial({color:0x272e2d,vertexColors:true,side:THREE.DoubleSide});
   const crumpled={front:.92,rear:.42,left:.65,right:.26};
@@ -308,24 +302,13 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     root.rotation.set((pose?.pitch ?? 0)-.13*sag,-r.yaw,(pose?.roll ?? 0)-.18*sag,'YXZ');
     shadow.visible=root.visible && !r.bridgeFlight;
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
-    if(contact){
-      contact.visible=root.visible && r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;
-      if(contact.visible) {
-        shadow.rotation.set(0,-r.yaw,0);
-        const c=Math.cos(r.yaw),s=Math.sin(r.yaw);
-        for(let i=0;i<wheelStations.length;i++) {
-          const [width,length]=wheelStations[i],x=r.x+c*width-s*length,z=r.z+s*width+c*length;
-          footprint.position.set(x,groundHeight(x,z)+.013,z);footprint.rotation.y=-r.yaw;
-          footprint.updateMatrix();contact.setMatrixAt(i,footprint.matrix);
-        }
-        contact.instanceMatrix.needsUpdate=true;
-      }
-    }
     wheels.forEach((wheel,i)=>{
       wheel.position.y=.368+(pose?.wheels[i] ?? 0);
       wheel.rotation.x-=r.speed*dt/.36;
+      wheel.rotation.y=wheel.position.z<0?-frontWheelAngle(r):0;
       wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
     });
+    idle(root,r,dt);
     for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);
   };
 }

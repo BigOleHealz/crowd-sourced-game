@@ -4,6 +4,7 @@ import {serviceRoadCar} from './public/road-garages.js';
 import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.js';
 import {stepHydrants} from './public/hydrants.js';
 import {stepWakeCrossings} from './public/boat-wakes.js';
+import {stepRoadBoarding} from './public/road-cabin.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -417,6 +418,8 @@ function tick() {
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
   if (players.size) {
+    stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
+    for(const car of world.traffic)stepRoadBoarding(car,step);
     stepCityTraffic(world,players,npcs,step);
     for (const npc of npcs) if(!trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }

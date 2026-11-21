@@ -1,3 +1,4 @@
+import {roadCabin,roadWheelGrip,roadHandle} from './road-cabin.js';
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
@@ -18,7 +19,7 @@ export function createRangerRig() {
   return {root,body,spine,upper,head,limbs,tools:Array.from({length:4},()=>new THREE.Group()),cycle:0,gait:null};
 }
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
-const grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
+const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
 const upperLength=.275, lowerLength=.265;
 
 // Solve the two visible arm segments in body space. An outward elbow bend keeps
@@ -36,6 +37,46 @@ function gripPose(arm,forearm,x,y,z,side,prone=false) {
   segment.copy(reach).multiplyScalar(distance).sub(elbow).normalize();
   inverseUpper.copy(arm.quaternion).invert();
   forearm.quaternion.setFromUnitVectors(downArm,segment.applyQuaternion(inverseUpper));
+}
+
+function holdWorld(avatar,arm,forearm,side,target){
+  grip.set(target.x,target.y,target.z);
+  avatar.upper.worldToLocal(grip);
+  gripPose(arm,forearm,grip.x,grip.y,grip.z,side);
+}
+
+// The same authoritative progress moves the occupant and the hinged door.
+// The tracking hand follows the handle through its swing before both hands settle on the rim.
+export function poseRoadBoarding(avatar,car,action){
+  const {progress:t,startX,startY,startZ}=action,cabin=roadCabin(car),seat=mountPosition(car,cabin.seat);
+  const approach=THREE.MathUtils.smoothstep(t,0,.24),enter=THREE.MathUtils.smoothstep(t,action.npcId ? .65 : .45,.97);
+  const handle=roadHandle(car,t),c=Math.cos(car.yaw),s=Math.sin(car.yaw),mix=THREE.MathUtils.lerp;
+  const standX=handle.x-c*.27+s*.12,standZ=handle.z-s*.27-c*.12;
+  const {root,body,spine,limbs}=avatar;
+  avatar.gait=null;
+  root.scale.setScalar(mix(1,cabin.scale,enter));
+  root.position.set(mix(mix(startX,standX,approach),seat.x,enter),
+    mix(mix(startY,car.y,approach),seat.y,enter),mix(mix(startZ,standZ,approach),seat.z,enter));
+  root.rotation.set((car.suspension?.pitch??0)*enter,-car.yaw-1.57*(1-enter),(car.suspension?.roll??0)*enter,'YXZ');
+  const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
+  body.position.set(0,-crouch,0);
+  spine.rotation.set(-.24*approach*(1-enter)+(car.kind==='supercar' ? .35*enter : 0),0,0);
+  for(const {leg,knee,ankle,arm,forearm,side} of limbs){
+    const bend=crouch*2;
+    leg.rotation.set(1.36*enter+bend,0,side*.075*(1-enter),'ZXY');
+    knee.rotation.set(-1.30*enter-1.8*bend,0,0);ankle.rotation.set(bend*.65,0,0);
+    const wheel=roadWheelGrip(car,side);
+    if(side===1){wheel.x=mix(handle.x,wheel.x,enter);wheel.y=mix(handle.y,wheel.y,enter);wheel.z=mix(handle.z,wheel.z,enter);}
+    const weight=side===1?approach:enter;
+    if(weight<1){
+      arm.rotation.set(.25,0,side*.07);forearm.rotation.set(.26,0,0);
+      if(!weight)continue;
+      forearm.localToWorld(relaxedPalm.set(0,-lowerLength,0));
+      wheel.x=mix(relaxedPalm.x,wheel.x,weight);wheel.y=mix(relaxedPalm.y,wheel.y,weight);wheel.z=mix(relaxedPalm.z,wheel.z,weight);
+    }
+    holdWorld(avatar,arm,forearm,side,wheel);
+  }
+  for(const tool of avatar.tools)tool.visible=false;
 }
 
 export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
@@ -68,13 +109,12 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.position.set(state.x,state.y,state.z);
   const trafficSeat=seated?.model && seated.npcDriver!==undefined;
   const helm=seated?.id && !trafficSeat;
+  const cabin=seated && !helm ? roadCabin(seated) : null;
   const lowCockpit=seated?.kind==='supercar';
-  avatar.root.scale.setScalar(lowCockpit ? .80 : seated ? seatedScale : 1);
-  if(trafficSeat)avatar.root.scale.setScalar(.91);
+  avatar.root.scale.setScalar(cabin?.scale??(helm ? seatedScale : 1));
   if (avatar.civilian){avatar.root.scale.x*=avatar.civilian.width;avatar.root.scale.y*=avatar.civilian.height;}
   if (seated) {
-    const seat=helm ? helmFeet(seated) : mountPosition(seated,trafficSeat ? [-.43,seated.model==='van'?-.12:-.22,-.28] :
-      lowCockpit ? [-.365,-.27,-.045] : [-.322,.025,-.085]);
+    const seat=helm ? helmFeet(seated) : mountPosition(seated,cabin.seat);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
@@ -90,7 +130,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
-  avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe : 0,
+  avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe-gait.brace : 0,
     gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
     gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
   if(crouch)avatar.spine.rotation.x-=.20*stanceDrop(state);
@@ -98,7 +138,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   // foot strike and lets the head lead the torso into a change of direction.
   avatar.head.position.set(0,1.525,0);
   avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
-    gait ? .28*gait.twist-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
+    gait ? gait.neckYaw-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
@@ -107,7 +147,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   }
   if(lowCockpit){
     // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
-    avatar.spine.rotation.x=.50;avatar.head.rotation.x=-.32;
+    avatar.spine.rotation.x=.35;avatar.head.rotation.x=-.25;
   }
   if(water>0) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
@@ -234,23 +274,14 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const handZ=side===1 ? .037 : bloom ? .031 : -.21;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
       gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
-    } else if(lowCockpit) {
-      // Convert each upper wheel spoke from the lowered seat to the reclined torso.
-      const scale=avatar.root.scale.x,angle=avatar.spine.rotation.x;
-      const y=(.868+.27)/scale-1.01,z=(-.352+.045)/scale;
-      gripPose(arm,forearm,(.005+side*.119)/scale,
-        1.01+Math.cos(angle)*y+Math.sin(angle)*z,Math.cos(angle)*z-Math.sin(angle)*y,side);
-    } else if(trafficSeat) {
-      const y=(1.08+(seated.model==='van'?.12:.22))/avatar.root.scale.y;
-      gripPose(arm,forearm,side*.131/avatar.root.scale.x,y,-.37/avatar.root.scale.z,side);
+    } else if(cabin) {
+      holdWorld(avatar,arm,forearm,side,roadWheelGrip(seated,side));
     } else if(helm) {
       // Hold the upper left/right spokes in the same frame as the cushion.
       const {y,z,radius,tilt}=helmWheel, up=radius*.5;
       gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/seatedScale,
         (y+up*Math.cos(tilt)-helmOffset[1])/seatedScale,
         (z+up*Math.sin(tilt)-helmOffset[2])/seatedScale,side);
-    } else if(seated) {
-      forearm.rotation.x=.42;
     }
     if(water>0){
       const wave=stroke+(side===1?Math.PI:0),mix=THREE.MathUtils.lerp;

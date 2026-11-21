@@ -6,7 +6,7 @@ export function furnitureRanges(scene,batches,side=0,originX=0,originZ=0){
   if(!pieces){
     pieces=new Map();
     scenes.set(scene,pieces);
-    pieces.active=new Set();
+    pieces.active=new Set();pieces.shadowPieces=[];
   }
   const ranges=[];
   return {
@@ -22,7 +22,7 @@ export function furnitureRanges(scene,batches,side=0,originX=0,originZ=0){
     bind(meshes){
       for(const r of ranges){
         const {piece:p}=r;
-        if(!pieces.has(p.id))pieces.set(p.id,[]);
+        if(!pieces.has(p.id)){pieces.set(p.id,[]);pieces.shadowPieces.push({piece:p,mesh:meshes[r.k]});}
         const px=side?-side*(p.z-originZ):p.x,pz=side?side*(p.x-originX):p.z;
         pieces.get(p.id).push({...r,px,pz,side,ground:p.floor-(side ? .80 : 0),g:meshes[r.k].geometry,last:null});
       }
@@ -77,3 +77,5 @@ export function updateShopFurniture(scene,doors){
     }
   }
 }
+
+export const furnitureShadowPieces=scene=>scenes.get(scene)?.shadowPieces??[];

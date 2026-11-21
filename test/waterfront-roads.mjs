@@ -1,3 +1,4 @@
+import {approachPoint} from './helpers/rover-route.mjs';
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {streetPlan,roadway,cityGround,harbor,coast,causeway,within}=await import('../public/brickell-map.js');
@@ -11,10 +12,7 @@ function drive(world,x,z) {
   const r=world.rover;
   for(let i=0;i<1800;i++) {
     const dx=x-r.x,dz=z-r.z,dist=Math.hypot(dx,dz);
-    const az=Math.atan2(dx,-dz)-r.yaw,error=Math.atan2(Math.sin(az),Math.cos(az));
-    const throttle=dist>.26 && Math.abs(error)<.31 && r.speed<Math.min(8,dist*2.4);
-    const steer=dist>.26 ? Math.max(-1,Math.min(1,error*4)) : 0;
-    driveRover(world,{throttle:Number(throttle),steer},1/30,new Map());
+    driveRover(world,approachPoint(r,x,z,8),1/30,new Map());
     assert(roadway(r.x,r.z) && r.y>.6,'wheels remain on dry pavement');
     assert.equal(r.hp,250,'dry turn without hitting a roadside obstruction');
     if(dist<.32 && r.speed<.05)return;
@@ -25,12 +23,24 @@ function drive(world,x,z) {
 for(const e of streetPlan.ends) {
   const world=newExpedition(),r=world.rover;
   const point=(forward,side)=>[e.x+e.dx*forward-e.dz*side,e.z+e.dz*forward+e.dx*side];
-  const [x,z]=point(-9,0),yaw=Math.atan2(e.dx,-e.dz);
+  const [x,z]=point(-9,-2.75),yaw=Math.atan2(e.dx,-e.dz);
   Object.assign(r,{x,z,y:.70,yaw,driver:1});
-  drive(world,...point(-3.7,0));
-  drive(world,...point(-3.7,3.1));
-  drive(world,...point(-7,1.8));
-  drive(world,...point(-9,0));
+  drive(world,...point(-5.65,-2.75));
+  // Approach on one side, keep full lock at walking pace and return on
+  // the other side of the actual paved turning head.
+  let closest=-Infinity;
+  for(let i=0;;i++){
+    const delta=r.yaw-yaw,turned=Math.atan2(Math.sin(delta),Math.cos(delta));
+    if(turned>Math.PI-.08)break;
+    assert(i<300,'complete rolling turn at '+[e.x,e.z]);
+    driveRover(world,{throttle:Number(r.speed<1.75),steer:1},1/30,new Map());
+    closest=Math.max(closest,(r.x-e.x)*e.dx+(r.z-e.z)*e.dz);
+    assert(roadway(r.x,r.z) && r.y>.6);
+    assert.equal(r.hp,250);
+  }
+  assert(closest>-3.7,'enter the turning head before coming back');
+  assert((r.z-e.z)*e.dx-(r.x-e.x)*e.dz>2,'finish the turn on the opposite side');
+  drive(world,...point(-10,2.75));
   const [cx,cz]=point(-.75,0);
   assert(roadContact(world,cx,cz,yaw,x,z),'the front curb stops the pickup');
   assert.equal(cityGround(...point(1.1,0)),.80,'dry pedestrian buffer beyond curb');

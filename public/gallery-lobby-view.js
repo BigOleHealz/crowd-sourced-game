@@ -7,7 +7,7 @@ import {galleryPlans,galleryPanes,galleryDoorPanes,galleryFloor as floor,gallery
 // A single material and spatially culled architectural batch per building. Real
 // tilted lamps, display tables and overlapping lounge cushions provide parallax.
 export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
-  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris);
+  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris,panorama);
   const loader=new THREE.TextureLoader();
   function surface(name){
     const tex=loader.load('./'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});

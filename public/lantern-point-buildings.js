@@ -1,3 +1,4 @@
+import {breezeMaterial,addClubBurgees} from './waterfront-breeze.js';
 import {terracePanes,skylights,clubPanes} from './estate-exterior-glass.js';
 import {paneKey} from './pane-damage.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -217,13 +218,20 @@ export function addLanternBuildings(scene,Batch,sky){
     const poly=new THREE.BufferGeometry().setFromPoints([a[0],middle,a[1],a[1],middle,a[2],a[1],middle,a[0],a[2],middle,a[1]]);
     poly.computeVertexNormals();main.add(poly,color,0,floor,0);poly.dispose();
   }
+  const crowns=new Batch();
   for(const b of hedges){
     box(0x425e46,b.x,.36,b.z,b.w,.68,b.d);
     const alongX=b.w>b.d,length=Math.max(b.w,b.d);
     for(let k=-length/2+.35;k<length/2;k+=.67){
-      leaf(0x657942,b.x+(alongX?k:0),.66,b.z+(alongX?0:k),1,.43,1,.12,k);
+      crowns.add(sphere,0x657942,b.x+(alongX?k:0),floor+.66,b.z+(alongX?0:k),1,.43,1,.12,k);
     }
   }
+  const foliage=crowns.mesh(scene,breezeMaterial('shrub',{vertexColors:true}));
+  const positions=foliage.geometry.attributes.position;
+  foliage.geometry.setAttribute('windFlex',new THREE.Float32BufferAttribute(Array.from({length:positions.count},(_,i)=>
+    THREE.MathUtils.smoothstep(positions.getY(i)-floor,.46,.86)),1));
+  foliage.name='Sheltered hedge foliage';
+  addClubBurgees(scene,main,floor);
   for(const {x,z} of planters){
     main.add(pot,0xb6a589,x,floor+.48,z,1.32,.96,1.32);
     cyl(0x594f3b,x,.98,z,1.17,.05);

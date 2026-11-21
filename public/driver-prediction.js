@@ -34,8 +34,8 @@ export function driverPrediction(snapshot,id) {
     },
     pose(t){
       const result={};
-      for(const key of ['x','y','z','pitch','roll']){
-        if(Number.isFinite(vehicle[key]))result[key]=previous[key]+(vehicle[key]-previous[key])*t;
+      for(const key of ['x','y','z','pitch','roll','steer']){
+        if(Number.isFinite(vehicle[key]))result[key]=(previous[key]??0)+(vehicle[key]-(previous[key]??0))*t;
       }
       if(kind==='tank'){
         const turn=vehicle.turretYaw-previous.turretYaw;

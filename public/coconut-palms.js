@@ -1,3 +1,4 @@
+import {breezeMaterial} from './waterfront-breeze.js';
 import * as THREE from 'three';
 import { MAP, groundHeight } from './world.js';
 
@@ -60,6 +61,9 @@ function palmGeometry(variant, distant=false) {
     }
   }
   const g=new THREE.BufferGeometry();
+  const flex=Array.from({length:positions.length/3},(_,i)=>i<(tiers+1)*(segments+1)?0:
+    Math.min(1,Math.hypot(positions[i*3]-cx,positions[i*3+2]-cz)/3.3)**1.6);
+  g.setAttribute('windFlex',new THREE.Float32BufferAttribute(flex,1));
   g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
   g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
@@ -71,7 +75,7 @@ export function addPalms(scene) {
   const map=new THREE.TextureLoader().load('./palm-bark.webp');
   map.colorSpace=THREE.SRGBColorSpace;map.wrapS=map.wrapT=THREE.RepeatWrapping;
   const material=[new THREE.MeshLambertMaterial({map,vertexColors:true}),
-    new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide})];
+    breezeMaterial('palm',{vertexColors:true,side:THREE.DoubleSide})];
   const transform=new THREE.Object3D();
   const variants = Array.from({length:3}, (_, v) => {
     const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height},i)=>{

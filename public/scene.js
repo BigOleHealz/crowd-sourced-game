@@ -1,3 +1,5 @@
+import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {contactShadows} from './contact-shadows.js';
 import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
 import {surfaceMarks} from './surface-marks.js';
@@ -34,7 +36,7 @@ import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSm
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
-import {createRangerRig,poseRig} from './ranger-pose.js';
+import {createRangerRig,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
@@ -1145,6 +1147,7 @@ export function createScene(canvas) {
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateRounds=flightRounds(scene);
   const marks=surfaceMarks(scene);
+  const contacts=contactShadows(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
@@ -1305,6 +1308,7 @@ export function createScene(canvas) {
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
     effects.update(dt);
+    contacts.begin(world,local);
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
@@ -1342,7 +1346,9 @@ export function createScene(canvas) {
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
+        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(entering)poseTakeover(a,entering,state.id);
+        else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
           a.root.rotation.y=-world.yacht.yaw;
           for(const kit of a.tools)kit.visible=false;
@@ -1352,6 +1358,7 @@ export function createScene(canvas) {
       }
       applyLostParts(a,state,scene,world.hp,dt);
     }
+    contacts.end(world,local);
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
@@ -1495,7 +1502,7 @@ export function createScene(canvas) {
       avatars.get(local.id).root.visible=false;
     }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
-    updatePalms?.(camera);
+    if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     renderer.render(scene,camera);
   }
   function showShots(shots) {

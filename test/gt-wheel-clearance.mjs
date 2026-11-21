@@ -1,3 +1,4 @@
+import {frontWheelAngle} from '../public/road-steering.js';
 import assert from 'node:assert/strict';
 import {Euler,Object3D,Vector3} from 'three';
 import {stepSuspension,interpolateSuspension} from '../public/road-suspension.js';
@@ -21,7 +22,7 @@ function check(car,h){
     const hubY=gt.tire+h.wheels[i];
     placeGTWheel(wheel,x,z,hubY,body,axis);
     assert.equal(wheel.y,hubY,'hub retains sampled contact height');
-    steer.set(0,z<0?-.42*car.steer:0,0);
+    steer.set(0,z<0?-frontWheelAngle(car):0,0);
     for(const local of tire){
       point.copy(local).applyEuler(steer).add(wheel).sub(body.position).applyQuaternion(inverse);
       if(point.y<gt.tire)continue;

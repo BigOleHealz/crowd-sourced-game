@@ -1,3 +1,4 @@
+import {approachPoint} from './helpers/rover-route.mjs';
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {harbor,cityGround}=await import('../public/brickell-map.js');
@@ -59,9 +60,7 @@ function drive(x,z){
   for(let tick=0;tick<2500;tick++){
     const dx=x-car.x,dz=z-car.z,dist=Math.hypot(dx,dz);
     if(dist<.35 && car.speed<.05)return;
-    const a=Math.atan2(dx,-dz)-car.yaw,e=Math.atan2(Math.sin(a),Math.cos(a));
-    driveRover(world,{throttle:Number(dist>.26 && Math.abs(e)<.31 && car.speed<Math.min(10,dist*2.4)),
-      steer:dist>.26?Math.max(-1,Math.min(1,e*4)):0},dt);
+    driveRover(world,approachPoint(car,x,z,10),dt);
     assert.equal(car.hp,250);assert(car.y>.6);
   }
   assert.fail('rover blocked from '+[x,z]+' at '+[car.x,car.z]);
