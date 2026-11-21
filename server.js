@@ -4,6 +4,7 @@ import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
 import {createBasketball} from './basketball-game.js';
@@ -93,7 +94,7 @@ function canPlayVolleyball(world,player){
     world.yacht?.driver!==id && !world.basketball?.players.includes(id);
 }
 function freshWorld(){
-  const w=newExpedition();
+  const w=newExpedition({civilianMarina:!mode});
   w.traffic=newCityTraffic();w.traffic.push(fireEngine());
   if(CITY){
     w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
@@ -111,6 +112,9 @@ function freshWorld(){
     const volleyball=createVolleyball(canPlayVolleyball);
     Object.defineProperty(w,'volleyballActivity',{value:volleyball});
     w.volleyball=volleyball.state;
+    const wildlife=createManatees(w,MAP.waterY);
+    w.manatees=wildlife.state;
+    Object.defineProperty(w,'stepManatees',{value:wildlife.step});
   }
   if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
   if(CITY && !mode){
@@ -750,6 +754,7 @@ function tick() {
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
   stepWakeCrossings(world,step);
+  world.stepManatees?.(step);
   for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;

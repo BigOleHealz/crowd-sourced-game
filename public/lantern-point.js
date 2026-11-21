@@ -1,3 +1,4 @@
+import {dockHeight} from './marina-docks.js';
 import {causewayArch} from './causeway-arch.js';
 import {berthing} from './lantern-buildings-layout.js';
 import {contains} from './waterfront-roads.js';
@@ -48,7 +49,7 @@ export const gardens=[
 export function lanternLocation(x,z) {
   if(z>lanternBridge.south)return;
   if(contains(lanternBridge,x,z))return 'Lantern Bridge';
-  if(onLantern(x,z) || contains(berthing.lip,x,z) || onMarketPier(x,z) || contains(ferrySlip,x,z))return 'Lantern Point';
+  if(dockHeight(x,z)!==undefined || onLantern(x,z) || contains(berthing.lip,x,z) || onMarketPier(x,z) || contains(ferrySlip,x,z))return 'Lantern Point';
   return 'Biscayne Bay';
 }
 

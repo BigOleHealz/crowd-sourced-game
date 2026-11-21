@@ -39,7 +39,12 @@ function addResidences(houses, panes, box, podiumTop) {
       if(finish==='batten')for(let u=-length/2+.41;u<length/2;u+=.46)
         face(shade(siding,1.16),u-.027,u+.027,podiumTop,top,.042,0);
     }
-    piece(trim,0,podiumTop+.045,0,w+.16,.13,d+.16);
+    // The decorative podium moulding is only a perimeter band, leaving the
+    // walkable upper floor and its actual finish clear on the inside.
+    for(const side of [-1,1]){
+      piece(trim,side*(w/2-.06),podiumTop+.045,0,.28,.13,d+.16);
+      piece(trim,0,podiumTop+.045,side*(d/2-.06),w-.40,.13,.28);
+    }
     for(const side of [-1,1]) for(const end of [-1,1]){
       piece(trim,side*(w/2-.055),podiumTop+height/2,end*(d/2-.055),.17,height,.17);
     }

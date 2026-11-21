@@ -1,3 +1,5 @@
+import {marinaModel} from './marina-fleet-layout.js';
+
 // Closed, periodic outboard exhaust strokes and a separate band of turbulent spray.
 export function boatLoop(context, name) {
   const rate=context.sampleRate, length=rate*2, overlap=Math.round(rate*.04);
@@ -30,9 +32,10 @@ export function boatLoop(context, name) {
 }
 
 export function boatMix(boat) {
-  const speed=Math.min(1,Math.abs(boat.speed)/15), load=Math.min(1,Math.abs(boat.throttle));
+  const model=marinaModel(boat);
+  const speed=Math.min(1,Math.abs(boat.speed)/(model?.hydrodynamics.ahead??15)),load=Math.min(1,Math.abs(boat.throttle));
   return {
-    motorRate:.80+1.05*load+.84*speed, motorVolume:.22+.12*load+.10*speed,
+    motorRate:(.80+1.05*load+.84*speed)*(model?.motorPitch??1), motorVolume:.22+.12*load+.10*speed,
     wakeRate:.73+.50*speed+.08*load, wakeVolume:.43*speed**.75+.10*load,
   };
 }

@@ -6,7 +6,8 @@ export function seatVehicle(world,id) {
   if(!world || id==null) return null;
   if(world.rover.driver===id || world.rover.gunner===id) return 'rover';
   if(world.heli.pilot===id || world.heli.gunner===id) return 'heli';
-  return crewBoat(world,id)?.id??null;
+  const boat=crewBoat(world,id);
+  return boat?.boatModel?null:boat?.id??null;
 }
 
 export function selectSeat(world,player,kind,seat) {

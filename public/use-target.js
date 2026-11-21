@@ -24,7 +24,7 @@ export function nextUse(world,feet,id,wanted){
   if(world.tank?.driver===id)return action('tank','exit','Exit tank');
   if(world.jet?.pilot===id)return action('jet','exit',world.jet.grounded?'Exit jet':'Bail out of jet');
   if(world.heli.pilot===id || world.heli.gunner===id)return action('heli','exit',world.heli.grounded?'Exit helicopter':'Bail out of helicopter');
-  if(boat)return action(boat.id,'exit','Disembark patrol boat');
+  if(boat)return action(boat.id,'exit',boat.boatModel?'Disembark '+boat.name:'Disembark patrol boat');
   const yacht=yachtPrompt(world,feet,id);
   if(yacht && ['leave','leaveGun','helm','gun'].includes(yacht)){
     const label={leave:'Leave yacht helm',leaveGun:'Leave bow gun',helm:'Take yacht helm',gun:'Use yacht bow gun'};
@@ -53,6 +53,7 @@ export function nextUse(world,feet,id,wanted){
   if(nearTank(world.tank,feet))offer(world.tank,'tank','drive','Drive tracked tank');
   if(nearJet(world.jet,feet))offer(world.jet,'jet','drive','Pilot strike jet');
   const near=nearBoat(world,feet);
-  if(near)offer(near,near.id,near.driver==null?'drive':'gunner',near.driver==null?'Take patrol boat helm':'Board patrol boat turret');
+  if(near)offer(near,near.id,near.driver==null?'drive':'gunner',near.boatModel?'Take helm of '+near.name:
+    near.driver==null?'Take patrol boat helm':'Board patrol boat turret');
   return pick;
 }
