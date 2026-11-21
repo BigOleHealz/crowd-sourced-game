@@ -1,5 +1,5 @@
 // Metre-scale layout shared by the walkable shell, rendered fixtures and booth.
-export const club={x:-71.55,z:-54.4,floor:.8,w:8.8,d:9.8};
+export const club={x:-70.75,z:-54.4,floor:.8,w:8.8,d:9.8};
 export const clubSeat={x:club.x-3.29,y:.8,z:-53.34,yaw:Math.PI/2};
 export const clubAisle={x:club.x-2.11,y:.8,z:-53.34};
 export const clubSpeaker={x:club.x,y:2.7,z:-58.2};

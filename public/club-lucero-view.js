@@ -57,7 +57,7 @@ export function clubInterior(scene,Batch){
   mat.onBeforeCompile=shader=>{
     shader.uniforms.luceroGrain={value:grain};
     shader.vertexShader='varying vec3 clubPosition,clubNormal;\n'+shader.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nclubPosition=position-vec3(-71.55,.8,-54.4);clubNormal=normal;');
+      '#include <begin_vertex>\nclubPosition=position-vec3(-70.75,.8,-54.4);clubNormal=normal;');
     shader.fragmentShader='uniform sampler2D luceroGrain;varying vec3 clubPosition,clubNormal;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
       vec3 pos=clubPosition,n=normalize(clubNormal);
       vec2 uv=abs(n.y)>.64?pos.xz:(abs(n.x)>.55?pos.zy:pos.xy);
