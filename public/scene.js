@@ -3,19 +3,19 @@ import {streetHydrants} from './hydrant-view.js';
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
-import {serviceTracks} from './traffic-routes.js';
+import {trailDistance} from './road-surface.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
-import {churchPath,churchRoom} from './ridge-church.js';
+import {churchRoom} from './ridge-church.js';
 import {buildRidgeChurch} from './ridge-church-view.js';
 import {casaRoomAt} from './casa-luma.js';
 import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
-import {routeDistance,ridgeBench} from './north-ridge.js';
+import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
 import {dressCivilian} from './civilian-view.js';
@@ -137,14 +137,6 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
-function trailDistance(x, z) {
-  let distance=Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
-  if(!CITY && x>=-25 && x<=22 && z>=-20 && z<=24){
-    for(const track of serviceTracks)distance=Math.min(distance,routeDistance(track,x,z));
-  }
-  return distance;
-}
-
 function addGround(scene,renderer) {
   const size = 164;
   const extra=-MAP.northBound-MAP.bounds;
