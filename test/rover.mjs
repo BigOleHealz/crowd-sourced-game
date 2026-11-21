@@ -16,9 +16,12 @@ function run(throttle,steer,ticks) {
 run(-1,0,65);run(0,0,15);
 assert.equal(r.speed,0);
 assert.ok(Math.hypot(r.x+3,r.z-23)<1.3,'reverse into the supply area');
-const yaw=Math.atan2(world.heli.x-r.x,r.z-world.heli.z);
-run(0,1,Math.round(yaw/(1.55*dt)));
-run(1,0,100);
+const parkedYaw=r.yaw;run(0,1,30);assert.equal(r.yaw,parkedYaw);
+for(let i=0;i<115;i++){
+  const target=Math.atan2(world.heli.x-r.x,r.z-world.heli.z);
+  const error=Math.atan2(Math.sin(target-r.yaw),Math.cos(target-r.yaw));
+  run(.50,Math.max(-1,Math.min(1,error*3)),1);
+}
 const toHeli=Math.hypot(r.x-world.heli.x,r.z-world.heli.z);
 assert.ok(toHeli<4.6 && toHeli>1.5,'approach helicopter without driving through it');
 assert.equal(r.speed,0);
@@ -28,7 +31,7 @@ assert.equal(r.cargo,3);
 assert.equal(r.driver,null);
 assert.ok(a.state.grounded && solidTopAt(a.state.x,a.state.z,world.hp)<=a.state.y+.01);
 const before=r.x;run(1,0,30);assert.equal(r.x,before,'empty rover stays parked');
-console.log('PASS: exclusive boarding, seat choice, reverse to depot, pivot and drive to helicopter, stop, safe exit and cargo retention.');
+console.log('PASS: exclusive boarding, seat choice, reverse to depot, steer a moving approach to helicopter, stop, safe exit and cargo retention.');
 
 const fight=newExpedition(), car=fight.rover;
 assert.equal(car.hp,250); assert.equal(car.maxHp,250);
