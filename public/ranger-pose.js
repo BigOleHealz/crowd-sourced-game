@@ -47,8 +47,9 @@ function gripPose(arm,forearm,x,y,z,side,prone=false) {
   forearm.quaternion.setFromUnitVectors(downArm,segment.applyQuaternion(inverseUpper));
 }
 
-function holdWorld(avatar,arm,forearm,side,target){
+export function holdWorld(avatar,arm,forearm,side,target,weight=1){
   grip.set(target.x,target.y,target.z);
+  if(weight<1)grip.lerp(forearm.localToWorld(relaxedPalm.set(0,-lowerLength,0)),1-weight);
   avatar.upper.worldToLocal(grip);
   gripPose(arm,forearm,grip.x,grip.y,grip.z,side);
 }

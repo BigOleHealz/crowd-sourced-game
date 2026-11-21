@@ -270,8 +270,9 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   windows.userData.impactSurface='glass';scene.add(windows);
   const dummy=new THREE.Object3D(), visible=new Array(panes.length);
   let prior,received=false;
-  function update(doors,bank,tick){
-    moveHotelDoors(doors);updateBank(doors,bank,tick);
+  function update(doors,bankVisual){
+    moveHotelDoors(doors);
+    if(bankVisual)updateBank(doors,bankVisual);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;

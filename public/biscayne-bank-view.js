@@ -14,7 +14,7 @@ export function bankFrontage(scene,Batch){
   const half=bankSite.w/2,depth=bankSite.d;
   // Single-storey banking hall, with solid side wings and a recessed central lobby.
   box(0xc6b89e,0,.81,depth/2,bankSite.w+.26,.035,depth+.24);
-  box(0xe3d8bf,0,3.93,depth/2,bankSite.w,.32,depth);
+  box(0xe3d8bf,0,3.95,depth/2,bankSite.w,.28,depth);
   box(stone,0,4.44,depth/2,bankSite.w,.72,depth);
   box(0x8a8170,0,4.85,depth/2,bankSite.w+.38,.11,depth+.40);
   box(stone,0,2.54,depth-.12,bankSite.w,3.46,.24);
@@ -128,7 +128,7 @@ export function bankFrontage(scene,Batch){
     box(0x97b9b2,x,2.14,4.392,.39,.238,.006);
     box(0x454c4a,x,1.854,4.54,.40,.025,.15);
   }
-  box(bronze,-0.68,1.90,3.88,.40,.10,.065);
+  box(bronze,-0.13,1.90,3.88,.40,.10,.065);
   // Suspended warm-white task lights articulate the service area without
   // adding shadow-casting lights to the shared scene.
   for(const x of [-1.51,1.4]){
@@ -226,30 +226,76 @@ export function bankFrontage(scene,Batch){
   sign(0,2.65,5.943,3.02,.64,Math.PI,25,232,820,139);
   sign(-1.64,3.22,4.056,.92,.13,Math.PI,17,426,265,63);
   sign(0.69,3.22,4.056,1.46,.13,Math.PI,297,426,559,63);
-  sign(-0.68,1.90,3.842,.393,.085,Math.PI,10,373,260,47);
+  sign(-0.13,1.90,3.842,.393,.085,Math.PI,10,373,260,47);
   for(const side of [-1,1])sign(bladeX+side*.130,bladeY,bladeZ,3.43,1.49,side*Math.PI/2,0,520,1024,370);
   sign(atmX,2.71,-.37,1.40,.28,Math.PI,0,903,440,115);
   const map=new THREE.CanvasTexture(atlas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
   signs.mesh(group,new THREE.MeshBasicMaterial({map}),false);
 
   const parcel=new Batch();
-  parcel.add(cube,0xd4ad70,0,0,0,.34,.09,.21);
-  parcel.add(cube,ivory,0,.049,0,.34,.012,.208);
-  parcel.add(cube,teal,0,.052,0,.057,.018,.212);
-  const envelope=parcel.mesh(group,new THREE.MeshLambertMaterial({vertexColors:true}),false);
-  envelope.name='Cash envelope';envelope.position.set(-0.46,1.89,4.02);
-  const lenses=new Batch();
-  for(const [x,y,z] of [[-1.98,3.05,-0.36],[2.09,3.02,5.85]]){
-    lenses.add(cylinder,0xffffff,x,y,z,.090,.14,.090);
-    lenses.add(cylinder,0xffffff,x,y+.072,z,.063,.025,.063);
+  parcel.add(cube,0x386c51,0,-.009,0,.39,.066,.25);
+  for(const y of [-.025,-.011,.004,.019]){
+    parcel.add(cube,0xb6c3a3,0,y,0,.394,.004,.254);
   }
-  const signal=new THREE.MeshBasicMaterial({color:0xa33930});
-  lenses.mesh(group,signal,false);cube.dispose();cylinder.dispose();
-  return (doors,bank,tick=0)=>{
+  parcel.add(cube,0x719c71,0,.026,0,.39,.010,.25);
+  parcel.add(cube,0x41684e,0,.032,0,.36,.003,.22);
+  parcel.add(cube,0xece0af,0,.035,0,.097,.011,.258);
+  parcel.add(cube,0xe1c983,0,0,-.128,.097,.072,.007);
+  parcel.add(cube,0xb69454,0,.042,0,.069,.003,.022);
+  const cash=parcel.mesh(group,new THREE.MeshLambertMaterial({vertexColors:true}),false);
+  cash.name='Banded cash parcel';
+  cash.visible=false;
+
+  const housings=new Batch(),lenses=new Batch();
+  for(const [x,y,z] of [[-1.98,3.06,-.50],[2.09,2.92,5.85],[-2.23,2.97,4.04],[2.23,2.97,4.04]]){
+    housings.add(cylinder,0x5f4b3d,x,y-.111,z,.153,.058,.153);
+    lenses.add(cylinder,0xffffff,x,y,z,.122,.17,.122);
+    lenses.add(cylinder,0xffffff,x,y+.085,z,.086,.023,.086);
+  }
+  housings.mesh(group,new THREE.MeshLambertMaterial({vertexColors:true}),false);
+  const signal=new THREE.MeshBasicMaterial({color:0x73372f});
+  lenses.mesh(group,signal,false);
+  const wash=new THREE.PointLight(0xff5637,0,5);
+  wash.position.set(0,2.94,3.94);
+  group.add(wash);
+  const dim=new THREE.Color(0x70372f),lit=new THREE.Color(0xff6b4e);
+  // A single status board remains legible under mute or reduced motion.
+  const display=document.createElement('canvas');
+  display.width=512;display.height=96;
+  const screen=display.getContext('2d'),screenTexture=new THREE.CanvasTexture(display);
+  screenTexture.colorSpace=THREE.SRGBColorSpace;screenTexture.anisotropy=4;
+  const board=new THREE.Mesh(new THREE.PlaneGeometry(1.78,.334),
+    new THREE.MeshBasicMaterial({map:screenTexture}));
+  board.name='Teller window status';
+  board.position.set(-.34,3.47,4.02);board.rotation.y=Math.PI;
+  board.visible=false;group.add(board);
+  const labels={
+    alarm:['BRANCH ALARM','#501a16','#ffd9bc'],
+    cash:['CASH READY','#501a16','#ffedb5'],
+    collected:['PAYOUT COLLECTED','#1c4036','#d4f5cd'],
+    interrupted:['WINDOW CLOSED','#493827','#ffe4b4']
+  };
+  let lastSign=null;
+  cube.dispose();cylinder.dispose();
+  return (doors,visual)=>{
     group.visible=!doors?.collapsedTowers?.includes(bankSite.towerId);
-    const active=bank?.phase==='alarm'||bank?.phase==='handoff';
-    signal.color.setHex(active?(Math.floor(tick/13)%2?0xff4937:0xef8e69):0x803b31);
-    envelope.visible=bank?.phase==='handoff';
-    if(envelope.visible)envelope.position.z=4.25-.31*Math.min(1,Math.max(0,(tick-bank.since)/15));
+    const {glow,parcel,sign}=visual;
+    signal.color.copy(dim).lerp(lit,glow);
+    wash.intensity=15*glow;
+    cash.visible=!!parcel;
+    if(parcel){
+      cash.position.set(parcel.x,parcel.y,parcel.z);
+      cash.rotation.x=parcel.pitch;
+    }
+    if(sign===lastSign)return;
+    lastSign=sign;
+    board.visible=!!sign;
+    if(!sign)return;
+    const [text,background,foreground]=labels[sign];
+    screen.fillStyle=background;screen.fillRect(0,0,512,96);
+    screen.strokeStyle=foreground;screen.lineWidth=4;screen.strokeRect(7,7,498,82);
+    screen.fillStyle=foreground;screen.font='bold 42px Arial';screen.textAlign='center';
+    screen.fillText(text,256,63);
+    screenTexture.needsUpdate=true;
   };
 }

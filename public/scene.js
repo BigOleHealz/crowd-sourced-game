@@ -3,6 +3,7 @@ import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
+import {bankPresentation} from './bank-presentation.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
@@ -982,6 +983,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 
 import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas,onFootfall) {
+  const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
   renderer.shadowMap.enabled=true;
@@ -1172,7 +1174,8 @@ export function createScene(canvas,onFootfall) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateDoors?.(world.doors,dt,local,remotes,world.simTick,world.bank);
+    const bankVisual=CITY?bankPresentation(world.bank,world.simTick??0,reducedMotion?.matches):null;
+    updateDoors?.(world.doors,dt,local,remotes,world.simTick,bankVisual);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
@@ -1216,7 +1219,7 @@ export function createScene(canvas,onFootfall) {
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world):[])]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1261,7 +1264,7 @@ export function createScene(canvas,onFootfall) {
             }
           }
         }
-        if(state.bankRole)poseBankGuest(a,state,(world.simTick??clock*30)/30);
+        if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
