@@ -1,4 +1,5 @@
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
+import {roadFraming} from './road-chase.js';
 import {nearestTraffic} from './city-traffic.js';
 import {nearTank} from './tank.js';
 import {nearJet} from './jet.js';
@@ -555,17 +556,22 @@ function remoteFrame(time) {
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
-function drivingView(rover, dt) {
+function drivingView(rover, dt, wheeled) {
   if (!roverView) {
     roverView = { yaw: camera.yaw, pitch: camera.pitch, heading: rover.yaw };
     camera.yaw = rover.yaw;
   }
   const turn = Math.atan2(Math.sin(rover.yaw-roverView.heading), Math.cos(rover.yaw-roverView.heading));
   roverView.heading = rover.yaw;
+  // Apply the driver's mouse orbit immediately. Filter only the change in
+  // chassis heading, including prediction corrections around tight corners.
+  const mouseTurn=wheeled && roverView.lastAimYaw!=null ? camera.yaw-roverView.lastAimYaw : 0;
   camera.yaw += turn;
+  roverView.lastAimYaw=camera.yaw;
   const blend = 1 - Math.exp(-16 * dt);
-  roverView.yaw = angleMix(roverView.yaw + turn, camera.yaw, blend);
+  roverView.yaw = angleMix(roverView.yaw + (wheeled ? mouseTurn : turn), camera.yaw, blend);
   roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
+  roverView.road=wheeled ? roadFraming(roverView.road,rover,dt) : null;
   roverView.distance = camera.distance;
   return roverView;
 }
@@ -779,7 +785,7 @@ function frame(time) {
     if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
-    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
+    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
     audio.trafficEngines(local,view.yaw,cars);
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
