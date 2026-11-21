@@ -1,3 +1,4 @@
+import {rollingMotion} from './street-rides.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
@@ -325,13 +326,13 @@ export function stanceMuzzleHeight(state) {
 export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
-  const grabAllowed=!input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
+  const grabAllowed=!state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
   const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
     ? {y:state.y,left:.25} : state.grab);
-  const climb=state.climb || ((input.jump || grab) && findLedge(state,input,hp,world,grab));
+  const climb=state.climb || (!state.ride && (input.jump || grab) && findLedge(state,input,hp,world,grab));
   if(climb) return stepClimb(state,climb,dt,hp,world);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
-  const requested = input.stance ?? state.stance;
+  const requested = state.ride ? undefined : input.stance ?? state.stance;
   const stance = state.grounded && !input.jump && !parachute && !state.swimming &&
     (requested === 'crouch' || requested === 'prone') ? requested : undefined;
   const drySpeed=stance==='prone'?1.05:stance==='crouch'?2.25:parachute==='open'?3.6:parachute?2.3:input.sprint?7.4:4.6;
@@ -341,7 +342,20 @@ export function stepPlayer(state, input, dt, hp, world) {
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
   let vx=ix*scale, vz=iz*scale;
-  if(state.grounded && !parachute) {
+  let ride;
+  if(state.ride){
+    let grade=0;
+    if(state.grounded){
+      const ahead=.40,yaw=state.ride.yaw;
+      const rise=groundHeight(state.x+Math.sin(yaw)*ahead,state.z-Math.cos(yaw)*ahead,state.y+.28,world?.doors)-state.y;
+      // A curb or a drop-off is a contact, not a steep slope.
+      if(Math.abs(rise)<.14)grade=rise/ahead;
+    }
+    ride=rollingMotion(state.ride,input,dt,state.grounded,grade);
+  }
+  if(ride){
+    vx=Math.sin(ride.yaw)*ride.speed;vz=-Math.cos(ride.yaw)*ride.speed;
+  }else if(state.grounded && !parachute) {
     const oldX=state.vx ?? 0, oldZ=state.vz ?? 0;
     const change=Math.hypot(vx-oldX,vz-oldZ);
     const acceleration=ix || iz ? 37 : 47;
@@ -349,9 +363,9 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx=oldX+(vx-oldX)*blend;vz=oldZ+(vz-oldZ)*blend;
   }
   let { x, y, z, vy = 0, grounded = false } = state;
-  if (input.jump && grounded) {
+  if (input.jump && grounded && ride?.kind!=='bike') {
     grounded = false;
-    vy = JUMP_SPEED;
+    vy = ride ? 4.7 : JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=stanceBodyHeight(stance);
@@ -418,6 +432,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  if(ride)next.ride={...ride,speed:Math.hypot(vx,vz)};
   if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;

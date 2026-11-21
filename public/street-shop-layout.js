@@ -91,22 +91,6 @@ export function furnishShop(index,side,width,depth,draw){
     }
     detail(false);
   }
-  function bicycle(x,z,c){
-    for(const dx of [-.55,.55]){
-      shape(hoop,dark,x+dx,.39,z,.34,.34,.34);
-      detail(true);
-      for(let k=0;k<5;k++){
-        const a=k*Math.PI/5,xx=.302*Math.cos(a),yy=.302*Math.sin(a);
-        beam(0xa5aaa2,x+dx-xx,.39-yy,z,x+dx+xx,.39+yy,z,.012);
-      }
-      detail(false);
-    }
-    const pts=[[-.55,.39],[-.21,.86],[.01,.39],[.39,.82],[.55,.39]];
-    for(const [a,b] of [[0,1],[0,2],[1,2],[1,3],[2,3],[3,4]])
-      beam(c,x+pts[a][0],pts[a][1],z,x+pts[b][0],pts[b][1],z,.042);
-    rect(dark,x-.24,.926,z,.24,.07,.13);
-    beam(dark,x+.39,.82,z,x+.34,1.00,z,.037);rect(dark,x+.34,1,z,.095,.045,.38);
-  }
   function art(x,y,z,w,h,variant){
     timber(wood,x,y,z,w+.09,h+.09,.095);rect(0xeee4cb,x,y,z+.058,w,h,.024);
     const artZ=z+.074;
@@ -351,8 +335,7 @@ export function furnishShop(index,side,width,depth,draw){
           shape(hoop,0xb0b6ae,xx+.082,2.10,stockZ,.06,.06,.06);
         }
         timber(wood,x,.95,stockZ+.04,w*.86,.09,.61);
-        begin(x,middle);bicycle(x,middle,c);
-        rect(dark,x,.079,middle,1.48,.085,.43);end();
+        draw.bikeDisplay?.(x,middle,c);
         break;
       case 'apparel':
         art(x,1.78,rear+.09,w*.48,1.18,(variant+2)%7);
@@ -445,6 +428,11 @@ export function retailFixtures(index,face){
     add((x+xx)/2,(y+yy)/2,(z+zz)/2,(Math.abs(x-xx)+t)/2,(Math.abs(y-yy)+t)/2,(Math.abs(z-zz)+t)/2);
   }
   const noop=()=>{};
-  furnishShop(index,s,b.d,face.depth,{shape,beam,sign:noop,detail:noop,floorShadow:noop,beginPiece,endPiece:()=>{piece=null;}});
+  function bikeDisplay(x,z,color){
+    const px=origin+s*z,pz=b.z-s*x;
+    const yaw=Math.atan2(face.x-px,pz-face.entry.z);
+    (face.cycleDisplays??=[]).push({x:px,y:shopFloor,z:pz,yaw,color});
+  }
+  furnishShop(index,s,b.d,face.depth,{shape,beam,bikeDisplay,sign:noop,detail:noop,floorShadow:noop,beginPiece,endPiece:()=>{piece=null;}});
   return fixtures;
 }
