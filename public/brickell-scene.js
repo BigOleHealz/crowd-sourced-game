@@ -1,3 +1,4 @@
+import {furnishMarketStreet} from './harbor-market-view.js';
 import {residentialRuinView} from './residential-ruin-view.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
@@ -189,6 +190,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
   const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
+  furnishMarketStreet(solids);
   const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';

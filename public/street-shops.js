@@ -69,7 +69,7 @@ function interiorMaterial(signMap,contactMap,loader,renderer) {
 export function streetShops(scene,renderer,Batch,panorama,windows){
   const loader=new THREE.TextureLoader(), signs=shopSigns();
   const contactSheet=document.createElement('canvas'), cw=224,ch=160;
-  contactSheet.width=cw*6;contactSheet.height=ch*6;
+  contactSheet.width=cw*6;contactSheet.height=ch*Math.ceil(tenants.length*2/6);
   const ambient=contactSheet.getContext('2d');
   ambient.fillStyle='white';ambient.fillRect(0,0,contactSheet.width,contactSheet.height);
   const contactMap=new THREE.CanvasTexture(contactSheet);
