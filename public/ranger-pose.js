@@ -87,6 +87,33 @@ export function poseRoadBoarding(avatar,car,action){
   for(const tool of avatar.tools)tool.visible=false;
 }
 
+export function poseBasketball(avatar,state,action) {
+  for(const tool of avatar.tools)tool.visible=false;
+  if(state.stance || state.grounded===false)return;
+  const {charge,dribble,height,forward,lateral,hasBall,release}=action;
+  if(hasBall || release){
+    avatar.spine.rotation.x-=charge*.15;
+    avatar.head.rotation.x-=charge*.18+release*.16;
+    if(!state.moving)avatar.body.position.y+=Math.sin(release*Math.PI)*.095-charge*.10;
+  }
+  for(const {side,arm,forearm,leg,knee} of avatar.limbs){
+    if(!state.moving && charge){
+      leg.rotation.x+=charge*.23;knee.rotation.x-=charge*.48;
+    }
+    if(release){
+      arm.rotation.set(.32+2.40*release,0,side*.13);
+      forearm.rotation.set(.44+.30*release,0,0);
+    }else if(hasBall && (!dribble || side===1)){
+      const handY=dribble?Math.max(.96,height+.07):height-.045;
+      const gripX=dribble?lateral:lateral+side*.105;
+      gripPose(arm,forearm,gripX,handY-avatar.body.position.y,-forward,side);
+    }else if(!state.moving){
+      arm.rotation.set(.12,0,side*.11);
+      forearm.rotation.set(.53,0,0);
+    }
+  }
+}
+
 export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   const fall = state.fall, climb=state.climb;
   const onFoot=!fall && !seated && !station && !state.dead && state.grounded!==false && !state.parachute;

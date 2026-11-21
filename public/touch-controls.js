@@ -1,6 +1,7 @@
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 const gestures={
+  basketball:{name:'Basketball',axis:'Move',look:'Drag to aim',tip:'Face the hoop and hold Shoot. Release in the gold band.',help:'Walk off the court or tap Leave basketball to return to free roam.'},
   foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Drag the left stick to move. Swipe the open right side to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to sprint, change stance or switch weapons.'},
   car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Open Driver tools for the horn and rear view.'},
   'armed-car':{name:'Pickup driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe to look around. Fire missile launches straight ahead. Change seats in Driver tools.'},
@@ -11,6 +12,7 @@ const gestures={
   jet:{name:'Jet pilot',axis:'Throttle',up:'Faster',down:'Slower',look:'Drag to fly',tip:'Push up for throttle. Drag up or down to pitch and sideways to bank.',help:'Hold Cannon for guns, tap Missile to launch, and tap Bomb to drop. Release the right thumb to center the flight stick.'},
   turret:{name:'Gunner',look:'Drag to aim',tip:'Drag the open right side to turn the turret. Hold Fire turret to shoot.',help:'You can aim while holding Fire turret by dragging that same thumb.'},
   seat:{name:'Seated',look:'Drag to look',tip:'Swipe the right side to look around. Tap Leave dance to stand.',help:'Your movement and equipment controls return when you stand.'},
+  volleyball:{name:'Beach volleyball',axis:'Move',look:'Drag to look',tip:'Use the joystick to reach the landing marker. Tap Return as the ball comes down.',help:'Serve from behind your back line. Tap Leave volleyball to exit the game.'},
 };
 export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked,releaseMouse}){
   const byId=id=>document.getElementById(id);
@@ -195,12 +197,13 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,throwable,use,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,throwable,shoot,use,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(use)quick.push(['KeyE',use]);
+  if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);
-  if(foot && jump)quick.push(['Space',jump]);
+  if((foot || role==='volleyball') && jump)quick.push(['Space',jump]);
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(foot?canAim:['heli','jet','armed-car','turret','tank','engine'].includes(role)){

@@ -9,6 +9,8 @@ import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
+import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
+import {basketballHud} from './basketball-hud.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
@@ -40,7 +42,7 @@ import {arcadeMolotov} from './arcade-molotov.js';
 import {flameProjector} from './fire-sites.js';
 const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov};
 import {seatVehicle,seatChoices} from './seat-selection.js';
-import { onBeach, beach } from './beach-layout.js';
+import { onBeach, beach, courts } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
@@ -51,6 +53,8 @@ import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
+import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
+import {volleyballHud} from './volleyball-hud.js';
 import {sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
 const byId = id => document.getElementById(id);
@@ -98,7 +102,7 @@ const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
-const canAim = () => self && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+const canAim = () => self && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -113,6 +117,13 @@ const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
 let scene, socket, id, self, readShots, facing = 0, moving = false, sprint = false;
 let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
+const inVolleyball=()=>volleyballMember(world?.volleyball,id);
+const volleyballStatus=()=>volleyballHud(world,self,id,canChangeStance(self) && !world?.basketball?.players.includes(id));
+function volleyballAction(action){
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'volleyball',action}));
+}
+const playingHoops=()=>id!=null && Boolean(world?.basketball?.players.includes(id));
+const hoopsHud=basketballHud(byId('basketball-score'));
 const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
 const inTank=()=>id!=null && world?.tank?.driver===id;
@@ -170,7 +181,7 @@ function speaker(current=null){
   return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
 }
 function canChangeStance(state) {
-  return vitals.clubSince==null && !state?.ride && state?.grounded && !state.swimming && !state.climb && !state.parachute &&
+  return !playingHoops() && vitals.clubSince==null && !state?.ride && state?.grounded && !state.swimming && !state.climb && !state.parachute &&
     !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
 }
 
@@ -339,6 +350,16 @@ function clubInteraction(){
 }
 function pressAction(code){
   if(vitals.clubSince!=null && code!=='KeyE')return;
+  if(inVolleyball()){
+    if(code==='Space')volleyballAction('strike');
+    else if(code==='KeyE')volleyballAction('leave');
+    return;
+  }
+  if(playingHoops()){
+    if(code==='KeyE')queuedInteract=vitals.use;
+    if(code==='KeyF')queuedFire=true;
+    return;
+  }
   if (code === 'Space') queuedDeploy = true;
   if (code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
   if ((code === 'KeyC' || code === 'KeyZ') && canChangeStance(self)) {
@@ -348,6 +369,7 @@ function pressAction(code){
   if(code==='KeyG' && mode)handleCase=true;
   if(code==='KeyI')openBag();
   if(code==='KeyE'){
+    if(volleyballStatus()?.use){volleyballAction('join');return;}
     const safe=nearbySafe();
     if(safe){
       if(!(world.doors.estateSafes&safe.bit))market.lootSafe(safe.id);
@@ -413,6 +435,8 @@ function pressButton(e) {
     return;
   }
   canvas.focus({ preventScroll: true });
+  if(inVolleyball())return;
+  if(playingHoops()){mouseFire=queuedFire=true;return;}
   if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
@@ -543,7 +567,7 @@ function connect() {
       if(m.world.match?.phase!==world.match?.phase){
         clearInput();pending=[];samples=[];
       }
-      const wasJet=jetPilot();
+      const wasJet=jetPilot(),wasPlayingHoops=playingHoops();
       const wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
@@ -560,7 +584,17 @@ function connect() {
       if(world.bank?.claimant===id && m.world.bank?.outcome==='aborted'){
         showBankReceipt('Robbery interrupted. The cash stayed at the branch.');
       }
+      const wasPlayingVolleyball=inVolleyball();
       world = m.world;world.simTick=m.simTick;
+      const volley=inVolleyball();
+      if(!wasPlayingVolleyball && volley){
+        clearInput();pending=[];
+        camera.yaw=volley.side?0:Math.PI;camera.pitch=-.15;facing=camera.yaw;
+      }
+      if(wasPlayingHoops!==playingHoops()){
+        clearInput();pending=[];
+        if(!wasPlayingHoops){camera.yaw=facing=hoopHeading(authoritative);camera.pitch=-.17;stopLook();}
+      }
       if(wasJet!==jetPilot()){
         stickX=stickY=0;stopLook();
         byId('flight-cursor').style.transform='';
@@ -591,7 +625,7 @@ function connect() {
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
       if(samples.at(-1)?.sim===sim)samples.pop();
-      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id),volleyball:world.volleyball });
       if (samples.length > 12) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
@@ -604,7 +638,7 @@ function connect() {
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
-    byId('marina-card').hidden=true;
+    byId('marina-card').hidden=true;hoopsHud.hide();
     byId('match-card').hidden=true;
     byId('flight-cursor').hidden=true;
     wantedHud();id = null; self = null; world = null; pending = []; samples = [];
@@ -641,18 +675,22 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !self.ride && (!unarmedRoad() || inEngine()) && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
+  const basketball=playingHoops(),trigger=queuedFire || mouseFire || down('KeyF');
+  const hoopShot=basketball && trigger;
+  const playingVolleyball=!!inVolleyball();
+  const fire = !basketball && !playingVolleyball && !self.ride && (!unarmedRoad() || inEngine()) && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && trigger;
   const gunner=gunnerRole();
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
-  if (fire || (!lookPaused && canAim())) facing = aim.yaw;
+  if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
+  else if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
-    stance: canChangeStance(self) ? requestedStance : undefined,
-    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
+    stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
+    sprint: sprint && !pilot, weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || down('KeyR')),
     throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?stickOutput(stickX):(driving || self.ride)?lateral:0,
@@ -766,7 +804,10 @@ function remoteFrame(time) {
     for(const key of ['x','y','z','pitch','roll'])jet[key]=mix(a.jet[key],jet[key],t);
     jet.yaw=angleMix(a.jet.yaw,jet.yaw,t);
   }
-  return { players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars };
+  const volleyball=b.volleyball?.map((court,index)=>({...court,
+    athletes:interpolateActors(a.volleyball?.[index]?.athletes??[],court.athletes),
+  }));
+  return { players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -795,18 +836,19 @@ function drivingView(rover, dt, wheeled) {
 }
 
 function updateEquipment(local) {
+  const volleyball=volleyballStatus();
   const heli = jetPilot()?world.jet:world.heli;
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const boat=myBoat();
   const trafficCar=myRoad()?.model && myRoad();
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
-  const gunner=gunnerRole();
+  const gunner=gunnerRole(),basketball=playingHoops();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':carNames[trafficCar.model]) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':carNames[trafficCar.model]) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
@@ -814,8 +856,8 @@ function updateEquipment(local) {
   byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inTank()?'Tank ':trafficCar ? (trafficCar.patrol?'Patrol cruiser':carNames[trafficCar.model])+' ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('flight-cursor').hidden=!jetPilot() || vitals.dead || !byId('guide').hidden || lookPaused;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : unarmedRoad() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
-  byId('space-action').parentElement.hidden = isDriving() || jetPilot() || !!gunner;
-  byId('shift-action').parentElement.hidden = local.swimming || isDriving() || jetPilot() || !!gunner;
+  byId('space-action').parentElement.hidden = basketball || isDriving() || jetPilot() || !!gunner;
+  byId('shift-action').parentElement.hidden = basketball || local.swimming || isDriving() || jetPilot() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
@@ -825,7 +867,7 @@ function updateEquipment(local) {
   byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
   if (local.stance) byId('shift-action').parentElement.hidden = true;
   const kind=seatVehicle(world,id);
-  byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
+  byId('tool-shortcut').hidden=basketball || jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=byId('sixth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
@@ -835,7 +877,7 @@ function updateEquipment(local) {
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
-  byId('fire-verb').textContent=inEngine()?'Spray water':weapon===6 && !kind?'Throw':'Fire';
+  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':'Fire';
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
   const bank=teller();
@@ -895,18 +937,33 @@ function updateEquipment(local) {
     byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike';byId('space-action').textContent='Ollie';canvas.classList.remove('armed');
   }
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
+  if(volleyball && !bankDialog.open && !market.current && !talk.current){
+    const labels=[volleyball.score,volleyball.detail];
+    if(!touch.active){
+      if(volleyball.action)labels.push('Space  ·  '+volleyball.action);
+      if(volleyball.use)labels.push('E  ·  '+volleyball.use);
+    }
+    prompt.textContent=labels.filter(Boolean).join('  ·  ');
+    if(volleyball.member){
+      byId('kit').textContent='Beach volleyball';
+      byId('progress').textContent='';
+      byId('fire-shortcut').hidden=byId('prone-shortcut').hidden=byId('crouch-shortcut').hidden=byId('tool-shortcut').hidden=true;
+      byId('space-action').parentElement.hidden=!volleyball.action;
+      byId('space-action').textContent=volleyball.action??'';
+    }
+  }
   if(touch.active){
-    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
-      canAim:canAim(),sighted:camera.sighted,jump:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
+      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
-    if(!talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
+    if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
   }
 }
 
@@ -939,6 +996,13 @@ function drawMap(player, remotes, yaw) {
     }
     ctx.fillStyle='#3b4b4c';
     for(const b of [...MAP.buildings,...lanternBuildings]) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
+    if(world.volleyball){
+      for(const [i,{x,z}] of courts.entries()){
+        ctx.strokeStyle=world.volleyball[i].phase==='closed'?'#776758':'#237286';
+        ctx.strokeRect(sx(x-courtHalfWidth),sy(z-courtHalfLength),courtHalfWidth*2*scale,courtHalfLength*2*scale);
+        ctx.beginPath();ctx.moveTo(sx(x-courtHalfWidth),sy(z));ctx.lineTo(sx(x+courtHalfWidth),sy(z));ctx.stroke();
+      }
+    }
   } else {
   ctx.fillStyle = '#31473a'; ctx.fillRect(0,0,w,h);
   ctx.strokeStyle = '#a8bdaa25'; ctx.lineWidth = 1;
@@ -966,6 +1030,16 @@ function drawMap(player, remotes, yaw) {
     ctx.save();ctx.lineJoin='round';ctx.lineWidth=3;ctx.strokeStyle='#7fe9fc';
     ctx.beginPath();route.line.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
     ctx.fillStyle='#b7f6ff';ctx.beginPath();ctx.arc(sx(route.goal[0]),sy(route.goal[1]),4,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+  if(world.basketball){
+    const {x,z,width,length}=basketballCourt;
+    ctx.fillStyle='#438786';ctx.strokeStyle='#f6dfaf';ctx.lineWidth=1.5;
+    ctx.fillRect(sx(x-width/2),sy(z-length/2),width*scale,length*scale);
+    ctx.strokeRect(sx(x-width/2),sy(z-length/2),width*scale,length*scale);
+    ctx.fillStyle='#f2a963';ctx.beginPath();ctx.arc(sx(x),sy(z),5,0,2*Math.PI);ctx.fill();
+    ctx.strokeStyle='#7e5436';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(sx(x)-5,sy(z));ctx.lineTo(sx(x)+5,sy(z));
+    ctx.moveTo(sx(x),sy(z)-5);ctx.lineTo(sx(x),sy(z)+5);ctx.stroke();
   }
   const heli = world.heli;
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
@@ -1051,7 +1125,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
-    view.touch=touch.active;
+    view.touch=touch.active;view.basketball=playingHoops();
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
     const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
     audio.patrolSiren(local,view.yaw,roadTraffic,dt);
@@ -1060,9 +1134,11 @@ function frame(time) {
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
-    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time) });
+    const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
+    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick });
     if (time >= nextHud) {
       nextHud = time + 80;
+      hoopsHud.update(world.basketball,local,view.yaw,touch.active);
       const direction = (Math.round(view.yaw / (Math.PI / 4)) % 8 + 8) % 8;
       byId('bearing').textContent = headings[direction];
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
@@ -1070,7 +1146,7 @@ function frame(time) {
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
       const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);

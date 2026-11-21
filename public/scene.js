@@ -4,6 +4,8 @@ import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
 import {airborneCapsules} from './molotov-view.js';
+import {poseVolleyball,volleyballActors,volleyballLooks,volleyballView} from './volleyball-view.js';
+import {volleyballMember} from './volleyball-court.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
 import {bankPresentation} from './bank-presentation.js';
@@ -55,7 +57,7 @@ import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSm
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
-import {createRangerRig,poseRoadBoarding,poseRig} from './ranger-pose.js';
+import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
@@ -69,6 +71,9 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import {addBasketballCourt,basketballLooks} from './basketball-view.js';
+import {basketballPose} from './basketball-pose.js';
+import {onBasketballCourt} from './basketball-layout.js';
 import { aircraftWreck } from './aircraft-wreck.js';
 import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
@@ -1030,6 +1035,7 @@ export function createScene(canvas,onFootfall) {
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
+  const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
@@ -1107,11 +1113,15 @@ export function createScene(canvas,onFootfall) {
     return new THREE.MeshLambertMaterial({map});
   }
   let nightlifeFaces;
+  const volleyballShirts=new Map();
   function resident(id,name,officer=false){
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]);
+    const athlete=volleyballLooks[id];
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]??athlete??basketballLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
-    const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
+    if(athlete && !volleyballShirts.has(look.top))
+      volleyballShirts.set(look.top,new THREE.MeshLambertMaterial({color:look.top}));
+    const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     dressPerson(rig,look,Batch,material,{faces,shirts});
@@ -1163,7 +1173,7 @@ export function createScene(canvas,onFootfall) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  let sprintGate,drawMarket;
+  let sprintGate,drawMarket,drawVolleyball;
   const drawStreetRides=streetRideView(scene,Batch);
   let localActorId;
   function render(local,remotes,view,dt,world) {
@@ -1175,6 +1185,10 @@ export function createScene(canvas,onFootfall) {
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
     if(!local) return;
+    if(world.volleyball){
+      drawVolleyball??=volleyballView(scene);
+      drawVolleyball(world.volleyball,local,remotes,world.volleyballTick,dt);
+    }
     const altitude=Math.max(0,local.y-20);
     scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
@@ -1245,8 +1259,13 @@ export function createScene(canvas,onFootfall) {
     contacts.begin(world,local);
     const live=new Set();
     distant?.begin();
+    const basketball=world.basketball;
+    updateBasketball?.(basketball,local,remotes,clock,dt);
+    const hoopPlayers=onBasketballCourt(local,120) ?
+      basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[])]) {
+    const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1255,7 +1274,7 @@ export function createScene(canvas,onFootfall) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.volleyball && !state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1265,7 +1284,7 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1274,7 +1293,7 @@ export function createScene(canvas,onFootfall) {
         if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
       }
       a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
-      a.label.sprite.visible = !state.bankRole && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
+      a.label.sprite.visible = !state.bankRole && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
@@ -1299,6 +1318,10 @@ export function createScene(canvas,onFootfall) {
           }
         }
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
+        const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
+        if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
+        const hoops=basketballPose(basketball,state,clock);
+        if(hoops)poseBasketball(a,state,hoops);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
@@ -1351,7 +1374,7 @@ export function createScene(canvas,onFootfall) {
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
-      let shoulder=local.parachute ? 0 : mix(mix(.66,.37,roomBlend),.19,doorway)*(1-portraitInset);
+      let shoulder=local.parachute ? 0 : mix(mix(view.basketball?.88:.66,.37,roomBlend),.19,doorway)*(1-portraitInset*(view.basketball?.68:1));
       const shoulderHeight=(local.clubSince!=null?1.07:1.46)-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
       if(nearInterior && shoulder){
         sideways.set(cs,0,sn);
@@ -1386,7 +1409,7 @@ export function createScene(canvas,onFootfall) {
       target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht);

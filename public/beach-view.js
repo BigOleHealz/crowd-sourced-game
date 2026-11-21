@@ -44,13 +44,15 @@ export function addBeach(scene,Batch) {
     const h=sandHeight(x,z);
     for(const sign of [-1,1]){
       posts.add(box,0x397e84,sign*4.37,1.29,0,.112,2.58,.112);
+      posts.add(box,0x205d6a,sign*4.37,.69,0,.265,1.36,.265);
+      for(const y of [.14,1.22])posts.add(box,0xf3de9d,sign*4.37,y,0,.271,.063,.271);
       for(let i=0;i<16;i++) {
         const at=z-8+i;
-        cord.beam(0xdbaf72,[x+sign*4,sandHeight(x+sign*4,at)+.025,at],[x+sign*4,sandHeight(x+sign*4,at+1)+.025,at+1],.045);
+        cord.beam(i<8?0x247d99:0xb95c45,[x+sign*4,sandHeight(x+sign*4,at)+.041,at],[x+sign*4,sandHeight(x+sign*4,at+1)+.041,at+1],.076);
       }
       for(let i=0;i<8;i++){
         const at=x-4+i,zz=z+sign*8;
-        cord.beam(0xdbaf72,[at,sandHeight(at,zz)+.025,zz],[at+1,sandHeight(at+1,zz)+.025,zz],.045);
+        cord.beam(sign<0?0x247d99:0xb95c45,[at,sandHeight(at,zz)+.041,zz],[at+1,sandHeight(at+1,zz)+.041,zz],.076);
       }
     }
     const top=u=>2.40-.078*(1-u*u);
