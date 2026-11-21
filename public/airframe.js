@@ -25,12 +25,13 @@ export function parkedHelicopter() {
   return heli;
 }
 
-export function damageHelicopter(world, damage, players, shooterId = null,team) {
+export function damageHelicopter(world, damage, players, shooterId = null,team,owner) {
   const heli = world.heli;
   if (heli.wrecked || !(damage > 0) || !Number.isFinite(damage)) return false;
   if (shooterId != null && shooterId === heli.pilot) return false;
   heli.hp = Math.max(0, heli.hp - damage);
   if (heli.hp === 0) {
+    world.wanted?.record(owner,'wreck');
     world.rules?.wreckVehicle(team,'heli');
     for (const id of [heli.pilot,heli.gunner]) {
       const pilot=players?.get(id);
@@ -188,7 +189,7 @@ export function fly(world, input, dt, players) {
       const y=world.yacht;
       stoppedSpeed=Math.hypot(motion.vx-y.speed*Math.sin(y.yaw),motion.vy,motion.vz+y.speed*Math.cos(y.yaw));
     }
-    damageHelicopter(world, impactDamage(stoppedSpeed), players);
+    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)));
   }
   motion.floorContact = floorContact;
   h.y = clamp(nextY, minY, flightBounds.ceiling);
@@ -219,7 +220,7 @@ export function fly(world, input, dt, players) {
   }
   const stoppedSpeed = Math.hypot(stoppedX, stoppedZ);
   if (stoppedSpeed > 0 && !motion.sideContact) {
-    damageHelicopter(world, impactDamage(stoppedSpeed), players);
+    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)));
   }
   motion.sideContact = stoppedSpeed > 0;
 

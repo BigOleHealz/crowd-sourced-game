@@ -150,6 +150,11 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     const distance=civilianRoundContact(car,from,delta)*range;
     if(distance<roadDistance){roadDistance=distance;road=car;}
   }
+  for(const car of world.patrolCars??[]){
+    if(car.targetId!==from.shooter || car.wrecked)continue;
+    const distance=civilianRoundContact(car,from,delta)*range;
+    if(distance<roadDistance){roadDistance=distance;road=car;}
+  }
   const post=postContact(world,from,delta);
   const pane=sourceVehicle && !assist ? firstPaneHit(world,from,delta):null;
   // Step one common arcade pulse through the world; scenery and nearer targets
@@ -186,7 +191,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     }
     if(d>=roadDistance){
       to={x:from.x+direction.x*roadDistance,y:from.y+direction.y*roadDistance,z:from.z+direction.z*roadDistance};
-      hitKind=road.kind??'rover';target=road;break;
+      hitKind=road.id??road.kind??'rover';target=road;break;
     }
     const boat=world.boats?.find(b=>{
       if(b.wrecked||b.id===sourceVehicle||to.y<b.y-.50-halo||to.y>b.y+1.05+halo)return false;
@@ -223,7 +228,7 @@ export function fire(world, player, input, tick, players, npcs) {
     const m={...from,id,shooter:player.id,source:'handLauncher',yaw:input.aimYaw,pitch:input.aimPitch,remaining:launcherSpec.range};
     if(lock?.progress===1 && input.tracking)m.lock=lock.key;
     world.missiles.push(m);
-    if(player.score)scoreAtLaunch.set(m,player.score);
+    tagShot(world,m,player);
     world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
     return;
   }
@@ -231,18 +236,18 @@ export function fire(world, player, input, tick, players, npcs) {
 
 }
 
-function targets(world,shooter,players,npcs,source=null) {
+function targets(world,shooter,players,npcs,source=null,round) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
+    actor.id !== shooter && (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
-function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
+function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score,owner) {
   let injury=null;
   if(hitKind==='insured')world.rules?.damageLot(score?.team,target,damage);
   if(hitKind==='vehicleGlass'){
     const {vehicle,paneId}=target;
     (vehicle.brokenGlass??={})[paneId]=true;noteGlass(world.doors,to);
-    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage,score?.team);
+    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage,score?.team,owner);
     return null;
   }
   if(hitKind==='glass'){
@@ -275,7 +280,10 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
           const dz=areaImpact ? center.z-actor.state.z : -(direction?.z??0);
           actor.life.hitSector=Math.hypot(dx,dz)>.03 ? (Math.round(Math.atan2(dx,-dz)*4/Math.PI)+8)%8 : undefined;
         }
-        if(defeated && score && score!==actor.score)score.kills++;
+        if(defeated && actor.id!==shooter){
+          if(score && score!==actor.score)score.kills++;
+          world.wanted?.record(owner,actor.officer?'officer':'defeat',tick);
+        }
         if(actor===target && hitPart && actor.life.hp<priorHP) {
           if(hitPart==='head' && !defeated)continue;
           if(actor.life.lostParts?.[hitPart])continue;
@@ -288,29 +296,65 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
-    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage,score?.team);
+    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage,score?.team,owner);
     for(const b of world.boats??[]){
-      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
+      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players,owner);
     }
     function hitRoad(car,kind,burstHeight){
       if(!car || source===kind)return;
       if(hitKind!==kind && !(areaImpact && withinBurst(center,car,burstHeight)))return;
       if(!areaImpact && Number.isInteger(wheel))car.flatTires=(car.flatTires??0)|(1<<wheel);
-      else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageRover(world,vehicleDamage,players,kind,score?.team);}
+      else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageRover(world,vehicleDamage,players,kind,score?.team,owner);}
     }
     hitRoad(world.rover,'rover',.8);
     hitRoad(world.supercar,'supercar',.55);
     for(const car of world.traffic??[])hitRoad(car,car.id,.7);
-    if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players);
-    if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players);
+    for(const car of world.patrolCars??[]){
+      if(!owner || car.targetId!==shooter || car.wrecked)continue;
+      if(hitKind!==car.id && !(areaImpact && withinBurst(center,car,.7)))continue;
+      car.hp=Math.max(0,car.hp-vehicleDamage);
+      if(!car.hp){
+        car.wrecked=true;car.speed=0;car.recoverySeconds=0;
+        world.wanted.record(owner,'wreck',tick);
+        reportVehicleWreck(world,car,car.id,'road',tick);
+      }
+    }
+    if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players,owner);
+    if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players,owner);
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
-      damageHelicopter(world, vehicleDamage, players, shooter,score?.team);
+      damageHelicopter(world,vehicleDamage,players,shooter,score?.team,owner);
     }
   }
   return injury;
 }
 
 const scoreAtLaunch=new WeakMap();
+function tagShot(world,round,player){
+  if(player.score)scoreAtLaunch.set(round,player.score);
+  world.wanted?.tag(round,player);
+}
+
+// Patrol fire is a target-only arcade effect. Geometry, people and occupied
+// vehicles intercept sight. A bystander can neither receive the hit nor have
+// their vehicle damaged by it.
+export function patrolSight(world,officer,player,players){
+  const a=officer.state,b=player.state;
+  const from={x:a.x,y:a.y+1.36,z:a.z},dx=b.x-a.x,dy=b.y+.92-stanceDrop(b)-from.y,dz=b.z-a.z;
+  const range=Math.hypot(dx,dy,dz);
+  if(range<.05 || range>29)return;
+  const dir={x:dx/range,y:dy/range,z:dz/range};
+  const hit=tracePulse(world,[...players.values()].filter(p=>p.life.hp),from,dir,range+.8,false,'patrol',.28);
+  if(hit.target===player || (hit.target && [hit.target.driver,hit.target.pilot,hit.target.gunner].includes(player.id)))
+    return {from,to:hit.to,direction:dir};
+}
+export function firePatrolShot(world,officer,player,sight,tick,damage){
+  const {from,to,direction}=sight;
+  damageActor(player,damage,tick,direction);
+  player.life.lastShotTick=tick;
+  world.shots.push({id:nextShotId++,shooter:officer.id,weapon:'muzzle',firedWeapon:2,from,to:from,tick});
+  world.shots.push({id:nextShotId++,shooter:officer.id,weapon:2,from,to,hit:true,targetId:player.id,tick});
+}
+
 
 // Launch direction is captured from the authoritative body heading.
 const launchState=new WeakMap();
@@ -327,7 +371,7 @@ export function launchMissile(world,kind,player,tick) {
   const from=mountPosition(v,offset);
   world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
   world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60/missileStep(kind)});
-  if(player.score)scoreAtLaunch.set(world.missiles.at(-1),player.score);
+  tagShot(world,world.missiles.at(-1),player);
 }
 
 export function fireTank(world,player,tick){
@@ -338,7 +382,7 @@ export function fireTank(world,player,tick){
   world.shots.push({id,shooter:player.id,weapon:'launch',source:'tank',from,to:from,tick});
   const shell={...from,yaw:t.turretYaw,pitch:t.turretPitch,source:'tank',shooter:player.id,id,remaining:60};
   world.missiles.push(shell);
-  if(player.score)scoreAtLaunch.set(shell,player.score);
+  tagShot(world,shell,player);
 }
 
 const nextBomb=new WeakMap();
@@ -350,7 +394,7 @@ export function dropJetBomb(world,player,tick){
     yaw:jet.yaw,pitch:jet.pitch,vx:Math.sin(jet.yaw)*horizontal,vz:-Math.cos(jet.yaw)*horizontal,
     vy:jet.speed*Math.sin(jet.pitch),remaining:600};
   world.missiles.push(bomb);
-  if(player.score)scoreAtLaunch.set(bomb,player.score);
+  tagShot(world,bomb,player);
   nextBomb.set(jet,tick+60);
 }
 
@@ -372,7 +416,7 @@ function traceBomb(world,actors,bomb){
 
 export function advanceMissiles(world,players,npcs,tick) {
   world.missiles=world.missiles.filter(m=>{
-    const actors=targets(world,m.shooter,players,npcs,m.source);
+    const actors=targets(world,m.shooter,players,npcs,m.source,m);
     if(m.source==='handLauncher')guideGameMissile(world,m);
     const pitch=m.pitch ?? 0, horizontal=Math.cos(pitch);
     const direction={x:Math.sin(m.yaw)*horizontal,y:Math.sin(pitch),z:-Math.cos(m.yaw)*horizontal};
@@ -389,7 +433,7 @@ export function advanceMissiles(world,players,npcs,tick) {
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);
     }
     const damage=m.source==='handLauncher'?launcherSpec.damage:150;
-    const injury=applyHit(world,hit,actors,players,m.shooter,tick,damage,m.source==='handLauncher'?damage:3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m));
+    const injury=applyHit(world,hit,actors,players,m.shooter,tick,damage,m.source==='handLauncher'?damage:3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m),world.wanted?.owner(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});
     return false;
   });
@@ -431,7 +475,7 @@ function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,de
   if(!tracer)round.hidden=true;
   if(delay)round.delay=delay;
   world.bullets.push(round);
-  if(player.score)scoreAtLaunch.set(round,player.score);
+  tagShot(world,round,player);
   if(tracer)world.shots.push({id:nextShotId++,shooter,weapon:'muzzle',firedWeapon:weapon,source,from,to:from,tick});
 }
 
@@ -439,7 +483,7 @@ const lastPosition=new WeakMap();
 export function advanceRounds(world,players,npcs,tick){
   const dt=1/30;
   world.bullets=world.bullets.filter(r=>{
-    const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source);
+    const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source,r);
     const elapsed=dt*(1-(r.delay ?? 0));
     if(r.delay)r.delay=0;
     const d={x:r.vx*elapsed,y:r.vy*elapsed,z:r.vz*elapsed};
@@ -456,7 +500,7 @@ export function advanceRounds(world,players,npcs,tick){
       const pane=windowContact(hit.hitKind,hit.target,to,d,CITY);
       if(pane){(hit.target.brokenGlass??={})[pane.id]=true;noteGlass(world.doors,pane);}
     }
-    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r));
+    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r),world.wanted?.owner(r));
     if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});

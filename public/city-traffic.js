@@ -111,12 +111,13 @@ function letDriverWalk(world,car,npc,x,z){
   npc.next=0;npc.pauseUntil=0;npc.moving=false;
 }
 
-function advanceTakeover(world,car,npc,dt){
+function advanceTakeover(world,car,npc,dt,players){
   const t=car.takeover;
   t.progress=Math.min(1,t.progress+dt/.95);
   if(npc)placeDriver(car,npc);
   if(t.progress<1)return;
   if(npc)letDriverWalk(world,car,npc,t.endX,t.endZ);
+  if(t.playerId!=null && car.driver===t.playerId)world.wanted?.record(world.wanted.session(players.get(t.playerId)),'theft');
   car.takeover=null;
 }
 
@@ -181,7 +182,7 @@ export function stepCityTraffic(world,players,npcs,dt){
     !vehicles.some(v=>v?.driver===a.id || v?.gunner===a.id || v?.pilot===a.id));
   for(const car of world.traffic){
     const npc=npcs.find(n=>n.id===(car.npcDriver??car.takeover?.npcId));
-    if(car.takeover){advanceTakeover(world,car,npc,dt);continue;}
+    if(car.takeover){advanceTakeover(world,car,npc,dt,players);continue;}
     if(car.npcDriver && (car.wrecked || !npc?.life.hp)){
       if(npc){
         const exit=exitPoint(world,car);

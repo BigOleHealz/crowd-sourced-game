@@ -246,6 +246,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   considerRoad(world.rover,'rover');
   considerRoad(world.supercar,'supercar');
   for(const car of world.traffic??[])considerRoad(car,car.id);
+  for(const car of world.patrolCars??[])if(!car.wrecked && car.targetId===round.shooter)considerRoad(car,car.id);
   if(world.tank && round.source!=='tank')accept(tankRoundContact(world.tank,round,d),world.tank,'tank');
   const jet=world.jet;
   if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
