@@ -60,7 +60,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     }
     if(!shared){
       block('rear',0,depth-.073,w,.146,galleryCeiling);
-      for(const wing of [-1,1]){
+      for(const wing of index===3 && side<0 ? [] : [-1,1]){
         const width=(w-1.48)/2;
         block('portalReturn',wing*(.74+width/2),depth-.97,width,.21,galleryCeiling);
         block('credenza',wing*(w*.30),depth-1.36,.91,.49,galleryFloor+.75);
@@ -77,7 +77,10 @@ for(const [index,b] of brickellMap.buildings.entries()){
     }
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
-  if(index===3)plan.solids.push({kind:'bankCounter',...rect(-21.48,-34.28,1.28,.54,1.87)});
+  if(index===3){
+    plan.solids.push({kind:'bankCounter',...rect(-20,-34.88,4.68,.63,1.84)});
+    plan.solids.push({kind:'queueRail',...rect(-20.91,-36.23,.08,1.34,1.56)});
+  }
   if(plan.hotel){
     for(const [k,p,h] of [['reception',hotel.desk,1.30],['luggage',hotel.cart,1.61]]){
       plan.solids.push({kind:k,...rect(p.x,p.z,p.w,p.d,galleryFloor+h)});

@@ -3,6 +3,7 @@ import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import {inClub} from './club-lucero.js';
+import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
@@ -1245,7 +1246,7 @@ export function createScene(canvas,onFootfall) {
   }
   let nightlifeFaces;
   function resident(id,name,officer=false){
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]);
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
@@ -1331,7 +1332,7 @@ export function createScene(canvas,onFootfall) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateDoors?.(world.doors,dt,local,remotes,world.simTick);
+    updateDoors?.(world.doors,dt,local,remotes,world.simTick,world.bank);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
@@ -1375,7 +1376,7 @@ export function createScene(canvas,onFootfall) {
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[])]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world):[])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1384,7 +1385,7 @@ export function createScene(canvas,onFootfall) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.performer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1394,11 +1395,11 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
-      a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
+      a.label.sprite.visible = !state.bankRole && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
@@ -1420,6 +1421,7 @@ export function createScene(canvas,onFootfall) {
             }
           }
         }
+        if(state.bankRole)poseBankGuest(a,state,(world.simTick??clock*30)/30);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
