@@ -1,4 +1,5 @@
 import {frontWheelAngle} from './road-steering.js';
+import {roadEngineIdle} from './road-engine-idle.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
@@ -354,6 +355,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       if(!view){
         view=model(Batch,car.model,materials);views.set(car.id,view);
+        view.idle=roadEngineIdle(car.model,car.id);
         view.root.name='Traffic '+car.id;scene.add(view.root);
       }
       const {root,chassis,wheels,door,brake}=view;
@@ -361,6 +363,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       const sag=view.wreckFinish(car);view.fittings(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
       chassis.position.y=(car.suspension?.heave??0)-.17*sag;
+      view.idle(chassis,car,dt);
       for(const [i,{wheel,patch}] of wheels.entries()){
         const drop=isFlat(car,i)?flatWheelDrop:0;
         wheel.rotation.x-=car.speed*dt/view.tire;
