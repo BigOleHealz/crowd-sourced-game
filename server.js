@@ -92,7 +92,7 @@ function canPlayVolleyball(world,player){
     world.yacht?.driver!==id && !world.basketball?.players.includes(id);
 }
 function freshWorld(){
-  const w=newExpedition();
+  const w=newExpedition({civilianMarina:!mode});
   w.traffic=newCityTraffic();w.traffic.push(fireEngine());
   if(CITY){
     w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];

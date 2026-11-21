@@ -29,6 +29,4 @@ export const clubRoof=volume('club-loggia',25,-390.3,26.7,11.1,4.18,3.88);
 export const loggiaRoof=mareLoggiaRoof;
 export const estateBarriers=[...mareBarriers,...clubColumns,...loggiaColumns,...shadeColumns,...hedges,...planters,clubRoof,
   volume('luma-tablet',-12.9,-378.9,3.12,.58,1.34),volume('mare-tablet',37.5,-425.3,3.12,.58,1.34),
-  ...pools.map(p=>({...p,h:.18})),volume('garden-sculpture',-25,-443,1.6,2.4,3.7),
-  // Bathymetry here is −2.8 m. These colliders stop swimmers and approaching RHIBs at the two visible hulls.
-  volume('west-sloop',-63,-439.15,6.1,1.9,3.29),volume('west-launch',-63.4,-429.9,6.1,1.9,3.29)];
+  ...pools.map(p=>({...p,h:.18})),volume('garden-sculpture',-25,-443,1.6,2.4,3.7)];
