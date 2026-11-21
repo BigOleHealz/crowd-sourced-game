@@ -133,7 +133,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
           leg(0xf4d8a8,sign*(half-.66),2.722,depth*k,.052,.014);
         }
       }
-      if(!plan.rooms[0].shared){
+      if(!plan.rooms[0].shared && !(plan.index===3 && side<0)){
         trim(2,0x96754e,0,1.48,depth-.073,w-.25,2.96,.146);
         trim(4,bronze,0,1.18,depth-.166,1.12,2.36,.055);
         trim(2,0x8d6c48,0,1.14,depth-.209,1.01,2.26,.038);
@@ -165,6 +165,27 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
       }
       // Front left: upholstered two-seat gallery lounge, low stone table and dome lamp.
       const {sofa,table,console:consoleTable,shelf}=entry;
+      if(plan.index===3 && side<0){
+        // Bank lobby uses fitted vinyl chairs and two writing surfaces. Keep
+        // each piece in the same independently destructible furniture range.
+        let part=motion.start(sofa.piece);
+        for(const off of [-.40,.40]){
+          const u=(sofa.x-x)*side+off,v=(z-sofa.z)*side;
+          trim(4,bronze,u,.24,v,.52,.42,.40);
+          orb(cushion,3,0x397068,u,.45,v,.37,.065,.34);
+          orb(cushion,3,0x42786c,u,.67,v+.30,.37,.22,.055);
+        }
+        motion.end(part);
+        for(const item of [table,consoleTable]){
+          part=motion.start(item.piece);
+          const u=(item.x-x)*side,v=(z-item.z)*side,high=item===table?.36:.85;
+          trim(2,0x68503c,u,high/2,v,item.w*.72,high,item.d*.68);
+          trim(1,0xe8ddbd,u,high,v,item.w,.06,item.d);
+          for(let j=0;j<3;j++)trim(3,0xe8e2ce,u+.08+j*.011,high+.038+j*.007,v,.18,.007,.15);
+          motion.end(part);
+        }
+        continue;
+      }
       const seated=motion.start(sofa.piece);
       const su=(sofa.x-x)*side,sv=(z-sofa.z)*side,sw=sofa.w;
       trim(2,0x705c47,su,.21,sv,sw-.05,.20,.68);
@@ -248,8 +269,8 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   windows.userData.impactSurface='glass';scene.add(windows);
   const dummy=new THREE.Object3D(), visible=new Array(panes.length);
   let prior,received=false;
-  function update(doors){
-    moveHotelDoors(doors);updateBank(doors);
+  function update(doors,bank,tick){
+    moveHotelDoors(doors);updateBank(doors,bank,tick);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;
