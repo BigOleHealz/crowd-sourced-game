@@ -20,15 +20,20 @@ for(const hz of [30,60,144]){
   const [lead,trail]=rig.limbs;
   assert(trail.foot.forwardOffset-lead.foot.forwardOffset>.35,'The soles form a long stagger');
   assert(Math.abs(lead.knee.rotation.x-trail.knee.rotation.x)>.36,'The two knees bear different loads');
-  for(const weapon of [1,2,3,4]){
-    state.weapon=weapon;frame();const sidearm=weapon===2;
-    for(const {side,forearm} of rig.limbs){
-      const hand=forearm.localToWorld(new Vector3(0,-.265,0));
-      const grip=rig.tools[weapon-1].localToWorld(new Vector3(side===1?.027:sidearm?-.028:-.036,
-        side===1?-.048:sidearm?-.049:.038,side===1?.037:sidearm?.031:-.21));
-      assert(hand.distanceTo(grip)<.009,'The palm stays in contact with its grip');
+  // Physical support points on the five exterior models, in tool-local space.
+  const supportPoints=[[-.041,.054,-.207],[-.026,-.052,.050],[-.031,.047,-.148],
+    [-.067,.066,-.152],[-.065,.041,-.137]];
+  function checkHands(){
+    for(const [index,support] of supportPoints.entries()){
+      state.weapon=index+1;frame();
+      for(const {side,forearm} of rig.limbs){
+        const hand=forearm.localToWorld(new Vector3(0,-.265,0));
+        const grip=rig.tools[index].localToWorld(new Vector3(...(side===1?[.027,-.048,.044]:support)));
+        assert(hand.distanceTo(grip)<.009,'Both palms stay in contact with equipped slot '+state.weapon);
+      }
     }
   }
+  checkHands();
   for(const [vx,vz] of [[0,-2.25],[2.25,0]]){
     const old=[null,null],touched=[0,0];
     let high=-Infinity,low=Infinity,lastPhase=0,cycles=0;
@@ -46,10 +51,10 @@ for(const hz of [30,60,144]){
     assert(cycles>=2 && touched.every(n=>n>=2),'Alternate short steps in either direction');
     assert(high<-.43 && high-low<.025,'Walking does not lift the body out of its crouch');
   }
-  state.stance='prone';frame();assert(rig.body.rotation.x<-1);
+  state.stance='prone';frame();assert(rig.body.rotation.x<-1);checkHands();
   state.stance='crouch';frame();assert(rig.body.position.y<-.42,'Rise directly into the crouch from prone');
   state.stance=undefined;
   for(let i=0;i<hz;i++)frame();
-  assert.equal(rig.gait.crouch,0);assert.equal(rig.body.position.z,0);assert(rig.body.position.y>-.073);
+  checkHands();assert.equal(rig.gait.crouch,0);assert.equal(rig.body.position.z,0);assert(rig.body.position.y>-.073);
 }
 console.log('PASS crouch transitions, staggered loading, eye and grip alignment, low forward and lateral steps at 30/60/144 Hz');

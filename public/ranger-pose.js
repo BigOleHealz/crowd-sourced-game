@@ -23,7 +23,7 @@ const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.V
 const upperLength=.275, lowerLength=.265;
 // Forward offset and support-hand contact in each display prop's local frame.
 const carryFits=[
-  {forward:-.248,side:-.041,height:.054,reach:-.207},
+  {forward:-.224,side:-.041,height:.054,reach:-.207},
   {forward:-.322,side:-.026,height:-.052,reach:.050},
   {forward:-.290,side:-.031,height:.047,reach:-.148},
   {forward:-.238,side:-.067,height:.066,reach:-.152},
@@ -285,7 +285,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
         // Counter the trunk hinge to keep both hands and sights together.
         weapon.rotation.x+=low*(.35-.025*weight);
         kit.y+=low*.072;
-        kit.z-=low*(bloom?.083:.061);
+        kit.z-=low*(bloom?.083:.009);
       }
       // Aim each wrist at its own contact on the prop, including during the running tilt.
       const handX=side===1 ? .027 : fit.side;
