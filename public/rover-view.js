@@ -1,3 +1,4 @@
+import {roadEngineIdle} from './road-engine-idle.js';
 import {shapedBodywork,paintedFinish} from './rover-bodywork.js';
 import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -22,7 +23,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const sheet = new THREE.BoxGeometry(1,1,1,5,2,5);
   const disc = new THREE.CylinderGeometry(1,1,1,18);
   const seatForm = new THREE.SphereGeometry(1,10,8);
-  const pickup=CITY;
+  const pickup=CITY,idle=roadEngineIdle(pickup?'pickup':'jeep');
   const green=pickup?0x6a8490:0x6d7355, darkGreen=pickup?0x41555d:0x505943;
   const trim=pickup?0xb2b3a6:0x747861, steel=0x626660, rubber=0x2c302e;
   const box=(t,x,y,z,w,h,l) => {
@@ -326,6 +327,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       wheel.rotation.x-=r.speed*dt/.36;
       wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
     });
+    idle(root,r,dt);
     for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);
   };
 }

@@ -1,3 +1,4 @@
+import {roadEngineIdle} from './road-engine-idle.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -264,6 +265,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const jet=jetGeometry(),hot=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.FrontSide,transparent:true,opacity:.91,depthWrite:false,blending:THREE.NormalBlending});
   const jets=spec.exhaust.map(([x,y,z])=>{const m=new THREE.Mesh(jet,hot);m.position.set(x,y,z+.075);m.visible=false;body.add(m);return m;});
   for(const g of [cube,sphere,disc,torus])g.dispose();
+  const idle=roadEngineIdle('supercar');
   let spin=0,time=0;
   const suspensionAxis=new THREE.Vector3();
   const fittingsDamage=damagedFittings([skin,fittings,lenses],-2.32,2.32,1.02,.46);
@@ -289,6 +291,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
       w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
       w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
     }
+    idle(body,car,dt);
     const burst=car.driver!=null && !car.wrecked ? clamp((car.exhaust??0)/.30,0,1) : 0;
     for(const [i,flame] of jets.entries()){
       flame.visible=burst>0;
