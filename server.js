@@ -1,3 +1,4 @@
+import {stepWakeCrossings} from './public/boat-wakes.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -601,6 +602,7 @@ function tick() {
     const driver=players.get(b.driver);
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
+  stepWakeCrossings(world,step);
   for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;

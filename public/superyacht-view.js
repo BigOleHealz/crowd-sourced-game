@@ -1,3 +1,4 @@
+import {wakeTrail} from './boat-wake-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {cabinTop,lowerStair} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
@@ -212,22 +213,14 @@ export function superyachtView(scene,Batch,renderer,panorama){
     for(const f of [0,.5,1])ramp.beam(steel,[start+span*f,2.52-drop*f,z],[start+span*f,3.39-drop*f,z],.045);
   }
   ramp.mesh(gangway,bodyMat,false);
-  const wakeMaterial=new THREE.MeshBasicMaterial({color:0xb9ded7,transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide});
-  const wake=new Batch();
-  for(const side of [-1,1])for(let i=0;i<4;i++){
-    const z=16+i*4.1, x=side*(3.52+i*.61);
-    wake.beam(0xffffff,[x,.055,z],[x+side*.85,.055,z+4.9],.52+i*.11,.04);
-  }
-  const wash=wake.mesh(root,wakeMaterial,false);
-  return yacht=>{
-    root.visible=!!yacht;if(!yacht)return;
+  const wake=wakeTrail(scene);
+  return (yacht,dt,local)=>{
+    root.visible=!!yacht;wake(yacht,dt,local);if(!yacht)return;
     updatePanes(yacht.brokenGlass);
     const sink=yacht.wrecked ? Math.min(1,Math.max(0,(6-yacht.recoverySeconds)/2)) : 0;
     root.position.set(yacht.x,yacht.y-sink*2.6,yacht.z);
-    root.rotation.set(.055*sink,-yacht.yaw,-.12*sink,'YXZ');
+    root.rotation.set(.055*sink,-yacht.yaw,(yacht.wakeRoll??0)-.12*sink,'YXZ');
     gangway.visible=!!yacht.gangway;
-    const speed=Math.abs(yacht.speed);
-    wash.visible=speed>.25;wakeMaterial.opacity=Math.min(.41,speed*.083);
     root.userData.target=yacht.id;
   };
 }

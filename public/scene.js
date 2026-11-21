@@ -1265,8 +1265,8 @@ export function createScene(canvas) {
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateDoors?.(world.doors,dt,local,remotes);
     updateChurch?.(world.doors?.brokenPanes);
-    updatePatrolBoats(world?.boats,dt);
-    updateYacht?.(world.yacht,dt);
+    updatePatrolBoats(world?.boats,dt,local);
+    updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     updateJet(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
