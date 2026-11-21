@@ -12,3 +12,11 @@ export function liveShots(history) {
     return fresh;
   };
 }
+
+export function expireShots(shots,tick){
+  // An occupied room can skip snapshots while its output queue drains.
+  // Keep the one-off wreck cue long enough to survive a brief network stall.
+  for(let i=shots.length-1;i>=0;i--){
+    if(tick-shots[i].tick>(shots[i].weapon==='vehicleWreck'?60:7))shots.splice(i,1);
+  }
+}

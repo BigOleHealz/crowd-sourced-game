@@ -1,3 +1,4 @@
+import {expireShots} from './public/shot-events.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -634,7 +635,7 @@ function tick() {
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
   for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
-  while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
+  expireShots(world.shots,ticks);
   if (++ticks % 2 === 0) publish();
 }
 

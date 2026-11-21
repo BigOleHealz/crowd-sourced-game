@@ -19,3 +19,24 @@ export function vehicleWreckBurst(event,puff,particle,random){
       new THREE.Vector3(size,size*.47,size*1.36),i%3?0x514c43:0xe8a955,.42+.30*random());
   }
 }
+
+const burnedMetal=new THREE.MeshLambertMaterial({color:0x4f4340,vertexColors:true,side:THREE.DoubleSide});
+
+// Only swap the wreck's own meshes; civilian paint and glass are shared
+// across nearby intact cars. Restore the original finish on respawn.
+export function roadWreckFinish(group){
+  let originals;
+  return car=>{
+    if(car.wrecked && !originals){
+      originals=new Map();
+      group.traverse(mesh=>{
+        if(!mesh.isMesh)return;
+        originals.set(mesh,mesh.material);mesh.material=burnedMetal;
+      });
+    }else if(!car.wrecked && originals){
+      for(const [mesh,material] of originals)mesh.material=material;
+      originals=null;
+    }
+    return car.wrecked ? 1-Math.exp(-3*Math.max(0,6-car.recoverySeconds)) : 0;
+  };
+}
