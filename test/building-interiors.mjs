@@ -50,6 +50,23 @@ if(!process.env.INTERIOR_TEST_MAP){
       }
     }
     assert.equal(rooms,412);assert.equal(trips,252);
+    for(const building of interiorPlans)for(const d of building.entrances){
+      const doors={};setDoorOpen(d,doors,true);
+      assert(!blocked(d.x,d.y,d.z,{},doors),'open entrance '+building.name+' '+d.label);
+      setDoorOpen(d,doors,false);
+      assert(blocked(d.x,d.y,d.z,{},doors),'shut entrance '+building.name+' '+d.label);
+    }
+    const {galleryPlans}=await import('../public/gallery-lobbies.js');
+    const {stepHotelDoors}=await import('../public/maravela-hotel.js');
+    for(const g of galleryPlans.filter(g=>g.passage)){
+      const [near,far]=g.ends;
+      p.state=feet(g.x,.824,near.z+.75);
+      for(let i=0;i<(far.z-near.z+2)*9;i++){
+        stepHotelDoors(w.doors,[p.state],1/30);
+        p.state=stepPlayer(p.state,{x:0,z:1},1/30,w.hp,w);
+      }
+      assert(p.state.z>far.z+.3,'through both gallery passage doors '+g.index);
+    }
     const bank=interiorPlans.find(p=>p.type==='bank');
     for(const d of bank.doors.filter(d=>!d.initial)){
       assert(blocked(d.x,d.y,d.z,w.hp,w.doors));setDoorOpen(d,w.doors,true);

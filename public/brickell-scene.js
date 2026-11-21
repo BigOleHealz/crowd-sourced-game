@@ -28,7 +28,7 @@ import {galleryLobbyView} from './gallery-lobby-view.js';
 import { streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import {addCauseway} from './causeway-view.js';
-import { addApartmentBalconies, hasApartmentBalconies } from './apartment-balconies.js';
+import { addApartmentBalconies } from './apartment-balconies.js';
 import { addBeach } from './beach-view.js';
 import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import * as THREE from 'three';
@@ -157,7 +157,10 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     if(MAP.buildings[i]===bankSite)return;
     const avenueCorner=x===-17 && z===7;
     const {west:westDepth,east:eastDepth,x:coreX,w:coreWidth,rooms,ends}=galleryPlans[i];
-    if(rooms.length===2)solids.add(box,0xb5a88e,coreX,base+podium/2,z,coreWidth,podium,d-2*ends[0].depth);
+    if(rooms.length===2){
+      const wing=(coreWidth-1.48)/2;
+      for(const sign of [-1,1])solids.add(box,0xb5a88e,coreX+sign*(.74+wing/2),base+podium/2,z,wing,podium,d-2*ends[0].depth);
+    }
     solids.add(box,0xbcaf97,coreX,base+podium-.34,z,coreWidth,.68,d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
@@ -178,7 +181,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addBrickellHorizon(scene,facadeMaterial.map);
   const apartmentStart=scene.children.length;
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
-  const towerParts=[offices.mesh,...scene.children.slice(apartmentStart)];
+  const towerParts=[...scene.children.filter(o=>o.userData.interiorFixtures),...scene.children.slice(apartmentStart)];
   const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
