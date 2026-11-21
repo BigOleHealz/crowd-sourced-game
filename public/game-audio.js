@@ -1,3 +1,4 @@
+import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound} from './road-contact-sound.js';
@@ -9,6 +10,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
@@ -192,6 +194,18 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('boat/') && !present.has(key))stopMotor(key);
   }
+  function trafficEngines(listener,yaw,cars){
+    const sounding=new Set();
+    for(const car of cars){
+      if(car.wrecked || (car.npcDriver==null && car.driver==null) ||
+        Math.hypot(car.x-listener.x,car.y-listener.y,car.z-listener.z)>65)continue;
+      const key='traffic/'+car.id;
+      sounding.add(key);
+      const mix=civilianEngineMix(car);
+      motor('civilian/'+car.model,car,true,mix.rate,mix.gain,listener,yaw,key);
+    }
+    for(const key of loops.keys())if(key.startsWith('traffic/') && !sounding.has(key))stopMotor(key);
+  }
   let lastJetRange=null;
   function jetEngine(listener,yaw,jet,dt){
     const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
@@ -214,5 +228,5 @@ export function createGameAudio(button,slider,level) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,engines,trafficEngines,jetEngine,yachtEngine,toggleMute};
 }
