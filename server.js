@@ -1,3 +1,4 @@
+import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {nearJet,stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
@@ -57,6 +58,7 @@ const departedScores=new Map();
 let match;
 function freshWorld(){
   const w=newExpedition();
+  if(CITY)w.traffic=newCityTraffic();
   if(mode){
     match=createMatch(mode);
     w.match=match.state;
@@ -65,7 +67,12 @@ function freshWorld(){
   return w;
 }
 let world = freshWorld();
-let npcs = newRivals();
+function freshResidents(){
+  const residents=newRivals();
+  if(CITY)syncTrafficDrivers(world,residents);
+  return residents;
+}
+let npcs = freshResidents();
 function worldView() {
   const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
     if(r.source!=='heli' && r.source!=='jet')return r;
@@ -255,7 +262,7 @@ function updateRoom() {
     const [p]=players.values();
     p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;
     parkedRound={world,npcs,tick:ticks,player:p};
-    world=freshWorld();npcs=newRivals();
+    world=freshWorld();npcs=freshResidents();
     players.set(p.id,{id:p.id,ws:p.ws,team:p.team,slot:p.slot,scoreKey:p.scoreKey,
       alive:p.alive,packedSnapshots:p.packedSnapshots,lastSeq:p.lastSeq,ack:p.lastSeq,inputs:[],
       state:teamSpawn(p.team,p.slot),life:newLife(ticks),score:{kills:0,deaths:0,team:p.team},
@@ -290,6 +297,7 @@ sockets.on('connection', ws => {
   ws.on('close', () => {
     const player=players.get(id);
     match?.release(player);
+    if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
     players.delete(id);
     match?.updateRoster(players);
     if(match && frozenPhase(world.match.phase)){
@@ -303,7 +311,7 @@ sockets.on('connection', ws => {
     }
     if (!players.size) {
       world = freshWorld();
-      npcs = newRivals();
+      npcs = freshResidents();
     }
     else if(world.heli.onYacht && world.heli.grounded && world.heli.pilot===id)world.heli.pilot=null;
     else if (world.heli.pilot === id) {
@@ -333,7 +341,7 @@ const idle = { x: 0, z: 0, jump: false, sprint: false, lift: 0 };
 let ticks = 0, lobbyTicks = 0;
 function resetRound(){
   world=freshWorld();
-  npcs=newRivals();
+  npcs=freshResidents();
   departedScores.clear();
   for(const player of players.values()){
     player.state=teamSpawn(player.team,player.slot);
@@ -373,7 +381,8 @@ function tick() {
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
   if (players.size) {
-    for (const npc of npcs) updateRival(npc, ticks, step, world.hp, world);
+    if(CITY)stepCityTraffic(world,players,npcs,step);
+    for (const npc of npcs) if(!trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
@@ -385,13 +394,15 @@ function tick() {
         match?.release(player);
         if (world.heli.pilot === player.id) interact(world,player);
         const road = drivenRoad(world,player.id);
-        if (road) { road.driver = null; stopRover(road); }
+        if(road?.model)leaveTraffic(world,player);
+        else if (road) { road.driver = null; stopRover(road); }
         player.life.immuneUntil = ticks;
         damageActor(player,player.life.hp,ticks);
       }
     }
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
+      if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
       if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
       const role=gunnerVehicle(world,player.id);
@@ -426,6 +437,7 @@ function tick() {
       if (input.interact && !player.state.climb) {
         const boat=crewBoat(world,player.id);
         if(world.jet.pilot===player.id)leaveJet(world.jet,player);
+        else if(drivenRoad(world,player.id)?.model)tryTrafficInteract(world,player,npcs);
         else if(boat)interactBoat(world,boat,player);
         else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
         else if (world.supercar?.driver===player.id) {
@@ -437,7 +449,7 @@ function tick() {
           if(nearJet(world.jet,player.state))world.jet.pilot=player.id;
           else if(nearbyBoat)interactBoat(world,nearbyBoat,player);
           else if(nearby==='rover' || nearby==='supercar')interactRover(world,player,nearby);
-          else interact(world,player);
+          else if(nearby==='heli' || !tryTrafficInteract(world,player,npcs))interact(world,player);
         }
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
@@ -460,7 +472,8 @@ function tick() {
         if(input)player.supercarInput={input,car:road,until:ticks+3};
         else if(player.supercarInput?.car===road && ticks<player.supercarInput.until)roadInput=player.supercarInput.input;
       }
-      driveRover(world,roadInput,step,players,kind);
+      if(road.model)driveTrafficCar(world,road,roadInput,step,players);
+      else driveRover(world,roadInput,step,players,kind);
       vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
       if(road.driver!==player.id)continue;
       if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
@@ -518,8 +531,9 @@ function tick() {
     }
   }
   stepYacht(world,yachtInput,step,players);
-  for(const kind of ['rover','supercar']){
-    const road=world[kind];if(!road)continue;
+  for(const road of [world.rover,world.supercar,...(world.traffic??[])]){
+    if(!road)continue;
+    const kind=road.kind??'rover';
     if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
     const raised=raisedRoadAt(world,road.x,road.z);
     if(raised && !road.bridgeFlight && !road.wrecked){
@@ -533,6 +547,7 @@ function tick() {
       road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
     }else{
       const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
+      if(road.model)continue;
       stepSuspension(road,step,(x,z)=>{
         const ground=groundHeight(x,z,road.y+1.65,world.doors);
         // Until takeoff, an unsupported axle follows the end of its ramp.
@@ -567,6 +582,7 @@ function tick() {
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.jet,'jet','road',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
+  for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
   while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
   if (++ticks % 2 === 0) publish();

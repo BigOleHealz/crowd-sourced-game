@@ -1,3 +1,4 @@
+import {driveTrafficCar} from './city-traffic.js';
 import {stepJet} from './jet.js';
 import {driveRover,drivenRoad} from './rover.js';
 import {fly,restoreFlightState} from './airframe.js';
@@ -11,14 +12,14 @@ export function driverPrediction(snapshot,id) {
   const kind=road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.jet?.pilot===id ? 'jet' :
     snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null;
   if(!kind)return null;
-  const {jet,heli,rover,supercar,yacht,boats,doors,hp}=snapshot;
-  const world=structuredClone({jet,heli,rover,supercar,yacht,boats,doors,hp});
-  const vehicle=kind==='boat'?crewBoat(world,id):world[kind];
+  const {jet,heli,rover,supercar,yacht,boats,doors,hp,traffic}=snapshot;
+  const world=structuredClone({jet,heli,rover,supercar,yacht,boats,doors,hp,traffic});
+  const vehicle=road?.model ? drivenRoad(world,id) : kind==='boat'?crewBoat(world,id):world[kind];
   if(kind==='heli')restoreFlightState(vehicle);
   const occupants=new Map();
   let previous=vehicle;
   return {
-    kind,
+    kind, vehicleId:road?.model ? road.id : null,
     step(cmd,dt){
       if(vehicle.wrecked || (vehicle.pilot??vehicle.driver)!==id)return;
       previous={...vehicle};
@@ -26,6 +27,7 @@ export function driverPrediction(snapshot,id) {
       else if(kind==='jet')stepJet(world,cmd,dt,occupants);
       else if(kind==='boat')stepBoat(world,vehicle,cmd,dt,occupants);
       else if(kind==='yacht')stepYacht(world,cmd,dt,occupants);
+      else if(vehicle.model)driveTrafficCar(world,vehicle,cmd,dt,occupants);
       else driveRover(world,cmd,dt,occupants,kind);
     },
     pose(t){
