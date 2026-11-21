@@ -6,7 +6,7 @@ import {nearJet} from './jet.js';
 import {nearBoat,crewBoat} from './patrol-boats.js';
 import {yachtPrompt} from './yacht-layout.js';
 
-const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatchback:'hatchback',van:'delivery van'};
+const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
 const action=(target,role,label)=>({target,role,label});
 export function nextUse(world,feet,id,wanted){
   if(!world || !feet || feet.climb || id==null)return null;
@@ -45,7 +45,7 @@ export function nextUse(world,feet,id,wanted){
     offer(v,nearby,gunner?'gunner':'drive',gunner?'Join '+name+' turret':(heli?'Pilot ':'Drive ')+name);
   }
   const car=nearestTraffic(world,feet);
-  if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+names[car.model]);
+  if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+(car.patrol?'patrol cruiser':names[car.model]));
   if(nearTank(world.tank,feet))offer(world.tank,'tank','drive','Drive tracked tank');
   if(nearJet(world.jet,feet))offer(world.jet,'jet','drive','Pilot strike jet');
   const near=nearBoat(world,feet);

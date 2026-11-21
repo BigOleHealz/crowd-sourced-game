@@ -9,7 +9,7 @@ export function marketStockView(scene){
   return state=>{
     if(state.revision===revision)return;
     revision=state.revision;
-    const required=48+state.drops.length*3;
+    const required=48+state.drops.length*5;
     if(!mesh || mesh.instanceMatrix.count<required){
       if(mesh){scene.remove(mesh);mesh.dispose();}
       mesh=new THREE.InstancedMesh(geometry,material,Math.max(80,required*2));
@@ -30,11 +30,15 @@ export function marketStockView(scene){
       });
     }
     for(const d of state.drops){
-      if(d.items)box(d.x,d.y+.115,d.z,.40,.23,.32,0x82715a);
+      if(d.sidearm){
+        box(d.x,d.y+.057,d.z,.084,.085,.34,0x434f53);
+        box(d.x+.082,d.y+.053,d.z+.092,.18,.07,.09,0x323e3d);
+        box(d.x,d.y+.095,d.z-.12,.045,.019,.035,0xcbcfaa);
+      }else if(d.items)box(d.x,d.y+.115,d.z,.40,.23,.32,0x82715a);
       if(d.cash){
-        const y=d.y+(d.items ? .27 : .07);
-        box(d.x,y,d.z,.32,.105,.17,0x679876);
-        box(d.x,y+.002,d.z,.055,.11,.176,0xf1e9c5);
+        const y=d.y+(d.items && !d.sidearm ? .27 : .07),x=d.x+(d.sidearm ? .31 : 0);
+        box(x,y,d.z,.32,.105,.17,0x679876);
+        box(x,y+.002,d.z,.055,.11,.176,0xf1e9c5);
       }
     }
     mesh.count=index;mesh.visible=index>0;mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;

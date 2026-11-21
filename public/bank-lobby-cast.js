@@ -2,6 +2,7 @@
 // the same authoritative encounter tick, including observers arriving mid-event.
 import {bankSite,bankFront,bankDesk} from './bank-site.js';
 import {civilianLooks} from './civilian-style.js';
+import {holdWorld} from './ranger-pose.js';
 
 export const bankLooks={
   'bank-elena':{...civilianLooks['rival-ines'],face:18,outfit:11,skin:0xdd9f84,hair:0x342a29,cut:'bun',extra:'staff',top:0x3a505c},
@@ -10,49 +11,60 @@ export const bankLooks={
 };
 const people=[
   {id:'bank-elena',name:'Elena Cruz · Teller',bankRole:'teller',x:bankSite.x-.47,z:bankFront+4.71,yaw:0},
-  {id:'bank-marta',name:'Marta',bankRole:'waiting',x:bankSite.x+1.76,z:bankFront+2.12,yaw:.29},
-  {id:'bank-andre',name:'André',bankRole:'customer',x:bankSite.x-1.43,z:bankFront+2.83,yaw:2.45},
+  {id:'bank-marta',name:'Marta',bankRole:'waiting',x:bankSite.x+1.20,z:bankFront+2.12,yaw:-.34},
+  {id:'bank-andre',name:'André',bankRole:'customer',x:bankSite.x-1.43,z:bankFront+2.96,yaw:2.45},
 ];
 const empty=[];
 const clamp=x=>Math.max(0,Math.min(1,x));
-export function bankCast(local,world){
-  const bank=world.bank;
-  if(!bank || bank.phase==='closed' || Math.abs(local.y-.824)>8 || Math.hypot(local.x-bankDesk.x,local.z-bankDesk.z)>18)return empty;
-  const elapsed=Math.max(0,(world.simTick-(bank.since??world.simTick))/30);
-  const active=bank.phase==='alarm'||bank.phase==='handoff';
-  // The seated customer shelters at her bench. The standing customer backs
-  // away along his own aisle, leaving the public door and counter clear.
-  let retreat=bank.phase==='alarm'?clamp((elapsed-.45)/1.45):bank.phase==='handoff'?1:0;
-  if(bank.phase==='cooldown')retreat=clamp(1-elapsed/2.1);
-  retreat=retreat*retreat*(3-2*retreat);
-  return people.map(p=>({...p,y:.824,hp:100,grounded:true,alarm:active,elapsed,handoff:bank.phase==='handoff',
-    ...(p.bankRole==='customer'?{x:p.x-.15*retreat,z:p.z-.80*retreat,yaw:p.yaw-.62*retreat,moving:retreat>0 && retreat<1}:null)}));
+const ease=n=>clamp(n)**2*(3-2*clamp(n));
+
+export function bankCast(local,world,visual){
+  if(!world.bank || visual.phase==='closed' || Math.abs(local.y-.824)>8 || Math.hypot(local.x-bankDesk.x,local.z-bankDesk.z)>18)return empty;
+  const {phase,elapsed,threat,reducedMotion}=visual;
+  const retreat=phase==='alarm'
+    ? (reducedMotion?1:ease((elapsed-.58)/1.40))
+    : phase==='handoff' || phase==='cooldown'?threat:0;
+  return people.map(person=>({...person,y:.824,hp:100,grounded:true,
+    ...(person.bankRole==='customer'?{
+      x:person.x-.91*retreat,z:person.z-.72*retreat,yaw:person.yaw-.66*retreat,
+      moving:retreat>0 && retreat<1
+    }:null)}));
 }
 
-export function poseBankGuest(actor,state,t){
-  const wave=Math.sin(t*2.3),active=state.alarm;
+export function poseBankGuest(actor,state,visual,t){
+  const {phase,active,elapsed,threat,parcel,offering,cashGrip,reducedMotion}=visual;
+  const drift=reducedMotion?0:Math.sin(t*2.3);
   const teller=state.bankRole==='teller',seated=state.bankRole==='waiting';
-  const start=state.handoff?1:clamp(state.elapsed*3);
-  const flinch=active?start:0;
-  const preparing=teller && active && !state.handoff && state.elapsed>2;
-  actor.body.position.y=seated?-.44:teller?-.055*flinch:-.17*flinch;
-  actor.head.rotation.y=teller?.10*Math.sin(t*.85):seated?-.30+.09*wave:.23*Math.sin(t*.8);
-  actor.head.rotation.x=seated?-.09+.27*flinch:preparing?.31:.06*wave;
-  actor.spine.rotation.x=seated?.09+.28*flinch:preparing?.27:.10*flinch;
+  const startled=phase==='alarm'?(reducedMotion?0:threat*(1-ease((elapsed-1.4)/.72))):0;
+  const preparing=phase==='alarm' && !offering;
+  const lean=offering?.32+.16*cashGrip:preparing?.32*(threat-startled):.48*cashGrip;
+  const tuck=threat*(state.moving?.35:1);
+  actor.body.position.y=seated?-.44-.10*threat:teller?-.10*lean+.04*startled:-.19*tuck;
+  if(teller)actor.body.position.z=-.06*cashGrip;
+  actor.head.rotation.y=teller?.10*drift*(1-threat):seated?-.08-.48*threat+.07*drift:.17*drift+.25*tuck;
+  actor.head.rotation.x=seated?-.08-.29*threat:teller?.15*startled-.54*lean:.03-.02*tuck;
+  actor.spine.rotation.x=seated?-.12-.57*threat:teller?.16*startled-lean:-.37*tuck;
+  actor.spine.rotation.z=seated?.21*threat:teller?-.09*lean:.12*tuck;
   for(const {side,arm,forearm,leg,knee} of actor.limbs){
     if(seated){
       leg.rotation.set(1.44,0,side*.09);knee.rotation.set(-1.54,0,0);
-      arm.rotation.set(.47+.60*flinch,0,side*(.055+.13*flinch));forearm.rotation.set(.67+.88*flinch,0,0);
+      const cover=side<0?threat:.45*threat;
+      arm.rotation.set(.41+.63*cover,0,side*(.06+.20*cover));
+      forearm.rotation.set(.58+1.28*cover,0,-side*.44*cover);
     }else if(teller){
-      const reaching=state.handoff && side<0;
-      const hands=preparing?.69+.16*Math.sin(t*4+side):reaching?1.20:active?.93*flinch:.12;
-      arm.rotation.set(hands,side*(preparing?.14:.04),side*(active && !preparing && !state.handoff?.27:.07));
-      forearm.rotation.set(preparing?.82+.20*Math.cos(t*4+side):reaching?.19:active?1.04:.43,0,0);
-    }else if(active){
-      arm.rotation.set(.28+.60*flinch,0,side*(.14+.28*flinch));forearm.rotation.set(.48+.94*flinch,side*.07,0);
-      if(!state.moving){leg.rotation.x=.36*flinch;knee.rotation.x=-.62*flinch;}
+      const raise=startled+threat*Number(phase==='handoff')*.38;
+      const sort=preparing && !reducedMotion?.18*Math.sin(t*6+side)*(threat-startled):0;
+      arm.rotation.set(.18+1.20*raise+.37*lean+sort,0,side*(.10+.36*raise));
+      forearm.rotation.set(.55+.88*raise+sort,0,0);
+      if(cashGrip){
+        holdWorld(actor,arm,forearm,side,{
+          x:bankSite.x+parcel.x+side*.167,y:parcel.y+.01,z:bankFront+parcel.z+.066
+        },cashGrip);
+      }
     }else{
-      arm.rotation.set(.10+.04*wave,0,side*.07);forearm.rotation.set(side>0?.75:.28,0,0);
+      arm.rotation.set(.15+(side<0?1.23:.89)*threat,0,side*(.10+.29*threat));
+      forearm.rotation.set(.38+(side<0?1.18:.73)*threat,0,-side*.18*threat);
+      if(!state.moving && (active || threat>0)){leg.rotation.x=.58*tuck;knee.rotation.x=-1.04*tuck;}
     }
   }
 }

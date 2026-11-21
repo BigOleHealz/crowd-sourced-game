@@ -1,3 +1,8 @@
+import {safeInReach} from './estate-safes.js';
+import {nearbySidearm} from './market-goods.js';
+import {yachtDoorAction} from './yacht-layout.js';
+import {elevatorControls} from './elevator-controls.js';
+import {buildingAction,doorIsOpen,roomAtFeet} from './building-interiors.js';
 import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
@@ -31,8 +36,9 @@ import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout
 import {crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
+import {arcadeMolotov} from './arcade-molotov.js';
 import {flameProjector} from './fire-sites.js';
-const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector};
+const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov};
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
@@ -51,6 +57,12 @@ const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
 const lighting=byId('lighting-choice');
+const costume=byId('parade-costume');
+try{costume.checked=localStorage.getItem('pinewatch.paradeCostume')==='on';}catch{}
+costume.onchange=()=>{
+  try{localStorage.setItem('pinewatch.paradeCostume',costume.checked?'on':'off');}catch{}
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'paradeCostume',enabled:costume.checked}));
+};
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
@@ -105,7 +117,8 @@ const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
 const inTank=()=>id!=null && world?.tank?.driver===id;
 const myRoad = () => inTank()?world.tank:drivenRoad(world,id);
-const carNames={hatchback:'Hatchback',sedan:'Sedan',van:'Delivery van'};
+const carNames={hatchback:'Hatchback',sedan:'Sedan',van:'Delivery van',engine:'Fire engine'};
+const inEngine=()=>myRoad()?.model==='engine';
 const unarmedRoad=()=>inGT() || Boolean(myRoad()?.model);
 const inGT = () => myRoad()?.kind==='supercar';
 const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id || atYachtHelm());
@@ -120,9 +133,18 @@ const market=marketPanel(byId('market-panel'),byId('wallet'),{
   enter:releaseLook,leave(){stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});},
   send(message){if(socket?.readyState!==WebSocket.OPEN)return false;socket.send(JSON.stringify(message));return true;}
 });
+function nearbySafe(){
+  return world?.market && !vitals.use && canChangeStance(self)?safeInReach(self,world.doors):null;
+}
 function counter(){
   return world?.market && !vitals.use && canChangeStance(self)?atMarketCounter(self):null;
 }
+let interiorSeq=0;
+function interiorAction(){
+  return canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? yachtDoorAction(world?.yacht,self)??buildingAction(self,world?.doors) : null;
+}
+function sendInterior(action){if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'interior',seq:++interiorSeq,...action}));}
+const elevator=elevatorControls(byId('elevator-dialog'),(s,floor)=>sendInterior({building:s.p.id,floor}),releaseLook,()=>canvas.focus({preventScroll:true}));
 let bankSeq=0,bankReceiptUntil=0;
 function teller(){
   return world?.bank && !vitals.use && canChangeStance(self) && atBankDesk(self) ? bankPrompt(world.bank,id) : null;
@@ -161,7 +183,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -200,7 +222,7 @@ const touch=createTouchControls(canvas,{
   action(code){
     if(code==='aim'){if(canAim())showSight(!camera.sighted);return;}
     if(code==='run'){touchSprint=!touchSprint;return;}
-    if(code==='tool')code='Digit'+(weapon%5+1);
+    if(code==='tool')code='Digit'+(weapon%6+1);
     if(code==='KeyT'){startMarinaSprint();return;}
     pressAction(code);
   },
@@ -271,6 +293,7 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(elevator.open){if(e.code==='Escape' || e.code==='KeyE'){e.preventDefault();if(!e.repeat)elevator.close();}return;}
   if(bankDialog.open){
     if(e.code==='KeyE' || e.code==='Escape'){
       e.preventDefault();
@@ -325,6 +348,13 @@ function pressAction(code){
   if(code==='KeyG' && mode)handleCase=true;
   if(code==='KeyI')openBag();
   if(code==='KeyE'){
+    const safe=nearbySafe();
+    if(safe){
+      if(!(world.doors.estateSafes&safe.bit))market.lootSafe(safe.id);
+      return;
+    }
+    const pickup=canChangeStance(self) && !vitals.use && nearbySidearm(self,world?.market);
+    if(pickup){market.collectSidearm(pickup.id);return;}
     const shop=counter();
     if(shop){market.open(shop);return;}
     const bank=teller();
@@ -335,16 +365,21 @@ function pressAction(code){
     }
     const clubUse=clubInteraction();
     if(clubUse){socket?.send(JSON.stringify({type:'clubSeat',action:vitals.clubSince!=null?'leave':'join'}));return;}
+    const building=interiorAction();
+    if(building?.kind==='lift'){elevator.show(building.s);return;}
+    if(building?.kind==='yachtDoor'){sendInterior({cabin:building.d.id,open:!!(world.yacht.closedCabins&(1<<building.d.id))});return;}
+    if(building?.kind==='door'){sendInterior({door:building.d.id,open:!doorIsOpen(building.d,world.doors)});return;}
     const person=speaker();
     if(person)talk.open(person);
     else queuedInteract=vitals.use;
   }
+  if(code==='KeyL' && myRoad()?.patrol)socket?.send(JSON.stringify({type:'cruiserLights',on:!myRoad().emergencyLights}));
   if (code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
   if (code === 'KeyF') queuedFire = true;
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(code)) {
+  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6'].includes(code)) {
     const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
@@ -475,6 +510,9 @@ function connect() {
   function receive(m) {
     if(m.type==='wallet'){
       market.receive(m);
+      if(m.message?.startsWith('Estate safe'))showBankReceipt(m.message);
+      if(m.equipped===2){weapon=2;if(camera.sighted)showSight(true);}
+      if(m.message?.startsWith('Picked up patrol sidearm'))showBankReceipt(m.message);
       if(m.message?.startsWith('Bank payout')){
         showBankReceipt(m.message+(vitals.wanted?.stars?' Patrol in pursuit.':''));
       }
@@ -484,6 +522,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
+      if(costume.checked)socket.send(JSON.stringify({type:'paradeCostume',enabled:true}));
       sprintBoard=m.raceBoard??[];
       connectedBuild=m.build;market.receive(m);
       if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
@@ -559,7 +598,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
-    bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
+    elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -602,9 +641,9 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !self.ride && !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
+  const fire = !self.ride && (!unarmedRoad() || inEngine()) && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
   const gunner=gunnerRole();
-  const aim=(inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
+  const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire || (!lookPaused && canAim())) facing = aim.yaw;
@@ -695,6 +734,10 @@ function remoteFrame(time) {
     const old=a.traffic?.find(v=>v.id===car.id),frame=roadFrame(old,car);
     if(car.takeover && old?.takeover?.npcId===car.takeover.npcId)
       return {...frame,takeover:{...car.takeover,progress:mix(old.takeover.progress,car.takeover.progress,t)}};
+    if(car.model==='engine' && old && frame){
+      frame.monitorYaw=angleMix(old.monitorYaw,car.monitorYaw,t);
+      frame.monitorPitch=mix(old.monitorPitch,car.monitorPitch,t);
+    }
     return frame;
   });
   const patrolCars=b.patrolCars?.map(car=>roadFrame(a.patrolCars?.find(c=>c.id===car.id),car));
@@ -761,14 +804,14 @@ function updateEquipment(local) {
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? carNames[trafficCar.model] : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':carNames[trafficCar.model]) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || !isDriving()) && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
-  byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inTank()?'Tank ':trafficCar ? carNames[trafficCar.model]+' ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
+  byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inTank()?'Tank ':trafficCar ? (trafficCar.patrol?'Patrol cruiser':carNames[trafficCar.model])+' ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('flight-cursor').hidden=!jetPilot() || vitals.dead || !byId('guide').hidden || lookPaused;
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : unarmedRoad() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = isDriving() || jetPilot() || !!gunner;
@@ -784,14 +827,15 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
-  byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=Boolean(kind);
+  byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=byId('sixth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
   tracking.hidden=weapon!==4 || !canAim() || !!kind || (touch.active && !camera.sighted);
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
-  byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-shortcut').hidden = (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-verb').textContent=inEngine()?'Spray water':weapon===6 && !kind?'Throw':'Fire';
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
   const bank=teller();
@@ -800,6 +844,8 @@ function updateEquipment(local) {
   if(event.textContent!==bulletin)event.textContent=bulletin;
   event.hidden=!bulletin;
   byId('bank-receipt').hidden=bankReceiptUntil<=performance.now();
+  const safe=nearbySafe(),safeLabel=safe && !(world.doors.estateSafes&safe.bit)?'Loot safe':null;
+  const pickupLabel=!vitals.use && canChangeStance(self) && nearbySidearm(self,world.market)?'Pick up patrol sidearm':null;
   const shop=counter(),shopLabel=shop && (world.market.shops[shop.id].down?'Loot counter':'Shop with '+(world.npcs.find(n=>n.id===shop.owner)?.name??shop.name));
   market.update(world,shop,canChangeStance(self));
   const person=!talk.current && speaker();
@@ -814,12 +860,16 @@ function updateEquipment(local) {
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
   else if(bank)prompt.textContent=bank.action?'E  ·  '+bank.detail:bulletin?'':bank.detail;
+  else if(safe)prompt.textContent=safeLabel?'E  ·  Loot estate safe':'Estate safe · Empty';
+  else if(pickupLabel)prompt.textContent='E  ·  '+pickupLabel;
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
+  else if(trafficCar?.patrol)prompt.textContent='W/S drive · A/D steer · L emergency lights';
+  else if(inEngine())prompt.textContent='W/S accelerate or brake · A/D steer · Mouse aims the water cannon · Hold F / click to spray';
   else if(isDriving())prompt.textContent='W/S accelerate or brake · A/D steer';
   else if(gunner)prompt.textContent='Look around to aim · Hold F / click to fire';
   else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':heli.hook?.load?'Cargo attached · L to release':'Space / Shift altitude · Hold K to lower cargo hook';
@@ -832,6 +882,11 @@ function updateEquipment(local) {
   if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
+  const building=interiorAction();
+  elevator.validate(building);
+  byId('elevator-status').hidden=!local.liftTravel;
+  if(local.liftTravel)byId('elevator-status').textContent='Elevator · '+(local.liftTravel===1?'Ground lobby':'Floor '+local.liftTravel);
+  if(building && !bank && !shop)prompt.textContent='E  ·  '+building.label;
   const clubUse=clubInteraction();
   if(clubUse)prompt.textContent='E  ·  '+clubUse;
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
@@ -841,14 +896,14 @@ function updateEquipment(local) {
   }
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(touch.active){
-    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       canAim:canAim(),sighted:camera.sighted,jump:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
@@ -961,7 +1016,7 @@ function frame(time) {
     const free=vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -998,8 +1053,8 @@ function frame(time) {
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
     view.touch=touch.active;
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
-    audio.patrolSiren(local,view.yaw,patrolCars,dt);
     const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
+    audio.patrolSiren(local,view.yaw,roadTraffic,dt);
     audio.trafficEngines(local,view.yaw,roadTraffic);
     audio.roadTires(local,view.yaw,[rover,supercar,...roadTraffic]);
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
@@ -1013,8 +1068,9 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
+      const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);

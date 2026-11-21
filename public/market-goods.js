@@ -1,7 +1,13 @@
 import {storefrontFaces,retailRoom} from './frontage-glass.js';
 import {shopFloor} from './street-shop-layout.js';
 
+export function nearbySidearm(feet,market){
+  if(!feet?.grounded || feet.swimming || feet.climb || feet.parachute)return;
+  return market?.drops.find(d=>d.sidearm && Math.abs(feet.y-d.y)<1 &&
+    Math.hypot(feet.x-d.x,feet.z-d.z)<1.8);
+}
 export const goods={
+  sidearm:{name:'Patrol sidearm',description:'Recovered from a patrol officer. Equip from your bag.'},
   tape:{name:'Marine repair kit',price:35,description:'Restores 60 HP to a damaged, unoccupied road vehicle within reach.'},
   chart:{name:'Salvage chart',price:18,description:'Marks unclaimed cash and supply bags on your district map for 90 seconds.'},
   snack:{name:'Guava snack',price:8,description:'Restores 18 health.'},

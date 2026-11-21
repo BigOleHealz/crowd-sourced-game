@@ -1,3 +1,4 @@
+import {addOfficeWindows} from './office-window-view.js';
 import {bankSite} from './bank-site.js';
 import {addFuelStop} from './pelican-fuel-view.js';
 import {clubInterior} from './club-lucero-view.js';
@@ -48,7 +49,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     map.wrapS=map.wrapT=name==='water' ? THREE.MirroredRepeatWrapping : THREE.RepeatWrapping;
     return new THREE.MeshStandardMaterial({map,roughness:.83,vertexColors:true,...options});
   }
-  const furniture=new Batch(),solids=new Batch(), walls=new Batch(true);
+  const furniture=new Batch(),solids=new Batch();
   function ground(name,rectangles,period,options={}) {
     const batch=new Batch(true), plane=new THREE.PlaneGeometry().rotateX(-Math.PI/2);
     for(const [x,y,z,w,d] of rectangles) {
@@ -141,12 +142,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
 
     }
   }
-  // UV islands preserve the scale of windows regardless of each tower's height.
-  function atlas(shape,col,row,cols,rows) {
-    const uv=shape.attributes.uv.clone();
-    for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/cols,(row+.008+.984*uv.getY(i))/rows);
-    shape.setAttribute('batchUv',uv);return shape;
-  }
   const galleryCount=galleryPanes.length+galleryDoorPanes.length+hotel.fronts.length*2;
   const paneCount=storefrontFaces.reduce((count,{glass})=>
     count+glass.extra.length+glass.bays.reduce((total,bay)=>total+Math.max(1,bay.panes.length),0),galleryCount);
@@ -155,7 +150,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const frontageStart=scene.children.length;
   const updateDoors=avenueFrontage(scene,renderer,Batch,solids,furniture,box,panorama,breakables,debris);
   furniture.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='metal';
-  const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama,debris);
   const furnishPortico=streetShops(scene,renderer,Batch,panorama,breakables);
   const base=balconyBase,podium=balconyPodium;
@@ -167,13 +161,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0xbcaf97,coreX,base+podium-.34,z,coreWidth,.68,d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
-    if (housing && !hasApartmentBalconies(facade)) {
-      const rows=Math.max(2,Math.round((h-podium)/6)), tier=(h-podium)/rows;
-      for(let j=0;j<rows;j++) {
-        walls.add(faces[facade],i%3===1?0xd4e0df:0xf6f4ed,x,base+podium+(j+.5)*tier,z,w,tier,d);
-        if(facade!==1 || j%3===0) solids.add(box,0xd1cec2,x,base+podium+j*tier,z,w+.32,.15,d+.32);
-      }
-    }
     if(housing) {
       solids.add(box,0xd9d8cc,x,base+h,z,w+.35,.24,d+.35);
       solids.add(box,0x9caaa9,housing.x,base+(housing.bottom+housing.h)/2,housing.z,
@@ -186,13 +173,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
   });
   const facadeMaterial=material('facades',{roughness:.53,metalness:.08});
-  const towerWalls=walls.mesh(scene,facadeMaterial);
-  towerWalls.userData.impactSurface='solid';
+  const offices=addOfficeWindows(scene,Batch,MAP.buildings,panorama);
   const podiumParts=scene.children.slice(frontageStart);
   addBrickellHorizon(scene,facadeMaterial.map);
   const apartmentStart=scene.children.length;
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
-  const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
+  const towerParts=[offices.mesh,...scene.children.slice(apartmentStart)];
   const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
@@ -203,12 +189,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateHomes=residentialRuinView(scene,[...estateMeshes,...harborMeshes,...podiumParts,citySolids],renderer);
   const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
-  for(const geometry of [box,...faces])geometry.dispose();
+  box.dispose();
   const updateJunctions=junctionSignalView(scene,posts);
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
 
-  return (doors,dt,local,remotes,tick,bank)=>{
+  return (doors,dt,local,remotes,tick,bankVisual)=>{
     updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
@@ -216,7 +202,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);updatePosts(doors,dt);updateJunctions(doors,tick);
     breakables.update(doors);
-    updateGallery(doors,bank,tick);
+    offices.update(doors?.brokenPanes);
+    updateGallery(doors,bankVisual);
     debris.update(dt);
     updateCourts(doors,dt,local,remotes);
   };

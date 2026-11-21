@@ -279,3 +279,11 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #touch-controls[data-role=seat] #touch-actions [data-action=KeyE] {grid-area:2/2/3/4}
 
 #touch-tools .touch-button:disabled {background:#27352f;border-color:#637266;color:#b7c4b9;}
+
+#elevator-dialog{color:#ece8db;background:#25322f;border:1px solid #a99774;border-radius:.5rem;padding:1rem;max-width:min(21rem,85vw);max-height:75dvh;overflow:auto}
+#elevator-dialog::backdrop{background:#131b1caa}
+#elevator-dialog h2{font-size:1.13rem;margin:0 0 .7rem}
+#elevator-dialog [data-floors]{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin-bottom:.6rem}
+#elevator-dialog button{padding:.55rem;color:#f6f2e6;background:#435951;border:1px solid #89958c;border-radius:.22rem;cursor:pointer}
+#elevator-dialog button:disabled{color:#343e37;background:#d6c698;cursor:default}
+#elevator-status:not([hidden]){position:fixed;z-index:12;inset:0;display:grid;place-items:center;pointer-events:none;color:#efd6a7;font-weight:bold;letter-spacing:.04em;background:linear-gradient(90deg,#334342 0%,#586361 48.8%,#293632 49.9%,#596360 50.3%,#344543 100%)}

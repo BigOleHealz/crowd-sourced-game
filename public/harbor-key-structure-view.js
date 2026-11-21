@@ -3,7 +3,7 @@ import {paneBatch} from './pane-damage-view.js';
 import {beachHut, harborHouses, harborUpperWindows} from './harbor-key-structures.js';
 import {sandHeight} from './beach-layout.js';
 
-function addResidences(houses, panes, box, gable, podiumTop) {
+function addResidences(houses, panes, box, podiumTop) {
   const variation = new THREE.Color();
   for(const house of harborHouses) {
     const {x,z,w,d,base,eave,rise,siding,trim,roof,shutters,finish} = house;
@@ -11,30 +11,51 @@ function addResidences(houses, panes, box, gable, podiumTop) {
     const piece=(tint,dx,y,dz,sx,sy,sz,rx=0,ry=0)=>
       houses.add(box,tint,x+dx,y,z+dz,sx,sy,sz,rx,ry);
     const shade=(color,factor)=>variation.setHex(color).multiplyScalar(factor).getHex();
-    piece(siding,0,podiumTop+height/2,0,w,height,d);
-    piece(trim,0,podiumTop+.045,0,w+.16,.13,d+.16);
-    if(finish==='clapboard'){
-      for(let y=podiumTop+.17;y<top-.10;y+=.235) {
-        const tint=shade(siding,.89+.07*Math.sin(y*11+z));
-        for(const side of [-1,1]){
-          piece(tint,side*w/2,y,0,.035,.046,d);
-          piece(tint,0,y,side*d/2,w,.046,.035);
+    const windows=harborUpperWindows(house,podiumTop);
+    for(const axis of ['x','z'])for(const side of [-1,1]){
+      const length=axis==='x'?d:w,line=side*(axis==='x'?w:d)/2;
+      const openings=windows.filter(p=>p.axis===axis && p.side===side && p.y<top);
+      function panel(color,lo,hi,bottom,head,depth,offset){
+        if(hi-lo<.002 || head-bottom<.002)return;
+        const along=(lo+hi)/2,y=(bottom+head)/2,normal=line+side*offset;
+        if(axis==='x')piece(color,normal,y,along,depth,head-bottom,hi-lo);
+        else piece(color,along,y,normal,hi-lo,head-bottom,depth);
+      }
+      function face(color,lo,hi,bottom,head,depth,offset){
+        let strips=[[lo,hi,bottom,head]];
+        for(const p of openings){
+          const left=p.across-p.width/2,right=p.across+p.width/2;
+          strips=strips.flatMap(([a,b,c,e])=>{
+            if(right<=a || left>=b || p.top<=c || p.bottom>=e)return [[a,b,c,e]];
+            const low=Math.max(c,p.bottom),high=Math.min(e,p.top);
+            return [[a,b,c,low],[a,b,high,e],[a,Math.max(a,left),low,high],[Math.min(b,right),b,low,high]];
+          });
         }
+        for(const r of strips)panel(color,...r,depth,offset);
       }
+      face(siding,-length/2,length/2,podiumTop,top,.15,-.075);
+      if(finish==='clapboard')for(let y=podiumTop+.17;y<top-.10;y+=.235)
+        face(shade(siding,.89+.07*Math.sin(y*11+z)),-length/2,length/2,y-.023,y+.023,.035,0);
+      if(finish==='batten')for(let u=-length/2+.41;u<length/2;u+=.46)
+        face(shade(siding,1.16),u-.027,u+.027,podiumTop,top,.042,0);
     }
-    if(finish==='batten'){
-      for(const side of [-1,1]){
-        for(let at=-d/2+.41;at<d/2;at+=.46)piece(shade(siding,1.16),side*w/2,podiumTop+height/2,at,.042,height,.054);
-        for(let at=-w/2+.41;at<w/2;at+=.46)piece(shade(siding,1.16),at,podiumTop+height/2,side*d/2,.054,height,.042);
-      }
-    }
+    piece(trim,0,podiumTop+.045,0,w+.16,.13,d+.16);
     for(const side of [-1,1]) for(const end of [-1,1]){
       piece(trim,side*(w/2-.055),podiumTop+height/2,end*(d/2-.055),.17,height,.17);
     }
     // The roof slopes are the same metre-scale rise and run used by flight and walking collision.
     const run=d/2, eaves=.22, tilt=Math.atan2(rise,run), halfRoofLength=(run+eaves)/Math.cos(tilt);
     for(const side of [-1,1]) {
-      houses.add(gable,siding,x+side*w/2,top,z,1,rise,d,0,side===1 ? 0 : Math.PI);
+      const end=new THREE.Shape();
+      end.moveTo(-d/2,0);end.lineTo(0,rise);end.lineTo(d/2,0);end.closePath();
+      const vent=windows.find(p=>p.axis==='x' && p.side===side && p.y>top);
+      if(vent){
+        const hole=new THREE.Path(),a=vent.width/2,low=vent.bottom-top,high=vent.top-top;
+        hole.moveTo(-a,low);hole.lineTo(a,low);hole.lineTo(a,high);hole.lineTo(-a,high);hole.closePath();
+        end.holes.push(hole);
+      }
+      const endWall=new THREE.ShapeGeometry(end);
+      houses.add(endWall,siding,x+side*w/2,top,z,1,1,1,0,side*Math.PI/2);endWall.dispose();
       const dz=side*(run+eaves)/2, y=top+rise-Math.abs(dz)*Math.tan(tilt)-.028;
       piece(roof,0,y,dz,w+.43,.11,halfRoofLength,side*tilt);
       piece(shade(roof,.78),0,top-.055,side*(run+.205),w+.46,.12,.095);
@@ -44,14 +65,16 @@ function addResidences(houses, panes, box, gable, podiumTop) {
     }
     piece(shade(roof,1.12),0,top+rise+.04,0,w+.46,.09,.24);
 
-    for(const {id,tint,axis,side,across,y,width,h:height,withShutters} of harborUpperWindows(house,podiumTop)){
+    for(const {id,tint,axis,side,across,y,width,h:height,withShutters} of windows){
       const line=side*(axis==='x' ? w/2 : d/2);
       const face=(color,u,v,span,tall,depth=.05,offset=.028)=>{
         if(axis==='x')piece(color,line+side*offset,v,u,depth,tall,span);
         else piece(color,u,v,line+side*offset,span,tall,depth);
       };
-      face(trim,across,y,width+.17,height+.17);
-      face(0x343331,across,y,width,height,.018,.054);
+      for(const edge of [-1,1]){
+        face(trim,across+edge*(width/2+.041),y,.082,height+.17);
+        face(trim,across,y+edge*(height/2+.041),width,.082);
+      }
       panes.add(id,()=>face(tint,across,y,width,height,.037,.071));
       face(trim,across,y,.036,height,.033,.095);
       face(trim,across,y,width,.034,.031,.095);
@@ -148,17 +171,15 @@ function addBeachShelter(scene, timber, metal, box) {
 }
 
 export function addHarborKeyStructures(scene,Batch,podiumTop) {
-  const box=new THREE.BoxGeometry(), gable=new THREE.BufferGeometry();
-  gable.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-.5,0,1,0,0,0,.5],3));
-  gable.computeVertexNormals();
+  const box=new THREE.BoxGeometry();
   const houses=new Batch(), timber=new Batch(), metal=new Batch();
   const panes=paneBatch(houses);
-  addResidences(houses,panes,box,gable,podiumTop);
+  addResidences(houses,panes,box,podiumTop);
   addBeachShelter(scene,timber,metal,box);
   const material=new THREE.MeshLambertMaterial({vertexColors:true});
   const mesh=houses.mesh(scene,material);mesh.userData.impactSurface='solid';
   timber.mesh(scene,material).userData.impactSurface='wood';
   metal.mesh(scene,material).userData.impactSurface='metal';
-  box.dispose();gable.dispose();
+  box.dispose();
   return panes.bind(mesh);
 }

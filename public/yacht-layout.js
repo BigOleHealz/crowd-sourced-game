@@ -1,3 +1,4 @@
+import {closedCabinContact,yachtDoorNear} from './yacht-room-doors.js';
 import {inGuestSuite,inLowerHatch,lowerSole,mainSole,cabinTop,cabinSupport,cabinCeiling,cabinIntersects,cabinDepth} from './solana-interior.js';
 // Local dimensions are metres above the waterline. Negative Z points to the bow.
 export const yachtBerth={x:75.4,z:-364,yaw:Math.PI};
@@ -72,6 +73,7 @@ export function yachtSolidAt(yacht,x,y,z,r=0){
   const inHull=y<=yachtDeckHeight(yacht,x,z)+r;
   if(!nearCabin(yacht,x,z))return inHull;
   const p=yachtLocal(yacht,x,z),h=y-yacht.y;
+  if(closedCabinContact(yacht.closedCabins,p.x,h-r,p.z,h+r,r))return true;
   if(inHull && (!inGuestSuite(p.x,p.z) || h<=lowerSole+r))return true;
   return cabinIntersects(p.x,h-r,p.z,h+r,r,false,yacht.brokenGlass);
 }
@@ -133,9 +135,16 @@ function nearSegment(x,z,[ax,az],[bx,bz]){
   const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));
   return (x-ax-t*dx)**2+(z-az-t*dz)**2<.345**2;
 }
+export function yachtDoorAction(yacht,feet){
+  if(!yacht || yacht.wrecked || !feet?.grounded || Math.abs(yacht.x-feet.x)>22 || Math.abs(yacht.z-feet.z)>22)return;
+  const p=yachtLocal(yacht,feet.x,feet.z);
+  const door=yachtDoorNear({...p,y:feet.y-yacht.y});
+  return door && {kind:'yachtDoor',d:door,label:((yacht.closedCabins??0)&(1<<door.id)?'Open ':'Close ')+door.label};
+}
 export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   if(!yacht || yacht.wrecked || Math.abs(x-yacht.x)>25 || Math.abs(z-yacht.z)>25)return false;
   const feet=y-yacht.y,p=yachtLocal(yacht,x,z);
+  if(closedCabinContact(yacht.closedCabins,p.x,feet+.30,p.z,feet+bodyHeight-.01,.26))return true;
   if(yachtDeckHeight(yacht,x,z)>y+.30 && (!inGuestSuite(p.x,p.z) || feet<lowerSole-.31))return true;
   if(p.z>=-12.4 && p.z<=1.4 && Math.abs(p.x)<4.6 &&
       cabinIntersects(p.x,feet+.30,p.z,feet+bodyHeight-.01,.26,true,yacht.brokenGlass))return true;

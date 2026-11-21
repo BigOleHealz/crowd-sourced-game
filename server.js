@@ -1,7 +1,9 @@
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
+import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
@@ -46,7 +48,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -82,14 +84,14 @@ const departedScores=new Map();
 let match;
 function freshWorld(){
   const w=newExpedition();
-  w.traffic=newCityTraffic();
+  w.traffic=newCityTraffic();w.traffic.push(fireEngine());
   if(CITY){
     w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
-    const trading=harborTrade(w,(p,tick,message,seq)=>{
-      if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
+    const trading=harborTrade(w,(p,tick,message,seq,equipped)=>{
+      if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq,equipped}));
     });
     Object.defineProperty(w,'trading',{value:trading});
     w.market=trading.state;w.bank=bank.state;
@@ -212,7 +214,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -237,6 +239,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='interior'){requestInterior(world,players,player,input,ticks);return;}
   if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='clubSeat'){
@@ -247,6 +250,12 @@ function acceptInput(player, data, binary) {
       world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
     return;
   }
+  if(input?.type==='cruiserLights'){
+    const car=drivenRoad(world,player.id);
+    if(car?.patrol && !car.wrecked && typeof input.on==='boolean')car.emergencyLights=input.on;
+    return;
+  }
+  if(input?.type==='paradeCostume'){player.paradeCostume=input.enabled===true;return;}
   if(input?.type==='wantedMode'){
     if(typeof input.enabled==='boolean')world.wanted?.set(player,input.enabled);
     return;
@@ -301,7 +310,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
-    tracking:input.tracking===true, weapon: [1,2,3,4,5].includes(input.weapon) ? input.weapon : null,
+    tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
@@ -363,6 +372,7 @@ sockets.on('connection', ws => {
   };
   if(match){
     Object.assign(player,assignTeam(players));
+    delete player.trip;
     player.state=teamSpawn(player.team,player.slot);
     player.score.team=player.team;
   }
@@ -425,6 +435,7 @@ function resetRound(){
   npcs=freshResidents();
   departedScores.clear();
   for(const player of players.values()){
+    delete player.trip;
     player.state=teamSpawn(player.team,player.slot);
     player.life=newLife(ticks);
     player.score={kills:0,deaths:0,team:player.team};
@@ -465,6 +476,7 @@ function tick() {
   if (players.size) {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
+    stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
     for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
@@ -488,6 +500,7 @@ function tick() {
     if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
+      delete player.trip;delete player.state.liftTravel;
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
       if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
@@ -508,6 +521,7 @@ function tick() {
       }
       continue;
     }
+    if(advanceElevator(world,player,ticks))continue;
     if (fallingBody) continue;
     if(player.clubSince!=null){
       if(ticks-player.clubSince<30*45)continue;
@@ -582,6 +596,7 @@ function tick() {
       else driveRover(world,roadInput,step,players,kind);
       vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
       if(road.driver!==player.id)continue;
+      if(road.model==='engine')driveWater(world,road,input,ticks);
       if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
       const {x,y,z,yaw}=road;
       player.state = { x,y,z,vy:0,grounded:true };
@@ -716,6 +731,7 @@ function tick() {
   }
   stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
+  advanceThrowables(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   stepDistrictFires(world.doors,ticks,world.rules);
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight,world.tank?.driver);

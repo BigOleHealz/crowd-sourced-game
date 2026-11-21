@@ -1,3 +1,4 @@
+import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
 import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
 import {burnableContact,hitFireSite} from './district-fire.js';
 import {tankMuzzle} from './tank-layout.js';
@@ -172,7 +173,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       target=post.target;hitKind=target.lamp!=null?'lamp':'post';
       to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
     }
-    if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
+    if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors,!!sourceVehicle && !assist)) { blocked = true; break; }
     const lot=world.match?.lots.find(l=>l.hp && l.carrier==null && Math.abs(to.x-l.x)<=lotWidth/2 && Math.abs(to.z-l.z)<=lotWidth/2 && to.y>=l.y && to.y<=l.y+lotHeight);
     if(lot){target=lot;hitKind='insured';break;}
     if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}
@@ -221,9 +222,13 @@ export function trackLauncher(world,player,input,tick,players,npcs){
 
 export function fire(world, player, input, tick, players, npcs) {
   if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
-  const spec=player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
+  const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
+  if(player.weapon===6){
+    throwCapsule(world,nextShotId++,player,from,input,tick);
+    return;
+  }
   if(player.weapon===5){
     const flat=Math.cos(input.aimPitch)*spec.range;
     const d={x:Math.sin(input.aimYaw)*flat,y:Math.sin(input.aimPitch)*spec.range,z:-Math.cos(input.aimYaw)*flat};
@@ -424,6 +429,25 @@ function traceBomb(world,actors,bomb){
     return {to:{x:bomb.x+direction.x*distance,y:MAP.waterY,z:bomb.z+direction.z*distance},blocked:true};
   }
   return hit;
+}
+
+export function advanceThrowables(world,players,npcs,tick){
+  if(!world.throwables)return;
+  const live=world.throwables;
+  for(let i=live.length-1;i>=0;i--){
+    const s=live[i],dt=1/30;
+    const delta={x:s.vx*dt,y:(s.vy-8*dt)*dt,z:s.vz*dt};
+    const hit=segmentContact(world,s,delta,targets(world,s.shooter,players,npcs),new Map(),actorIntersection);
+    const ratio=Math.min(hit.t,1);
+    s.x+=delta.x*ratio;s.y+=delta.y*ratio;s.z+=delta.z*ratio;s.vy-=16*dt;
+    if(Number.isFinite(hit.t)){
+      const at={x:s.x,y:s.y,z:s.z};
+      hitFireSite(world.doors,burnableContact(hit,at),at,tick,true,s.team);
+      world.shots.push({id:nextShotId++,weapon:'molotov',shooter:s.shooter,from:at,to:at,tick,water:at.y<=MAP.waterY+.03});
+    }else if(tick-s.born<110)continue;
+    live.splice(i,1);
+  }
+  if(!live.length)delete world.throwables;
 }
 
 export function advanceMissiles(world,players,npcs,tick) {
