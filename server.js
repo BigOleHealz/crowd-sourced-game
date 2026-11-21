@@ -1,4 +1,5 @@
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
+import {nearTank,leaveTank,stepTank} from './public/tank.js';
 import {nearJet,stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
@@ -24,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -303,6 +304,7 @@ sockets.on('connection', ws => {
     if(match && frozenPhase(world.match.phase)){
       for(const p of players.values()){p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;}
     }
+    if(world.tank?.driver===id)leaveTank(world,player);
     if(world.jet.pilot===id)leaveJet(world.jet);
     if(world.yacht?.driver===id){world.yacht.driver=null;world.yacht.throttle=0;}
     if(!players.size)departedScores.clear();
@@ -377,6 +379,7 @@ function tick() {
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   let yachtInput;
+  if(world.tank?.wrecked)stepTank(world,null,step);
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
@@ -403,6 +406,7 @@ function tick() {
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
+      if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
       if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
       const role=gunnerVehicle(world,player.id);
@@ -422,7 +426,7 @@ function tick() {
       continue;
     }
     if (fallingBody) continue;
-    if(input?.handleCase)match?.interact(player);
+    if(input?.handleCase && world.tank?.driver!==player.id)match?.interact(player);
     if(world.match?.phase==='setup'){
       const next=stepPlayer(player.state,input||idle,step,world.hp,world);
       if(propertyTeam(next.x,next.z)===player.team)player.state=next;
@@ -436,7 +440,8 @@ function tick() {
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact && !player.state.climb) {
         const boat=crewBoat(world,player.id);
-        if(world.jet.pilot===player.id)leaveJet(world.jet,player);
+        if(world.tank?.driver===player.id)leaveTank(world,player);
+        else if(world.jet.pilot===player.id)leaveJet(world.jet,player);
         else if(drivenRoad(world,player.id)?.model)tryTrafficInteract(world,player,npcs);
         else if(boat)interactBoat(world,boat,player);
         else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
@@ -446,12 +451,20 @@ function tick() {
         else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
         else if(!interactYacht(world,player)){
           const nearbyBoat=nearBoat(world,player.state),nearby=nearestVehicle(world,player.state);
-          if(nearJet(world.jet,player.state))world.jet.pilot=player.id;
+          if(nearTank(world.tank,player.state)){world.tank.driver=player.id;match?.release(player);}
+          else if(nearJet(world.jet,player.state))world.jet.pilot=player.id;
           else if(nearbyBoat)interactBoat(world,nearbyBoat,player);
           else if(nearby==='rover' || nearby==='supercar')interactRover(world,player,nearby);
           else if(nearby==='heli' || !tryTrafficInteract(world,player,npcs))interact(world,player);
         }
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
+    }
+    if(world.tank?.driver===player.id){
+      stepTank(world,input,step);
+      if(input?.fire)fireTank(world,player,ticks);
+      const t=world.tank;
+      player.state={x:t.x,y:t.y,z:t.z,grounded:true,vy:0};
+      player.yaw=t.yaw;player.moving=player.sprint=false;continue;
     }
     if(world.jet.pilot===player.id){
       stepJet(world,input,step,players);
@@ -578,6 +591,7 @@ function tick() {
   advanceMissiles(world,players,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
+  if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   reportVehicleWreck(world,world.jet,'jet','road',ticks);

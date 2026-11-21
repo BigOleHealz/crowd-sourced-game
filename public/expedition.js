@@ -1,3 +1,5 @@
+import {tankMuzzle} from './tank-layout.js';
+import {parkedTank,damageTank} from './tank.js';
 import {breachTower} from './tower-damage.js';
 import {parkedJet,damageJet} from './jet.js';
 import {launcherSpec,lockStatus,guideGameMissile,updateLock} from './handheld-launcher.js';
@@ -13,7 +15,7 @@ import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, civilianRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
+import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -41,7 +43,7 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
 export function newExpedition() {
   return {
     doors:CITY?newStorefrontDoors():{},
-    ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar()} : {}),
+    ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar(),tank:parkedTank()} : {}),
     jet:parkedJet(), heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
@@ -139,6 +141,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
   const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,delta);
   const sportContact=supercarRoundContact(world.supercar,from,delta);
+  const tankDistance=sourceVehicle==='tank'?Infinity:tankRoundContact(world.tank,from,delta)*range;
   const hitSport=sportContact<(roverContact?.t??Infinity);
   let roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
   let road=hitSport?world.supercar:world.rover;
@@ -175,6 +178,10 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     }
     if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
       target = world.heli; hitKind = 'heli'; break;
+    }
+    if(d>=tankDistance && tankDistance<roadDistance){
+      to={x:from.x+direction.x*tankDistance,y:from.y+direction.y*tankDistance,z:from.z+direction.z*tankDistance};
+      target=world.tank;hitKind='tank';break;
     }
     if(d>=roadDistance){
       to={x:from.x+direction.x*roadDistance,y:from.y+direction.y*roadDistance,z:from.z+direction.z*roadDistance};
@@ -225,7 +232,7 @@ export function fire(world, player, input, tick, players, npcs) {
 
 function targets(world,shooter,players,npcs,source=null) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
+    actor.id !== shooter && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
@@ -288,6 +295,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;
       else damageRover(world,vehicleDamage,players,'supercar',score?.team);
     }
+    if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players);
     if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players);
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
       damageHelicopter(world, vehicleDamage, players, shooter,score?.team);
@@ -314,6 +322,17 @@ export function launchMissile(world,kind,player,tick) {
   world.shots.push({id,shooter:player.id,weapon:'launch',from,to:from,tick});
   world.missiles.push({...from,yaw:v.yaw,pitch:v.pitch ?? 0,source:kind,shooter:player.id,id,side,remaining:60/missileStep(kind)});
   if(player.score)scoreAtLaunch.set(world.missiles.at(-1),player.score);
+}
+
+export function fireTank(world,player,tick){
+  const t=world.tank;
+  if(!t || t.driver!==player.id || !player.life.hp || t.wrecked || tick<(launchState.get(t)?.ready??0))return;
+  const from=tankMuzzle(t),id=nextShotId++;
+  launchState.set(t,{ready:tick+38});
+  world.shots.push({id,shooter:player.id,weapon:'launch',source:'tank',from,to:from,tick});
+  const shell={...from,yaw:t.turretYaw,pitch:t.turretPitch,source:'tank',shooter:player.id,id,remaining:60};
+  world.missiles.push(shell);
+  if(player.score)scoreAtLaunch.set(shell,player.score);
 }
 
 const nextBomb=new WeakMap();

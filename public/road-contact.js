@@ -1,4 +1,5 @@
 import {civilianProfiles} from './civilian-fleet.js';
+import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
 import {raisedRoadAt} from './bridge-driving.js';
@@ -11,7 +12,7 @@ import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
 // Round the corners of each chassis. Flat faces stay at the modeled extents.
 const pickup={halfWidth:.82,halfLength:CITY?1.69:1.55,corner:.16};
-const shapeFor=vehicle=>vehicle?.kind==='supercar'?supercarLayout:civilianProfiles[vehicle?.model]??pickup;
+const shapeFor=vehicle=>vehicle?.kind==='tank'?tankHull:vehicle?.kind==='supercar'?supercarLayout:civilianProfiles[vehicle?.model]??pickup;
 const props=[...MAP.rocks,...MAP.trees,...BREAKABLES];
 const bridgeRails=MAP.bridge?[-1,1].map(side=>({
   x:MAP.bridge.x+side*MAP.bridge.width/2,z:MAP.bridge.z,w:.10,d:9.6,h:1,
@@ -83,13 +84,13 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   const heli=world.heli;
-  const roof=shape.roof??1.66;
+  const roof=shape.roof??shape.height??1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
-    if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(shapeFor(parked).roof??1.66)<=base)return;
+    if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(shapeFor(parked).roof??shapeFor(parked).height??1.66)<=base)return;
     consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
   }
-  considerCar(world.rover);considerCar(world.supercar);
+  considerCar(world.tank);considerCar(world.rover);considerCar(world.supercar);
   for(const car of world.traffic??[])considerCar(car);
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
