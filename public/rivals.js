@@ -89,7 +89,7 @@ export function updateRival(actor, tick, dt, hp, world) {
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving, weapon: actor.weapon,...(actor.officer && {officer:true,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
+    moving: actor.moving, weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {
