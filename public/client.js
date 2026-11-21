@@ -1,3 +1,5 @@
+import {nearbySpeaker,conversations} from './brickell-conversations.js';
+import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
 import {hotelEntrance} from './maravela-hotel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
@@ -103,6 +105,13 @@ const gunnerRole=()=>gunnerVehicle(world,id);
 const jetPilot=()=>id!=null && world?.jet?.pilot===id;
 const isPilot = () => id != null && (world?.heli.pilot === id || jetPilot());
 
+const talk=conversationView(byId('conversation'),releaseLook,()=>{
+  stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});
+});
+function speaker(current=null){
+  const available=canChangeStance(self) && byId('guide').hidden && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup';
+  return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
+}
 function canChangeStance(state) {
   return state?.grounded && !state.swimming && !state.climb && !state.parachute &&
     !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
@@ -126,6 +135,7 @@ function notice(message = '') {
 
 function setGuide(open) {
   byId('guide').hidden = !open;
+  if(open && talk.current)talk.close();
   if (open) byId('unstuck').disabled = !self || vitals.dead || (world?.match && frozenPhase(world.match.phase));
   if(open)releaseLook();
   byId('help').setAttribute('aria-expanded', String(open));
@@ -194,6 +204,13 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(talk.current){
+    if(e.repeat)return;
+    if(['Escape','KeyE'].includes(e.code)){e.preventDefault();talk.close();}
+    else if(['Digit1','Digit2','Digit3'].includes(e.code)){e.preventDefault();talk.answer(Number(e.key)-1);}
+    else if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){e.preventDefault();talk.close();held.add(e.code);}
+    return;
+  }
   if (e.key.toLowerCase() === 'm' && !e.target.closest?.('input, select, textarea, [contenteditable]')) {
     e.preventDefault();
     if (!e.repeat) audio.toggleMute();
@@ -207,6 +224,10 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
+  if(e.code==='KeyE' && !e.repeat){
+    const person=speaker();
+    if(person){talk.open(person);return;}
+  }
   held.add(e.code);
   if (e.repeat) return;
   if (e.code === 'Space') queuedDeploy = true;
@@ -422,6 +443,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
+    talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
     roverView = null;
@@ -652,6 +674,8 @@ function updateEquipment(local) {
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
+  if(talk.current && !speaker(talk.current))talk.close();
+  const person=!talk.current && speaker();
   const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
   if(garage && !vitals.dead){
@@ -661,6 +685,8 @@ function updateEquipment(local) {
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
+  else if(talk.current)prompt.textContent='';
+  else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';

@@ -47,7 +47,8 @@ function faceGeometry(cell) {
     // Atlas cells contain a front projection with the outer cheek colour
     // extended around the sides. Hair covers the rear cranial surface.
     const u=.5+.5*Math.sin(Math.max(-Math.PI/2,Math.min(Math.PI/2,a)));
-    uv.push((cell%4+.015+.97*u)/4,1-(Math.floor(cell/4)+.985-.97*y/.270)/5);
+    if(cell>=20)uv.push((cell-20+.015+.97*u)/2,.015+.97*y/.270);
+    else uv.push((cell%4+.015+.97*u)/4,1-(Math.floor(cell/4)+.985-.97*y/.270)/5);
   }
   for(let r=0;r<faceRows.length-1;r++) for(let i=0;i<n;i++){
     const k=r*(n+1)+i;
@@ -109,6 +110,7 @@ function shirtGeometry(p){
   const vertices=[],uv=[],indices=[],rows=[1.01,1.09,1.2,1.34,1.426,1.46,1.483];
   const offsets=[.008,0,0,-.006,0,0,0],depth=[.115,.124,.112,.143,.117,.091,.065];
   const widths=[.174,.181,.158,.201,.213,.163,.080];
+  const outfit=p.outfit??p.face;
   const fitted=p.shirt==='dress'||p.shirt==='tank';
   const jacket=p.shirt==='jacket', segments=16;
   for(let panel=0;panel<2;panel++){
@@ -120,7 +122,7 @@ function shirtGeometry(p){
       vertices.push(w*Math.sin(a),y,offsets[r]-depth[r]*Math.cos(a));
       const u=(.5+.485*Math.sin(a))/2+panel*.5;
       const v=(1.483-rows[r])/.473;
-      uv.push((p.face%4+u)/4,1-(Math.floor(p.face/4)+.01+.98*v)/5);
+      uv.push((outfit%4+u)/4,1-(Math.floor(outfit/4)+.01+.98*v)/5);
     }
     for(let r=0;r<rows.length-1;r++)for(let i=0;i<segments;i++){
       const a=base+r*(segments+1)+i, b=a+segments+1;
