@@ -1,4 +1,5 @@
 import {contactingFoot} from './footsteps.js';
+import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -50,7 +51,7 @@ import { tracePulse } from './expedition.js';
 import { createSupercarView } from './supercar-view.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
-import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
+import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
 import { aircraftWreck } from './aircraft-wreck.js';
@@ -145,7 +146,7 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
-function addGround(scene,renderer) {
+function addGround(scene,renderer,riverbed) {
   const size = 164;
   const extra=-MAP.northBound-MAP.bounds;
   const geo=new THREE.PlaneGeometry(size,size+extra,172,172+Math.round(extra*172/size))
@@ -194,7 +195,7 @@ function addGround(scene,renderer) {
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geo.setAttribute('forestCover',new THREE.Uint8BufferAttribute(cover,1,true));
   geo.computeVertexNormals();
-  const mat=floorMaterial(renderer);
+  const mat=floorMaterial(renderer,riverbed,MAP.waterY);
   const ground = new THREE.Mesh(geo,mat);
   ground.receiveShadow = true;
   scene.add(ground);
@@ -352,22 +353,6 @@ function addDetails(scene,batch, rng,posts) {
 
     }
   }
-}
-
-function water(scene,rng,renderer) {
-  const extra=-MAP.northBound-MAP.bounds;
-  const geometry=new THREE.PlaneGeometry(125,125+extra).rotateX(-Math.PI/2).translate(0,0,-extra/2);
-  const material=creekMaterial(renderer);
-  material.map.repeat.set(28,28);
-  const surface=new THREE.Mesh(geometry,material);
-  surface.position.y=MAP.waterY; surface.receiveShadow=true; scene.add(surface);
-  const ripples=new Batch();
-  for(let i=0;i<420;i++) {
-    const x=(rng()-.5)*108,z=(rng()-.5)*4.5;
-    if(terrainHeight(x,z)>MAP.waterY-.07) continue;
-    ripples.add(cube, i%4 ? 0x739294:0xa2b5ac,x,MAP.waterY+.012,z,.09+rng()*.35,.005,.007+rng()*.014,0,(rng()-.5)*.18);
-  }
-  return ripples.mesh(scene,new THREE.MeshBasicMaterial({vertexColors:true}),false);
 }
 
 function contactShadowMap() {
@@ -1121,12 +1106,13 @@ export function createScene(canvas,onFootfall) {
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
-  let glints, stacks, updateDoors,churchPanes,updateChurch;
+  let updateCreek, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
   } else {
-    addGround(scene,renderer);
+    const riverbed=riverbedTexture(renderer);
+    addGround(scene,renderer,riverbed);
     const forest=new Batch();
     conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds,MAP.northBound);
     forest.mesh(scene,material).userData.impactSurface='wood';
@@ -1137,7 +1123,7 @@ export function createScene(canvas,onFootfall) {
     const posts=breakablePostView(scene,Batch);
     addDetails(scene,features,rng,posts);
     updateDoors=posts.finish();
-    glints=water(scene,rng,renderer);
+    updateCreek=addOutpostCreek(scene,panorama,riverbed);
     stacks=buildOutpost(scene,renderer,Batch);
     meadow(scene,renderer,rng,trailDistance);
   }
@@ -1517,7 +1503,7 @@ export function createScene(canvas,onFootfall) {
       camera.translateZ(-1.12);
       avatars.get(local.id).root.visible=false;
     }
-    if(glints) glints.position.x=Math.sin(clock*.33)*.09;
+    updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     renderer.render(scene,camera);
   }

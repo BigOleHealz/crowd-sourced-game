@@ -37,7 +37,7 @@ function texture(ctx,renderer,repeat=1) {
 }
 
 // Blend two small repeating surface tiles on the existing terrain mesh.
-export function floorMaterial(renderer) {
+export function floorMaterial(renderer,riverbed,waterY) {
   const loader=new THREE.TextureLoader();
   const gravel=loader.load('./trail-gravel.webp');
   const litter=loader.load('./forest-duff.webp');
@@ -50,13 +50,21 @@ export function floorMaterial(renderer) {
   const material=new THREE.MeshLambertMaterial({map:gravel,vertexColors:true});
   material.onBeforeCompile=shader=>{
     shader.uniforms.forestDuff={value:litter};
-    shader.vertexShader='attribute float forestCover; varying float cover;\n'+shader.vertexShader
-      .replace('#include <begin_vertex>','#include <begin_vertex>\n cover=forestCover;');
-    shader.fragmentShader='uniform sampler2D forestDuff; varying float cover;\n'+shader.fragmentShader
+    shader.uniforms.riverbed={value:riverbed};shader.uniforms.waterY={value:waterY};
+    shader.vertexShader='attribute float forestCover; varying float cover; varying vec3 bank;\n'+shader.vertexShader
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n cover=forestCover;bank=transformed;');
+    shader.fragmentShader='uniform sampler2D forestDuff,riverbed; uniform float waterY; varying float cover; varying vec3 bank;\n'+shader.fragmentShader
       .replace('#include <map_fragment>', `
         vec3 gravel=texture2D(map,vMapUv).rgb;
         vec3 duff=texture2D(forestDuff,vMapUv*1.31).rgb;
-        diffuseColor.rgb*=mix(gravel,duff,cover);`);
+        vec3 soil=mix(gravel,duff,cover);
+        float height=bank.y-waterY;
+        if(height<.82){
+          vec3 stones=texture2D(riverbed,bank.xz*.77).rgb;
+          float wet=1.-smoothstep(.05,.68,height+.08*sin(bank.z*3.1+bank.x*.9));
+          soil=mix(soil,stones*mix(1.3,.89,wet),1.-smoothstep(.18,.82,height));
+        }
+        diffuseColor.rgb*=soil;`);
   };
   material.addEventListener('dispose',()=>litter.dispose());
   return material;
@@ -184,20 +192,7 @@ export function granite(scene,rocks,ground,renderer) {
   const mesh=new THREE.Mesh(g,new THREE.MeshLambertMaterial({map,vertexColors:true}));mesh.castShadow=mesh.receiveShadow=true;mesh.userData.impactSurface='solid';scene.add(mesh);
 }
 
-export function creekMaterial(renderer) {
-  const ctx=canvasTile(256),pixels=ctx.createImageData(256,256);
-  for(let y=0;y<256;y++)for(let x=0;x<256;x++){
-    const n=noise(x/32,y/32,39,8),eddy=noise(x/16,y/16,11,16);
-    const t=y*TAU/256*19+n*13+eddy*2;
-    const ripple=Math.pow(.5+.5*Math.sin(t),7)*(.23+.65*eddy);
-    const shade=109+38*n+72*ripple;
-    pixels.data.set([shade*.65,shade*.90,shade,255],(y*256+x)*4);
-  }
-  ctx.putImageData(pixels,0,0);
-  const map=texture(ctx,renderer);map.repeat.set(28,2);
-  return new THREE.MeshPhongMaterial({map,color:0xb1c7bb,specular:0x94aba4,shininess:24,
-    bumpMap:map,bumpScale:.021,transparent:true,opacity:.90});
-}
+
 
 // Mild paint sheen and lower-panel trail dust use the vehicle's own coordinates.
 // The finish stays fixed to the body as it turns and requires no reflection pass.
