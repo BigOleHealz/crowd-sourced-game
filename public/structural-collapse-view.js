@@ -26,11 +26,32 @@ export function structuralCollapseView(scene,buildings){
       gl_FragColor=vec4(.68,.63,.55,alpha*(1.-smoothstep(.02,1.,edge)));
       #include <colorspace_fragment>
       }`});
+  const houseMaterial=material.clone();
+  houseMaterial.onBeforeCompile=shader=>{
+    shader.vertexShader='attribute float sectionStyle; varying float style; varying vec3 localFace;\n'+shader.vertexShader
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n style=sectionStyle;localFace=vec3(abs(normal.z)>abs(normal.x)?position.x:position.z,position.y,position.x);');
+    shader.fragmentShader='varying float style; varying vec3 localFace;\n'+shader.fragmentShader.replace('#include <color_fragment>',`#include <color_fragment>
+      if(style>.5 && style<1.5){
+        vec2 panel=localFace.xy;
+        float light=smoothstep(.23,.31,abs(panel.x))+.21*step(.965,fract(panel.y*7.));
+        if(abs(panel.x)<.31 && panel.y>-.28 && panel.y<.28){
+          vec3 glazing=mix(vec3(.055,.104,.111),vec3(.25,.35,.35),panel.y+.53);
+          float frame=max(step(.265,abs(panel.y)),max(step(.29,abs(panel.x)),1.-smoothstep(.008,.018,abs(panel.x))));
+          diffuseColor.rgb=mix(glazing,diffuseColor.rgb*.70,frame);
+        }else diffuseColor.rgb*=.86+.10*light;
+      }else if(style>1.5){
+        float joint=smoothstep(.90,.99,fract((localFace.z+.5)*6.));
+        diffuseColor.rgb*=.93-.17*joint;
+      }`);
+  };
   function create(event){
     const {pieces,end}=collapsePlan(event,buildings);
-    const mesh=new THREE.InstancedMesh(cube,material,pieces.length);
+    const geometryShape=event.home?cube.clone():cube;
+    if(event.home)geometryShape.setAttribute('sectionStyle',new THREE.InstancedBufferAttribute(
+      Float32Array.from(pieces,p=>p.type==='house-wall'?1:p.type==='house-roof'?2:0),1));
+    const mesh=new THREE.InstancedMesh(geometryShape,event.home?houseMaterial:material,pieces.length);
     mesh.frustumCulled=false;mesh.name='Falling structure '+event.key;scene.add(mesh);
-    pieces.forEach((p,i)=>mesh.setColorAt(i,color.setHex(palette[p.type])));
+    pieces.forEach((p,i)=>mesh.setColorAt(i,color.setHex(p.color??palette[p.type])));
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     const motes=[],count=Math.min(54,pieces.length*5);
     for(let i=0;i<count;i++){
@@ -48,7 +69,7 @@ export function structuralCollapseView(scene,buildings){
   function update(doors,dt){
     const events=doors?.structureFalls??[];
     for(const [key,v] of live)if(!events.some(e=>e.key===key)){
-      scene.remove(v.mesh,v.dust);v.mesh.dispose();v.dust.geometry.dispose();live.delete(key);
+      scene.remove(v.mesh,v.dust);v.mesh.dispose();if(v.mesh.geometry!==cube)v.mesh.geometry.dispose();v.dust.geometry.dispose();live.delete(key);
     }
     for(const e of events){
       let v=live.get(e.key);
