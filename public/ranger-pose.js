@@ -142,7 +142,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   if(climb){
     avatar.root.rotation.y=-climb.yaw;
     const tuck=Math.sin(Math.PI*climb.t);
-    avatar.body.position.y-=.12*tuck;
+    const contact=THREE.MathUtils.smoothstep(climb.t,.04,.22)*(1-THREE.MathUtils.smoothstep(climb.t,.55,.78));
+    avatar.body.position.y-=.12*tuck+Math.min(.68,Math.max(0,1.34-(climb.top-state.y)))*contact;
     avatar.spine.rotation.x=-.40*tuck;
   }
   const toolIndex=(state.weapon ?? 1)-1;
@@ -181,15 +182,18 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       arm.rotation.set(-.18*collapse + side*.48*flail,0,side*(.88*collapse + .73*flail));
       forearm.rotation.x = (.33 + .29*side)*collapse + .65*flail;
     } else if(climb) {
-      const reach=Math.min(1,climb.t/.23),release=1-THREE.MathUtils.smoothstep(climb.t,.76,1);
-      const lift=THREE.MathUtils.smoothstep(climb.t,.37,.75);
-      const handHeight=clamp(climb.top-state.y+.06,.83,1.93);
+      const hold=THREE.MathUtils.smoothstep(climb.t,0,.22)*(1-THREE.MathUtils.smoothstep(climb.t,.55,.78));
       const fold=Math.sin(Math.PI*climb.t);
       leg.rotation.set((side===1?.99:.46)*fold,0,side*.12*fold);
       knee.rotation.x=-(side===1?1.57:1.12)*fold;
       ankle.rotation.x=.27*fold;
-      gripPose(arm,forearm,side*.20,THREE.MathUtils.lerp(1.42,handHeight,reach*release),
-        -.14-reach*release*(.17+.08*lift),side);
+      // Grip the measured world-space lip throughout the hang, even as the
+      // torso turns or rises. Convert to the moving shoulder rig for IK.
+      grip.set((climb.lipX??climb.tx)+side*.2*Math.cos(climb.yaw),climb.top+.035,
+        (climb.lipZ??climb.tz)+side*.2*Math.sin(climb.yaw));
+      arm.parent.worldToLocal(grip);
+      gripPose(arm,forearm,THREE.MathUtils.lerp(side*.22,grip.x,hold),
+        THREE.MathUtils.lerp(1.24,grip.y,hold),THREE.MathUtils.lerp(-.18,grip.z,hold),side);
     } else if(swimming) {
       const wave=stroke+(side===1?Math.PI:0);
       leg.rotation.x=-.16+.25*Math.sin(wave);
