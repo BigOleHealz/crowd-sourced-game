@@ -1,3 +1,4 @@
+import {stepDistrictFires} from './public/district-fire.js';
 import {nextUse} from './public/use-target.js';
 import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
@@ -281,7 +282,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
-    tracking:input.tracking===true, weapon: [1,2,3,4].includes(input.weapon) ? input.weapon : null,
+    tracking:input.tracking===true, weapon: [1,2,3,4,5].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
@@ -675,6 +676,7 @@ function tick() {
   stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
+  stepDistrictFires(world.doors,ticks,world.rules);
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight,world.tank?.driver);
   if(players.size)world.trading?.step(players,npcs,ticks);
   world.wanted?.step(npcs,ticks);

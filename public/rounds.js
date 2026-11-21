@@ -207,7 +207,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(world.doors?.brokenSills?.[p.sillPaneId])continue;
     if(p.paneId){
       if(!world.doors?.brokenPanes?.[p.paneId])accept(box(round,d,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h},'glass');
-    }else accept(box(round,d,p,p.w,p.h,p.d),null,'scenery');
+    }else accept(box(round,d,p,p.w,p.h,p.d),p.fireSite || p.woodId ? p : null,'scenery');
   }
   for(const b of MAP.buildings){
     const height=b.eave+b.rise;
@@ -223,7 +223,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
         const f=span[0]+(span[1]-span[0])*i/steps;
         const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
         if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors,true)){
-          accept(f,null,towerCollapsed(b,world.doors)?'rubble':'scenery');break;
+          accept(f,b.fireHome ? b : null,towerCollapsed(b,world.doors)?'rubble':'scenery');break;
         }
       }
       continue;
@@ -231,7 +231,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     // Clip both pitched roof planes. Flat city roofs have zero rise.
     const slope=2*b.rise/b.d;
     if(slab(round.y+slope*(round.z-b.z),d.y+slope*d.z,-Infinity,b.base+height,span) &&
-       slab(round.y-slope*(round.z-b.z),d.y-slope*d.z,-Infinity,b.base+height,span))accept(span[0],null,'scenery');
+       slab(round.y-slope*(round.z-b.z),d.y-slope*d.z,-Infinity,b.base+height,span))accept(span[0],b.fireHome ? b : null,'scenery');
   }
   if(MAP.bridge){
     const b=MAP.bridge;

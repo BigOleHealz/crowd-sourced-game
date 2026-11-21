@@ -16,7 +16,7 @@ import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
-  masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
+  'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
   glass:[.68,0,1800,1], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
@@ -25,6 +25,19 @@ function synth(context,name) {
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
   if(name==='patrol-siren')return sirenLoop(context);
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
+  if(name==='district-fire'){
+    const rate=context.sampleRate,buffer=context.createBuffer(1,rate*2,rate),samples=buffer.getChannelData(0);
+    let seed=2447,brown=0,pop=0;
+    for(let i=0;i<samples.length;i++){
+      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+      const n=seed/2147483648-1;
+      brown+=(n-brown)*.041;pop*=.986;
+      if(seed<3100000)pop=.15+Math.abs(n)*.35;
+      const edge=Math.min(1,i/256,(samples.length-1-i)/256);
+      samples[i]=edge*(brown*.68+n*pop);
+    }
+    return buffer;
+  }
   if(name==='horn'){
     const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*.43),rate),samples=buffer.getChannelData(0);
     for(let i=0;i<samples.length;i++){
@@ -223,10 +236,18 @@ export function createGameAudio(button,slider,level) {
       if(voices.size>=24)return;
       burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
     });
+    let nearest,range=34;
+    for(const f of Object.values(world.doors?.fires??{})){
+      if(f.stage!=='burning')continue;
+      const distance=Math.hypot(listener.x-f.x,listener.y-f.y,listener.z-f.z);
+      if(distance<range){nearest=f;range=distance;}
+    }
+    motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
-      if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
+      if(shot.weapon==='ember')burst('ember-wash',shot.from,listener,yaw,.36,shot.id);
+      else if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
       else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);

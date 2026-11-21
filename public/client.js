@@ -28,7 +28,8 @@ import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout
 import {crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
-const equipmentSpecs={...firearmSpecs,4:launcherSpec};
+import {flameProjector} from './fire-sites.js';
+const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector};
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
@@ -139,7 +140,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -175,7 +176,7 @@ const touch=createTouchControls(canvas,{
   action(code){
     if(code==='aim'){if(canAim())showSight(!camera.sighted);return;}
     if(code==='run'){touchSprint=!touchSprint;return;}
-    if(code==='tool')code='Digit'+(weapon%4+1);
+    if(code==='tool')code='Digit'+(weapon%5+1);
     if(code==='KeyT'){startMarinaSprint();return;}
     pressAction(code);
   },
@@ -294,7 +295,7 @@ function pressAction(code){
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4'].includes(code)) {
+  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5'].includes(code)) {
     const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
@@ -720,7 +721,7 @@ function updateEquipment(local) {
   const kind=seatVehicle(world,id);
   byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
-  byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=Boolean(kind);
+  byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
   tracking.hidden=weapon!==4 || !canAim() || !!kind;

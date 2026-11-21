@@ -8,7 +8,7 @@ export const harborHouses = [
   {x:-36,z:-184,w:15,d:18,eave:8.17,rise:1.48, siding:0xe3d3b2, trim:0xf4e8d2, roof:0x827368, shutters:0x756451, finish:'stucco'},
   {x:19,z:-246,w:10,d:17,eave:6.82,rise:2.75, siding:0xc9907c, trim:0xf3e1cb, roof:0x77716b, shutters:0x436862, finish:'batten'},
   {x:18,z:-177,w:12,d:15,eave:8.34,rise:2.03, siding:0xb2bda1, trim:0xf0e9d7, roof:0x576565, shutters:0x546955, finish:'clapboard'},
-];
+].map((house,i)=>house.finish==='stucco' ? house : {...house,fireHome:'harbor-'+i});
 
 export function harborUpperWindows(house,podiumTop=4.7){
   const {x,z,w,d,base,eave,rise,finish}=house,top=base+eave,height=top-podiumTop;
