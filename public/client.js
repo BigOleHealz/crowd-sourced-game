@@ -384,7 +384,7 @@ function connect() {
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
       }
-      world = m.world;
+      world = m.world;world.simTick=m.simTick;
       if(wasJet!==jetPilot()){
         stickX=stickY=0;stopLook();
         byId('flight-cursor').style.transform='';

@@ -1261,7 +1261,7 @@ export function createScene(canvas,onFootfall) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateDoors?.(world.doors,dt,local,remotes);
+    updateDoors?.(world.doors,dt,local,remotes,world.simTick);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);

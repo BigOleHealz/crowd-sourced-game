@@ -1,5 +1,6 @@
 import {lightBaySurface} from './biscayne-water.js';
 import {addQuayMasonry} from './quay-masonry.js';
+import {junctionSignalView} from './junction-signal-view.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
@@ -15,7 +16,7 @@ import { addBrickellHorizon } from './brickell-horizon.js';
 import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
 import {streetLampView} from './street-lamp-view.js';
-import {harborSigns,signalPost} from './scenery-layout.js';
+import {harborSigns} from './scenery-layout.js';
 import {galleryPlans,galleryPanes,galleryDoorPanes} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
 import { streetShops } from './street-shops.js';
@@ -130,13 +131,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
     for(const z of streets) {
       for(const side of [-1,1]) for(let k=-5;k<=5;k++) stripe(x+k*.89,z+side*5.45,.44,1.75);
-      const {x:lx,z:lz,postId}=signalPost(x,z);
-      posts.add(postId,lx,.75,lz,furniture=>{
-      furniture.add(box,0x657473,lx,3.0,lz,.16,4.5,.16);
-      furniture.beam(0x677775,[lx,5.1,lz],[x+1.8,5.08,lz],.12);
-      furniture.add(box,0x555745,x+1.5,4.7,lz,.34,.87,.32);
-      for(let k=0;k<3;k++) furniture.add(box,[0xac4634,0x68563a,0x52987b][k],x+1.5,4.93-k*.23,lz+.168,.14,.15,.02);
-      });
+
     }
   }
   // UV islands preserve the scale of windows regardless of each tower's height.
@@ -196,14 +191,15 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   for(const geometry of [box,...faces])geometry.dispose();
+  const updateJunctions=junctionSignalView(scene,posts);
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
-  return (doors,dt,local,remotes)=>{
+  return (doors,dt,local,remotes,tick)=>{
     updateDamage(doors,dt);updateTowers(doors,dt);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
-    updateLamps(doors,dt);updatePosts(doors,dt);
+    updateLamps(doors,dt);updatePosts(doors,dt);updateJunctions(doors,tick);
     breakables.update(doors);
     updateGallery(doors);
     debris.update(dt);
