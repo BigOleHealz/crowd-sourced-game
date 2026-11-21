@@ -1,3 +1,4 @@
+import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
@@ -145,12 +146,10 @@ class Batch {
 
 const up = new THREE.Vector3(0,1,0);
 function addGround(scene,renderer,riverbed) {
-  const size = 164;
-  const extra=-MAP.northBound-MAP.bounds;
-  const geo=new THREE.PlaneGeometry(size,size+extra,172,172+Math.round(extra*172/size))
-    .rotateX(-Math.PI/2).translate(0,0,-extra/2);
+  const geo=new THREE.PlaneGeometry(terrainWidth,terrainLength,terrainCols,terrainRows)
+    .rotateX(-Math.PI/2).translate(0,0,(terrainWidth-terrainLength)/2);
   const terrainUV=geo.attributes.uv;
-  for(let i=0;i<terrainUV.count;i++)terrainUV.setY(i,terrainUV.getY(i)*(size+extra)/size);
+  for(let i=0;i<terrainUV.count;i++)terrainUV.setY(i,terrainUV.getY(i)*terrainLength/terrainWidth);
   const positions = geo.attributes.position;
   const cover = new Uint8Array(positions.count);
   const colors = [];
@@ -158,10 +157,9 @@ function addGround(scene,renderer,riverbed) {
   const path = color(0xb2a184), shale = color(0x85877b);
   const c = new THREE.Color();
   // Spread the outer vertices while retaining the original trail resolution.
-  const stretch=(v,lo,hi)=>v+4.6*(Math.min(0,v-lo)+Math.max(0,v-hi));
   for (let i = 0; i < positions.count; i++) {
-    const x=stretch(positions.getX(i),-MAP.bounds-10,MAP.bounds+10);
-    const z=stretch(positions.getZ(i),MAP.northBound-10,MAP.bounds+10);
+    const x=ridgeX(positions.getX(i));
+    const z=ridgeZ(positions.getZ(i));
     positions.setX(i,x);positions.setZ(i,z);
     const y = sceneryHeight(x,z);
     positions.setY(i, y);
@@ -209,16 +207,18 @@ function addSky(scene) {
   atmosphere.wrapS=THREE.RepeatWrapping;
   const sky=new THREE.Mesh(new THREE.SphereGeometry(278,48,22),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,
-    uniforms:{panorama:{value:atmosphere},skyDarkness},
+    uniforms:{panorama:{value:atmosphere},horizonTint:{value:scene.fog.color},skyDarkness},
     vertexShader:`varying vec3 skyDir;void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform float skyDarkness;
+    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform vec3 horizonTint;uniform float skyDarkness;
       void main(){
         vec3 d=normalize(skyDir);
         float longitude=atan(d.x,-d.z)/6.28318530718+.5;
         float latitude=asin(clamp(d.y,-1.,1.));
         float elevation=${CITY?'max(0.,latitude)/1.57079632679':'(degrees(latitude)+26.)/116.'};
         vec3 sky=texture2D(panorama,vec2(longitude,elevation)).rgb;
-        gl_FragColor=vec4(sky*mix(vec3(1.),vec3(.073,.101,.171),skyDarkness),1.);
+        sky*=mix(vec3(1.),vec3(.073,.101,.171),skyDarkness);
+        ${CITY?'':'sky=mix(sky,horizonTint,.68*(1.-smoothstep(-.18,.10,latitude)));'}
+        gl_FragColor=vec4(sky,1.);
         #include <colorspace_fragment>
       }`
   }));
@@ -1082,7 +1082,7 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
-  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
+  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0067);
   const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
   sun.position.set(-36,32,-21); sun.castShadow=true;
@@ -1236,7 +1236,7 @@ export function createScene(canvas) {
     }
     if(!local) return;
     const altitude=Math.max(0,local.y-20);
-    scene.fog.density=(CITY ? .005 : .0125)/(1+Math.min(4,altitude/32));
+    scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
     const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
     if(lanternShadows!==insideLantern){
