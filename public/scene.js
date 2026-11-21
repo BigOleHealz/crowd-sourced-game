@@ -1188,13 +1188,16 @@ export function createScene(canvas) {
     map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return new THREE.MeshLambertMaterial({map});
   }
+  let nightlifeFaces;
   function resident(id,name){
     civilianMaterials??={
       faces:civilianTexture('./brickell-faces.webp'),
       shirts:civilianTexture('./brickell-clothing.webp'),
     };
     const rig=createRangerRig();
-    dressCivilian(rig,civilianLooks[id],Batch,material,civilianMaterials);
+    const look=civilianLooks[id];
+    const textiles=look.face>=20 ? {...civilianMaterials,faces:nightlifeFaces??=civilianTexture('./maravela-faces.webp')} : civilianMaterials;
+    dressCivilian(rig,look,Batch,material,textiles);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
   }

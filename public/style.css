@@ -145,3 +145,61 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #wanted-toggle[aria-pressed="true"], #wanted-status { color:#ffd779; }
 #wanted-toggle:hover, #wanted-toggle:focus-visible { border-color:var(--accent); }
 #wanted-status { margin-top:5px; font-size:13px; font-weight:650; }
+
+#conversation { position:fixed; inset:auto 16px 7vh; margin:0 auto; width:min(28rem,calc(100% - 32px)); max-height:72vh; overflow:auto; box-sizing:border-box; padding:20px 22px; background:#152120f5; color:#f3f0e4; border:1px solid #77847a; border-radius:7px; box-shadow:0 9px 35px #07120c88; }
+#conversation::backdrop { background:#04110d29; }
+#conversation h2 { font-size:1.15rem; margin:0; }
+#conversation p { font:1rem/1.45 system-ui,sans-serif; margin:10px 0 15px; }
+#conversation [data-topics] { display:grid; gap:5px; }
+#conversation button { text-align:left; color:inherit; border:1px solid #6e80736b; background:#334337; padding:7px 10px; border-radius:3px; cursor:pointer; }
+#conversation button:focus-visible { outline:2px solid #d6cca7; outline-offset:1px; }
+#conversation [data-leave] { margin-top:12px; background:transparent; }
+
+/* Touch controls follow the last input device on tablets with a mouse. */
+.touch-play { overscroll-behavior:none; }
+.touch-play body { overscroll-behavior:none; -webkit-text-size-adjust:100%; }
+#touch-controls { position:fixed; inset:0; pointer-events:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+#touch-controls [hidden],#touch-controls[hidden] { display:none; }
+.touch-play .mast,.touch-play footer,.touch-play .map-panel,.touch-play #match-card,.touch-play #supply-card,.touch-play #marina-card { display:none; }
+.touch-play .hud { top:max(10px,env(safe-area-inset-top)); bottom:auto; left:max(12px,env(safe-area-inset-left)); right:86px; padding:0; }
+.touch-play .location .subhead,.touch-play .kit-row #progress {display:none}
+.touch-play .location h2 {font-size:14px;letter-spacing:.06em}
+.touch-play .location {padding:7px 10px;max-width:min(72vw,290px);background:#19251ece;border-left:2px solid var(--accent);border-radius:3px}
+.touch-play .kit-row {margin-top:3px;font-size:11px}
+.touch-play #field-prompt {margin:4px 0 0;padding:0;background:transparent}
+.touch-play #game.armed:not(.look-paused) + #play-reticle {display:block}
+.touch-play #guide {z-index:5;right:max(10px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));max-height:calc(100dvh - 24px);overflow:auto;overscroll-behavior:contain}
+.touch-play #guide:not([hidden]) ~ #touch-controls,.touch-play:has(dialog[open]) #touch-controls {visibility:hidden}
+.touch-button,#touch-menu [data-close] {
+  color:#fffdf4;background:#182521db;border:1px solid #e4ead48a;box-shadow:0 1px 5px #0005;
+  font:650 13px/1.1 system-ui,sans-serif;touch-action:none;pointer-events:auto;min-width:48px;min-height:48px;
+  padding:6px 10px;border-radius:14px;text-align:center;
+}
+.touch-button.down,.touch-button:active {background:#675e39;border-color:#ffdc98;color:#fff8d5}
+#touch-menu-open {position:absolute;top:max(10px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));min-height:44px;}
+#touch-pad {
+  pointer-events:auto;touch-action:none;position:absolute;left:max(17px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));
+  width:clamp(100px,17vmin,126px);aspect-ratio:1;border:1.5px solid #e4ead4a3;border-radius:50%;
+  background:radial-gradient(circle,#17241c8c 0 50%,#17241cbb 51% 55%,#202b247d 56% 100%);box-shadow:0 2px 8px #0005;
+}
+#touch-stick {position:absolute;left:50%;top:50%;width:42%;height:42%;margin:-21%;border-radius:50%;background:#e1e8d291;border:1px solid #eaf1d2b3}
+#touch-axis-label {position:absolute;bottom:9px;left:0;right:0;text-align:center;color:#fffde9;text-shadow:0 1px 3px #000;font:600 11px system-ui}
+#touch-actions,#touch-tools {display:grid;gap:6px;position:absolute;right:max(12px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));grid-template-columns:repeat(3,minmax(48px,66px));align-items:stretch;justify-content:end;pointer-events:none}
+#touch-tools {bottom:calc(max(14px,env(safe-area-inset-bottom)) + 111px);background:#17241ded;border:1px solid var(--line);border-radius:12px;padding:5px;max-height:calc(100dvh - 180px);overflow-y:auto;pointer-events:auto;overscroll-behavior:contain}
+#touch-actions [data-action=KeyF] {border-color:#e9c78f;background:#493c26df}
+#touch-actions [data-action=KeyE] {grid-column:span 2;background:#294536e8;border-color:#a9d8b1;min-width:0}
+#touch-menu {width:min(360px,calc(100vw - 26px));max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - env(safe-area-inset-bottom));overflow:auto;overscroll-behavior:contain;background:#1c2821f5;color:#fff9e8;border:1px solid var(--line);border-radius:12px;padding:14px;}
+#touch-menu::backdrop {background:#091711ae}
+#touch-menu h2 {font-size:18px}
+#touch-menu [data-game-options] {display:grid;gap:12px;padding-top:12px;}
+#touch-menu .session-controls {display:flex;gap:5px;justify-content:space-between;flex-wrap:wrap}
+#touch-menu .presence {font-size:11px}
+#touch-menu .map-panel,#touch-menu #match-card:not([hidden]),#touch-menu #supply-card:not([hidden]),#touch-menu #marina-card:not([hidden]) {display:block;position:static;width:100%;max-width:none}
+#touch-menu #map {max-height:120px;object-fit:contain}
+#touch-menu :is(select,button),.touch-play #conversation button {min-height:44px}
+#touch-menu #help {justify-self:start;border:1px solid var(--line);padding-inline:12px;border-radius:7px}
+.touch-play kbd {display:none}
+@media(max-width:375px){#touch-actions,#touch-tools{grid-template-columns:repeat(3,49px)}.touch-button{font-size:12px;padding:5px}}
+@media(max-height:360px){#touch-tools{grid-template-columns:repeat(4,58px);max-height:120px}}
+.touch-play #conversation {bottom:max(8px,env(safe-area-inset-bottom));max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)));padding:12px 16px;overscroll-behavior:contain}
+.touch-play #conversation [data-leave] {position:sticky;bottom:0;background:#25382c}
