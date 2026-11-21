@@ -1,4 +1,6 @@
 import {bankFrontage} from './biscayne-bank-view.js';
+import {harborHouses} from './harbor-key-structures.js';
+import {collectionMap} from './estate-collection.js';
 import {maravelaHotelView} from './maravela-hotel-view.js';
 import {furnitureRanges} from './shop-furniture-view.js';
 import {frontageGlassMaterial} from './frontage-glass-material.js';
@@ -19,16 +21,30 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   const stone=surface('avenue-limestone'),oak=surface('storefront-oak');
   const mat=new THREE.MeshBasicMaterial({vertexColors:true,map:stone});
   mat.onBeforeCompile=s=>{
-    s.uniforms.oak={value:oak};
+    s.uniforms.oak={value:oak};s.uniforms.collection={value:collectionMap()};
     s.vertexShader='attribute vec3 galleryCoords;varying vec3 gv,lp,ln;\n'+s.vertexShader;
     s.vertexShader=s.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nlp=position;ln=normal;gv=galleryCoords;');
-    s.fragmentShader='uniform sampler2D oak;varying vec3 gv,lp,ln;\n'+s.fragmentShader;
+    s.fragmentShader='uniform sampler2D oak,collection;varying vec3 gv,lp,ln;\n'+s.fragmentShader;
     s.fragmentShader=s.fragmentShader.replace('#include <map_fragment>',`
-      vec3 n=normalize(ln);float mode=vMapUv.x;vec2 uv=abs(n.y)>.6?lp.xz:abs(n.x)>.6?lp.zy:lp.xy;
+      vec3 n=normalize(ln);float mode=floor(vMapUv.x+.002);vec2 uv=abs(n.y)>.6?lp.xz:abs(n.x)>.6?lp.zy:lp.xy;
       if(mode<1.5){vec3 grain=texture2D(map,uv/1.9).rgb;diffuseColor.rgb*=mix(vec3(1.),grain,.53);}
       if(mode<.5 && n.y>.65){vec2 tile=lp.xz/vec2(1.18,.86);vec2 seam=abs(fract(tile+.5)-.5)/max(fwidth(tile),vec2(.0001));diffuseColor.rgb*=mix(.72,1.,clamp(min(seam.x,seam.y),0.,1.));}
       if(mode>1.5 && mode<2.5)diffuseColor.rgb*=mix(vec3(1.),texture2D(oak,uv/vec2(.8,1.2)).rgb,.64);
       if(mode>2.5 && mode<3.5)diffuseColor.rgb*=.94+.06*sin((uv.x+uv.y)*298.)*sin((uv.y-uv.x)*302.);
+      if(mode>=6.){
+        vec2 local=vec2(clamp((fract(vMapUv.x)-.025)/.9,0.,1.),vMapUv.y);
+        // The four residential entrance galleries use the same material sheet as Lantern Point.
+        vec2 tile=mode==6.?vec2(1.,0.):mode==7.?vec2(2.,0.):mode==8.?vec2(0.,1.):vec2(0.,0.);
+        vec3 sampleColor=texture2D(collection,(tile+.014+.972*local)/vec2(3.,2.)).rgb;
+        if(mode>=8.){
+          vec2 weave=uv*2.4;
+          vec3 cloth=textureGrad(collection,(tile+.016+.968*fract(weave))/vec2(3.,2.),
+            dFdx(weave)*.968/vec2(3.,2.),dFdy(weave)*.968/vec2(3.,2.)).rgb;
+          float fiber=dot(cloth,vec3(.22,.69,.09));
+          sampleColor=mode==8.?mix(vec3(.84,.78,.69),cloth,.4):vec3(.66+fiber*.8);
+        }
+        diffuseColor.rgb*=sampleColor;
+      }
       float depth=max(0.,gv.z-abs(gv.y)),u=gv.x*sign(gv.y);
       float sky=exp(-.35*depth)*(.48+.45*max(0.,n.y)+.34*max(0.,n.z*sign(gv.y)));
       vec3 light=vec3(.235,.215,.18)+sky*vec3(.82,.86,.85);
@@ -43,7 +59,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
         light*=mix(.52,1.,smoothstep(0.,.56,min(sofa,min(table,desk))));
         light*=mix(.66,1.,smoothstep(.04,.34,abs(abs(u)-2.64)));
       }
-      diffuseColor.rgb*=mode>4.5 ? vec3(1.28,1.1,.84) : light;
+      diffuseColor.rgb*=mode==5. ? vec3(1.28,1.1,.84) : light;
     `);
   };
   const cube=new THREE.BoxGeometry(),ball=new THREE.SphereGeometry(1,14,8);
@@ -58,14 +74,24 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
     let attrs=uvModes.get(g);if(!attrs){attrs=new Map();uvModes.set(g,attrs);}
     if(!attrs.has(mode)){
       const a=new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count*2),2);
-      for(let i=0;i<a.count;i++)a.setX(i,mode);
+      const source=g.attributes.uv;
+      for(let i=0;i<a.count;i++)a.setXY(i,mode>=6?mode+.025+.9*source.getX(i):mode,mode>=6?source.getY(i):0);
       attrs.set(mode,a);
     }
     g.setAttribute('batchUv',attrs.get(mode));return g;
   }
   const travertine=0xc3b49a, limestone=0xd5c9b4,bronze=0x5d5140,black=0x343633;
-  const wood=0xa37a50, linen=0xd2c4a9, leather=0xae967b;
+  const wood=0xa37a50;
+  const residentialPalettes=[
+    {fabric:9,upholstery:0x689584,piping:0x5b7c6e,stone:0xc7d2bf,art:7},
+    {fabric:8,upholstery:0xffeccf,piping:0xcfb597,stone:0xdbc6a6,art:6},
+    {fabric:8,upholstery:0xc7896f,piping:0xb57a5c,stone:0xc5b6a8,art:6},
+    {fabric:9,upholstery:0x728aab,piping:0x607589,stone:0xc1ba9f,art:7},
+  ];
   for(const plan of galleryPlans){
+    const residential=harborHouses.findIndex(h=>h.x===plan.b.x && h.z===plan.b.z);
+    const palette=residentialPalettes[residential],fabric=palette?.fabric??3;
+    const linen=palette?.upholstery??0xd2c4a9,leather=palette?.piping??0xae967b;
     const batch=new Batch(true),motion=furnitureRanges(scene,[batch]);
     const put=(g,mode,c,x,y,z,w,h,d,rx=0,ry=0,rz=0)=>batch.add(marked(g,mode),c,x,y,z,w,h,d,rx,ry,rz);
     const box=(mode,...data)=>put(cube,mode,...data);
@@ -126,9 +152,13 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
           for(let j=-4;j<=4;j++)trim(2,0x9f8560,shelfU+j*.091,.38,depth-1.60,.016,.60,.023);
           orb(ball,4,0xd0bda3,shelfU-.18,.848,depth-1.35,.097,.100,.082);
           trim(4,bronze,shelfU,1.64,at-.132,.87,.73,.044);
-          trim(3,0xbeb39d,shelfU,1.64,at-.161,.81,.67,.021);
-          orb(ball,3,0x998569,shelfU-.10,1.63,at-.19,.243,.163,.009);
-          trim(3,0xd1bea1,shelfU+.15,1.70,at-.201,.195,.357,.010);
+          if(palette){
+            trim(palette.art===6?7:6,0xfff5e2,shelfU,1.64,at-.161,.81,.67,.021);
+          }else{
+            trim(3,0xbeb39d,shelfU,1.64,at-.161,.81,.67,.021);
+            orb(ball,3,0x998569,shelfU-.10,1.63,at-.19,.243,.163,.009);
+            trim(3,0xd1bea1,shelfU+.15,1.70,at-.201,.195,.357,.010);
+          }
         }
         trim(1,travertine,0,2.68,depth-.97,1.55,.56,.21);
         trim(4,bronze,0,2.374,depth-1.07,1.54,.049,.081);
@@ -139,16 +169,36 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
       const su=(sofa.x-x)*side,sv=(z-sofa.z)*side,sw=sofa.w;
       trim(2,0x705c47,su,.21,sv,sw-.05,.20,.68);
       for(const s of [-1,1]){
-        orb(cushion,3,linen,su+s*sw*.218,.425,sv-.042,sw*.215,.112,.305);
-        orb(cushion,3,s===1?0xc8b798:linen,su+s*sw*.215,.645,sv+.276,sw*.214,.205,.098);
-        orb(cushion,3,leather,su+s*(sw/2-.067),.50,sv,.071,.19,.36);
+        orb(cushion,fabric,linen,su+s*sw*.218,.425,sv-.042,sw*.215,.112,.305);
+        orb(cushion,fabric,s===1&&!palette?0xc8b798:linen,su+s*sw*.215,.645,sv+.276,sw*.214,.205,.098);
+        orb(cushion,fabric,leather,su+s*(sw/2-.067),.50,sv,.071,.19,.36);
       }
       motion.end(seated);
       const coffeeTable=motion.start(table.piece);
       const tu=(table.x-x)*side,tv=(z-table.z)*side;
       trim(1,0xa19781,tu,.16,tv,table.w*.74,.27,.34);
-      trim(1,limestone,tu,.32,tv,table.w,.10,.47);
-      trim(2,0x755f51,tu+.14,.39,tv,.25,.036,.16);
+      trim(1,palette?.stone??limestone,tu,.32,tv,table.w,.10,.47);
+      if(residential===0){
+        // A pair of sea-glass bud vases sits low on the clapboard cottage's table.
+        for(const [du,r,h,tint] of [[-.13,.087,.13,0x8ca69a],[.08,.061,.098,0xaf9c78]]){
+          orb(ball,4,tint,tu+du,.37+h,tv,r,h,r);
+          leg(tint,tu+du,.37+h*1.92,tv,r*.48,h*.37);
+        }
+      }else if(residential===1){
+        for(let j=0;j<3;j++)trim(3,[0x817466,0xe0d2b8,0x727e7d][j],tu+.05,.39+j*.041,tv,.34-j*.026,.039,.22);
+        orb(ball,4,0xb19765,tu-.26,.51,tv,.070,.15,.068);
+      }else if(residential===2){
+        for(const [du,tint,r,h] of [[-.13,0xba785e,.12,.094],[.14,0xe1ba91,.087,.072]]){
+          orb(dome,4,tint,tu+du,.372,tv,r,h,r);
+          leg(0x755747,tu+du,.374+h,tv,r*.32,.020);
+        }
+      }else if(residential===3){
+        trim(2,0x665a4c,tu,.391,tv,.52,.045,.17);
+        orb(cushion,4,0x8d7557,tu,.442,tv,.23,.047,.066);
+        leg(bronze,tu,.56,tv,.011,.27);
+        orb(dome,3,0xeee2c9,tu-.054,.52,tv,.064,.151,.013);
+        orb(dome,3,0xc09a76,tu+.052,.52,tv,.050,.108,.012);
+      }else trim(2,0x755f51,tu+.14,.39,tv,.25,.036,.16);
       motion.end(coffeeTable);
       const lampU=su-sw*.31,lampV=sv+.61;
       leg(bronze,lampU,.74,lampV,.023,1.20);leg(bronze,lampU,.14,lampV,.16,.075);
@@ -172,9 +222,13 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
       // Small framed abstract diptych and a pair of track-lit wall niches.
       const artV=Math.min(depth-.75,sv+.54);
       trim(4,bronze,-half+.214,1.61,artV,.060,1.00,.96);
-      trim(3,0xa69a85,-half+.252,1.61,artV,.025,.91,.87);
-      trim(3,0xd6c4a9,-half+.272,1.72,artV+.11,.016,.49,.37);
-      trim(3,0x967d61,-half+.273,1.49,artV-.15,.016,.23,.38);
+      if(palette){
+        trim(palette.art,0xfff8e7,-half+.252,1.61,artV,.025,.91,.87);
+      }else{
+        trim(3,0xa69a85,-half+.252,1.61,artV,.025,.91,.87);
+        trim(3,0xd6c4a9,-half+.272,1.72,artV+.11,.016,.49,.37);
+        trim(3,0x967d61,-half+.273,1.49,artV-.15,.016,.23,.38);
+      }
       for(let j=0;j<5;j++){
         const u=cu+(j-2)*.177,v=cv+.15*Math.sin(j*1.6),drop=.38+.13*(j%3);
         leg(bronze,u,2.88-drop/2,v,.009,drop);

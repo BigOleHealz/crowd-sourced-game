@@ -73,7 +73,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
   const estateStart=scene.children.length;
-  const updateEstates=addLanternBuildings(scene,Batch,panorama);
+  const updateEstates=addLanternBuildings(scene,Batch,panorama,()=>{renderer.shadowMap.needsUpdate=true;});
   const estateMeshes=scene.children.slice(estateStart);
   const updateDamage=estateDamageView(scene,estateMeshes,MAP.barriers);
   const {northStreet,westStreet,eastStreet}=streetPlan;

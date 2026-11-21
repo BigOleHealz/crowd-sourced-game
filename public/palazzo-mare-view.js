@@ -3,7 +3,7 @@ import {mareUpper,mareParts,mareFurniture,mareFlights,mareGuards,treadHeight} fr
 
 const stone=0xd6c3a0,ivory=0xf1e5ca,walnut=0x80543d,teak=0xad805c,bronze=0x675240;
 const brass=0xbd955d,green=0x466e66,blue=0x50657b,linen=0xdfcfb3;
-export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,draw)=>draw()}){
+export function furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,pane,sill=(p,draw)=>draw()}){
   for(const p of mareParts){
     const {x,z,w,d,bottom,h,kind}=p;
     const mid=(h+bottom)/2,height=h-bottom,across=w>d;
@@ -27,7 +27,8 @@ export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,dra
     }
   }
   finishUpperFloors(scene);
-  hangHarborPrint(scene,box);
+  collection.picture('mare',35.4,2.03,-444.985,2.95,1.93,1,collection.harbor);
+  collection.brassMobile('mare',33.4,3.86,-443.12,3.3);
   // Two long, shallow flights turn around a shared landing. The rail posts are
   // placed on the noses and the timber handrails follow their exact pitch.
   for(const f of mareFlights){
@@ -54,51 +55,26 @@ export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,dra
       box(bronze,g.x+(across?u:0),g.bottom+.47,g.z+(across?0:u),.043,.94,.043);
     }
   }
-  function rug(x,y,z,w,d,tint){
-    box(0x997953,x,y+.012,z,w,.023,d);
-    box(tint,x,y+.027,z,w-.14,.013,d-.14);
-    for(const side of [-1,1])box(linen,x,y+.038,z+side*(d/2-.22),w-.32,.012,.036);
-  }
-  rug(13.35,.07,-443.87,4.45,3.92,0x708c86);
-  rug(33.4,.07,-443.12,4.5,3.45,0xb49375);
-  rug(19.65,4.1,-441.62,5.35,3.69,0xb99672);
-  rug(27.05,7.9,-447.75,4.8,4.35,0xa78e79);
+  collection.carpet('mare',13.35,.07,-443.87,4.45,3.92,0x587d76,0xd5b88e);
+  collection.carpet('mare',33.4,.07,-443.12,4.5,3.45,0xaa8470,0xe2ca9b);
+  collection.carpet('mare',19.65,4.1,-441.62,5.35,3.69,0xb39275,0xe1c99c);
+  collection.carpet('mare',27.05,7.9,-447.75,4.8,4.35,0x9c887b,0xe7d0ac);
   function lamp(x,y,z){
     cyl(brass,x,y+.043,z,.30,.086);cyl(bronze,x,y+.29,z,.06,.52);
     cyl(0xf2d4a0,x,y+.54,z,.40,.32);cyl(brass,x,y+.714,z,.09,.036);
   }
   for(const p of mareFurniture){
-    const {x,z,w,d,bottom:y,kind,reverse}=p,H=p.h-y,sg=reverse?-1:1;
+    if(collection.furnish(p,'mare'))continue;
+    const {x,z,w,d,bottom:y,kind}=p,H=p.h-y;
     const b=(c,dx,dy,dz,width,height,depth)=>box(c,x+dx,y+dy,z+dz,width,height,depth);
     const legs=(height,width=.075)=>{
       for(const a of [-1,1])for(const s of [-1,1])b(walnut,a*(w/2-.09),height/2,s*(d/2-.09),width,height,width);
     };
-    if(kind==='sofa'){
-      const color=y<1?green:y<6?linen:blue;
-      b(walnut,0,.17,0,w-.1,.24,d-.1);b(color,0,.37,0,w,.28,d);
-      for(const a of [-1,1])b(color,a*(w/2-.08),.53,0,.16,.35,d);
-      const n=Math.ceil(w/1.3),cw=(w-.34)/n;
-      for(let i=0;i<n;i++)b(color,-w/2+.17+cw*(i+.5),.54,.065*sg,cw-.022,.13,d-.22);
-      b(color,0,H-.18,-sg*(d/2-.075),w-.12,.36,.15);
-      for(const a of [-1,1])box(a<0?0xc49772:0xdac9aa,x+a*w*.31,y+.66,z-sg*.21,.39,.35,.14,-sg*.14,0,a*.10);
-    }else if(['table','desk','coffee','chair'].includes(kind)){
-      const chair=kind==='chair',height=chair?.45:H;
-      legs(height-.06,kind==='table'?.11:.074);
-      b(chair?green:kind==='coffee'?0xc4b397:teak,0,height-.04,0,w,.08,d);
-      if(chair)b(walnut,0,.69,sg*(d/2-.034),w,.46,.066);
-      if(kind==='desk'){
-        b(green,.10,H+.017,.02,.86,.03,.5);
-        b(ivory,.08,H+.044,0,.35,.022,.27);lamp(x-w*.35,y+H,z);
-      }else if(kind==='coffee'){
-        b(blue,-.27,H+.029,.03,.42,.055,.29);
-        b(ivory,-.25,H+.068,.01,.38,.022,.25);
-        cyl(brass,x+.42,y+H+.064,z,.20,.12);
-      }else if(kind==='table'){
-        b(linen,0,H+.012,0,w-.26,.02,.36);
-        for(const a of [-1,0,1])for(const s of [-1,1])cyl(ivory,x+a*1.1,y+H+.037,z+s*.33,.30,.027);
-        cyl(green,x,y+H+.16,z,.22,.32);
-        leaf(0x6c8758,x,y+H+.39,z,.40,.37,.34);
-      }
+    if(kind==='desk'){
+      legs(H-.06);
+      b(teak,0,H-.04,0,w,.08,d);
+      b(green,.10,H+.017,.02,.86,.03,.5);
+      b(ivory,.08,H+.044,0,.35,.022,.27);lamp(x-w*.35,y+H,z);
     }else if(kind==='library'){
       b(walnut,-w*.45,H/2,0,.06,H,d);
       for(const s of [-1,1])b(teak,0,H/2,s*(d/2-.04),w,H,.08);
@@ -110,21 +86,15 @@ export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,dra
           b([green,blue,0x9a6e50,0xba9e72][(row+j)%4],.03,yy+.03+hz/2,-d/2+.20+j*.23,w*.72,hz,.17);
         }
       }
-    }else if(kind==='bed'){
-      b(walnut,0,.22,0,w,.40,d);b(teak,0,.68,-d/2+.06,w+.09,1,.14);
-      b(ivory,0,.49,0,w-.06,.25,d-.04);b(linen,0,.648,.26,w-.07,.092,d-.56);
-      b(green,0,.715,d*.29,w-.045,.045,.56);
-      for(const s of [-1,1])b(ivory,s*w*.235,.686,-d*.33,w*.41,.17,.54);
     }else{
       b(walnut,0,H/2,0,w-.08,H-.075,d-.08);
-      b(kind==='island'||kind==='kitchen'?ivory:teak,0,H-.025,0,w,.07,d);
+      b(kind==='kitchen'?ivory:teak,0,H-.025,0,w,.07,d);
       const n=Math.max(1,Math.round(w/.85)),cw=(w-.10)/n;
       for(let i=0;i<n;i++){
         const u=-w/2+.05+cw*(i+.5);
         b(kind==='wardrobe'?linen:teak,u,H*.49,.51*d,cw-.035,H-.14,.045);
         b(brass,u+.19*cw,H*.62,.51*d+.04,Math.min(.20,cw*.23),.035,.042);
       }
-      if(kind==='nightstand')lamp(x,y+H,z);
       if(kind==='console' && w>d){lamp(x-w*.31,y+H,z);b(blue,.27,H+.04,0,.48,.08,.30);}
       if(kind==='kitchen'){
         b(bronze,-.9,H+.018,0,.95,.034,.57);b(0x8d9590,-.9,H+.037,0,.77,.017,.42);
@@ -135,7 +105,7 @@ export function furnishPalazzo({scene,box,masonry,cyl,beam,leaf,pane,sill=(p,dra
     }
   }
   // Recessed plaster medallions, linen pendants and brass entry lanterns.
-  for(const [x,y,z] of [[15,.07,-442.1],[33.4,.07,-443.12],[19.7,4.1,-442.1],[32.55,4.1,-447.8],[23.1,7.9,-445.55]]){
+  for(const [x,y,z] of [[15,.07,-442.1],[19.7,4.1,-442.1],[32.55,4.1,-447.8],[23.1,7.9,-445.55]]){
     const ceiling=(y<1?4.1:y<5?7.9:10.9)-.24;
     cyl(ivory,x,ceiling-.025,z,.68,.05);cyl(brass,x,ceiling-.16,z,.045,.28);
     cyl(0xf3dcaf,x,ceiling-.36,z,.60,.19);cyl(brass,x,ceiling-.47,z,.57,.035);
@@ -188,33 +158,4 @@ function finishUpperFloors(scene){
       mesh.position.set(cx,.80+p.h+.004,cz);mesh.receiveShadow=true;scene.add(mesh);
     }
   }
-}
-
-// A glazed, brass-framed harbor print hangs over the six-place dining table.
-function hangHarborPrint(scene,box){
-  const canvas=document.createElement('canvas');canvas.width=768;canvas.height=256;
-  const ink=canvas.getContext('2d'),sky=ink.createLinearGradient(0,0,0,165);
-  sky.addColorStop(0,'#7798a3');sky.addColorStop(.72,'#e1c1a2');sky.addColorStop(1,'#f1d5a3');
-  ink.fillStyle=sky;ink.fillRect(0,0,768,256);
-  ink.fillStyle='#f3dbaf';ink.beginPath();ink.arc(512,110,28,0,Math.PI*2);ink.fill();
-  ink.fillStyle='#657b79';ink.beginPath();ink.moveTo(0,151);
-  for(let x=0;x<=768;x+=3)ink.lineTo(x,144+6*Math.sin(x*.026)+4*Math.cos(x*.011));
-  ink.lineTo(768,171);ink.lineTo(0,171);ink.fill();
-  ink.fillStyle='#639093';ink.fillRect(0,156,768,100);
-  for(let i=0;i<170;i++){
-    ink.fillStyle=i%3?'#83a6a1':'#c3ba96';
-    ink.fillRect(i*139%768,158+i*47%99,5+i*13%25,1+i%2);
-  }
-  for(const [x,y,scale] of [[204,172,1],[447,165,.54],[620,183,.76]]){
-    ink.save();ink.translate(x,y);ink.scale(scale,scale);
-    ink.fillStyle='#f3dfbb';ink.beginPath();ink.moveTo(0,-58);ink.lineTo(0,-5);ink.lineTo(-28,-5);ink.fill();
-    ink.fillStyle='#bb805b';ink.beginPath();ink.moveTo(4,-48);ink.lineTo(25,-7);ink.lineTo(4,-7);ink.fill();
-    ink.fillStyle='#574f48';ink.beginPath();ink.moveTo(-32,0);ink.lineTo(30,0);ink.lineTo(21,6);ink.lineTo(-23,6);ink.fill();ink.restore();
-  }
-  const x=35.4,y=2.03,z=-444.986;
-  box(walnut,x,y,z,3.82,1.48,.08);box(brass,x,y,z+.044,3.72,1.39,.023);
-  box(ivory,x,y,z+.060,3.65,1.32,.02);
-  const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
-  const print=new THREE.Mesh(new THREE.PlaneGeometry(3.45,1.13),new THREE.MeshLambertMaterial({map}));
-  print.position.set(x,.8+y,z+.074);scene.add(print);
 }
