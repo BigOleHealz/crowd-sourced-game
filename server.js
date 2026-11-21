@@ -560,7 +560,8 @@ function tick() {
       road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
     }else{
       const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
-      if(road.model)continue;
+      // Driven civilian suspension already advanced with its driving input.
+      if(road.model && (road.driver!=null || !road.flatTires))continue;
       stepSuspension(road,step,(x,z)=>{
         const ground=groundHeight(x,z,road.y+1.65,world.doors);
         // Until takeoff, an unsupported axle follows the end of its ramp.

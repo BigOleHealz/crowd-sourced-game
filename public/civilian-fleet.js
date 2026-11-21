@@ -1,10 +1,10 @@
 // Dimensions match the civilian bodies. Force divided by mass determines how
 // quickly each model gains or sheds speed under either AI or player control.
 export const civilianProfiles={
-  sedan:{mass:1460,driveForce:10300,brakeForce:19300,topSpeed:18,reverseSpeed:4.5,cruise:5.6,turnRate:1.62,
+  sedan:{nose:-2.08,tail:2.12,skinHeight:1.52,bodyWidth:.86,axles:[-1.34,1.30],tire:.317,halfTread:.10,mass:1460,driveForce:10300,brakeForce:19300,topSpeed:18,reverseSpeed:4.5,cruise:5.6,turnRate:1.62,
     halfWidth:.87,halfLength:1.88,roof:1.45,corner:.19},
-  hatchback:{mass:1090,driveForce:8800,brakeForce:16800,topSpeed:16.8,reverseSpeed:4.8,cruise:6.3,turnRate:1.85,
+  hatchback:{nose:-1.82,tail:1.71,skinHeight:1.55,bodyWidth:.82,axles:[-1.14,1.13],tire:.301,halfTread:.10,mass:1090,driveForce:8800,brakeForce:16800,topSpeed:16.8,reverseSpeed:4.8,cruise:6.3,turnRate:1.85,
     halfWidth:.79,halfLength:1.58,roof:1.48,corner:.18},
-  van:{mass:2230,driveForce:12200,brakeForce:24500,topSpeed:14.6,reverseSpeed:3.8,cruise:4.8,turnRate:1.23,
+  van:{nose:-2.04,tail:2.27,skinHeight:2.10,bodyWidth:.95,axles:[-1.28,1.49],tire:.355,halfTread:.111,mass:2230,driveForce:12200,brakeForce:24500,topSpeed:14.6,reverseSpeed:3.8,cruise:4.8,turnRate:1.23,
     halfWidth:.96,halfLength:2.16,roof:1.88,corner:.16},
 };
