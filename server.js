@@ -1,6 +1,7 @@
 import {nextUse} from './public/use-target.js';
 import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
+import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.js';
 import {stepHydrants} from './public/hydrants.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
@@ -263,7 +264,7 @@ function acceptInput(player, data, binary) {
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
-    bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -511,6 +512,7 @@ function tick() {
     }
     const road=drivenRoad(world,player.id);
     if (road) {
+      if(input?.horn)soundRoadHorn(world,road,npcs,ticks);
       const kind=road.kind??'rover',before={...road};
       let roadInput=input||idle;
       if(kind==='supercar'){
@@ -635,6 +637,7 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
+  localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);

@@ -109,12 +109,12 @@ function canChangeStance(state) {
 let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
-let queuedBomb=false,queuedMissile=false;
+let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -131,7 +131,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
-  queuedBomb=queuedMissile=false;
+  queuedHorn=queuedBomb=queuedMissile=false;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
@@ -190,6 +190,7 @@ window.addEventListener('keydown', e => {
   }
   if(e.code==='KeyG' && mode)handleCase=true;
   if (e.code === 'KeyE') queuedInteract = vitals.use;
+  if (e.code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (e.code === 'KeyR' && jetPilot()) queuedMissile=true;
@@ -439,7 +440,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { type: 'input', seq: ++seq, horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -454,7 +455,7 @@ function tick() {
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
-  queuedBomb=queuedMissile=false;
+  queuedHorn=queuedBomb=queuedMissile=false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
