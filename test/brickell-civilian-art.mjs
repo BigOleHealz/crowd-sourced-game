@@ -8,7 +8,7 @@ import {createRangerRig,poseRig} from '../public/ranger-pose.js';
 
 const ids=['rival-fern','rival-rowan',...brickellResidents.map(resident=>resident.id)];
 assert.deepEqual(new Set(Object.keys(civilianLooks)),new Set(ids));
-assert.equal(new Set(Object.values(civilianLooks).map(p=>p.face)).size,20);
+assert.equal(new Set(Object.values(civilianLooks).map(p=>p.face)).size,ids.length);
 const material=new THREE.MeshLambertMaterial(), textiles={faces:material,shirts:material};
 // The complex art is baked by the scene batcher. Inspect the textured geometry
 // directly so a malformed cross-section cannot leave a hole across the face.
@@ -33,7 +33,7 @@ for(const [index,id] of ids.entries()){
 }
 distant.finish();
 const mesh=scene.children[0];
-assert(mesh.count>=20*16 && mesh.count<=mesh.instanceMatrix.count);
+assert(mesh.count>=ids.length*16 && mesh.count<=mesh.instanceMatrix.count);
 distant.begin();
 assert.equal(distant.add({...origin,id:ids[0]},origin,1,0),false);
 assert.equal(distant.add({...origin,id:ids[1],x:200,dead:true},origin,1,0),false);

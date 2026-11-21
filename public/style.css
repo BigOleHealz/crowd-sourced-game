@@ -145,3 +145,12 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #wanted-toggle[aria-pressed="true"], #wanted-status { color:#ffd779; }
 #wanted-toggle:hover, #wanted-toggle:focus-visible { border-color:var(--accent); }
 #wanted-status { margin-top:5px; font-size:13px; font-weight:650; }
+
+#conversation { position:fixed; inset:auto 16px 7vh; margin:0 auto; width:min(28rem,calc(100% - 32px)); max-height:72vh; overflow:auto; box-sizing:border-box; padding:20px 22px; background:#152120f5; color:#f3f0e4; border:1px solid #77847a; border-radius:7px; box-shadow:0 9px 35px #07120c88; }
+#conversation::backdrop { background:#04110d29; }
+#conversation h2 { font-size:1.15rem; margin:0; }
+#conversation p { font:1rem/1.45 system-ui,sans-serif; margin:10px 0 15px; }
+#conversation [data-topics] { display:grid; gap:5px; }
+#conversation button { text-align:left; color:inherit; border:1px solid #6e80736b; background:#334337; padding:7px 10px; border-radius:3px; cursor:pointer; }
+#conversation button:focus-visible { outline:2px solid #d6cca7; outline-offset:1px; }
+#conversation [data-leave] { margin-top:12px; background:transparent; }
