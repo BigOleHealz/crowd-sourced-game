@@ -1,3 +1,4 @@
+import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
@@ -369,11 +370,15 @@ function contactShadowMap() {
 
 // Field equipment uses the same vertex-colored batches as the hikers.
 // Each loadout costs a single draw call while equipped.
-const handheldFinish = new THREE.MeshPhongMaterial({vertexColors:true,specular:0x777c75,shininess:27});
-function makeFirearms(body) {
-  const carbine = new Batch(), sidearm = new Batch();
-  const graphite=0x333b3c, iron=0x505e60, edge=0x939f98;
-  const sand=0xc6ad80, clay=0x9e825d, rubber=0x424641, enamel=0x49948c;
+const fieldKits=new WeakMap();
+function makeFirearms(body,scene) {
+  if(fieldKits.has(scene)){
+    const copies=fieldKits.get(scene).map(template=>template.clone());
+    body.add(...copies);return copies;
+  }
+  const carbine = new Batch(true), sidearm = new Batch(true);
+  const graphite=0x303537, iron=0x4d514e, edge=0x797d78;
+  const sand=0xa89876, clay=0x766c56, rubber=0x353635, enamel=0x848a75;
   const tube=new THREE.CylinderGeometry(1,1,1,16);
   function profile(batch,tint,outline,width,bevel=.006) {
     const shape=new THREE.Shape(outline.map(([z,y])=>new THREE.Vector2(z,y)));
@@ -402,6 +407,13 @@ function makeFirearms(body) {
     carbine.add(cube,0xead2a2,side*.041,.131,-.125,.007,.010,.168);
     for(let j=0;j<3;j++) carbine.add(cube,0x77827d,side*.029,-.051,-.104-j*.014,.008,.078,.005,-.22);
   }
+  for(const side of [-1,1]){
+    equipmentPlate(carbine,0,side,side*.046,.104,.008,.106,.027);
+    for(let i=0;i<5;i++)carbine.add(cube,0x474944,side*.044,.060,-.208-i*.029,.007,.022,.013,-.38);
+    carbine.beam(0x5c5e53,[side*.032,.090,.234],[side*.033,.052,.167],.011);
+  }
+  // The shoulder pad and short sight hood break up the rectangular silhouette.
+  for(let i=0;i<5;i++)carbine.add(cube,rubber,0,-.002+i*.018,.286,.066,.009,.010);
   endCap(carbine,-.427,.092,.025,.095,iron);
   endCap(carbine,-.489,.092,.036,.058,graphite);
   endCap(carbine,-.519,.092,.022,.006,edge);
@@ -415,15 +427,19 @@ function makeFirearms(body) {
 
   // The sidearm has a short, broad blue-grey upper and a contrasting palm swell.
   profile(sidearm,graphite,[[.096,.092],[-.231,.093],[-.218,.041],[-.134,.034],[-.104,.012],[.051,.022],[.096,.056]],.059);
-  profile(sidearm,0xb1c2bb,[[.092,.102],[.067,.127],[-.192,.126],[-.241,.102],[-.238,.071],[.076,.071]],.062);
-  profile(sidearm,clay,[[.075,.043],[.006,.035],[.020,-.015],[.045,-.111],[.103,-.097],[.090,-.036]],.060);
+  profile(sidearm,0x555c60,[[.092,.102],[.067,.127],[-.192,.126],[-.241,.102],[-.238,.071],[.076,.071]],.062);
+  profile(sidearm,0x373b39,[[.075,.043],[.006,.035],[.020,-.015],[.045,-.111],[.103,-.097],[.090,-.036]],.060);
   profile(sidearm,rubber,[[.042,-.096],[.101,-.082],[.113,-.103],[.045,-.119]],.067);
   for(const side of [-1,1]){
     sidearm.add(cube,iron,side*.036,.093,.029,.009,.039,.075);
     sidearm.add(cube,0x697975,side*.035,.093,-.078,.009,.030,.082);
     sidearm.add(cube,0xb8c6b9,side*.042,.101,-.068,.008,.009,.047);
     for(let j=0;j<3;j++) sidearm.add(cube,edge,side*.039,.094,.045-j*.017,.006,.023,.005);
-    sidearm.add(cube,enamel,side*.034,.085,-.129,.008,.017,.027);
+    // Chamfered flats, a moulded palm panel and a small precinct property plate.
+    sidearm.add(cube,0x686c67,side*.036,.084,-.129,.005,.007,.027);
+    for(let rib=0;rib<5;rib++)sidearm.add(cube,0x424641,side*.032,-.018-rib*.015,.052+rib*.003,.006,.006,.045,-.10);
+    equipmentPlate(sidearm,1,side,side*.039,.108,-.070,.093,.019);
+
   }
   sidearm.beam(iron,[0,.028,-.104],[0,-.026,-.085],.014);
   sidearm.beam(iron,[0,-.026,-.085],[0,-.030,.024],.014);
@@ -435,7 +451,7 @@ function makeFirearms(body) {
   endCap(sidearm,-.237,.086,.023,.025,graphite);
   // The Meridian has a long triangular forebody, ivory spine, and a large
   // open teal optic. Its two silhouettes share one model in and out of ADS.
-  const meridian=new Batch(), slate=0x3e545b, ivory=0xd7d4ad, teal=0x3c9993;
+  const meridian=new Batch(true), slate=0x51594d, ivory=0x777b66, teal=0x424943;
   profile(meridian,slate,[[.32,.12],[.22,.138],[.08,.11],[-.11,.09],[-.11,.052],[.09,.052],[.23,-.03],[.32,-.024]],.059);
   profile(meridian,ivory,[[.08,.142],[-.12,.156],[-.50,.129],[-.62,.103],[-.52,.080],[-.20,.068],[.08,.086]],.073);
   profile(meridian,slate,[[.069,.08],[.003,.066],[-.009,.028],[.022,-.079],[.072,-.061]],.048);
@@ -459,17 +475,45 @@ function makeFirearms(body) {
     meridian.add(cube,graphite,0,opticalHeight+.019*sign,-.055,.0014,.033,.0014);
   }
   meridian.add(cube,0xdfaa70,0,opticalHeight,-.055,.0021,.0021,.0014);
-  const launcher=new Batch();
-  endCap(launcher,-.12,.14,.103,.76,0x646e51);
+  for(const side of [-1,1]){
+    meridian.add(round,0x505548,side*.023,.12,.206,.023,.032,.081,-.055);
+    meridian.add(cube,0x343a35,side*.033,.060,-.303,.016,.024,.106,-.10);
+    equipmentPlate(meridian,2,side,side*.044,.117,-.223,.111,.025);
+  }
+  endCap(meridian,-.434,.11,.045,.045,0x474f44);
+  meridian.add(trunk,0x353d38,0,.267,-.108,.026,.026,.026);
+  const etchedRim=new THREE.TorusGeometry(.055,.0018,4,24);
+  for(let i=0;i<4;i++)meridian.add(etchedRim,0x5b6055,0,.216,-.226+i*.003);
+  etchedRim.dispose();
+  const launcher=new Batch(true);
+  endCap(launcher,-.12,.14,.103,.76,0x71765a);
+  profile(launcher,0x4d5141,[[.25,.115],[.29,.147],[.28,.181],[.18,.188],[.09,.142],[.09,.088],[.17,.075]],.198,.012);
+  profile(launcher,0x42463a,[[-.12,.073],[-.19,.082],[-.245,.044],[-.23,.009],[-.164,.016],[-.129,.032]],.098,.008);
+  for(const side of [-1,1]){
+    launcher.beam(0x363b34,[side*.089,.19,.161],[side*.107,.19,.082],.021,.013);
+    equipmentPlate(launcher,3,side,side*.105,.142,-.138,.158,.036);
+  }
   for(const z of [-.51,-.30,.12,.27])endCap(launcher,z,.14,.116,.042,graphite);
   endCap(launcher,-.534,.14,.085,.007,0x222a29);
+  const cushion=new THREE.CapsuleGeometry(.062,.124,3,12);
+  launcher.add(cushion,0x665f4d,0,.061,.105,1.35,1,.71,Math.PI/2);cushion.dispose();
+  for(const side of [-1,1]){
+    launcher.beam(0x4c5145,[side*.060,.169,.10],[side*.060,.272,.050],.023);
+    launcher.beam(0x444a40,[side*.060,.272,.050],[side*.060,.266,-.153],.027,.029);
+    launcher.beam(0x4c5145,[side*.060,.266,-.153],[side*.060,.193,-.193],.023);
+  }
   launcher.add(cube,rubber,0,.0,.02,.064,.15,.07);
-  launcher.add(cube,sand,-.083,.23,-.05,.066,.074,.14);
+  launcher.add(cube,0x555d4d,-.091,.229,-.07,.084,.072,.17);
+  launcher.add(cube,0x292f2b,-.093,.229,.018,.073,.059,.014);
+  launcher.add(cube,0x52665d,-.093,.233,.027,.056,.039,.004);
+  launcher.add(cube,0x7e8271,-.14,.219,-.08,.013,.018,.035);
   tube.dispose();
-  const tools=[carbine,sidearm,meridian,launcher].map(batch=>batch.mesh(body,handheldFinish,false));
+  const tools=[carbine,sidearm,meridian,launcher].map(batch=>batch.mesh(body,equipmentFinish(),false));
+  tools[0].name='Field carbine';tools[1].name='Patrol sidearm';
   tools[3].name='Heat-seeking launcher';
   tools[2].name='Meridian scoped rifle';
-  for(const tool of tools) tool.position.set(.12,1.33,-.20);
+  for(const tool of tools){tool.position.set(.12,1.33,-.20);tool.geometry.userData.sharedFieldKit=true;}
+  if(scene)fieldKits.set(scene,tools.map(tool=>tool.clone()));
   return tools;
 }
 
@@ -974,7 +1018,7 @@ function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
     for(const z of [-.150,-.111,-.076,.025,.054])boot.add(cube,0x41443a,0,-.119,z,.114,.012,.016);
     boot.mesh(ankle,uniform);
   }
-  rig.tools=makeFirearms(upper);
+  rig.tools=makeFirearms(upper,scene);
   return finishAvatar(scene,rig,material,shadowMap,name);
 }
 
@@ -1151,7 +1195,7 @@ export function createScene(canvas,onFootfall) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
-  const sightModels=makeFirearms(camera);
+  const sightModels=makeFirearms(camera,scene);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
   sightModels[3].position.set(.19,-.27,-.46);
@@ -1185,7 +1229,7 @@ export function createScene(canvas,onFootfall) {
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     dressPerson(rig,look,Batch,material,{faces,shirts});
-    if(officer)rig.tools=makeFirearms(rig.upper);
+    if(officer)rig.tools=makeFirearms(rig.upper,scene);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
   }
@@ -1197,7 +1241,7 @@ export function createScene(canvas,onFootfall) {
       scene.remove(ring);
       ring.geometry.dispose();ring.material.dispose();
     }
-    a.root.traverse(node=>{if(node.isMesh) {node.skeleton?.dispose();node.geometry.dispose();}});
+    a.root.traverse(node=>{if(node.isMesh) {node.skeleton?.dispose();if(!node.geometry.userData.sharedFieldKit)node.geometry.dispose();}});
     a.shadow.geometry.dispose();a.shadow.material.dispose();
     scene.remove(a.root,a.shadow);
   }
