@@ -127,6 +127,12 @@ let bankSeq=0,bankReceiptUntil=0;
 function teller(){
   return world?.bank && !vitals.use && canChangeStance(self) && atBankDesk(self) ? bankPrompt(world.bank,id) : null;
 }
+function showBankReceipt(message){
+  const receipt=byId('bank-receipt');
+  receipt.textContent=message;
+  receipt.hidden=false;
+  bankReceiptUntil=performance.now()+5500;
+}
 function bankAction(action,serial,pursuit=false){
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action,seq:++bankSeq,serial,pursuit}));
 }
@@ -470,8 +476,7 @@ function connect() {
     if(m.type==='wallet'){
       market.receive(m);
       if(m.message?.startsWith('Bank payout')){
-        const receipt=byId('bank-receipt');receipt.textContent=m.message;receipt.hidden=false;
-        bankReceiptUntil=performance.now()+5500;
+        showBankReceipt(m.message+(vitals.wanted?.stars?' Patrol in pursuit.':''));
       }
       return;
     }
@@ -512,6 +517,9 @@ function connect() {
       const road=myRoad(), bump=drivenRoad(m.world,id)?.contactSound;
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
+      }
+      if(world.bank?.claimant===id && m.world.bank?.outcome==='aborted'){
+        showBankReceipt('Robbery interrupted. The cash stayed at the branch.');
       }
       world = m.world;world.simTick=m.simTick;
       if(wasJet!==jetPilot()){
@@ -805,7 +813,7 @@ function updateEquipment(local) {
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
-  else if(bank)prompt.textContent=bank.detail;
+  else if(bank)prompt.textContent=bank.action?'E  ·  '+bank.detail:bulletin?'':bank.detail;
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
