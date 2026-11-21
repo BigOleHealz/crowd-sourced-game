@@ -11,10 +11,13 @@ export function hotelGlass(front,fraction,width,floor){
     bottom:floor+.080,top:floor+2.173,edge:false,hotelSlider:true,
   }));
 }
+export function hotelEntrance(p){
+  return p.y>.45 && p.y<3.1 && Math.abs(p.x-hotel.x)<1.03 && hotel.fronts.find(f=>Math.abs(p.z-f.z)<2.1);
+}
 export function stepHotelDoors(doors,players,dt){
   for(const f of hotel.fronts){
     const old=doors.hotel?.[f.id]??0;
-    const open=players.some(p=>p.y>.45 && p.y<3.1 && Math.abs(p.x-hotel.x)<1.03 && Math.abs(p.z-f.z)<2.1);
+    const open=players.some(p=>hotelEntrance(p)===f);
     const amount=open?Math.min(1,old+dt*3.5):Math.max(0,old-dt*1.3);
     if(amount===old)continue;
     if(amount)(doors.hotel??={})[f.id]=amount;

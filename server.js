@@ -1,3 +1,4 @@
+import {nextUse} from './public/use-target.js';
 import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
 import {stepHydrants} from './public/hydrants.js';
@@ -5,8 +6,8 @@ import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTr
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
 import {stepStructuralFalls} from './public/structural-collapse.js';
-import {nearTank,leaveTank,stepTank} from './public/tank.js';
-import {nearJet,stepJet,leaveJet} from './public/jet.js';
+import {leaveTank,stepTank} from './public/tank.js';
+import {stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
 import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
@@ -19,7 +20,7 @@ import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
-import {nearBoat,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
+import {crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -34,7 +35,7 @@ import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
-import { stopRover, parkedRover, nearestVehicle, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
+import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
@@ -182,7 +183,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -260,6 +261,8 @@ function acceptInput(player, data, binary) {
     tracking:input.tracking===true, weapon: [1,2,3,4].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
+    useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
+    useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
     bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
@@ -467,23 +470,24 @@ function tick() {
       if (!match && input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
       if (input.interact && !player.state.climb) {
-        const boat=crewBoat(world,player.id);
-        if(world.tank?.driver===player.id)leaveTank(world,player);
-        else if(world.jet.pilot===player.id)leaveJet(world.jet,player);
-        else if(drivenRoad(world,player.id)?.model)tryTrafficInteract(world,player,npcs);
-        else if(boat)interactBoat(world,boat,player);
-        else if (world.rover.driver === player.id || world.rover.gunner === player.id) interactRover(world, player);
-        else if (world.supercar?.driver===player.id) {
-          player.supercarInput=null;interactRover(world,player,'supercar');
-        }
-        else if (world.heli.pilot === player.id || world.heli.gunner === player.id) interact(world, player);
-        else if(!interactYacht(world,player)){
-          const nearbyBoat=nearBoat(world,player.state),nearby=nearestVehicle(world,player.state);
-          if(nearTank(world.tank,player.state)){world.tank.driver=player.id;match?.release(player);}
-          else if(nearJet(world.jet,player.state))world.jet.pilot=player.id;
-          else if(nearbyBoat)interactBoat(world,nearbyBoat,player);
-          else if(nearby==='rover' || nearby==='supercar')interactRover(world,player,nearby);
-          else if(nearby==='heli' || !tryTrafficInteract(world,player,npcs))interact(world,player);
+        const use=nextUse(world,player.state,player.id,input.useTarget);
+        // A nearby seat can change hands between the prompt and the keypress.
+        // Revalidate its action before applying an E that names that target.
+        if(use && (input.useTarget===undefined || (input.useTarget===use.target && input.useRole===use.role))){
+          const target=use.target,boat=world.boats.find(b=>b.id===target);
+          if(target==='tank'){
+            if(use.role==='exit')leaveTank(world,player);
+            else {world.tank.driver=player.id;match?.release(player);}
+          }else if(target==='jet'){
+            if(use.role==='exit')leaveJet(world.jet,player);
+            else world.jet.pilot=player.id;
+          }else if(target==='heli')interact(world,player);
+          else if(target==='superyacht')interactYacht(world,player);
+          else if(boat)interactBoat(world,boat,player);
+          else if(target==='rover' || target==='supercar'){
+            if(target==='supercar')player.supercarInput=null;
+            interactRover(world,player,target);
+          }else tryTrafficInteract(world,player,npcs);
         }
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }

@@ -5,7 +5,7 @@ import {bridgeMiddle,trafficStopLine} from './drawbridges.js';
 import {cityServices,outpostServices} from './traffic-routes.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
-import {driveRover,interactRover,stopRover} from './rover.js';
+import {clearRoadExit,driveRover,interactRover,stopRover} from './rover.js';
 import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
@@ -68,13 +68,10 @@ export function leaveTraffic(world,player){
 }
 
 function exitPoint(world,car){
-  for(const side of [-1,1]){
-    for(const offset of [1.85,2.4]){
-      const {x,z}=seat(car,side*offset),y=groundHeight(x,z,car.y+1,world.doors);
-      if(y>MAP.waterY+.2 && !blocked(x,y,z,world.hp,world.doors))return {side,endX:x,endZ:z};
-    }
-  }
-  return null;
+  const exit=clearRoadExit(world,car);
+  if(!exit)return null;
+  const side=Math.sign((exit.x-car.x)*Math.cos(car.yaw)+(exit.z-car.z)*Math.sin(car.yaw))||-1;
+  return {side,endX:exit.x,endZ:exit.z};
 }
 
 export function tryTrafficInteract(world,player,npcs){

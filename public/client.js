@@ -1,8 +1,6 @@
+import {hotelEntrance} from './maravela-hotel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {roadFraming} from './road-chase.js';
-import {nearestTraffic} from './city-traffic.js';
-import {nearTank} from './tank.js';
-import {nearJet} from './jet.js';
 import {driverPrediction} from './driver-prediction.js';
 import {launcherSpec,lockLabel} from './handheld-launcher.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
@@ -20,7 +18,7 @@ import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt} from './gallery-lobbies.js';
 import {storefrontRoom} from './storefront-layout.js';
 import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout.js';
-import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
+import {crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 const equipmentSpecs={...firearmSpecs,4:launcherSpec};
@@ -30,9 +28,9 @@ import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
-import { drivenRoad, nearestVehicle } from './rover.js';
+import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
-import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
+import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
@@ -191,7 +189,7 @@ window.addEventListener('keydown', e => {
     requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
   }
   if(e.code==='KeyG' && mode)handleCase=true;
-  if (e.code === 'KeyE') queuedInteract = true;
+  if (e.code === 'KeyE') queuedInteract = vitals.use;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (e.code === 'KeyR' && jetPilot()) queuedMissile=true;
@@ -443,7 +441,7 @@ function tick() {
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
   const cmd = { type: 'input', seq: ++seq, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
-    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
+    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || held.has('KeyR')),
     throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
@@ -580,9 +578,8 @@ function updateEquipment(local) {
   const heli = jetPilot()?world.jet:world.heli;
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
-  const boat=myBoat(),nearby=nearBoat(world,local);
+  const boat=myBoat();
   const trafficCar=myRoad()?.model && myRoad();
-  const nearbyTraffic=local.grounded && !isDriving() && !isPilot() && !gunnerRole() && nearestTraffic(world,local);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
@@ -617,7 +614,7 @@ function updateEquipment(local) {
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
-  const helmPrompt=yachtPrompt(world,local,id);
+  const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
   if(garage && !vitals.dead){
     const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
@@ -625,33 +622,23 @@ function updateEquipment(local) {
   }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
-  else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire · E exit';
-  else if(!isDriving() && !pilot && !gunner && nearTank(world.tank,local))prompt.textContent='E · Drive tracked tank';
-  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · Center to hold pitch · W/S throttle · F / click cannon · R missile · B drop bomb · E exit';
-  else if(!pilot && !isDriving() && !gunner && nearJet(world.jet,local))prompt.textContent='E · Pilot strike jet';
-  else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
-  else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';
-  else if (helmPrompt==='gun') prompt.textContent='E  ·  Use Solana’s bow gun';
-  else if (helmPrompt==='gunOccupied') prompt.textContent='Solana’s bow gun is occupied';
-  else if (helmPrompt==='leaveGun') prompt.textContent='Look to aim  ·  Hold F / click to fire  ·  E leave bow gun';
-  else if (helmPrompt==='occupied') prompt.textContent='Solana’s helm is occupied';
-  else if (boat && !gunner) prompt.textContent='W/S throttle  ·  A/D steer  ·  E disembark';
-  else if (trafficCar) prompt.textContent=trafficCar.takeover?'Taking the wheel…':'W/S accelerate or brake  ·  A/D steer  ·  E exit';
-  else if (inGT()) prompt.textContent='W/S accelerate or brake  ·  A/D steer  ·  E exit Vesper GT';
-  else if (!boat && nearby && !kind) prompt.textContent=nearby.driver!=null?'E  ·  Board patrol boat turret':'E  ·  Take patrol boat helm';
-  else if (local.swimming) prompt.textContent='Swim toward a bank or dock  ·  Space to climb out';
-  else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
-  else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
-  else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
-  else if (isDriving()) prompt.textContent = 'W/S drive  ·  A/D steer  ·  E park and exit';
-  else if (!pilot && nearestVehicle(world,local)==='supercar') prompt.textContent='E  ·  Drive Vesper GT';
-  else if (!pilot && nearestVehicle(world,local)==='rover') prompt.textContent = world.rover.driver!=null ? 'E  ·  Join rover turret' : 'E  ·  Drive trail rover';
-  else if (nearbyTraffic && !nearestVehicle(world,local)) prompt.textContent=nearbyTraffic.npcDriver?'E  ·  Take the wheel of the '+carNames[nearbyTraffic.model].toLowerCase():'E  ·  Drive '+carNames[nearbyTraffic.model].toLowerCase();
-  else if (heli.wrecked) prompt.textContent = 'Helicopter recovering · ' + Math.ceil(heli.recoverySeconds) + 's';
-  else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend  ·  E to bail out';
-  else if (heli.pilot != null) prompt.textContent = nearestVehicle(world,local)==='heli' ? 'E  ·  Join helicopter turret' : heli.gunner!=null ? 'Helicopter crew full' : 'Helicopter in use';
-  else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
-  else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
+  else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
+  else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
+  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
+  else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
+  else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
+  else if(isDriving())prompt.textContent='W/S accelerate or brake · A/D steer';
+  else if(gunner)prompt.textContent='Look around to aim · Hold F / click to fire';
+  else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':'Space to climb · Shift to descend';
+  else if(helmPrompt==='occupied' || helmPrompt==='gunOccupied')prompt.textContent='Yacht station occupied';
+  else if(local.swimming)prompt.textContent='Swim toward a bank or dock · Space to climb out';
+  else if(local.parachute==='packed')prompt.textContent='Free fall · Press Space to deploy parachute';
+  else if(local.parachute==='open')prompt.textContent='Parachute open · WASD / arrows to steer';
+  else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
+  else prompt.textContent='Helicopter · '+Math.round(distance)+' m';
+  if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
+  if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
+    prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
 }
 
