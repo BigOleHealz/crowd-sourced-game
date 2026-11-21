@@ -58,6 +58,10 @@ export function stepPatrolCruisers(world,officers,players,tick){
     if(!unit)continue;
     const {car,lane}=unit;cars.push(car);
     if(!car.npcDriver)continue;
+    if(car.sling){
+      unit.towed=true;Object.assign(officer.state,{x:car.x,y:car.y,z:car.z});continue;
+    }
+    if(unit.towed){dismount(officer,car,world);continue;}
     if(officer.visible){unit.lastSeen.x=target.x;unit.lastSeen.z=target.z;}
     const destination=officer.lastKnown??unit.lastSeen;
     const actual=Math.hypot(destination.x-car.x,destination.z-car.z);

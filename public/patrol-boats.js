@@ -117,7 +117,9 @@ function canFloat(world,b,x,z,yaw) {
     && !(world.supercar?.y<MAP.waterY+.75 && overlaps(x,z,yaw,world.supercar,supercarLayout.halfWidth,supercarLayout.halfLength));
 }
 export function stepBoat(world,b,input,dt,players){
+  if((b.sling || b.beached) && !b.wrecked)return;
   if(b.wrecked){
+    delete b.beached;
     b.recoverySeconds=Math.max(0,b.recoverySeconds-dt);
     if(b.recoverySeconds<.0001){
       const site=berths.find(p=>p.id===b.id);
