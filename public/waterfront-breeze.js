@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 
-const breeze={value:new THREE.Vector4()};
+export const waterfrontWind={value:new THREE.Vector4()};
 export function updateWaterfrontBreeze(seconds){
   const gust=.66+.23*Math.sin(seconds*.62)+.11*Math.sin(seconds*1.31+.8);
   const bearing=.34+.16*Math.sin(seconds*.26);
-  breeze.value.set(gust*Math.cos(bearing),gust*Math.sin(bearing),seconds, gust);
+  waterfrontWind.value.set(gust*Math.cos(bearing),gust*Math.sin(bearing),seconds, gust);
 }
 
 // All displacement is applied after instancing, so rotated palms share the same
@@ -22,7 +22,7 @@ export function breezeMaterial(kind,options){
       mvPosition.y+=windFlex*(wave*.055-(1.-breeze.w)*.24);`,
   }[kind];
   material.onBeforeCompile=shader=>{
-    shader.uniforms.breeze=breeze;
+    shader.uniforms.breeze=waterfrontWind;
     const projection=THREE.ShaderChunk.project_vertex.replace('mvPosition = modelViewMatrix',motion+'\nmvPosition = modelViewMatrix');
     shader.vertexShader='uniform vec4 breeze; attribute float windFlex;\n'+shader.vertexShader.replace('#include <project_vertex>',projection);
   };

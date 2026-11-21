@@ -23,3 +23,13 @@ owner.visible=false;feet.grounded=false;car.bridgeFlight={};update();assert.equa
 owner.visible=true;delete car.bridgeFlight;feet.grounded=true;world.doors.collapsedTowers=[4];update();assert.equal(mesh.count,5,'removed building leaves no chair shadow');
 skyDarkness.value=1;assert.equal(mesh.material.uniforms.skyDarkness.value,1);
 console.log('PASS one shadow batch for grounded tires, planted soles and transformed furniture, with hidden/removed/airborne and night cases.');
+
+const {createRangerRig,poseRig}=await import('../public/ranger-pose.js');
+const {castActorShadow}=await import('../public/actor-sun-shadow.js');
+const avatar=createRangerRig(),walker={x:-2,y:.7,z:15,yaw:0,grounded:true,weapon:1};
+poseRig(avatar,walker,1/60);
+const cast=[];castActorShadow(avatar,walker,{doors:{}},(...args)=>cast.push(args));
+assert.equal(cast.length,10);assert(cast.every(([x,y,z,yaw,w,d,a])=>[x,y,z,yaw,w,d,a].every(Number.isFinite)&&a<0));
+assert(cast[1][0]>walker.x+.9 && cast[1][2]>walker.z+.5,'head shadow lies away from the sun');
+const roofShadow={position:{set(x,y,z){this.y=y}},rotation:{},scale:{set(){}},material:{}};
+avatar.shadow=roofShadow;poseRig(avatar,{...walker,y:17},1/60);assert.equal(roofShadow.position.y,17.026);
