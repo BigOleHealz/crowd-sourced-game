@@ -1,4 +1,4 @@
-import {roadCabin,roadWheelGrip,roadHandle} from './road-cabin.js';
+import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
@@ -48,15 +48,13 @@ function holdWorld(avatar,arm,forearm,side,target){
 // The same authoritative progress moves the occupant and the hinged door.
 // The tracking hand follows the handle through its swing before both hands settle on the rim.
 export function poseRoadBoarding(avatar,car,action){
-  const {progress:t,startX,startY,startZ}=action,cabin=roadCabin(car),seat=mountPosition(car,cabin.seat);
+  const t=action.progress,cabin=roadCabin(car);
   const approach=THREE.MathUtils.smoothstep(t,0,.24),enter=THREE.MathUtils.smoothstep(t,action.npcId ? .65 : .45,.97);
-  const handle=roadHandle(car,t),c=Math.cos(car.yaw),s=Math.sin(car.yaw),mix=THREE.MathUtils.lerp;
-  const standX=handle.x-c*.27+s*.12,standZ=handle.z-s*.27-c*.12;
+  const handle=roadHandle(car,t),mix=THREE.MathUtils.lerp;
   const {root,body,spine,limbs}=avatar;
   avatar.gait=null;
   root.scale.setScalar(mix(1,cabin.scale,enter));
-  root.position.set(mix(mix(startX,standX,approach),seat.x,enter),
-    mix(mix(startY,car.y,approach),seat.y,enter),mix(mix(startZ,standZ,approach),seat.z,enter));
+  root.position.copy(roadBoardingPosition(car,action));
   root.rotation.set((car.suspension?.pitch??0)*enter,-car.yaw-1.57*(1-enter),(car.suspension?.roll??0)*enter,'YXZ');
   const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
   body.position.set(0,-crouch,0);
@@ -142,8 +140,13 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
-    avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
+    avatar.head.rotation.y+=state.checkingTraffic ? .56*Math.sin(avatar.cycle*1.45) : glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
+  }
+  if(state.officer && gait){
+    const target=state.searching || state.sprint ? 1 : 0;
+    avatar.officerCarry=(avatar.officerCarry??target)+(target-(avatar.officerCarry??target))*(-Math.expm1(-6*dt));
+    if(state.searching)avatar.head.rotation.y+=.24*Math.sin(avatar.cycle*.77+Number(state.id?.split('-').at(-1)||0))*(1-.55*run);
   }
   if(lowCockpit){
     // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
@@ -262,6 +265,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
       kit.z=(bloom ? -.322 : -.185)+.037*run;
       weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
+      if(state.officer && gait){
+        const lowered=avatar.officerCarry??0;
+        kit.y-=.12*lowered;kit.z+=.060*lowered;
+        weapon.rotation.x-=.77*lowered;
+      }
       if(prone) {
         kit.set(bloom ? .060 : .099,1.515+.014*swing*weight,bloom ? -.037 : -.010);
         weapon.rotation.set(-avatar.body.rotation.x-avatar.spine.rotation.x,-.035,.012,'YXZ');
@@ -296,7 +304,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     }
   }
   if(!avatar.shadow)return;
-  const y=groundHeight(state.x,state.z,state.y+.28,doors),height=clamp(state.y-y,0,1.75);
+  const y=state.grounded && !seated && !station ? state.y : groundHeight(state.x,state.z,state.y+.28,doors);
+  const height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
   avatar.shadow.rotation.y = prone ? avatar.root.rotation.y : fall ? -fall.yaw : 0;
   if (collapse) {
