@@ -70,9 +70,10 @@ export function interactBoat(world,b,player) {
     else if(b.gunner==null){b.gunner=player.id;b.turretYaw=b.yaw;b.turretPitch=0;}
   }
 }
-export function damageBoat(world,b,amount,players) {
+export function damageBoat(world,b,amount,players,owner) {
   if(b.wrecked||!Number.isFinite(amount)||amount<=0)return;
   b.hp=Math.max(0,b.hp-amount);if(b.hp)return;
+  world.wanted?.record(owner,'wreck');
   for(const id of [b.driver,b.gunner]){
     const actor=players?.get(id);
     if(actor && !disembark(world,b,actor)){
@@ -136,10 +137,11 @@ export function stepBoat(world,b,input,dt,players){
     else {
       const amount=Math.round((Math.abs(b.speed)-5)*4);
       if(amount>0 && insideChart(x,z,b.yaw)){
+        const owner=world.wanted?.session(players?.get(b.driver));
         const other=nearbyHull(world.boats,b,x,z,b.yaw,1.04,2.65);
-        if(other)damageBoat(world,other,amount,players);
-        if(yachtOverlap(world.yacht,x,z,b.yaw,1.10,2.75))damageYacht(world,amount);
-        damageBoat(world,b,amount,players);
+        if(other)damageBoat(world,other,amount,players,owner);
+        if(yachtOverlap(world.yacht,x,z,b.yaw,1.10,2.75))damageYacht(world,amount,undefined,owner);
+        damageBoat(world,b,amount,players,owner);
       }
       b.speed=b.yawRate=b.slip=0;
     }

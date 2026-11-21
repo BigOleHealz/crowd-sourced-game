@@ -105,11 +105,12 @@ export function interactRover(world, player,kind='rover') {
   player.state=clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
 }
 
-export function damageRover(world, amount, players,kind='rover',team) {
+export function damageRover(world, amount, players,kind='rover',team,owner) {
   const r=roadByKind(world,kind);
   if (!r || r.wrecked || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
   if (r.hp>0) return;
+  world.wanted?.record(owner,'wreck');
   const driver=players?.get(r.driver);
   if (driver) {
     interactRover(world,driver,kind);
@@ -141,11 +142,11 @@ function contactPanel(car,nx,nz){
   return Math.abs(side)>Math.abs(end)?(side>0?'right':'left'):(end<0?'front':'rear');
 }
 
-function damagePanel(world,car,panel,amount,players,team){
+function damagePanel(world,car,panel,amount,players,team,owner){
   if(!amount || car.wrecked)return;
   car.bodyDamage??={front:0,rear:0,left:0,right:0};
   car.bodyDamage[panel]=Math.min(1,car.bodyDamage[panel]+amount/135);
-  damageRover(world,amount,players,car.kind,team);
+  damageRover(world,amount,players,car.kind,team,owner);
 }
 
 const roadMass=car=>civilianProfiles[car.model]?.mass??(car.kind==='supercar'?1540:CITY?2070:1630);
@@ -175,14 +176,12 @@ function registerImpact(world,r,hit,speed,players){
   const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
   r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-nx*reach,y:r.y+.55,z:r.z-nz*reach,panel,damage};
   const driver=players?.get(r.driver),team=driver?.team;
-  const otherIntact=otherRoad&&!other.wrecked;
+  const owner=world.wanted?.session(driver);
   const narrow=other && Number.isFinite(other.x) && (otherRoad || other.radius<2 || (other.w<3 && other.d<3));
   strikeFittings(r,narrow?other:r.contactSound,damage);
   if(otherRoad)strikeFittings(other,r,Math.round((2-share)*severity));
-  damagePanel(world,r,panel,damage,players);
-  if(otherRoad)damagePanel(world,other,contactPanel(other,-nx,-nz),Math.round((2-share)*severity),players,team);
-  if(r.wrecked)world.wanted?.record(world.wanted.session(driver),'wreck');
-  if(otherIntact && other.wrecked)world.wanted?.record(world.wanted.session(driver),'wreck');
+  damagePanel(world,r,panel,damage,players,undefined,owner);
+  if(otherRoad)damagePanel(world,other,contactPanel(other,-nx,-nz),Math.round((2-share)*severity),players,team,owner);
 }
 
 const throttleMemory=new WeakMap(), upshifts=[9,17,25,30];
@@ -197,7 +196,7 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 export function driveRover(world, input, dt, players,kind='rover') {
   const r = roadByKind(world,kind);
   if(r?.bridgeFlight){
-    if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind);
+    if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind,undefined,world.wanted?.session(players?.get(r.driver)));
     return;
   }
   if (r?.driver == null) return;

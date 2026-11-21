@@ -18,11 +18,12 @@ export function leaveJet(jet,p){
   p.state={x:jet.x+2.7*Math.cos(jet.yaw),y:jet.y+(jet.grounded?0:.7),
     z:jet.z+2.7*Math.sin(jet.yaw),vy:0,grounded:jet.grounded,...(!jet.grounded && {parachute:'packed'})};
 }
-export function damageJet(world,amount,players){
+export function damageJet(world,amount,players,owner){
   const j=world.jet;
   if(!j || j.wrecked || !(amount>0))return;
   j.hp=Math.max(0,j.hp-amount);
   if(j.hp)return;
+  world.wanted?.record(owner,'wreck');
   const p=players?.get(j.pilot);
   leaveJet(j,p);
   if(p && j.grounded)p.state=world.rules?.spawn(p)??spawn(p.id-1);
@@ -83,17 +84,17 @@ export function stepJet(world,input,dt,players){
   const x=clamp(j.x+Math.sin(j.yaw)*horizontal*dt,flightBounds.west,flightBounds.east);
   const z=clamp(j.z-Math.cos(j.yaw)*horizontal*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);
-  if(floor>j.y+.65){damageJet(world,j.hp,players);return;}
+  if(floor>j.y+.65){damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));return;}
   const y=j.grounded?floor:Math.min(flightBounds.ceiling,j.y+climb*dt);
   if(!j.grounded && y<=floor && climb<=0){
-    if(j.pilot==null || floor<=MAP.waterY || j.speed>16){damageJet(world,j.hp,players);return;}
+    if(j.pilot==null || floor<=MAP.waterY || j.speed>16){damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));return;}
     j.grounded=true;j.speed=0;j.pitch=0;
   }
   Object.assign(j,{x,y:Math.max(floor,y),z});
   const fraction=clearFlightFraction(world,before,j);
   if(fraction<1){
     for(const key of ['x','y','z','yaw','pitch','roll'])j[key]=before[key]+(j[key]-before[key])*fraction;
-    if(!before.grounded && j.speed>16)damageJet(world,j.hp,players);
+    if(!before.grounded && j.speed>16)damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));
     else {j.speed=0;j.grounded=before.grounded;}
   }
 }

@@ -36,7 +36,15 @@ export function createWanted(world,players,{stepCruisers}={}){
   }
   function recall(id){
     for(let i=officers.length-1;i>=0;i--)if(officers[i].targetId===id)removeOfficer(i);
-    if(world.patrolCars)world.patrolCars=world.patrolCars.filter(c=>c.targetId!==id);
+    if(world.patrolCars){
+      if(!officers.length){
+        stepCruisers?.(world,[],players,now);
+        delete world.patrolCars;
+      }else{
+        const remaining=world.patrolCars.filter(c=>c.targetId!==id);
+        if(remaining.length)world.patrolCars=remaining;else delete world.patrolCars;
+      }
+    }
   }
   function session(p){return p && sessions.get(p);}
   function set(p,enabled){
@@ -108,7 +116,7 @@ export function createWanted(world,players,{stepCruisers}={}){
         if(o){o.nextShot=tick+65;officers.push(o);npcs.push(o);}
       }
     }
-    stepCruisers?.(world,officers,players,tick);
+    if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick);
   }
   return {set,session,view,reset,record,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
     owner(round){const s=projectiles.get(round);return s&&session(s.player)===s?s:undefined;}};
