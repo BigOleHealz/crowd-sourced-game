@@ -85,7 +85,8 @@ export function createManatees(world,water) {
     const vessels=[...(world.boats??[]),...(world.yacht?[world.yacht]:[])].filter(b=>!b.wrecked && !b.sling);
     for(const [i,p] of motion.entries()){
       const h=manateeHabitats[i],goal=orbit(h,time+1.9),breath=breathing(h,time),padding=1.92*h.size;
-      let ax=(goal.x-p.x)*.52,az=(goal.z-p.z)*.52,pressure=0;
+      let ax=(goal.x-p.x)*.52,az=(goal.z-p.z)*.52,pressure=0,dive=0;
+      const keel=boat=>(boat.y??water)-(boat===world.yacht?1.25:.58)-.56*h.size;
       for(const boat of vessels){
         if(Math.hypot(p.x-boat.x,p.z-boat.z)>42)continue;
         const yacht=boat===world.yacht;
@@ -99,6 +100,11 @@ export function createManatees(world,water) {
         const length=Math.hypot(dx,dz);
         ax+=dx/length*weight*2.9;az+=dz/length*weight*2.9;
         pressure=Math.max(pressure,weight);
+        const clearance=keel(boat);
+        if(manateeFloor(h,p.x,p.z)+.48*h.size<clearance){
+          const urgency=1-ease(padding+.3,padding+6.4,threat.distance);
+          dive=Math.max(dive,(water-clearance)*urgency);
+        }
       }
       for(const other of motion){
         if(other===p)continue;
@@ -113,22 +119,24 @@ export function createManatees(world,water) {
         else if(canSwim(h,x,p.z,water)){z=p.z;p.vz=0;}
         else {x=p.x;z=p.z;p.vx=p.vz=0;}
       }
-      // Only a crossing that defeats early steering needs the footprint constraint.
-      // Ordinary passes stay outside the constraint and keep their smooth motion.
-      let diving=false;
+      // A deep-water crossing can pass beneath a keel. Move sideways in
+      // shallower water, where a dive cannot clear both hull and bottom.
+      let ceiling=Infinity,floor=manateeFloor(h,x,z)+.48*h.size;
       for(const boat of vessels){
         if(Math.hypot(x-boat.x,z-boat.z)>27)continue;
         const away=manateeHullClearance(boat,x,z,boat===world.yacht);
         if(away.distance>=padding)continue;
+        const clearance=keel(boat);
+        if(floor<clearance){ceiling=Math.min(ceiling,clearance);continue;}
         const clear=escape(boat,h,x,z,water,boat===world.yacht,away,padding);
-        if(clear){x=clear.x;z=clear.z;}
-        else diving=true;
+        if(clear){x=clear.x;z=clear.z;floor=manateeFloor(h,x,z)+.48*h.size;}
       }
       const lift=breath.lift*(1-ease(.16,.76,pressure));
-      const floor=manateeFloor(h,x,z)+.48*h.size;
       const depth=.76+.19*Math.sin(time*.14+h.phase*2)+.15*Math.sin(time*.071+h.phase);
-      const targetY=Math.max(floor,water+(diving?-1.95:-depth+(.50+depth-.76)*lift-.51*pressure));
-      p.y=Math.max(floor,p.y+(targetY-p.y)*(-Math.expm1(-(diving?7:1.62)*dt)));
+      const normalY=water-depth+(.50+depth-.76)*lift-.35*pressure;
+      const targetY=Math.max(floor,Math.min(normalY,water-dive,ceiling));
+      const verticalRate=targetY<p.y && pressure>.40?3.1:1.62;
+      p.y=clamp(p.y+(targetY-p.y)*(-Math.expm1(-verticalRate*dt)),floor,ceiling);
       const speed=Math.hypot(p.vx,p.vz),bearing=speed>.045?Math.atan2(p.vx,-p.vz):p.yaw;
       const turn=Math.atan2(Math.sin(bearing-p.yaw),Math.cos(bearing-p.yaw));
       p.yaw+=clamp(turn,-dt*.77,dt*.77);
@@ -136,7 +144,7 @@ export function createManatees(world,water) {
       p.stroke=(p.stroke+dt*(1.08+.74*speed))%tau;
       p.pitch=.055*Math.sin(time*.32+h.phase)+.145*lift-.10*pressure;
       p.roll+=(clamp(-turn*.20,-.26,.26)+.075*Math.sin(time*.28+h.phase)-p.roll)*(-Math.expm1(-2.2*dt));
-      p.air=lift>.39 && !diving ? breath.air : -1;
+      p.air=lift>.39 && p.y>water-.55 ? breath.air : -1;
       p.x=x;p.z=z;
       Object.assign(state[i],{x:round(x),y:round(p.y),z:round(z),yaw:round(p.yaw),pitch:round(p.pitch),
         roll:round(p.roll),stroke:round(p.stroke),air:round(p.air)});

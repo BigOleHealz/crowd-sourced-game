@@ -34,12 +34,17 @@ for(const yacht of [false,true]){
   const game=createManatees(world,water);
   let nearby=false;
   for(let tick=0;tick<480;tick++){
+    const prior=game.state.map(p=>[p.x,p.z]);
     boat.z-=boat.speed*dt;
     game.step(dt);
     for(const [i,p] of game.state.entries()){
       const d=manateeHullClearance(boat,p.x,p.z,yacht).distance;
       nearby ||= d<4;
-      assert(d>=1.92*manateeHabitats[i].size-.003,'Animal and hull footprints stay separated');
+      const h=manateeHabitats[i],draft=yacht?1.25:.58;
+      assert(d>=1.92*h.size-.003 || p.y+.54*h.size<water-draft,
+        'The animal clears the hull by swimming around it or safely below the keel');
+      assert(Math.hypot(p.x-prior[i][0],p.z-prior[i][1])<.09,
+        'A deep crossing does not snap the animal across the vessel');
     }
   }
   assert(nearby,'Vessel passed close enough to exercise the avoidance');
