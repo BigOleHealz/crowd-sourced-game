@@ -1,3 +1,4 @@
+import {approachPoint} from './helpers/rover-route.mjs';
 import assert from 'node:assert/strict';
 import {MAP,groundHeight,stepPlayer} from '../public/world.js';
 import {newExpedition} from '../public/expedition.js';
@@ -24,8 +25,7 @@ for(const [x,z] of [...trail.slice(2),[0,-35]]){
     const dx=x-r.x,dz=z-r.z,d=Math.hypot(dx,dz);
     if(d<.35 && r.speed<.08)break;
     assert(tick<1300,'rover reached '+[x,z]+' from '+[r.x,r.z]);
-    const aim=Math.atan2(dx,-dz)-r.yaw,error=Math.atan2(Math.sin(aim),Math.cos(aim));
-    driveRover(world,{throttle:Number(d>.25 && Math.abs(error)<.3 && r.speed<Math.min(5,d*2)),steer:d>.25?Math.max(-1,Math.min(1,error*4)):0},dt);
+    driveRover(world,approachPoint(r,x,z,5),dt);
     assert.equal(r.hp,250);assert(r.y>MAP.waterY+.5);
   }
 }
