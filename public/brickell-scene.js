@@ -1,4 +1,5 @@
 import {lightBaySurface} from './biscayne-water.js';
+import {addQuayMasonry} from './quay-masonry.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
@@ -64,6 +65,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     solids.add(box,0xbab4a4,x,.735,z,w,.12,d);
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
+  addQuayMasonry(scene,solids,renderer);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
