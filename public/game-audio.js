@@ -3,6 +3,8 @@ import {doorBuffer,doorCue} from './car-door-sound.js';
 import {roadHandle} from './road-cabin.js';
 import {bootSurface,stepBuffer} from './footsteps.js';
 import {aboardYacht} from './yacht-layout.js';
+import {fallAudioTracker} from './collapse-sound-cues.js';
+import {MAP} from './world.js';
 import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
 import {tireMix,tireLoop} from './tire-road-sound.js';
 import {acousticSpace,transmission} from './acoustic-space.js';
@@ -14,6 +16,7 @@ import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
+  masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
   glass:[.68,0,1800,1], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
@@ -95,6 +98,18 @@ export function createGameAudio(button,slider,level) {
   let context,master,limiter,reflection,environmentWorld;
   let listenerSpace=acousticSpace(null,null);
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
+  const collapse=fallAudioTracker(MAP.buildings);
+  let recordingsStarted=false;
+  async function loadRecordings(){
+    if(recordingsStarted || !context)return;
+    recordingsStarted=true;
+    await Promise.all(Object.entries({glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle'}).map(async ([name,file])=>{
+      try{
+        const res=await fetch('./audio/'+file+'.ogg');
+        if(res.ok)buffers.set(name,await context.decodeAudioData(await res.arrayBuffer()));
+      }catch{/* Keep synthesized playback available on browsers without Opus. */}
+    }));
+  }
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
     action.textContent=settings.muted ? 'Unmute' : 'Mute';
@@ -127,6 +142,7 @@ export function createGameAudio(button,slider,level) {
       limiter.connect(echo);echo.connect(damping);damping.connect(reflection);reflection.connect(master);
     }
     if(context.state!=='running')context.resume().catch(()=>{});
+    void loadRecordings();
   }
   function voice(name,loop=false,variant=0) {
     const designed=['carbine','sidearm','turret','launch'].includes(name);
@@ -174,6 +190,7 @@ export function createGameAudio(button,slider,level) {
     if(gain>.015)burst('foot/'+surface,point,listener,yaw,gain,++stepCount+(side>0?1:0));
   }
   function reset(world) {
+    collapse.reset();
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -202,6 +219,10 @@ export function createGameAudio(button,slider,level) {
     if(reflection)reflection.gain.setTargetAtTime(listenerSpace.reflection,context.currentTime,.11);
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
     lastGlass=world.doors?.glassSeq??0;
+    collapse.step(world.doors?.structureFalls??[],cue=>{
+      if(voices.size>=24)return;
+      burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
+    });
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
@@ -248,6 +269,9 @@ export function createGameAudio(button,slider,level) {
       return;
     }
     let track=loops.get(key);
+    if(track && name==='rotor' && track.source.buffer!==buffers.get(name)){
+      stopMotor(key);track=null;
+    }
     if(!track) {
       track=voice(name,true);track.gain.gain.value=0;track.source.start();loops.set(key,track);
     }
@@ -260,7 +284,10 @@ export function createGameAudio(button,slider,level) {
     motor('chainGun',heli,chainFiring,1,.94,listener,yaw);
     motor('engine',rover,rover.driver!=null && !rover.wrecked,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
     if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'vesper-engine');
-    motor('rotor',heli,(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked,heli.grounded ? .83 : 1.12,.38,listener,yaw);
+    const airspeed=Math.hypot(heli.vx??0,heli.vz??0);
+    const drive=(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked;
+    const near=Math.hypot(heli.x-listener.x,heli.y-listener.y,heli.z-listener.z)<180;
+    motor('rotor',heli,drive && near,heli.grounded?.88:1+Math.min(.085,airspeed*.002),heli.grounded?.41:.61,listener,yaw);
     const present=new Set();
     for(const boat of boats) {
       if(boat.driver==null || boat.wrecked)continue;
