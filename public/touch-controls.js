@@ -11,7 +11,7 @@ const gestures={
   turret:{name:'Gunner',look:'Drag to aim',tip:'Drag the open right side to turn the turret. Hold Fire turret to shoot.',help:'You can aim while holding Fire turret by dragging that same thumb.'},
   seat:{name:'Seated',look:'Drag to look',tip:'Swipe the right side to look around. Tap Leave dance to stand.',help:'Your movement and equipment controls return when you stand.'},
 };
-export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked}){
+export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked,releaseMouse}){
   const byId=id=>document.getElementById(id);
   const root=byId('touch-controls'),pad=byId('touch-pad'),knob=byId('touch-stick'),menu=byId('touch-menu');
   const quick=byId('touch-actions'),tools=byId('touch-tools'),opener=byId('touch-menu-open');
@@ -33,6 +33,11 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   const holds=new Map(),buttons=new Map(),axes={x:0,y:0};
   let visible=false,moveId=null,lookId=null,prevX=0,prevY=0,originX=0,originY=0,radius=34;
   let current='',layout=null,stowed=[],hasGame=false;
+  function capture(target,id){
+    // A first touch may arrive while the desktop mouse lock is releasing.
+    // Window listeners keep that contact live until its normal release.
+    if(!document.pointerLockElement)target.setPointerCapture(id);
+  }
   function consume(e){e.preventDefault();e.stopPropagation();}
   function clearPad(){
     moveId=null;axes.x=axes.y=0;knob.style.transform='';
@@ -48,6 +53,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     if(visible===on)return;
     visible=on;root.hidden=!on;document.documentElement.classList.toggle('touch-play',on);
     if(!on){reset();tip.hidden=true;lastRole=null;current='';if(menu.open)menu.close();tools.hidden=true;}
+    if(on && document.pointerLockElement===canvas)releaseMouse();
     if(on && layout)render(layout);
   }
   setMode(primary.matches);
@@ -69,7 +75,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     consume(e);wake();moveId=e.pointerId;
     const rect=pad.getBoundingClientRect();radius=rect.width*.34;
     originX=rect.left+rect.width/2;originY=rect.top+rect.height/2;
-    pad.setPointerCapture(moveId);padMotion(e);
+    capture(pad,moveId);padMotion(e);
   });
   function startLook(e){
     if(lookId!==null)return;
@@ -77,12 +83,12 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   }
   canvas.addEventListener('pointerdown',e=>{
     if(e.pointerType!=='touch' || !visible || e.clientX<innerWidth*.36 || blocked() || !hasGame)return;
-    consume(e);wake();startLook(e);canvas.setPointerCapture(e.pointerId);
+    consume(e);wake();startLook(e);capture(canvas,e.pointerId);
   });
   function press(e){
     const el=e.target.closest('button[data-action]');
     if(!el || e.pointerType!=='touch' || blocked() || !hasGame)return;
-    consume(e);wake();el.setPointerCapture(e.pointerId);
+    consume(e);wake();capture(el,e.pointerId);
     const code=el.dataset.action;
     holds.set(e.pointerId,el);el.classList.add('down');
     if(code==='more'){tools.hidden=!tools.hidden;el.setAttribute('aria-expanded',String(!tools.hidden));return;}
