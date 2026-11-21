@@ -90,7 +90,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
   avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
-  avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe : 0,
+  avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe-gait.brace : 0,
     gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
     gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
   if(crouch)avatar.spine.rotation.x-=.20*stanceDrop(state);
