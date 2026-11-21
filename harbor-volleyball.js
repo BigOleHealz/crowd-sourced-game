@@ -55,7 +55,7 @@ export function createVolleyball(eligible,random=Math.random){
       else lift=.25;
     }
     const from=contact?[contact.x,contact.y,contact.z]:[feet.x,feet.y+1.91,feet.z-sign*.24];
-    game.flight={tick,duration:kind==='serve'?52:44,
+    game.flight={tick,duration:kind==='serve'?62:51,
       from,to:[toX,sandHeight(toX,toZ)+ballRadius,toZ],lift,slot};
     game.swings[slot]={tick,kind,x:toX,z:toZ};
     game.phase='rally';game.hits++;
@@ -121,7 +121,7 @@ export function createVolleyball(eligible,random=Math.random){
     if(action==='strike' && member && tick>=(cooldown.get(id)??0)){
       if(member.state.phase!=='serve' && member.state.phase!=='rally')return;
       cooldown.set(id,tick+10);
-      pending.set(id,tick+7);
+      pending.set(id,tick+9);
     }
   }
 

@@ -66,8 +66,10 @@ function fixture(){
   assert(crossing.y>netTop(courts[0],crossing.x));
   assert.equal(volleyballHud(world,second.player.state,7,true).action,'Return');
   second.move({x,z});
-  until(()=>canReturnVolleyball(courts[0],1,second.player.state,sampleVolleyball(serve,world.simTick)));
-  second.request('strike');step();
+  until(()=>volleyballHud(world,second.player.state,7,true).detail==='Return now');
+  assert(!canReturnVolleyball(courts[0],1,second.player.state,sampleVolleyball(serve,world.simTick)),'cue gives reaction time');
+  second.request('strike');
+  until(()=>gameOne.flight?.slot===3,10);
   assert.equal(gameOne.flight.slot,3,'human return');
   assert.equal(gameOne.swings[3].kind,'return');
   assert.equal(gameOne.score[0]+gameOne.score[1],0,'rally still active');

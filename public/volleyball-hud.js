@@ -1,4 +1,4 @@
-import {canReturnVolleyball,canServeVolleyball,courtSide,nearbyVolleyballCourt,sampleVolleyball,
+import {canReturnVolleyball,canServeVolleyball,courtSide,nearbyVolleyballCourt,returnCueLead,sampleVolleyball,
   slotSide,volleyballMember,volleyballTeams} from './volleyball-court.js';
 
 export function volleyballHud(world,feet,id,available){
@@ -27,8 +27,10 @@ export function volleyballHud(world,feet,id,available){
     const receiving=1-slotSide(game.flight.slot);
     if(receiving===side){
       result.action='Return';
-      const ball=sampleVolleyball(game.flight,world.simTick??game.flight.tick);
-      if(canReturnVolleyball(court,side,feet,ball))result.detail='Return now';
+      const now=world.simTick??game.flight.tick;
+      const ball=sampleVolleyball(game.flight,now);
+      const incoming=sampleVolleyball(game.flight,now+returnCueLead);
+      if(canReturnVolleyball(court,side,feet,ball) || canReturnVolleyball(court,side,feet,incoming))result.detail='Return now';
       else result.detail=courtSide(court,feet.z)!==side?'Return to your half':'Watch the landing marker';
     }else result.detail='Ball across the net';
   }

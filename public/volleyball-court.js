@@ -5,6 +5,7 @@ export const volleyballTeams=[
   {name:'Coral',color:0xb05035,light:0xffa87a},
 ];
 export const courtHalfWidth=4,courtHalfLength=8,ballRadius=.125;
+export const returnCueLead=5;
 export const courtSide=(court,z)=>z<court.z?0:1;
 export const slotSide=slot=>Math.floor(slot/2);
 export const sideSign=side=>side===0?-1:1;
@@ -54,6 +55,6 @@ export function sampleVolleyball(flight,tick){
 
 export function canReturnVolleyball(court,side,feet,ball){
   return ball.descending && courtSide(court,feet.z)===side && courtSide(court,ball.z)===side &&
-    atVolleyballCourt(feet,court,1.65) && ball.y-feet.y>=.40 && ball.y-feet.y<=2.76 &&
-    Math.hypot(feet.x-ball.x,feet.z-ball.z)<1.60;
+    atVolleyballCourt(feet,court,1.65) && ball.y-feet.y>=.40 && ball.y-feet.y<=3.04 &&
+    Math.hypot(feet.x-ball.x,feet.z-ball.z)<1.74;
 }
