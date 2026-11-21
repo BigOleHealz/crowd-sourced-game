@@ -140,7 +140,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
-    avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
+    avatar.head.rotation.y+=state.checkingTraffic ? .56*Math.sin(avatar.cycle*1.45) : glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
   }
   if(lowCockpit){
