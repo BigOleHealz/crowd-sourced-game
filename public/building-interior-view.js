@@ -6,7 +6,7 @@ import {furnishingSupported} from './estate-damage.js';
 export function buildingInteriorView(scene){
   const geometry=new THREE.BoxGeometry(),material=new THREE.MeshLambertMaterial();
   const buffer=new THREE.InstancedMesh(geometry,material,980);
-  buffer.frustumCulled=false;buffer.count=0;scene.add(buffer);
+  buffer.userData.interiorFixtures=true;buffer.frustumCulled=false;buffer.count=0;scene.add(buffer);
   const temp=new THREE.Object3D(),color=new THREE.Color();
   const smooth=new Map(),sliding=new Set();
   const atlas=document.createElement('canvas');atlas.width=512;atlas.height=128;
@@ -14,7 +14,7 @@ export function buildingInteriorView(scene){
   ink.fillStyle='#f0e6bc';ink.font='bold 66px Arial';ink.textAlign='center';ink.fillText('ELEVATOR',256,89);
   const tex=new THREE.CanvasTexture(atlas);tex.colorSpace=THREE.SRGBColorSpace;
   const labels=new THREE.InstancedMesh(new THREE.PlaneGeometry(1.22,.30),new THREE.MeshBasicMaterial({map:tex}),36);
-  labels.count=0;labels.frustumCulled=false;scene.add(labels);
+  labels.userData.interiorFixtures=true;labels.count=0;labels.frustumCulled=false;scene.add(labels);
   let count,textCount,previous,bits,revision,nearby=[],lastX=Infinity,lastZ=Infinity,lastLevel,prevRide;
   function part(tint,x,y,z,w,h,d,yaw=0){
     if(count>=buffer.instanceMatrix.count)return;

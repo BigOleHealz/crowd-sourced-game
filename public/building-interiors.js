@@ -111,6 +111,11 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     [39.5,.87,-441,'z',2.6,'Dining entrance'],[32.6,4.9,-439.5,'x',2.6,'Library terrace'],[30.05,8.7,-444.9,'z',2.6,'Suite terrace'],
     [31.2,.87,-442.32,'z',3.1,'Kitchen'],[28.2,4.9,-444.6,'z',3.85,'Writing room'],[18.25,8.7,-445.25,'z',2.82,'Dressing room']])door(mare,x,y,z,axis,w,label);
   for(const [y,z] of [[.87,-437.61],[4.9,-440.12],[8.7,-442.45]])panel(mare,22,y,z,Math.PI,22,z-.95);
+  // Append rear controls so existing saved door bits keep their original IDs.
+  for(const g of galleryPlans)if(g.passage){
+    const p=byBuilding.get(g.b);
+    for(const e of g.ends)door(p,e.x,.824,e.z-e.side*(e.depth-.073),'x',1.48,'Gallery passage');
+  }
 }
 export const doorIsOpen=(d,state)=>d.initial!==!!((state?.roomLeaves?.[d.id>>>5]??0)&(1<<(d.id%32)));
 export function operableDoorAt(p,feet,range=1.57){
