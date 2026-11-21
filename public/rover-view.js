@@ -1,3 +1,4 @@
+import {frontWheelAngle} from './road-steering.js';
 import {shapedBodywork,paintedFinish} from './rover-bodywork.js';
 import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -325,7 +326,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     wheels.forEach((wheel,i)=>{
       wheel.position.y=.368+(pose?.wheels[i] ?? 0);
       wheel.rotation.x-=r.speed*dt/.36;
-      wheel.rotation.y=wheel.position.z<0?-(r.steer??0)*.42:0;
+      wheel.rotation.y=wheel.position.z<0?-frontWheelAngle(r):0;
       wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
     });
     for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);

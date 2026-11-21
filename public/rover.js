@@ -1,3 +1,4 @@
+import {steerRoadWheels} from './road-steering.js';
 import {strikeFittings} from './road-fittings.js';
 import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -214,13 +215,10 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const oldSpeed=r.speed;
   r.braking=!!throttle && oldSpeed*throttle<-.01;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
-  r.steer=steer;
   if(sport)tickExhaust(r,throttle,oldSpeed,dt);
 
   const pace=Math.abs(r.speed);
-  const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
-    1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*clamp(r.speed/4,-1,1)*turnRate*dt;
+  const turn=steerRoadWheels(r,steer,dt)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*dt;
   const yaw=r.yaw+turn;
   const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
   if(rotation)r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
