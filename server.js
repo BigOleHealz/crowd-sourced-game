@@ -367,7 +367,7 @@ sockets.on('connection', ws => {
   ws.on('close', () => {
     const player=players.get(id);
     match?.release(player);
-    bank?.leave(player);
+    bank?.leave(player,ticks);
     world.wanted?.set(player,false);
     if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
     players.delete(id);

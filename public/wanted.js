@@ -1,5 +1,6 @@
 import {CITY,MAP,blocked,groundHeight,stepPlayer} from './world.js';
 import {advanceFall} from './falls.js';
+import {inBankLobby} from './bank-rules.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
 
@@ -26,9 +27,30 @@ function arrival(world,player,players,number){
   if(fallback){fallback.id='officer-'+(++serial);return fallback;}
 }
 
-function approachOnFoot(officer,destination,world){
+// The north gallery has one public doorway. Officers approaching the branch
+// use the pavement in front of it instead of walking into the tower facade.
+const bankDoor={x:-20,z:-40.1};
+function bankApproach(officer,destination,world){
+  if(officer.atBankDoor)return destination;
+  const p=officer.state;
+  // Eastbound units unload on the far side of their parked car. Walk around
+  // its nose before turning towards the doorway, using the same solid car.
+  const car=world.patrolCars?.find(c=>c.officerId===officer.id);
+  if(car && Math.abs(car.z+43.15)<1 && p.z<car.z+.95 && p.x<car.x+3.05){
+    return {x:car.x+3.55,z:Math.min(p.z,car.z-1.7)};
+  }
+  if(car && Math.abs(car.z+43.15)<1 && p.z<car.z+.95){
+    return {x:car.x+3.6,z:car.z+1.5};
+  }
+  if(Math.hypot(p.x-bankDoor.x,p.z-bankDoor.z)<1.45){
+    officer.atBankDoor=true;return destination;
+  }
+  return bankDoor;
+}
+
+function approachOnFoot(officer,destination,world,entering=false){
   const state=officer.state,dx=destination.x-state.x,dz=destination.z-state.z;
-  const distance=Math.hypot(dx,dz),stop=officer.visible?5.5:1.2;
+  const distance=Math.hypot(dx,dz),stop=entering ? .35 : officer.visible ? 5.5 : 1.2;
   const gap=Math.max(0,distance-stop);
   // A small dead band keeps someone standing still when the target shifts a little.
   const moving=gap>(officer.moving ? .12 : .6);
@@ -77,7 +99,14 @@ export function createWanted(world,players,{stepCruisers}={}){
   function record(owner,kind,tick=now){
     if(!owner || session(owner.player)!==owner || !owner.player.life.hp || !Object.hasOwn(points,kind))return;
     owner.heat=Math.min(thresholds.at(-1),owner.heat+points[kind]);
-    owner.lastContact=tick;owner.lastKnown={x:owner.player.state.x,z:owner.player.state.z};
+    owner.lastContact=tick;owner.lastKnown={x:owner.player.state.x,y:owner.player.state.y,z:owner.player.state.z};
+  }
+  function holdBankResponse(owner,tick){
+    // A confirmed, ongoing branch alarm keeps its reported location active.
+    // Once the handoff or alarm ends, ordinary sight and escape rules take over.
+    if(!owner || session(owner.player)!==owner)return;
+    owner.lastContact=tick;
+    owner.branch=true;
   }
   function view(p,tick){
     const s=session(p);
@@ -105,10 +134,13 @@ export function createWanted(world,players,{stepCruisers}={}){
         if(tick>=o.nextSense){
           o.nextSense=tick+9;
           o.visible=dist<28 && !!patrolSight(world,o,p,players);
-          if(o.visible){s.lastContact=tick;s.lastKnown={x:p.state.x,z:p.state.z};}
+          if(o.visible){s.lastContact=tick;s.lastKnown={x:p.state.x,y:p.state.y,z:p.state.z};}
         }
         o.lastKnown=s.lastKnown;
-        if(!o.cruiserId)approachOnFoot(o,s.lastKnown,world);
+        if(!o.cruiserId){
+          const approach=s.branch && inBankLobby(s.lastKnown) ? bankApproach(o,s.lastKnown,world) : s.lastKnown;
+          approachOnFoot(o,approach,world,approach!==s.lastKnown);
+        }
         if(!o.cruiserId && o.visible && dist<=18 && tick>=o.nextShot){
           o.nextShot=tick+Math.max(35,90-10*level);
           const sight=patrolSight(world,o,p,players);
@@ -131,6 +163,6 @@ export function createWanted(world,players,{stepCruisers}={}){
     }
     if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick,npcs);
   }
-  return {set,session,view,reset,record,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
+  return {set,session,view,reset,record,holdBankResponse,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
     owner(round){const s=projectiles.get(round);return s&&session(s.player)===s?s:undefined;}};
 }

@@ -2,41 +2,106 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {createBank}=await import('../bank-claim.js');
 const {harborTrade,newWallet}=await import('../harbor-trade.js');
-const {atBankDesk,bankDesk,bankPayout,bankCooldownSeconds,bankClaimSeconds,bankPrompt}=await import('../public/bank-rules.js');
+const {atBankDesk,inBankLobby,bankDesk,bankPayout,bankCooldownSeconds,bankAlarmSeconds,bankHandoffSeconds,bankPrompt}=await import('../public/bank-rules.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {createWanted}=await import('../public/wanted.js');
-const {newLife}=await import('../public/rivals.js');
+const {stepPatrolCruisers}=await import('../public/patrol-cruisers.js');
+const {newLife,newRivals}=await import('../public/rivals.js');
+const {newCityTraffic,syncTrafficDrivers}=await import('../public/city-traffic.js');
 const {blocked}=await import('../public/world.js');
-const {galleryRoomAt}=await import('../public/gallery-lobbies.js');
-const players=new Map(),messages=[];
-const w=newExpedition();w.traffic=[];w.trading=harborTrade(w,(p,t,msg)=>messages.push([p.id,t,msg]));
-w.wanted=createWanted(w,players);
-const bank=createBank(),person=id=>({id,life:newLife(0,false),wallet:newWallet(),state:{...bankDesk,grounded:true}});
-const a=person(1),b=person(2);players.set(1,a);players.set(2,b);
-w.wanted.set(a,true);let seq=0;
-const start=(p,t)=>bank.request(w,p,{seq:++seq,action:'start'},t);
-const pos=a.state;
-assert.equal(galleryRoomAt(pos.x,pos.y,pos.z).name,'Biscayne Mutual Bank');
-assert(atBankDesk(pos));assert(!blocked(pos.x,pos.y,pos.z,w.hp,w.doors));
-assert(!atBankDesk({...pos,y:3}));assert(!atBankDesk({...pos,z:pos.z+1.1}));
-start(a,1);start(b,1);assert.equal(bank.state.claimant,a.id);assert.equal(bankPrompt(bank.state,b.id).action,null);
-a.state={...pos,z:pos.z-2};bank.step(w,players,2);assert.equal(bank.state.phase,'ready');assert.equal(a.wallet.cash,0);
-a.state=pos;start(a,3);bank.request(w,b,{action:'cancel',seq:++seq},3);assert.equal(bank.state.claimant,1);
-bank.leave(a);assert.equal(bank.state.phase,'ready');
-start(a,5);a.life.fall={};bank.step(w,players,6);assert.equal(bank.state.phase,'ready');delete a.life.fall;
-start(b,8);bank.step(w,players,8+bankClaimSeconds*30-1);assert.equal(b.wallet.cash,0);
-const paid=8+bankClaimSeconds*30;
-bank.step(w,players,paid);bank.step(w,players,paid);assert.equal(b.wallet.cash,bankPayout);assert.equal(a.wallet.cash,0);
-assert.equal(w.wanted.view(b,paid).enabled,false);assert.equal(w.wanted.view(a,paid).stars,0);
-assert.equal(bank.state.phase,'cooldown');assert.equal(bank.state.seconds,bankCooldownSeconds);
-start(a,paid+4);assert.equal(bank.state.claimant,null);
-const again=paid+bankCooldownSeconds*30;bank.step(w,players,again);
-start(a,again);bank.request(w,a,{seq,action:'cancel'},again);assert.equal(bank.state.claimant,a.id,'retry ignored');
-bank.step(w,players,again+bankClaimSeconds*30);assert.equal(a.wallet.cash,bankPayout);assert.equal(w.wanted.view(a,again+bankClaimSeconds*30).stars,3);
-const later=again+(bankClaimSeconds+bankCooldownSeconds)*30+1;bank.step(w,players,later);
-start(a,later);w.doors.collapsedTowers=[3];bank.step(w,players,later+10);
-assert.equal(bank.state.phase,'closed');assert.equal(bank.state.claimant,null);start(b,later+11);assert.equal(bank.state.phase,'closed');
-delete w.doors.collapsedTowers;bank.step(w,players,later+12);assert.equal(bank.state.phase,'ready');
-a.life.hp=0;start(a,later+13);assert.equal(bank.state.phase,'ready');w.jet.pilot=b.id;start(b,later+13);assert.equal(bank.state.phase,'ready');
-assert.deepEqual(messages.map(m=>m[0]),[2,1]);
-console.log('PASS teller geometry, cancellation, exclusive claim, replays, payout, shared cooldown, independent wanted options and collapsed building');
+
+function branch(){
+  const world=newExpedition(),players=new Map(),receipts=[],npcs=newRivals(),bank=createBank();
+  world.traffic=newCityTraffic();syncTrafficDrivers(world,npcs);
+  world.bank=bank.state;world.wanted=createWanted(world,players,{stepCruisers:stepPatrolCruisers});
+  world.trading=harborTrade(world,(p,t,msg)=>receipts.push([p.id,msg]));
+  function join(id){
+    const p={id,life:newLife(0,false),wallet:newWallet(),state:{...bankDesk,grounded:true},yaw:0,score:{kills:0,deaths:0}};
+    players.set(id,p);return p;
+  }
+  function act(p,action,tick,other={}){
+    bank.request(world,p,{seq:(p.bankSeq??0)+1,serial:bank.state.serial,action,...other},tick);
+  }
+  return {world,players,bank,npcs,receipts,join,act,step:t=>bank.step(world,players,t)};
+}
+{
+  const {world,bank,join,act,step,receipts}=branch(),p=join(1),other=join(2);
+  assert(inBankLobby(p.state));assert(atBankDesk(p.state));assert(!blocked(p.state.x,p.state.y,p.state.z,world.hp,world.doors));
+  assert(!atBankDesk({...p.state,y:3}));assert(!atBankDesk({...p.state,z:p.state.z+1.1}));
+  assert.equal(bankPrompt(bank.state,p.id).action,'talk');
+  for(const command of ['talk','start','cancel','collect'])act(p,command,1);
+  assert.equal(bank.state.phase,'ready','speaking or legacy floor trigger cannot start a robbery');
+  act(p,'rob',2);act(other,'rob',2,{pursuit:true});
+  assert.equal(bank.state.claimant,p.id);assert.equal(bank.state.phase,'alarm');assert(!bank.state.pursuit);
+  assert(!world.wanted.session(other),'losing a concurrent request cannot enable pursuit');
+  act(p,'collect',3);assert.equal(p.wallet.cash,0);
+  const open=2+30*bankAlarmSeconds;step(open-1);assert.equal(bank.state.phase,'alarm');
+  p.state.z-=1.2;step(open);assert.equal(bank.state.phase,'handoff','free to move around the lobby');
+  const late=join(3);
+  assert.equal(bankPrompt(bank.state,late.id).action,null);assert.equal(bankPrompt(bank.state,p.id).action,'collect');
+  act(late,'collect',open);act(p,'collect',open);assert.equal(p.wallet.cash,0,'wrong person or out of reach');
+  p.state.z=bankDesk.z;act(p,'collect',open,{serial:0});assert.equal(p.wallet.cash,0);
+  const seq=p.bankSeq;act(p,'collect',open,{seq});assert.equal(p.wallet.cash,0,'duplicate seq');
+  act(p,'collect',open);act(p,'collect',open+1);step(open+2);
+  assert.deepEqual(receipts,[[1,'Bank payout +$150.']]);assert.equal(p.wallet.cash,bankPayout);
+  assert.equal(bank.state.phase,'cooldown');assert.equal(bank.state.outcome,'collected');assert(!world.wanted.session(p));
+  const reopen=open+30*bankCooldownSeconds;step(reopen-1);assert.equal(bank.state.seconds,1);
+  act(other,'rob',reopen-1);assert.equal(bank.state.claimant,null);step(reopen);
+  act(p,'rob',reopen,{serial:0});assert.equal(bank.state.phase,'ready','stale confirmation');
+  act(other,'rob',reopen);assert.equal(bank.state.serial,2);assert.equal(bank.state.claimant,2);
+}
+{
+  const {world,bank,join,act,step,players,receipts}=branch(),p=join(1);
+  let tick=0;
+  for(const cause of ['depart','defeat','disconnect','timeout','collapse']){
+    act(p,'rob',tick);assert.equal(bank.state.phase,'alarm');
+    if(cause==='depart')p.state.z=-45;
+    if(cause==='defeat')p.life.hp=0;
+    if(cause==='disconnect'){bank.leave(p,tick);players.delete(p.id);join(p.id);}
+    if(cause==='timeout'){tick+=30*bankAlarmSeconds;step(tick);tick+=30*bankHandoffSeconds;}
+    if(cause==='collapse')world.doors.collapsedTowers=[bankDesk.tower];
+    step(++tick);
+    assert.equal(bank.state.phase,cause==='collapse'?'closed':'cooldown',cause);
+    assert.equal(bank.state.outcome,'aborted');assert.equal(bank.state.claimant,null);assert.equal(receipts.length,0);
+    p.state.z=bankDesk.z;p.life.hp=100;players.set(p.id,p);delete world.doors.collapsedTowers;
+    tick+=30*12;step(tick);assert.equal(bank.state.phase,'ready');
+  }
+  world.jet.pilot=p.id;act(p,'rob',tick,{pursuit:true});assert.equal(bank.state.phase,'ready');assert(!world.wanted.session(p));
+}
+{
+  const {world,bank,join,act,step,players,npcs}=branch(),p=join(1),observer=join(2);
+  observer.state={...observer.state,x:-18,z:-40};
+  act(p,'rob',0,{pursuit:true});assert.equal(world.wanted.view(p,0).stars,3);
+  let approach,parked=false;
+  for(let t=1;t<=bankAlarmSeconds*30;t++){
+    world.wanted.step(npcs,t);step(t);
+    const car=world.patrolCars?.[0];
+    if(car){
+      assert(car.patrol && car.targetId===p.id);
+      approach??={x:car.x,z:car.z};
+      if(!car.npcDriver && Math.hypot(car.x-bankDesk.x,car.z+42)<5){
+        parked=true;
+        assert(Math.hypot(car.x-approach.x,car.z-approach.z)>13);
+      }
+    }
+  }
+  assert(parked,'marked cruiser drives in and its officer dismounts in front before cash is ready');
+  assert(npcs.some(n=>n.officer && n.targetId===p.id && !n.cruiserId));
+  assert(!npcs.some(n=>n.officer && n.targetId===observer.id));
+  assert.equal(observer.life.hp,100);assert.equal(world.wanted.view(observer,240).enabled,false);
+  act(p,'collect',241);assert.equal(bank.state.outcome,'collected');
+  p.state.z=-40;world.wanted.step(npcs,242);assert.equal(world.wanted.view(p,242).phase,'pursuit');
+  assert(npcs.some(n=>n.officer && n.targetId===p.id));
+  world.wanted.set(p,false);assert(!world.patrolCars);
+  assert.equal(world.wanted.view(p,242).enabled,false);assert(!npcs.some(n=>n.officer));
+  players.delete(p.id);
+}
+{
+  const {world,bank,join,act,step}=branch(),p=join(1);
+  world.wanted.set(p,true);act(p,'rob',0);
+  assert(bank.state.pursuit,'prior opt-in is respected');
+  world.wanted.set(p,false);step(1);assert(!bank.state.pursuit);
+  world.wanted.set(p,true);step(2);assert(!bank.state.pursuit,'fresh opt-in cannot revive a recalled dispatch');
+  assert.equal(world.wanted.view(p,2).stars,0);
+}
+console.log('PASS explicit teller choice, exclusive phased handoff, one wallet receipt, shared cooldown, aborts, late joins and marked patrol arrival with independent pursuit preferences');
