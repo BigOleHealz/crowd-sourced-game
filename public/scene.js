@@ -1,4 +1,5 @@
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
 import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
@@ -1158,6 +1159,7 @@ export function createScene(canvas) {
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
+  const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
@@ -1279,6 +1281,7 @@ export function createScene(canvas) {
     const flyingJet=world.jet?.pilot===local.id;
     const aircraft=flyingJet ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
+    updateCargoHook(world);
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
     const inTank=world.tank?.driver===local.id;

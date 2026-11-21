@@ -3,6 +3,8 @@ import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
 import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.js';
 import {stepHydrants} from './public/hydrants.js';
+import {stepCargoHook} from './public/cargo-hook.js';
+import {finishTrafficDelivery} from './public/city-traffic.js';
 import {stepWakeCrossings} from './public/boat-wakes.js';
 import {stepRoadBoarding} from './public/road-cabin.js';
 import {stepPatrolCruisers} from './public/patrol-cruisers.js';
@@ -273,6 +275,7 @@ function acceptInput(player, data, binary) {
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
+    lowerHook:input.lowerHook===true,releaseHook:input.releaseHook===true,
     horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
@@ -420,7 +423,7 @@ function tick() {
   if(world.jet.pilot==null)stepJet(world,null,step,players);
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
-  let yachtInput;
+  let yachtInput,hookInput;
   if(world.tank?.wrecked)stepTank(world,null,step);
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
@@ -543,6 +546,7 @@ function tick() {
       continue;
     }
     if (world.heli.pilot === player.id) {
+      hookInput={lower:input?.lowerHook,release:input?.releaseHook};
       const before={...world.heli};
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
       vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);
@@ -589,9 +593,19 @@ function tick() {
       if (input.fire) fire(world, player, input, ticks, players, npcs);
     }
   }
+  stepCargoHook(world,hookInput,step,v=>{
+    if(v.model && !v.patrol)finishTrafficDelivery(world,v,npcs);
+  });
+  if(world.heli.hook?.load || world.hasFallingCargo){
+    for(const road of [world.rover,world.supercar,...world.traffic]){
+      const driver=road?.sling && players.get(road.driver);
+      if(driver)Object.assign(driver.state,{x:road.x,y:road.y,z:road.z});
+    }
+    syncTrafficDrivers(world,npcs);
+  }
   stepYacht(world,yachtInput,step,players);
   for(const road of [world.rover,world.supercar,...(world.traffic??[])]){
-    if(!road)continue;
+    if(!road || road.sling)continue;
     const kind=road.kind??'rover';
     if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
     const raised=raisedRoadAt(world,road.x,road.z);

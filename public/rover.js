@@ -195,6 +195,7 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 
 export function driveRover(world, input, dt, players,kind='rover') {
   const r = roadByKind(world,kind);
+  if(r?.sling)return;
   if(r?.bridgeFlight){
     if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind,undefined,world.wanted?.session(players?.get(r.driver)));
     return;
