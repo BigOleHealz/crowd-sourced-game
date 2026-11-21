@@ -1285,7 +1285,7 @@ export function createScene(canvas) {
     updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
     updateGarages([world.rover,world.supercar,...cars]);
-    updateTraffic(cars,dt,local);
+    updateTraffic(cars,dt,local,world.patrolCars);
     const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
@@ -1316,7 +1316,7 @@ export function createScene(canvas) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
-      const inTraffic=cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
+      const inTraffic=state.cruiserId?world.patrolCars?.find(car=>car.id===state.cruiserId):cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
       if(inTraffic?.npcDriver===state.id && Math.hypot(state.x-local.x,state.z-local.z)>55*detailScale){
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
@@ -1331,7 +1331,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,state.officer ? 0x284957 : rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
