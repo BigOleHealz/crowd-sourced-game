@@ -1,4 +1,5 @@
 import {expireShots} from './public/shot-events.js';
+import {serviceRoadCar} from './public/road-garages.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -628,6 +629,7 @@ function tick() {
   advanceMissiles(world,players,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
+  for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);

@@ -1,3 +1,4 @@
+import {createRoadGarages} from './road-garage-view.js';
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
@@ -1151,6 +1152,7 @@ export function createScene(canvas) {
   const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
+  const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1277,6 +1279,7 @@ export function createScene(canvas) {
     const inTank=world.tank?.driver===local.id;
     updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
+    updateGarages([world.rover,world.supercar,...cars]);
     updateTraffic(cars,dt,local);
     const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
