@@ -1,4 +1,5 @@
 import {createBank} from './bank-claim.js';
+import {createVolleyball} from './harbor-volleyball.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
@@ -77,6 +78,13 @@ const step = 1 / 30;
 const players = new Map();
 const departedScores=new Map();
 let match;
+function canPlayVolleyball(world,player){
+  const id=player.id,feet=player.state;
+  return player.life.hp && !player.life.fall && feet.grounded && !feet.swimming && !feet.climb && !feet.parachute &&
+    player.clubSince==null && !drivenRoad(world,id) && !crewBoat(world,id) && !gunnerVehicle(world,id) &&
+    world.tank?.driver!==id && world.jet.pilot!==id && world.heli.pilot!==id &&
+    world.yacht?.driver!==id && !world.basketball?.players.includes(id);
+}
 function freshWorld(){
   const w=newExpedition();
   w.traffic=newCityTraffic();
@@ -86,6 +94,9 @@ function freshWorld(){
     });
     Object.defineProperty(w,'trading',{value:trading});
     w.market=trading.state;w.bank=bank.state;
+    const volleyball=createVolleyball(canPlayVolleyball);
+    Object.defineProperty(w,'volleyballActivity',{value:volleyball});
+    w.volleyball=volleyball.state;
   }
   if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
   if(mode){
@@ -230,6 +241,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='volleyball'){world.volleyballActivity?.request(world,player,input.action,ticks);return;}
   if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='clubSeat'){
@@ -368,6 +380,7 @@ sockets.on('connection', ws => {
     const player=players.get(id);
     match?.release(player);
     bank?.leave(player,ticks);
+    world.volleyballActivity?.leave(id,ticks);
     world.wanted?.set(player,false);
     if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
     players.delete(id);
@@ -462,6 +475,10 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(input && world.volleyballActivity?.member(player.id)){
+      input.fire=input.tracking=input.interact=input.jump=input.deploy=false;
+      input.seat=null;input.stance='stand';
+    }
     if((world.heli.gunner!==player.id && world.yacht?.gunner!==player.id) || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
     if (player.unstuck) {
@@ -699,6 +716,7 @@ function tick() {
   if(players.size)world.trading?.step(players,npcs,ticks);
   world.wanted?.step(npcs,ticks);
   bank?.step(world,players,ticks);
+  world.volleyballActivity?.step(world,players,ticks,step);
   localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);

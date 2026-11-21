@@ -1,6 +1,8 @@
 import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
+import {poseVolleyball,volleyballActors,volleyballLooks,volleyballView} from './volleyball-view.js';
+import {volleyballMember} from './volleyball-court.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
@@ -1085,11 +1087,15 @@ export function createScene(canvas,onFootfall) {
     return new THREE.MeshLambertMaterial({map});
   }
   let nightlifeFaces;
+  const volleyballShirts=new Map();
   function resident(id,name,officer=false){
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]);
+    const athlete=volleyballLooks[id];
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]??athlete);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
-    const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
+    if(athlete && !volleyballShirts.has(look.top))
+      volleyballShirts.set(look.top,new THREE.MeshLambertMaterial({color:look.top}));
+    const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     dressPerson(rig,look,Batch,material,{faces,shirts});
@@ -1141,7 +1147,7 @@ export function createScene(canvas,onFootfall) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  let sprintGate,drawMarket;
+  let sprintGate,drawMarket,drawVolleyball;
   function render(local,remotes,view,dt,world) {
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
@@ -1149,6 +1155,10 @@ export function createScene(canvas,onFootfall) {
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
     if(!local) return;
+    if(world.volleyball){
+      drawVolleyball??=volleyballView(scene);
+      drawVolleyball(world.volleyball,local,remotes,world.volleyballTick,dt);
+    }
     const altitude=Math.max(0,local.y-20);
     scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
@@ -1216,7 +1226,8 @@ export function createScene(canvas,onFootfall) {
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world):[])]) {
+    const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world):[]),...athletes]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1225,7 +1236,7 @@ export function createScene(canvas,onFootfall) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.volleyball && !state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1235,11 +1246,11 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
-      a.label.sprite.visible = !state.bankRole && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
+      a.label.sprite.visible = !state.bankRole && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
@@ -1262,6 +1273,8 @@ export function createScene(canvas,onFootfall) {
           }
         }
         if(state.bankRole)poseBankGuest(a,state,(world.simTick??clock*30)/30);
+        const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
+        if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
