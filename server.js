@@ -1,3 +1,4 @@
+import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
@@ -100,6 +101,9 @@ function freshWorld(){
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
+    const table=blackjack();
+    Object.defineProperty(w,'blackjack',{value:table});
+    w.casino=table.state;
     const trading=harborTrade(w,(p,tick,message,seq,equipped)=>{
       if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq,equipped}));
     });
@@ -260,6 +264,10 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='blackjack'){
+    if(world.blackjack)world.blackjack.request(world,player,input,ticks,canPlayVolleyball(world,player) && !world.volleyballActivity?.member(player.id));
+    return;
+  }
   if(input?.type==='interior'){requestInterior(world,players,player,input,ticks);return;}
   if(input?.type==='volleyball'){world.volleyballActivity?.request(world,player,input.action,ticks);return;}
   if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
@@ -408,6 +416,7 @@ sockets.on('connection', ws => {
     const player=players.get(id);
     match?.release(player);
     parkRide(world,player,!player.state.grounded);
+    world.blackjack?.leave(player);
     bank?.leave(player,ticks);
     world.volleyballActivity?.leave(id,ticks);
     world.wanted?.set(player,false);
@@ -525,6 +534,7 @@ function tick() {
         damageActor(player,player.life.hp,ticks);
       }
     }
+    const seatedAtTable=world.blackjack?.step(player,ticks);
     if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
@@ -549,6 +559,7 @@ function tick() {
       }
       continue;
     }
+    if(seatedAtTable)continue;
     if(advanceElevator(world,player,ticks))continue;
     if (fallingBody) continue;
     if(player.clubSince!=null){

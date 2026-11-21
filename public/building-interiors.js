@@ -1,3 +1,4 @@
+import {casinoName} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
 // the camera occupies. Door bits are the only persistent per-room network data.
 import {outpostOpenings} from './outpost-openings.js';
@@ -101,8 +102,8 @@ export function initializeBuildingInteriors(buildings,city,terrain){
   }
   const c=plan(21,{x:-70.75,z:-54.4,w:8.8,d:9.8},'existing','Club Lucero');
   door(c,c.x,.8,-49.49,'x',1.98,'Club entrance');
-  const salon=plan(22,{x:25,z:-395,w:24,d:10},'salon','Lantern Yacht Club');
-  door(salon,26.2,.8,-389.98,'x',2.34,'Yacht club entrance');
+  const salon=plan(22,{x:25,z:-395,w:24,d:10},'salon',casinoName);
+  door(salon,26.2,.8,-389.98,'x',2.34,'Casino entrance');
   const casa=plan(23,{x:-25,z:-397,w:30,d:26},'existing','Casa de Luma','casa');
   for(const [x,z,axis,width,label] of [[-25,-401,'x',3.1,'Gallery'],[-36.45,-401,'x',2.4,'Bedroom wing'],[-13.75,-401,'x',2.4,'Dining wing'],
     ...[-397.25,-387.05].flatMap(z=>[[-32.6,z,'z',2.3,'Bedroom courtyard'],[-17.4,z,'z',2.3,'Dining courtyard']])])door(casa,x,1.07,z,axis,width,label);

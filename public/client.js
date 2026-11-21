@@ -1,3 +1,5 @@
+import {casinoPanel} from './casino-panel.js';
+import {nearBlackjack} from './casino-layout.js';
 import {safeInReach} from './estate-safes.js';
 import {nearbySidearm} from './market-goods.js';
 import {yachtDoorAction} from './yacht-layout.js';
@@ -171,6 +173,14 @@ function showBankReceipt(message){
 function bankAction(action,serial,pursuit=false){
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action,seq:++bankSeq,serial,pursuit}));
 }
+const casino=casinoPanel(byId('casino-dialog'),msg=>{
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(msg));
+},releaseLook,()=>{stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});});
+const atTable=()=>id!=null && world?.casino?.player===id;
+function tablePrompt(feet){
+  if(!world?.casino || atTable() || !canChangeStance(feet) || !nearBlackjack(feet))return '';
+  return world.casino.player==null?'Sit at blackjack':'Blackjack seat occupied';
+}
 const bankDialog=bankConversation(byId('bank-dialog'),{
   enter:releaseLook,
   leave(){stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});},
@@ -307,6 +317,7 @@ byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if(elevator.open){if(e.code==='Escape' || e.code==='KeyE'){e.preventDefault();if(!e.repeat)elevator.close();}return;}
+  if(byId('casino-dialog').open)return;
   if(bankDialog.open){
     if(e.code==='KeyE' || e.code==='Escape'){
       e.preventDefault();
@@ -371,6 +382,10 @@ function pressAction(code){
   if(code==='KeyG' && mode)handleCase=true;
   if(code==='KeyI')openBag();
   if(code==='KeyE'){
+    if(tablePrompt(self)){
+      if(world.casino.player==null)socket?.send(JSON.stringify({type:'blackjack',action:'sit',revision:world.casino.revision}));
+      return;
+    }
     if(volleyballStatus()?.use){volleyballAction('join');return;}
     const safe=nearbySafe();
     if(safe){
@@ -588,6 +603,7 @@ function connect() {
       }
       const wasPlayingVolleyball=inVolleyball();
       world = m.world;world.simTick=m.simTick;
+      casino.update(world.casino,id,market.cash);
       const volley=inVolleyball();
       if(!wasPlayingVolleyball && volley){
         clearInput();pending=[];
@@ -615,7 +631,7 @@ function connect() {
       if(gunner && gunner!==wasGunner) {camera.yaw=vehicleById(world,gunner).turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
-      const corrected = vitals.clubSince!=null || isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
+      const corrected = atTable() || vitals.clubSince!=null || isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
       self = corrected;
       const shots=readShots(world.shots);
@@ -634,7 +650,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
-    elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
+    casino.close();elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -654,7 +670,7 @@ function connect() {
 }
 
 function movementInput() {
-  if(vitals.clubSince!=null)return {x:0,z:0,lateral:0,forward:0,moving:false,sprint:false};
+  if(atTable() || vitals.clubSince!=null)return {x:0,z:0,lateral:0,forward:0,moving:false,sprint:false};
   const right = held.has('KeyD') || held.has('ArrowRight');
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
@@ -710,7 +726,7 @@ function tick() {
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
   if (pending.length > 150) { socket.close(); return; }
-  if (vitals.clubSince==null && !pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp, world);
+  if (!atTable() && vitals.clubSince==null && !pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp, world);
 }
 
 // Interpolate only live rounds. An impact snapshot immediately retires its tracer.
@@ -940,6 +956,8 @@ function updateEquipment(local) {
     prompt.textContent=local.ride.kind==='bike' ? 'Bicycle · W pedal · S brake · A/D steer · E dismount' : 'Skateboard · W push · S brake · A/D carve · Space ollie · E step off';
     byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike';byId('space-action').textContent='Ollie';canvas.classList.remove('armed');
   }
+  const tableHint=tablePrompt(local);
+  if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(volleyball && !bankDialog.open && !market.current && !talk.current){
     const labels=[volleyball.score,volleyball.detail];
@@ -959,7 +977,7 @@ function updateEquipment(local) {
   if(touch.active){
     const role=basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
@@ -1091,7 +1109,7 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const free=vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
+    const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
     const local = { ...display,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,

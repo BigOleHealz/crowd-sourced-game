@@ -1,3 +1,5 @@
+import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
+import {casinoSeat} from './casino-layout.js';
 import {fitParadeBreeches} from './parade-costume.js';
 import {streetRideView,riderPose} from './street-ride-view.js';
 import {districtFireEffects} from './fire-effects.js';
@@ -1041,6 +1043,7 @@ export function createScene(canvas,onFootfall) {
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
+  const updateCasino=CITY?casinoView(scene,Batch):null;
   const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1123,7 +1126,7 @@ export function createScene(canvas,onFootfall) {
   const volleyballShirts=new Map();
   function resident(id,name,officer=false){
     const athlete=volleyballLooks[id];
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]??athlete??basketballLooks[id]);
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
@@ -1132,6 +1135,7 @@ export function createScene(canvas,onFootfall) {
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     dressPerson(rig,look,Batch,material,{faces,shirts});
+    if(dealerLooks[id])uniformDealer(rig,Batch,material);
     if(officer)rig.tools=carriedEquipment(rig.upper,scene,Batch);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
@@ -1272,8 +1276,9 @@ export function createScene(canvas,onFootfall) {
     const hoopPlayers=onBasketballCourt(local,120) ?
       basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
+    updateCasino?.(world.casino,local);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...athletes,...hoopPlayers]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1282,7 +1287,7 @@ export function createScene(canvas,onFootfall) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.volleyball && !state.performer && !state.bankRole && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.volleyball && !state.performer && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1292,7 +1297,7 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1301,7 +1306,7 @@ export function createScene(canvas,onFootfall) {
         if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
       }
       a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
-      a.label.sprite.visible = !state.bankRole && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
+      a.label.sprite.visible = !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
@@ -1325,6 +1330,7 @@ export function createScene(canvas,onFootfall) {
             }
           }
         }
+        if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
         if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
@@ -1503,6 +1509,10 @@ export function createScene(canvas,onFootfall) {
       camera.position.set(pivot.x,pivot.y,pivot.z);
       camera.translateZ(-1.12);
       avatars.get(local.id).root.visible=false;
+    }
+    if(world.casino?.player===local.id && !local.dead){
+      camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
+      camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
