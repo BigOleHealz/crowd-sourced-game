@@ -1,3 +1,4 @@
+import {garageAt} from './road-garages.js';
 import {CITY,MAP} from './world.js';
 import {bridges,roadway,within} from './brickell-map.js';
 import {onBeach} from './beach-layout.js';
@@ -14,6 +15,7 @@ export function trailDistance(x,z){
 }
 
 export function roadSurfaceAt(x,z){
+  if(garageAt({x,z}))return 'asphalt';
   if(CITY){
     if(bridges.some(b=>within(b,x,z)))return 'deck';
     if(roadway(x,z))return 'asphalt';
