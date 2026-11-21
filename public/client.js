@@ -32,6 +32,9 @@ import { drivenRoad, nearestVehicle } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
+import {sprintHud} from './marina-sprint-view.js';
+import {sprintStart,sprintGates} from './marina-sprint.js';
+let sprintBoard=[];
 const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
@@ -161,6 +164,9 @@ window.addEventListener('keydown', e => {
     e.preventDefault();
     if (!e.repeat) audio.toggleMute();
     return;
+  }
+  if(e.code==='KeyT' && CITY && !mode && byId('guide').hidden && !e.repeat && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN){
+    socket.send(JSON.stringify({type:'marinaSprint'}));return;
   }
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
@@ -308,9 +314,11 @@ function connect() {
     }).catch(error => {console.error(error); connection.close();});
   };
   function receive(m) {
+    if(m.type==='marinaBoard'){sprintBoard=m.rows;return;}
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
+      sprintBoard=m.raceBoard??[];
       connectedBuild=m.build;
       if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
       previousScoreKey=m.scoreKey;
@@ -378,6 +386,7 @@ function connect() {
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
+    byId('marina-card').hidden=true;
     byId('match-card').hidden=true;
     byId('flight-cursor').hidden=true;
     id = null; self = null; world = null; pending = []; samples = [];
@@ -650,6 +659,10 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
       ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
+    if(!mode){
+      const next=vitals.race?.phase==='racing'?sprintGates[vitals.race.next]:sprintStart;
+      ctx.fillStyle='#6affdc';ctx.beginPath();ctx.arc(sx(next.x),sy(next.z),4,0,Math.PI*2);ctx.fill();
+    }
     ctx.fillStyle='#3b4b4c';
     for(const b of [...MAP.buildings,...lanternBuildings]) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
   } else {
@@ -718,7 +731,7 @@ function frame(time) {
     const free=!vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -763,6 +776,7 @@ function frame(time) {
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
+      if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id);

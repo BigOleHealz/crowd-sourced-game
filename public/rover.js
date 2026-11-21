@@ -6,7 +6,7 @@ import {noteGlass} from './pane-damage.js';
 import {breakFrontage,shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP} from './street-lamps.js';
 import { roadContact, sweepRoad } from './road-contact.js';
-import {flatTireCount} from './road-wheel-layout.js';
+import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
 
@@ -114,6 +114,21 @@ export function recoverRover(world,dt,kind='rover') {
 const bumperContacts=new WeakMap();
 let impactSequence=0;
 
+function contactPanel(car,nx,nz){
+  const c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const side=-(c*nx+s*nz),end=s*nx-c*nz;
+  return Math.abs(side)>Math.abs(end)?(side>0?'right':'left'):(end<0?'front':'rear');
+}
+
+function damagePanel(world,car,panel,amount,players,team){
+  if(!amount || car.wrecked)return;
+  car.bodyDamage??={front:0,rear:0,left:0,right:0};
+  car.bodyDamage[panel]=Math.min(1,car.bodyDamage[panel]+amount/135);
+  damageRover(world,amount,players,car.kind,team);
+}
+
+const roadMass=car=>civilianProfiles[car.model]?.mass??(car.kind==='supercar'?1540:CITY?2070:1630);
+
 function registerImpact(world,r,hit,speed,players){
   if(speed<.4)return;
   const active=bumperContacts.get(r);
@@ -121,19 +136,26 @@ function registerImpact(world,r,hit,speed,players){
     active.clearTime=0;return;
   }
   bumperContacts.set(r,{object:hit.object,clearTime:0});
-  const c=Math.cos(r.yaw),s=Math.sin(r.yaw);
-  const side=-(c*hit.nx+s*hit.nz),end=s*hit.nx-c*hit.nz;
-  const panel=Math.abs(side)>Math.abs(end)?(side>0?'right':'left'):(end<0?'front':'rear');
-  const excess=Math.max(0,speed-1.65);
-  const damage=Math.round(.60*excess*excess+.6*excess);
-  const sport=r.kind==='supercar';
-  const reach=Math.abs(side)*(sport?supercarLayout.halfWidth:.82)+Math.abs(end)*(sport?supercarLayout.halfLength:CITY?1.69:1.55);
-  r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-hit.nx*reach,y:r.y+.55,z:r.z-hit.nz*reach,panel,damage};
-  if(damage){
-    r.bodyDamage??={front:0,rear:0,left:0,right:0};
-    r.bodyDamage[panel]=Math.min(1,r.bodyDamage[panel]+damage/135);
-    damageRover(world,damage,players,r.kind);
+  const {object:other,nx,nz}=hit;
+  const otherRoad=other===world.rover || other===world.supercar || (other.model && roadByKind(world,other.kind)===other);
+  let share=1;
+  if(otherRoad){
+    // Contact can be seen by both drivers in one tick. Use a single closing
+    // speed, then split the impact by mass. Matching velocities cause no dent.
+    if(bumperContacts.get(other)?.object===r)return;
+    const s=Math.sin(other.yaw),c=Math.cos(other.yaw);
+    speed=Math.max(0,speed+other.speed*(nx*s-nz*c)+(other.lateralSpeed??0)*(nx*c+nz*s));
+    share=2*roadMass(other)/(roadMass(r)+roadMass(other));
   }
+  const panel=contactPanel(r,nx,nz),excess=Math.max(0,speed-1.65);
+  const severity=.60*excess*excess+.6*excess,damage=Math.round(share*severity);
+  const profile=civilianProfiles[r.model]??(r.kind==='supercar'?supercarLayout:null);
+  const side=Math.abs(Math.cos(r.yaw)*nx+Math.sin(r.yaw)*nz),end=Math.abs(Math.sin(r.yaw)*nx-Math.cos(r.yaw)*nz);
+  const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
+  r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-nx*reach,y:r.y+.55,z:r.z-nz*reach,panel,damage};
+  const team=players?.get(r.driver)?.team;
+  damagePanel(world,r,panel,damage,players);
+  if(otherRoad)damagePanel(world,other,contactPanel(other,-nx,-nz),Math.round((2-share)*severity),players,team);
 }
 
 const throttleMemory=new WeakMap(), upshifts=[9,17,25,30];
@@ -157,7 +179,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const reverseLimit=sport ? supercarLayout.reverseSpeed : profile?.reverseSpeed??(CITY ? 5.4 : 2.8);
   const topSpeed=sport?supercarLayout.maxSpeed:profile?.topSpeed??16;
   const flats=flatTireCount(r);
-  const mobility=1/(1+.47*flats);
+  const mobility=flatMobility(r);
   const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);

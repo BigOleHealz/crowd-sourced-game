@@ -1,4 +1,6 @@
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
+import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
+import {roadContact} from './public/road-contact.js';
 import {nearTank,leaveTank,stepTank} from './public/tank.js';
 import {nearJet,stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
@@ -52,6 +54,7 @@ const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
 const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
+const marina=CITY && !mode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
@@ -59,7 +62,7 @@ const departedScores=new Map();
 let match;
 function freshWorld(){
   const w=newExpedition();
-  if(CITY)w.traffic=newCityTraffic();
+  w.traffic=newCityTraffic();
   if(mode){
     match=createMatch(mode);
     w.match=match.state;
@@ -70,7 +73,7 @@ function freshWorld(){
 let world = freshWorld();
 function freshResidents(){
   const residents=newRivals();
-  if(CITY)syncTrafficDrivers(world,residents);
+  syncTrafficDrivers(world,residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -175,7 +178,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -202,6 +205,27 @@ function acceptInput(player, data, binary) {
   }
   if (input?.type === 'snapshotEncoding' && input.encoding === 'deflate') {
     player.packedSnapshots = true;
+    return;
+  }
+  if(input?.type==='marinaSprint' && marina){
+    const car=drivenRoad(world,player.id);
+    if(!car || car.wrecked || !player.life.hp)return;
+    const run=marina.run(player);
+    if(run?.phase==='finished' && run.car===car && Math.hypot(car.x-sprintGates.at(-1).x,car.z-sprintGates.at(-1).z)<18){
+      if(car.gunner!=null || car.cargo || car.bridgeFlight){
+        run.message='Park and unload passengers or cargo to retry.';return;
+      }
+      const actors=[...players.values(),...npcs].filter(p=>p!==player);
+      const gridZ=[sprintStart.z-3.8,sprintStart.z+3.8,sprintStart.z].find(z=>
+        !actors.some(p=>Math.hypot(p.state.x-sprintStart.x,p.state.z-z)<3.7) &&
+        !roadContact(world,sprintStart.x,z,0,sprintStart.x,z,car));
+      if(gridZ===undefined){
+        run.message='Start grid occupied · press T to try again.';return;
+      }
+      Object.assign(car,{x:sprintStart.x,z:gridZ,y:groundHeight(sprintStart.x,gridZ),yaw:0});
+      stopRover(car);player.supercarInput=null;
+    }
+    marina.start(player,car,performance.now());
     return;
   }
   if (input?.type === 'unstuck') {
@@ -335,7 +359,7 @@ sockets.on('connection', ws => {
     updateRoom();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', build, scoreKey:player.scoreKey, id, state: playerState(players.get(id)), world: worldView() }));
+  ws.send(JSON.stringify({ type: 'welcome', build, ...(marina && {raceBoard:marina.board()}), scoreKey:player.scoreKey, id, state: playerState(players.get(id)), world: worldView() }));
   publish();
 });
 
@@ -384,7 +408,7 @@ function tick() {
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
   if (players.size) {
-    if(CITY)stepCityTraffic(world,players,npcs,step);
+    stepCityTraffic(world,players,npcs,step);
     for (const npc of npcs) if(!trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
@@ -560,7 +584,8 @@ function tick() {
       road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
     }else{
       const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
-      if(road.model)continue;
+      // Driven civilian suspension already advanced with its driving input.
+      if(road.model && (road.driver!=null || !road.flatTires))continue;
       stepSuspension(road,step,(x,z)=>{
         const ground=groundHeight(x,z,road.y+1.65,world.doors);
         // Until takeoff, an unsupported axle follows the end of its ramp.
@@ -586,6 +611,17 @@ function tick() {
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);
+  }
+  if(marina){
+    let changed=false;
+    const now=performance.now();
+    for(const p of players.values()){
+      if(marina.update(p,drivenRoad(world,p.id),now))changed=true;
+    }
+    if(changed){
+      const result=JSON.stringify({type:'marinaBoard',rows:marina.board()});
+      for(const {ws} of players.values())if(ws.readyState===WebSocket.OPEN)ws.send(result);
+    }
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);

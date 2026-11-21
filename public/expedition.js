@@ -284,17 +284,15 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     for(const b of world.boats??[]){
       if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players);
     }
-    if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
-      if(!areaImpact && Number.isInteger(wheel))world.rover.flatTires=(world.rover.flatTires ?? 0)|(1<<wheel);
-      else damageRover(world,vehicleDamage,players,'rover',score?.team);
+    function hitRoad(car,kind,burstHeight){
+      if(!car || source===kind)return;
+      if(hitKind!==kind && !(areaImpact && withinBurst(center,car,burstHeight)))return;
+      if(!areaImpact && Number.isInteger(wheel))car.flatTires=(car.flatTires??0)|(1<<wheel);
+      else damageRover(world,vehicleDamage,players,kind,score?.team);
     }
-    for(const car of world.traffic??[]){
-      if(target===car || (areaImpact && withinBurst(center,car,.7)))damageRover(world,vehicleDamage,players,car.id,score?.team);
-    }
-    if(hitKind==='supercar' || (areaImpact && world.supercar && withinBurst(center,world.supercar,.55))){
-      if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;
-      else damageRover(world,vehicleDamage,players,'supercar',score?.team);
-    }
+    hitRoad(world.rover,'rover',.8);
+    hitRoad(world.supercar,'supercar',.55);
+    for(const car of world.traffic??[])hitRoad(car,car.id,.7);
     if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players);
     if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players);
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {

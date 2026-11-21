@@ -1,9 +1,14 @@
+import {civilianProfiles} from './civilian-fleet.js';
 import {supercarLayout} from './supercar-layout.js';
 // Left front, left rear, right front, right rear in vehicle-local metres.
 export const wheelStations=[[-.70,-.94],[-.70,.95],[.70,-.94],[.70,.95]];
 
 const sportWheels=[-supercarLayout.axle,supercarLayout.axle].flatMap(x=>supercarLayout.wheels.map(z=>[x,z]));
-export const wheelsFor=car=>car.kind==='supercar'?sportWheels:wheelStations;
+const civilianWheels=Object.fromEntries(Object.entries(civilianProfiles).map(([model,{bodyWidth,axles}])=>[
+  model,[-1,1].flatMap(side=>axles.map(z=>[side*(bodyWidth-.078),z])),
+]));
+export const wheelsFor=car=>civilianWheels[car.model] ?? (car.kind==='supercar'?sportWheels:wheelStations);
+export const flatMobility=car=>1/(1+.47*flatTireCount(car));
 
 export const flatWheelDrop=.13;
 export const isFlat=(rover,index)=>Boolean((rover.flatTires ?? 0)&(1<<index));
