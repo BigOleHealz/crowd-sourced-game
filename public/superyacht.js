@@ -22,11 +22,12 @@ export function interactYacht(world,player){
   }
   return prompt==='occupied' || prompt==='gunOccupied';
 }
-export function damageYacht(world,amount,team){
+export function damageYacht(world,amount,team,owner){
   const y=world.yacht;
   if(!y || y.wrecked || !Number.isFinite(amount) || amount<=0)return;
   y.hp=Math.max(0,y.hp-amount);
   if(y.hp)return;
+  world.wanted?.record(owner,'wreck');
   world.rules?.wreckVehicle(team,'yacht');
   Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,yawRate:0,slip:0,throttle:0,gangway:false,recoverySeconds:9});
   if(world.heli?.onYacht){
@@ -104,9 +105,10 @@ export function stepYacht(world,input,dt,players){
         const c=Math.cos(next.yaw),s=Math.sin(next.yaw);
         const inBounds=samples.every(([dx,dz])=>insideTravelArea(next.x+c*dx-s*dz,next.z+s*dx+c*dz));
         if(inBounds){
-          damageYacht(world,impact);
+          const owner=world.wanted?.session(players?.get(y.driver));
+          damageYacht(world,impact,undefined,owner);
           const hull=world.boats.find(b=>!b.wrecked && yachtOverlap(next,b.x,b.z,b.yaw,1.1,2.75));
-          if(hull)damageBoat(world,hull,impact,players);
+          if(hull)damageBoat(world,hull,impact,players,owner);
         }
       }
       y.speed=y.yawRate=y.slip=0;

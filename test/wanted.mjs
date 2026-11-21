@@ -38,7 +38,7 @@ function fixture(){
   w.patrolCars=[car];shot(460);assert(car.wrecked);assert.equal(w.wanted.session(p).heat,9);
   shot(535);assert.equal(w.wanted.session(p).heat,9);
   assert.equal(w.shots.filter(s=>s.weapon==='vehicleWreck'&&s.source===car.id).length,1);
-  w.wanted.set(p,false);assert.equal(w.patrolCars.length,0);assert.equal(level(540),0);
+  w.wanted.set(p,false);assert.equal(w.patrolCars,undefined);assert.equal(level(540),0);
   // An old projectile, reconnect or toggling the system again cannot reclaim its ownership.
   w.wanted.set(p,true);fire(w,p,{aimYaw:0,aimPitch:0},610,players,npcs);
   const m=w.missiles.at(-1);assert(w.wanted.owner(m));w.wanted.set(p,false);w.wanted.set(p,true);assert.equal(w.wanted.owner(m),undefined);
@@ -80,5 +80,27 @@ function fixture(){
   const before=npcs.slice();w.wanted.set(p,false);
   assert.equal(npcs.length,7);assert(npcs.every(o=>before.includes(o)&&o.targetId!==p.id));
   assert.equal(w.wanted.view(b,90).stars,5);
+}
+{
+  const {w,p,b,players,npcs}=fixture(),calls=[];
+  w.wanted=createWanted(w,players,{stepCruisers(_world,officers){calls.push(officers.map(o=>o.id));
+    w.patrolCars=officers.map(o=>({officerId:o.id,targetId:o.targetId}));}});
+  for(const actor of [p,b]){w.wanted.set(actor,true);w.wanted.record(w.wanted.session(actor),'theft',1);}
+  w.wanted.step(npcs,1);assert.equal(calls.length,1);assert.equal(w.patrolCars.length,2);
+  w.wanted.set(p,false);assert.equal(calls.length,1);assert.equal(w.patrolCars.length,1);
+  w.wanted.set(b,false);assert.deepEqual(calls[1],[]);assert.equal(w.patrolCars,undefined);
+  assert.equal(npcs.length,0);w.wanted.step(npcs,2);assert.equal(calls.length,2);
+}
+{
+  const {w,p,players}=fixture();w.wanted.set(p,true);
+  const {stepJet}=await import('../public/jet.js');
+  Object.assign(w.jet,{pilot:p.id,x:0,y:.72,z:-184,pitch:-1,speed:21,grounded:false});
+  stepJet(w,{},1/30,players);assert(w.jet.wrecked);assert.equal(w.wanted.session(p).heat,2);
+  stepJet(w,{},1/30,players);assert.equal(w.wanted.session(p).heat,2);
+  const {stepBoat}=await import('../public/patrol-boats.js'),[bay,key]=w.boats;
+  Object.assign(bay,{x:46,z:10,yaw:0,speed:12,driver:p.id,hp:1});
+  Object.assign(key,{x:46,z:3,yaw:0,speed:0,hp:1});
+  for(let t=0;t<25;t++)stepBoat(w,bay,{throttle:1},1/30,players);
+  assert(key.wrecked&&bay.wrecked);assert.equal(w.wanted.session(p).heat,6,'two independently destroyed hulls');
 }
 console.log('PASS confirmed theft, direct/splash/vehicle defeats, ordinary and patrol wreck deduplication, five levels, bounded response, crossfire protection, escape, opt-out and defeat reset.');

@@ -243,15 +243,11 @@ function targets(world,shooter,players,npcs,source=null,round) {
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score,owner) {
   let injury=null;
-  function damageVehicle(vehicle,apply){
-    const intact=!vehicle.wrecked;apply();
-    if(intact && vehicle.wrecked)world.wanted?.record(owner,'wreck',tick);
-  }
   if(hitKind==='insured')world.rules?.damageLot(score?.team,target,damage);
   if(hitKind==='vehicleGlass'){
     const {vehicle,paneId}=target;
     (vehicle.brokenGlass??={})[paneId]=true;noteGlass(world.doors,to);
-    if(vehicle===world.yacht && source!=='superyacht')damageVehicle(world.yacht,()=>damageYacht(world,vehicleDamage,score?.team));
+    if(vehicle===world.yacht && source!=='superyacht')damageYacht(world,vehicleDamage,score?.team,owner);
     return null;
   }
   if(hitKind==='glass'){
@@ -300,15 +296,15 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         }
       }
     }
-    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageVehicle(world.yacht,()=>damageYacht(world,vehicleDamage,score?.team));
+    if(source!=='superyacht' && hitKind===world.yacht?.id && world.yacht)damageYacht(world,vehicleDamage,score?.team,owner);
     for(const b of world.boats??[]){
-      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageVehicle(b,()=>damageBoat(world,b,vehicleDamage,players));
+      if(b.id!==source && (hitKind===b.id || (areaImpact && withinBurst(center,b,.55))))damageBoat(world,b,vehicleDamage,players,owner);
     }
     function hitRoad(car,kind,burstHeight){
       if(!car || source===kind)return;
       if(hitKind!==kind && !(areaImpact && withinBurst(center,car,burstHeight)))return;
       if(!areaImpact && Number.isInteger(wheel))car.flatTires=(car.flatTires??0)|(1<<wheel);
-      else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageVehicle(car,()=>damageRover(world,vehicleDamage,players,kind,score?.team));}
+      else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageRover(world,vehicleDamage,players,kind,score?.team,owner);}
     }
     hitRoad(world.rover,'rover',.8);
     hitRoad(world.supercar,'supercar',.55);
@@ -316,15 +312,17 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     for(const car of world.patrolCars??[]){
       if(!owner || car.targetId!==shooter || car.wrecked)continue;
       if(hitKind!==car.id && !(areaImpact && withinBurst(center,car,.7)))continue;
-      damageVehicle(car,()=>{
-        car.hp=Math.max(0,car.hp-vehicleDamage);
-        if(!car.hp){car.wrecked=true;car.speed=0;car.recoverySeconds=0;reportVehicleWreck(world,car,car.id,'road',tick);}
-      });
+      car.hp=Math.max(0,car.hp-vehicleDamage);
+      if(!car.hp){
+        car.wrecked=true;car.speed=0;car.recoverySeconds=0;
+        world.wanted.record(owner,'wreck',tick);
+        reportVehicleWreck(world,car,car.id,'road',tick);
+      }
     }
-    if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageVehicle(world.tank,()=>damageTank(world,vehicleDamage,players));
-    if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageVehicle(world.jet,()=>damageJet(world,vehicleDamage,players));
+    if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players,owner);
+    if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players,owner);
     if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
-      damageVehicle(world.heli,()=>damageHelicopter(world,vehicleDamage,players,shooter,score?.team));
+      damageHelicopter(world,vehicleDamage,players,shooter,score?.team,owner);
     }
   }
   return injury;
