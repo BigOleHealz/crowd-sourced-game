@@ -1,10 +1,13 @@
 import {avenues,streets,harbor,streetPlan} from './brickell-map.js';
 import {MAP,CITY} from './world.js';
+import {roadGarages} from './road-garages.js';
 import {churchPath} from './ridge-church.js';
 
 export const destinations=CITY?new Map([
-  ['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Harbor Key Beach',[32,-205]],['Lantern Point Estates',[-49,-419]],
+  ['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Lantern Point Estates',[-49,-419]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
+
+for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);
 
 // Use the intersecting road centrelines, with the island links limited to the
 // two drivable causeways. A destination may split an existing avenue segment.
@@ -22,16 +25,18 @@ function path(coords){
   }
 }
 if(CITY){
-  for(const z of streets)path([-71,...avenues,40].map(x=>[x,z]));
-  for(const x of avenues)path([x===0?-60:-55,...streets,...(x===0?[14]:[]),71].sort((a,b)=>a-b).map(z=>[x,z]));
+  for(const z of streets)path([-71,...avenues,...(z===-45?[-16]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
+  for(const x of avenues)path([x===0?-60:-55,...streets,...(x===0?[14]:[]),...(x===32?[roadGarages[0].z]:[]),71].sort((a,b)=>a-b).map(z=>[x,z]));
   const outer=[streetPlan.westStreet,0,streetPlan.eastStreet];
   for(const z of [harbor.crossing,streetPlan.northStreet])path(outer.map(x=>[x,z]));
   for(const x of outer)path([[x,harbor.crossing],[x,streetPlan.northStreet]]);
   path([[0,-60],[0,harbor.crossing]]);path([[0,streetPlan.northStreet],[0,-370]]);
   for(const z of [-466,-419,-370])path([-49,0,49].map(x=>[x,z]));
   for(const x of [-49,0,49])path([-466,-419,...(x===49?[-377]:[]),-370].map(z=>[x,z]));
+  path([[49,-370],destinations.get(roadGarages[1].name)]);
 }else{
   path(MAP.trail);path(MAP.northTrail);path(churchPath);
+  path([[0,15],[-3,19.5],[-8,20.5],destinations.get(roadGarages[0].name)]);
 }
 
 function project(p,a,b){
