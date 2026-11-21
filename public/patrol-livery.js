@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const lens=new THREE.BoxGeometry(.54,.083,.20);
+const lit=[0x56ceff,0xff6e43].map(color=>new THREE.MeshBasicMaterial({color,toneMapped:false}));
 let doorMaterial;
 function lettering(){
   if(!doorMaterial){
@@ -24,4 +26,13 @@ export function markPatrolSedan(chassis,body,box){
   box(body,0x45b4c5,-.31,1.618,.04,.54,.083,.20);
   box(body,0xf2af54,.31,1.618,.04,.54,.083,.20);
   box(body,0xe8dfc1,0,1.623,.04,.09,.073,.2);
+  const lamps=lit.map((material,i)=>{
+    const lamp=new THREE.Mesh(lens,material);lamp.name='Patrol beacon';
+    lamp.position.set(i?.31:-.31,1.618,.04);lamp.scale.setScalar(1.025);
+    lamp.visible=false;chassis.add(lamp);return lamp;
+  });
+  return (on,time)=>{
+    const phase=time%1.0;
+    lamps[0].visible=on && phase<.35;lamps[1].visible=on && phase>=.5 && phase<.85;
+  };
 }
