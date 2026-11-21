@@ -1,3 +1,4 @@
+import {stepHydrants} from './public/hydrants.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -623,6 +624,7 @@ function tick() {
       for(const {ws} of players.values())if(ws.readyState===WebSocket.OPEN)ws.send(result);
     }
   }
+  stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
