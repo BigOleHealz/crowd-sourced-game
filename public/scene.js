@@ -1454,6 +1454,9 @@ export function createScene(canvas,onFootfall) {
     const interiorTarget=Math.max(doorway*.45,indoors ? .28+.72*THREE.MathUtils.smoothstep(depth,0,1.10) : 0);
     interiorBlend=THREE.MathUtils.damp(interiorBlend,interiorTarget,8,dt);
     const roomBlend=interiorBlend,nearInterior=indoors || doorway>0 || roomBlend>.015;
+    // Horizontal field of view narrows in portrait while the shoulder rig is
+    // measured in metres. Keep the avatar inside the left third of the screen.
+    const portraitInset=view.touch?Math.max(0,1-camera.aspect):0;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
@@ -1468,7 +1471,7 @@ export function createScene(canvas,onFootfall) {
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
-      let shoulder=local.parachute ? 0 : mix(mix(.66,.37,roomBlend),.19,doorway);
+      let shoulder=local.parachute ? 0 : mix(mix(.66,.37,roomBlend),.19,doorway)*(1-portraitInset);
       const shoulderHeight=(local.clubSince!=null?1.07:1.46)-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
       if(nearInterior && shoulder){
         sideways.set(cs,0,sn);
@@ -1503,7 +1506,7 @@ export function createScene(canvas,onFootfall) {
       target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht);
