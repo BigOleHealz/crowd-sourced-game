@@ -1,3 +1,4 @@
+import {collapsedLot} from './tower-damage.js';
 import {yachtTopAt,yachtDeckHeight,yachtLocal,yachtPad,yachtDeckY} from './yacht-layout.js';
 import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -81,6 +82,10 @@ function driftAfterBailout(world, dt, players) {
 
 export function recoverHelicopter(world, dt, players) {
   const heli = world.heli;
+  if(heli.pilot==null && !heli.wrecked && heli.abandonedFor==null && (flightStates.get(heli).roofDrop || lostRoof(world))){
+    fly(world,{x:0,z:0,lift:0,aimYaw:heli.yaw},dt,players);
+    return;
+  }
   if (heli.abandonedFor != null) return driftAfterBailout(world, dt, players);
   if (!heli.wrecked) return;
   const ground = Math.max(groundHeight(heli.x, heli.z, Infinity,world.doors), MAP.waterY);
@@ -102,12 +107,12 @@ function approach(current, target, maxDelta) {
 
 // Wheel contact points in local metres after the airframe model's 1.23 scale.
 const wheels = [[-1.22, -.85], [1.22, -.85], [0, 4.23]];
-function roofSupportsWheels(h, floor, hp) {
+function roofSupportsWheels(h, floor, hp, doors) {
   const c = Math.cos(h.yaw), s = Math.sin(h.yaw);
   return wheels.every(([side, aft]) => {
     const x = h.x + side*c - aft*s, z = h.z + side*s + aft*c;
     // Padding keeps the fuselage clear of walls, but cannot support a wheel in midair.
-    return onBuildingLot(x, z) && Math.abs(solidTopAt(x, z, hp) - floor) < .02;
+    return onBuildingLot(x, z) && Math.abs(solidTopAt(x, z, hp,0,Infinity,doors) - floor) < .02;
   });
 }
 
@@ -146,10 +151,21 @@ function flightFloor(x, z, hp,world) {
   return floor;
 }
 
+function lostRoof(world){
+  const h=world.heli;
+  return CITY && h.grounded && !h.onYacht && collapsedLot(MAP.buildings,world.doors,h.x,h.z) &&
+    h.y>flightFloor(h.x,h.z,world.hp,world)+.22;
+}
+
 export function fly(world, input, dt, players) {
   const h = world.heli;
-  if (h.wrecked || (h.grounded && input.lift <= 0)) return;
-  const motion = flightStates.get(h);
+  if(h.wrecked)return;
+  const motion=flightStates.get(h);
+  if(lostRoof(world)){
+    h.grounded=false;motion.floorContact=false;motion.roofDrop=true;
+  }
+  if(h.grounded && input.lift<=0)return;
+  if(input.lift>0)delete motion.roofDrop;
   // The rotor disc tips toward the velocity error. Its horizontal thrust
   // accelerates the hull, while drag and the hover assist bleed off airspeed.
   const stick = Math.max(1, Math.hypot(input.x, input.z));
@@ -173,14 +189,15 @@ export function fly(world, input, dt, players) {
   h.roll = -Math.atan2(right, 21);
   const liftTarget = input.lift * (input.lift < 0 ? 6 : 4.8);
   const liftFraction = Math.cos(h.pitch) * Math.cos(h.roll);
-  motion.vy = approach(motion.vy, liftTarget * (input.lift > 0 ? liftFraction : 1),
+  motion.vy = motion.roofDrop ? Math.max(-35,motion.vy-9.81*dt) : approach(motion.vy, liftTarget * (input.lift > 0 ? liftFraction : 1),
     (input.lift ? 8 * liftFraction : 10) * dt);
   const nextY = h.y + motion.vy * dt;
   const floor = flightFloor(h.x, h.z, world.hp, world);
   const rooftop = CITY && nextY <= floor + .22 && onBuildingLot(h.x, h.z) &&
-    roofSupportsWheels(h, floor, world.hp);
+    roofSupportsWheels(h, floor, world.hp,world.doors);
   const yachtLanding=onFlightDeck(world.yacht,h,floor);
-  const landable = yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
+  const rubbleLanding=motion.roofDrop && collapsedLot(MAP.buildings,world.doors,h.x,h.z) && Math.abs(floor-groundHeight(h.x,h.z,Infinity,world.doors))<.05;
+  const landable = rubbleLanding || yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
   const minY = floor + (landable ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
   if (floorContact && !motion.floorContact) {
@@ -197,6 +214,7 @@ export function fly(world, input, dt, players) {
   h.grounded = landable && floorContact;
   if(h.grounded && yachtLanding)h.onYacht=true;else delete h.onYacht;
   if (h.grounded || h.wrecked) {
+    delete motion.roofDrop;
     motion.vx = 0;
     motion.vz = 0;
     motion.tiltX = motion.tiltZ = motion.yawRate = h.pitch = h.roll = 0;
