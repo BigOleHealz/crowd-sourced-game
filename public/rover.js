@@ -20,7 +20,7 @@ export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function stopRover(r) {
-  r.speed=0;r.braking=false;
+  r.speed=0;r.steer=0;r.braking=false;
   r.lateralSpeed=0;
   if(r.model)r.engineLoad=0;
 }
@@ -92,7 +92,7 @@ export function interactRover(world, player,kind='rover') {
   else if (r.driver === player.id) {
     r.driver=null;stopRover(r);
     if(r.takeover)r.takeover.playerId=null;
-    if(sport){r.exhaust=0;r.steer=0;throttleMemory.delete(r);}
+    if(sport){r.exhaust=0;throttleMemory.delete(r);}
   }
   else {
     if (nearestVehicle(world,player.state)!==kind) return;
@@ -214,15 +214,16 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const oldSpeed=r.speed;
   r.braking=!!throttle && oldSpeed*throttle<-.01;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
-  if(sport){r.steer=steer;tickExhaust(r,throttle,oldSpeed,dt);}
+  r.steer=steer;
+  if(sport)tickExhaust(r,throttle,oldSpeed,dt);
 
   const pace=Math.abs(r.speed);
   const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
     1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*clamp(r.speed/4,-1,1)*turnRate*dt;
   const yaw=r.yaw+turn;
   const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
-  r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
+  if(rotation)r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
 
   // Project the previous velocity into the rotated chassis frame. Tire grip
   // dissipates the lateral component; low speeds track the wheels directly.
