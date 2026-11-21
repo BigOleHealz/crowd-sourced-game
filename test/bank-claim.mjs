@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
+const {bankSite,bankRoadZ,bankFront}=await import('../public/bank-site.js');
+const {MAP}=await import('../public/world.js');
+const {breachTower,towerStride}=await import('../public/tower-damage.js');
 const {createBank}=await import('../bank-claim.js');
 const {harborTrade,newWallet}=await import('../harbor-trade.js');
 const {atBankDesk,inBankLobby,bankDesk,bankPayout,bankCooldownSeconds,bankAlarmSeconds,bankHandoffSeconds,bankPrompt}=await import('../public/bank-rules.js');
-const {newExpedition}=await import('../public/expedition.js');
+const {newExpedition,advanceMissiles}=await import('../public/expedition.js');
 const {createWanted}=await import('../public/wanted.js');
 const {stepPatrolCruisers}=await import('../public/patrol-cruisers.js');
 const {newLife,newRivals}=await import('../public/rivals.js');
@@ -26,6 +29,11 @@ function branch(){
 }
 {
   const {world,bank,join,act,step,receipts}=branch(),p=join(1),other=join(2);
+  assert(!inBankLobby({x:-20,y:.824,z:-35.7}),'former gallery has no bank encounter');
+  assert(MAP.buildings.every(b=>b===bankSite || Math.abs(b.x-bankSite.x)>(b.w+bankSite.w)/2+2 ||
+    Math.abs(b.z-bankSite.z)>(b.d+bankSite.d)/2+2),'separate parcel with walking clearance');
+  world.doors.collapsedTowers=[3];step(0);assert.equal(bank.state.phase,'ready','old tower is independent');
+  delete world.doors.collapsedTowers;
   assert(inBankLobby(p.state));assert(atBankDesk(p.state));assert(!blocked(p.state.x,p.state.y,p.state.z,world.hp,world.doors));
   assert(!atBankDesk({...p.state,y:3}));assert(!atBankDesk({...p.state,z:p.state.z+1.1}));
   assert.equal(bankPrompt(bank.state,p.id).action,'talk');
@@ -59,7 +67,11 @@ function branch(){
     if(cause==='defeat')p.life.hp=0;
     if(cause==='disconnect'){bank.leave(p,tick);players.delete(p.id);join(p.id);}
     if(cause==='timeout'){tick+=30*bankAlarmSeconds;step(tick);tick+=30*bankHandoffSeconds;}
-    if(cause==='collapse')world.doors.collapsedTowers=[bankDesk.tower];
+    if(cause==='collapse'){
+      for(let i=0;i<16;i++)breachTower(MAP.buildings,world.doors,{
+        x:bankSite.x+bankSite.w*((i%4+.5)/4-.5),z:bankFront+bankSite.d*(Math.floor(i/4)+.5)/4,y:2});
+      assert.deepEqual(world.doors.collapsedTowers,[bankSite.towerId]);
+    }
     step(++tick);
     assert.equal(bank.state.phase,cause==='collapse'?'closed':'cooldown',cause);
     assert.equal(bank.state.outcome,'aborted');assert.equal(bank.state.claimant,null);assert.equal(receipts.length,0);
@@ -79,7 +91,7 @@ function branch(){
     if(car){
       assert(car.patrol && car.targetId===p.id);
       approach??={x:car.x,z:car.z};
-      if(!car.npcDriver && Math.hypot(car.x-bankDesk.x,car.z+42)<5){
+      if(!car.npcDriver && Math.hypot(car.x-bankDesk.x,car.z-bankRoadZ)<5){
         parked=true;
         assert(Math.hypot(car.x-approach.x,car.z-approach.z)>13);
       }
@@ -90,7 +102,7 @@ function branch(){
   assert(!npcs.some(n=>n.officer && n.targetId===observer.id));
   assert.equal(observer.life.hp,100);assert.equal(world.wanted.view(observer,240).enabled,false);
   act(p,'collect',241);assert.equal(bank.state.outcome,'collected');
-  p.state.z=-40;world.wanted.step(npcs,242);assert.equal(world.wanted.view(p,242).phase,'pursuit');
+  p.state.z=bankFront-1;world.wanted.step(npcs,242);assert.equal(world.wanted.view(p,242).phase,'pursuit');
   assert(npcs.some(n=>n.officer && n.targetId===p.id));
   world.wanted.set(p,false);assert(!world.patrolCars);
   assert.equal(world.wanted.view(p,242).enabled,false);assert(!npcs.some(n=>n.officer));
@@ -103,5 +115,12 @@ function branch(){
   world.wanted.set(p,false);step(1);assert(!bank.state.pursuit);
   world.wanted.set(p,true);step(2);assert(!bank.state.pursuit,'fresh opt-in cannot revive a recalled dispatch');
   assert.equal(world.wanted.view(p,2).stars,0);
+}
+{
+  const {world}=branch();
+  world.missiles.push({id:1,source:'rover',shooter:9,x:bankSite.x-bankSite.w/2-2.8,
+    y:2,z:bankSite.z+1,yaw:Math.PI/2,pitch:0,remaining:30});
+  for(let t=0;t<60 && world.missiles.length;t++)advanceMissiles(world,new Map(),[],t);
+  assert.equal(Math.floor(world.doors.towerBreaches?.[0]/towerStride),bankSite.towerId,'street strike hits the independent bank shell');
 }
 console.log('PASS explicit teller choice, exclusive phased handoff, one wallet receipt, shared cooldown, aborts, late joins and marked patrol arrival with independent pursuit preferences');

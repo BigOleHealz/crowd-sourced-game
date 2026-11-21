@@ -1,6 +1,7 @@
 import {noteGlass} from './pane-damage.js';
 import {supercarLayout} from './supercar-layout.js';
 import {hotel,hotelGlass} from './maravela-hotel.js';
+import {bankSite} from './bank-site.js';
 import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
 import {fallenTop} from './shop-furniture.js';
 import {tenants,retailDepths,retailFixtures,shopFloor,shopCeiling} from './street-shop-layout.js';
@@ -31,6 +32,7 @@ function doorCenter(side,x,lo,hi,width){
   return [center,center-room,center+room].reduce((a,b)=>clearance(b)>clearance(a)?b:a);
 }
 for(const [index,b] of brickellMap.buildings.entries()){
+  if(b===bankSite)continue;
   const pair=[];
   for(const side of [-1,1]){
     const showcase=hasStorefrontRooms(b)&&side===1;
@@ -144,12 +146,12 @@ export function frontageOpenToRound(face,z,y,doors) {
 
 export function visitRoundGlass(building,doors,visit) {
   const faces=buildings.get(building.x+','+building.z);
-  if(!faces)return;
-  for(const face of faces){
+  if(!faces && building!==bankSite)return;
+  for(const face of faces??[]){
     for(const {panes} of face.glass.bays)for(const pane of panes)if(!paneShattered(pane,doors))visit(pane);
     for(const pane of face.glass.extra)if(!paneShattered(pane,doors))visit(pane);
   }
-  const plan=galleryPlans[faces[0].buildingIndex];
+  const plan=faces?galleryPlans[faces[0].buildingIndex]:galleryPlans.find(p=>p.b===bankSite);
   for(const pane of plan.panes)if(!paneShattered(pane,doors))visit(pane);
   for(const pane of plan.doorPanes)if(!paneShattered(pane,doors))visit(pane);
   if(plan.hotel)for(const front of hotel.fronts){
@@ -250,8 +252,9 @@ for(const face of storefrontFaces){
 }
 export function visitRoadPodium(b,x,z,doors,visit){
   const pair=buildings.get(b.x+','+b.z);
-  if(!pair || Math.abs(x-b.x)>b.w/2+2.1 || Math.abs(z-b.z)>b.d/2+2.1)return;
+  if(Math.abs(x-b.x)>b.w/2+2.1 || Math.abs(z-b.z)>b.d/2+2.1)return;
   for(const rect of galleryVehicleRects(b,doors))visit(rect);
+  if(!pair)return;
   // Only the near side of the central core can be reached from this face.
   const face=pair[x>b.x?1:0],mask=doors?.broken?.[face.id]??0;
   for(const box of face.solids)if(!box.piece || !doors?.furniture?.[box.piece.id])visit(box);

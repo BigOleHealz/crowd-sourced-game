@@ -3,7 +3,7 @@ process.env.PINEWATCH_MAP='brickell';
 const {newExpedition,advanceMissiles,tracePulse}=await import('../public/expedition.js');
 const {breachTower,rubbleHeight}=await import('../public/tower-damage.js');
 const {MAP,groundHeight,solidTopAt}=await import('../public/world.js');
-for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
+for(const b of MAP.buildings.filter(b=>b.housing)){
   const w=newExpedition(), from={x:b.x-b.w/2-2.8,y:14,z:b.z-2};
   const dir={x:1,y:0,z:0};
   function shoot(id){
@@ -32,7 +32,7 @@ for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
   shoot(4);
   assert.equal(w.doors.towerBreaches.length,3,'street-level truck missile opens the podium');
 }
-for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
+for(const b of MAP.buildings.filter(b=>b.housing)){
   const w=newExpedition(),height=6.7;
   for(let line=0;line<4;line++){
     const z=b.z+b.d*((line+.5)/4-.5);

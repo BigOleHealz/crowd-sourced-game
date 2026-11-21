@@ -1,3 +1,4 @@
+import {bankSite} from './bank-site.js';
 import {stationBarriers} from './fire-sites.js';
 import {club,clubSolids} from './club-lucero.js';
 import {marketHalls} from './harbor-market.js';
@@ -83,5 +84,5 @@ export const brickellMap = {
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({
       x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,postId:'beach-'+i,woodId:'sign-'+i,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:[...palms,...lanternPalms].filter(p=>!roadway(p.x,p.z)),
-  buildings:[...buildings,...harborHouses,...marketHalls],
+  buildings:[...buildings,...harborHouses,...marketHalls,bankSite],
 };
