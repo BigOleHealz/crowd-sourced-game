@@ -27,10 +27,16 @@ export function towerCellBounds(b,id) {
 export function towerCollapsed(b,doors){
   return b.towerId!=null && !!doors?.collapsedTowers?.includes(b.towerId);
 }
-export function rubbleHeight(b,x,z){
+export function rubbleProgress(ticks){
+  // The heap builds after the first concrete reaches the ground.
+  const t=Math.max(0,Math.min(1,(ticks/30-.9)/1.65));
+  return t*t*(3-2*t);
+}
+export function rubbleHeight(b,x,z,doors){
+  const fall=doors?.structureFalls?.find(f=>f.tower===b.towerId);
   const u=Math.abs((x-b.x)/(b.w/2)),v=Math.abs((z-b.z)/(b.d/2));
   const taper=Math.max(0,1-Math.max(u,v));
-  return b.base+taper*Math.min(4.5,b.eave*.12)*(.89+.11*Math.cos(x*1.3+z));
+  return b.base+(fall?rubbleProgress(fall.age):1)*taper*Math.min(4.5,b.eave*.12)*(.89+.11*Math.cos(x*1.3+z));
 }
 export function collapsedLot(buildings,doors,x,z,padding=0){
   if(!doors?.collapsedTowers?.length)return;
@@ -54,6 +60,8 @@ export function breachTower(buildings,doors,point) {
       let i=0;
       while(i<baysPerFloor && set.has(floor+i))i++;
       if(i===baysPerFloor){
+        (doors.structureFalls??=[]).push({key:'tower-'+b.towerId,tower:b.towerId,age:0,
+          missing:lost.filter(id=>Math.floor(id/towerStride)===b.towerId)});
         (doors.collapsedTowers??=[]).push(b.towerId);
         doors.towerBreaches=lost.filter(id=>Math.floor(id/towerStride)!==b.towerId);
       }

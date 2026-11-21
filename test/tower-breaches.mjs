@@ -37,8 +37,10 @@ for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
   assert.deepEqual(w.doors.collapsedTowers,[b.towerId],'sixteenth hit collapses tower '+b.towerId);
   const doors=JSON.parse(JSON.stringify(w.doors));
   const top=solidTopAt(b.x,b.z,w.hp,0,Infinity,doors);
-  assert.equal(top,rubbleHeight(b,b.x,b.z),'no invisible roof');
+  assert.equal(top,rubbleHeight(b,b.x,b.z,doors),'the pile starts at ground level when supports fail');
   assert.equal(groundHeight(b.x,b.z,Infinity,doors),top);
+  delete doors.structureFalls;
+  assert.equal(groundHeight(b.x,b.z,Infinity,doors),rubbleHeight(b,b.x,b.z),'settled pile supports late arrivals');
   assert.equal(breachTower(MAP.buildings,doors,{x:b.x,y:height,z:b.z}),null,'no repeated property credit');
   const roofOnly={};
   for(let i=0;i<16;i++){

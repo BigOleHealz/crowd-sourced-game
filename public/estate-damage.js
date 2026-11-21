@@ -57,7 +57,15 @@ export function breachEstate(doors,point){
   const key=[index,Math.floor((bx-e.x)/span),Math.floor((bz-e.z)/span),level,alongX?0:1,Math.round((alongX?bz:bx)*100)].join(':');
   const hits=doors.estateBreaches??=[];
   if(hits.includes(key))return false;
+  const before=estateCondition(doors).falls;
   hits.push(key);
+  const fall=estateCondition(doors).falls.at(-1);
+  if(fall && !before.some(other=>other.id===fall.id)){
+    const upper=before.filter(r=>r.left===fall.left && r.north===fall.north && r.low>fall.low);
+    (doors.structureFalls??=[]).push({key:'estate-'+fall.id,age:0,index:fall.index,
+      left:fall.left,right:fall.right,north:fall.north,south:fall.south,low:fall.low,
+      high:Math.min(fall.high,...upper.map(r=>r.low))});
+  }
   return true;
 }
 export function estateSupportLimit(doors,x,z){
