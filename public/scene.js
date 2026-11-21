@@ -1,3 +1,4 @@
+import {surfaceMarks} from './surface-marks.js';
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
@@ -1144,6 +1145,7 @@ export function createScene(canvas) {
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateRounds=flightRounds(scene);
+  const marks=surfaceMarks(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
@@ -1281,6 +1283,7 @@ export function createScene(canvas) {
     const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
+    marks.update(world,local,remotes,dt);
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
@@ -1474,7 +1477,7 @@ export function createScene(canvas) {
   function showShots(shots) {
     for(const shot of shots)effects.shot(shot,shot.source);
   }
-  return {render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {resetSurfaceMarks:marks.reset,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }
