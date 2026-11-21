@@ -1,5 +1,6 @@
 // Ground-floor north/south gallery entries occupy the strip between each
 // building's independently furnished east and west commercial tenancies.
+import {bankSite,bankFront} from './bank-site.js';
 import {hotel,hotelDoorTop} from './maravela-hotel.js';
 import {fallenTop} from './shop-furniture.js';
 import {retailDepths} from './street-shop-layout.js';
@@ -17,9 +18,10 @@ for(const [index,b] of brickellMap.buildings.entries()){
   const plan={index,b,w,x,east,west,hotel:b.x===hotel.x && b.z===hotel.z,
     ends:[],rooms:[],solids:[],panes:[],doorPanes:[]};
   galleryPlans.push(plan);byBuilding.set(b,plan);
-  const shared=b.d<10;
-  const depth=shared ? b.d/2 : Math.min(6.25,b.d/2-.48);
-  for(const side of [-1,1]){
+  const bank=b===bankSite;
+  const shared=!bank && b.d<10;
+  const depth=bank ? 6.25 : shared ? b.d/2 : Math.min(6.25,b.d/2-.48);
+  for(const side of bank ? [-1] : [-1,1]){
     const z=b.z+side*b.d/2;
     const wx=u=>x+side*u,wz=v=>z-side*v;
     const entry={side,z,x,w,depth};
@@ -27,7 +29,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     const left=x-w/2+.10,right=x+w/2-.10;
     const rear=wz(depth),zmin=shared ? b.z-b.d/2 : Math.min(z,rear),zmax=shared ? b.z+b.d/2 : Math.max(z,rear);
     if(!shared || side<0){
-      const name=plan.hotel?hotel.name:index===3 && side<0?'Biscayne Mutual Bank':'Gallery Lobby';
+      const name=plan.hotel?hotel.name:bank?bankSite.name:'Gallery Lobby';
       const room={name,index,shared,x,left,right,zmin,zmax,entries:shared ? [b.z-b.d/2,b.z+b.d/2] : [z]};
       plan.rooms.push(room);galleryLobbies.push(room);
       for(let ix=Math.floor(left/grid);ix<=Math.floor(right/grid);ix++)for(let iz=Math.floor(zmin/grid);iz<=Math.floor(zmax/grid);iz++){
@@ -60,7 +62,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     }
     if(!shared){
       block('rear',0,depth-.073,w,.146,galleryCeiling);
-      for(const wing of index===3 && side<0 ? [] : [-1,1]){
+      for(const wing of bank ? [] : [-1,1]){
         const width=(w-1.48)/2;
         block('portalReturn',wing*(.74+width/2),depth-.97,width,.21,galleryCeiling);
         block('credenza',wing*(w*.30),depth-1.36,.91,.49,galleryFloor+.75);
@@ -77,16 +79,22 @@ for(const [index,b] of brickellMap.buildings.entries()){
     }
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
-  if(index===3){
-    plan.solids.push({kind:'bankCounter',...rect(-20,-34.88,4.68,.63,1.84)});
-    plan.solids.push({kind:'queueRail',...rect(-20.91,-36.23,.08,1.34,1.56)});
+  if(bank){
+    // Solid service wings flank the public lobby. A rear office closes the lot.
+    for(const side of [-1,1]){
+      const width=(b.w-w)/2;
+      plan.solids.push({kind:'wing',...rect(x+side*(w+width)/2,b.z,width,b.d,galleryCeiling)});
+    }
+    plan.solids.push({kind:'office',...rect(x,bankFront+(depth+b.d)/2,w,b.d-depth,galleryCeiling)});
+    plan.solids.push({kind:'bankCounter',...rect(x,bankFront+4.12,4.68,.63,1.84)});
+    plan.solids.push({kind:'queueRail',...rect(x-.91,bankFront+2.77,.08,1.34,1.56)});
   }
   if(plan.hotel){
     for(const [k,p,h] of [['reception',hotel.desk,1.30],['luggage',hotel.cart,1.61]]){
       plan.solids.push({kind:k,...rect(p.x,p.z,p.w,p.d,galleryFloor+h)});
     }
   }
-  if(!shared)plan.solids.push({kind:'core',...rect(x,b.z,w,b.d-2*depth,galleryCeiling)});
+  if(!shared && !bank)plan.solids.push({kind:'core',...rect(x,b.z,w,b.d-2*depth,galleryCeiling)});
 }
 
 export function galleryRoomAt(x,y,z) {

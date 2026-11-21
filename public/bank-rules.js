@@ -1,13 +1,13 @@
-import {galleryFloor,galleryRoomAt} from './gallery-lobbies.js';
+import {galleryRoomAt} from './gallery-lobbies.js';
 import {towerCollapsed} from './tower-damage.js';
-import {MAP} from './world.js';
+import {bankSite,bankDesk} from './bank-site.js';
+export {bankDesk};
 
-export const bankDesk={x:-20,y:galleryFloor,z:-35.7,tower:3};
 export const bankPayout=150,bankAlarmSeconds=8,bankHandoffSeconds=25,bankCooldownSeconds=90;
-export const bankStanding=world=>!towerCollapsed(MAP.buildings[bankDesk.tower],world.doors);
+export const bankStanding=world=>!towerCollapsed(bankSite,world.doors);
 
 export function inBankLobby(feet){
-  return !!feet && galleryRoomAt(feet.x,feet.y,feet.z)?.name==='Biscayne Mutual Bank';
+  return !!feet && galleryRoomAt(feet.x,feet.y,feet.z)?.name===bankSite.name;
 }
 export function atBankDesk(feet){
   return !!feet?.grounded && !feet.swimming && !feet.climb && !feet.parachute && Math.abs(feet.y-bankDesk.y)<.42 &&

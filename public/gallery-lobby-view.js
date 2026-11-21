@@ -1,3 +1,4 @@
+import {bankSite} from './bank-site.js';
 import {bankFrontage} from './biscayne-bank-view.js';
 import {harborHouses} from './harbor-key-structures.js';
 import {collectionMap} from './estate-collection.js';
@@ -133,7 +134,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
           leg(0xf4d8a8,sign*(half-.66),2.722,depth*k,.052,.014);
         }
       }
-      if(!plan.rooms[0].shared && !(plan.index===3 && side<0)){
+      if(!plan.rooms[0].shared && plan.b!==bankSite){
         trim(2,0x96754e,0,1.48,depth-.073,w-.25,2.96,.146);
         trim(4,bronze,0,1.18,depth-.166,1.12,2.36,.055);
         trim(2,0x8d6c48,0,1.14,depth-.209,1.01,2.26,.038);
@@ -165,7 +166,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
       }
       // Front left: upholstered two-seat gallery lounge, low stone table and dome lamp.
       const {sofa,table,console:consoleTable,shelf}=entry;
-      if(plan.index===3 && side<0){
+      if(plan.b===bankSite){
         // Bank lobby uses fitted vinyl chairs and two writing surfaces. Keep
         // each piece in the same independently destructible furniture range.
         let part=motion.start(sofa.piece);

@@ -1,3 +1,4 @@
+import {bankSite} from './bank-site.js';
 import {addFuelStop} from './pelican-fuel-view.js';
 import {clubInterior} from './club-lucero-view.js';
 import {lightBaySurface} from './biscayne-water.js';
@@ -159,6 +160,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const furnishPortico=streetShops(scene,renderer,Batch,panorama,breakables);
   const base=balconyBase,podium=balconyPodium;
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade,housing},i)=>{
+    if(MAP.buildings[i]===bankSite)return;
     const avenueCorner=x===-17 && z===7;
     const {west:westDepth,east:eastDepth,x:coreX,w:coreWidth,rooms,ends}=galleryPlans[i];
     if(rooms.length===2)solids.add(box,0xb5a88e,coreX,base+podium/2,z,coreWidth,podium,d-2*ends[0].depth);

@@ -1,5 +1,6 @@
 import {CITY,MAP,blocked,groundHeight,stepPlayer} from './world.js';
 import {advanceFall} from './falls.js';
+import {bankDoor,bankRoadZ} from './bank-site.js';
 import {inBankLobby} from './bank-rules.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
@@ -27,19 +28,17 @@ function arrival(world,player,players,number){
   if(fallback){fallback.id='officer-'+(++serial);return fallback;}
 }
 
-// The north gallery has one public doorway. Officers approaching the branch
-// use the pavement in front of it instead of walking into the tower facade.
-const bankDoor={x:-20,z:-40.1};
+// Approach the north doorway from the cross street.
 function bankApproach(officer,destination,world){
   if(officer.atBankDoor)return destination;
   const p=officer.state;
   // Eastbound units unload on the far side of their parked car. Walk around
   // its nose before turning towards the doorway, using the same solid car.
   const car=world.patrolCars?.find(c=>c.officerId===officer.id);
-  if(car && Math.abs(car.z+43.15)<1 && p.z<car.z+.95 && p.x<car.x+3.05){
+  if(car && Math.abs(car.z-(bankRoadZ+2))<1 && p.z<car.z+.95 && p.x<car.x+3.05){
     return {x:car.x+3.55,z:Math.min(p.z,car.z-1.7)};
   }
-  if(car && Math.abs(car.z+43.15)<1 && p.z<car.z+.95){
+  if(car && Math.abs(car.z-(bankRoadZ+2))<1 && p.z<car.z+.95){
     return {x:car.x+3.6,z:car.z+1.5};
   }
   if(Math.hypot(p.x-bankDoor.x,p.z-bankDoor.z)<1.45){

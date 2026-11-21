@@ -1,5 +1,6 @@
 // Lobby patrons are local render actors. All clients derive their reactions from
 // the same authoritative encounter tick, including observers arriving mid-event.
+import {bankSite,bankFront,bankDesk} from './bank-site.js';
 import {civilianLooks} from './civilian-style.js';
 
 export const bankLooks={
@@ -8,15 +9,15 @@ export const bankLooks={
   'bank-andre':{...civilianLooks['rival-omar'],face:1,outfit:3,skin:0xa26c52,cut:'curls',extra:'watch'},
 };
 const people=[
-  {id:'bank-elena',name:'Elena Cruz · Teller',bankRole:'teller',x:-20.47,z:-34.29,yaw:0},
-  {id:'bank-marta',name:'Marta',bankRole:'waiting',x:-18.24,z:-36.88,yaw:.29},
-  {id:'bank-andre',name:'André',bankRole:'customer',x:-21.43,z:-36.17,yaw:2.45},
+  {id:'bank-elena',name:'Elena Cruz · Teller',bankRole:'teller',x:bankSite.x-.47,z:bankFront+4.71,yaw:0},
+  {id:'bank-marta',name:'Marta',bankRole:'waiting',x:bankSite.x+1.76,z:bankFront+2.12,yaw:.29},
+  {id:'bank-andre',name:'André',bankRole:'customer',x:bankSite.x-1.43,z:bankFront+2.83,yaw:2.45},
 ];
 const empty=[];
 const clamp=x=>Math.max(0,Math.min(1,x));
 export function bankCast(local,world){
   const bank=world.bank;
-  if(!bank || bank.phase==='closed' || Math.abs(local.y-.824)>8 || Math.hypot(local.x+20,local.z+36)>18)return empty;
+  if(!bank || bank.phase==='closed' || Math.abs(local.y-.824)>8 || Math.hypot(local.x-bankDesk.x,local.z-bankDesk.z)>18)return empty;
   const elapsed=Math.max(0,(world.simTick-(bank.since??world.simTick))/30);
   const active=bank.phase==='alarm'||bank.phase==='handoff';
   // The seated customer shelters at her bench. The standing customer backs
