@@ -1,3 +1,4 @@
+import {ramHouse} from './residential-falls.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
 import {roadContact,sweepRoad} from './road-contact.js';
@@ -57,6 +58,12 @@ export function stepTank(world,input,dt,players){
     const dx=Math.sin(t.yaw)*t.speed*dt,dz=-Math.cos(t.yaw)*t.speed*dt;
     let {fraction,hit}=sweepRoad(world,t,dx,dz);
     while(hit){
+      if(hit.home && dx*hit.nx+dz*hit.nz<0 &&
+          ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
+        world.rules?.damageProperty(players?.get(t.driver)?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
+        t.speed*=.74;
+        ({fraction,hit}=sweepRoad(world,t,dx,dz));continue;
+      }
       const car=hit.object;
       if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
       // A track can clear an existing wreck too. A fresh crush uses the

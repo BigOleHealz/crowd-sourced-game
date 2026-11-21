@@ -1,3 +1,4 @@
+import {housePieces} from './residential-falls.js';
 // Every falling slab and facade panel uses the same deterministic trajectory
 // in the renderer and server. Only the event, missing bays and age are sent.
 import {bandHeight,baysPerFloor,towerStride,towerCellBounds} from './tower-damage.js';
@@ -15,18 +16,20 @@ export function collapsePlan(event,buildings){
   let seed=123,end=0;
   for(const c of event.key)seed=(Math.imul(seed,31)+c.charCodeAt(0))>>>0;
   const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
-  function piece(x,z,low,h,w,d,ground,delay,type){
+  function piece(x,z,low,h,w,d,ground,delay,type,color,pitch=0){
     if(h<.05 || w<.12 || d<.12)return;
     const drop=Math.max(.08,low-ground),duration=Math.sqrt(2*drop/gravity);
     const drift=dirLength?Math.min(event.tower!=null?9.5:3.25,.65+(low+h*.5-ground)*.23):0;
     const dx=(rand()-.5)*.45+ux*drift,dz=(rand()-.5)*.45+uz*drift;
-    const tilt=dirLength?(.20+Math.min(.29,drop*.012)):0;
+    const wallLean=event.home && type!=='house-roof' ? .78 : .20;
+    const tilt=dirLength ? wallLean+Math.min(.29,drop*.012):0;
     const yaw=(rand()-.5)*.10;
     const land=delay+duration;
     end=Math.max(end,land);
-    pieces.push({x,z,low,w,h,d,drop,delay,duration,land,dx,dz,yaw,tilt,ux,uz,ground,type});
+    pieces.push({x,z,low,w,h,d,drop,delay,duration,land,dx,dz,yaw,tilt,ux,uz,ground,type,color,pitch});
   }
-  if(event.tower!=null){
+  if(event.home){housePieces(event,piece);}
+  else if(event.tower!=null){
     const b=buildings.find(b=>b.towerId===event.tower);
     if(!b)return {pieces,end:0};
     const missing=new Set(event.missing);
@@ -87,6 +90,11 @@ export function piecePose(p,time,out){
   out.xx=c+dx*(cs-1)*alongX;out.xy=-sn*alongX;out.xz=s+dz*(cs-1)*alongX;
   out.yx=dx*sn;out.yy=cs;out.yz=dz*sn;
   out.zx=-s+dx*(cs-1)*alongZ;out.zy=-sn*alongZ;out.zz=c+dz*(cs-1)*alongZ;
+  if(p.pitch){
+    const a=Math.cos(p.pitch),b=Math.sin(p.pitch),x=out.yx,y=out.yy,z=out.yz;
+    out.yx=a*x+b*out.zx;out.yy=a*y+b*out.zy;out.yz=a*z+b*out.zz;
+    out.zx=a*out.zx-b*x;out.zy=a*out.zy-b*y;out.zz=a*out.zz-b*z;
+  }
   out.x=p.x+p.dx*q;out.z=p.z+p.dz*q;
   out.w=p.w*remain;out.d=p.d*remain;out.h=p.h*remain;
   const extent=.5*(Math.abs(out.xy)*out.w+out.yy*out.h+Math.abs(out.zy)*out.d);
@@ -127,7 +135,7 @@ function touches(q,feet,height,radius){
   return false;
 }
 const plans=new WeakMap(),pose={};
-export function stepStructuralFalls(doors,buildings,players,tick,damage,bodyHeight){
+export function stepStructuralFalls(doors,buildings,players,tick,damage,bodyHeight,tankDriver){
   const falls=doors?.structureFalls;
   if(!falls?.length)return;
   for(let i=falls.length-1;i>=0;i--){
@@ -137,7 +145,7 @@ export function stepStructuralFalls(doors,buildings,players,tick,damage,bodyHeig
     const before=event.age/30,time=++event.age/30;
     if(time>=plan.end){falls.splice(i,1);continue;}
     for(const actor of players.values()){
-      if(!actor.life.hp || actor.life.immuneUntil>tick || plan.hit.has(actor))continue;
+      if((event.home && tankDriver!=null && actor.id===tankDriver) || !actor.life.hp || actor.life.immuneUntil>tick || plan.hit.has(actor))continue;
       const state=actor.state,radius=.29;
       if(state.x<plan.west || state.x>plan.east || state.z<plan.north || state.z>plan.south)continue;
       const height=bodyHeight(state.stance);

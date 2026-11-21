@@ -1,3 +1,4 @@
+import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
 import {breachedFloor,inTowerBreach,collapsedLot,towerCollapsed,rubbleHeight} from './tower-damage.js';
@@ -100,6 +101,7 @@ export function onBuildingLot(x,z,margin=0) {
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return roof;
+  if(ruinedHouseAt(doors,b.x,b.z))return -Infinity;
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
@@ -158,6 +160,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
     if(postDown(doors,b) || (b.paneId && doors?.brokenPanes?.[b.paneId]) || doors?.brokenSills?.[b.sillPaneId])continue;
+    if(ruinedHouseAt(doors,b.x,b.z))continue;
     const base=terrainHeight(b.x,b.z);
     if(inTowerBreach(MAP.buildings,doors,x,Math.min(base+b.h,maxBottom),z))continue;
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
@@ -235,6 +238,8 @@ export function sceneryHeight(x,z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const ruin=ruinedHouseAt(doors,x,z);
+    if(ruin)return houseRubbleHeight(ruin,x,z,doors.houseRuins[ruin.id]);
     const pile=collapsedLot(MAP.buildings,doors,x,z);
     if(pile)return rubbleHeight(pile,x,z,doors);
     const limit=estateSupportLimit(doors,x,z);
@@ -396,9 +401,10 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy -= GRAVITY * dt;
     if (parachute === 'open') vy = Math.max(vy, -2.8);
     y += vy * dt;
-    const support=estateSupportLimit(doors,x,z);
+    const ruined=CITY && ruinedHouseAt(doors,x,z);
+    const support=ruined?-Infinity:estateSupportLimit(doors,x,z);
     let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z,support)-height,mareCeiling(x,state.y,z,support)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
-    const shops=CITY && !collapsedLot(MAP.buildings,doors,x,z);
+    const shops=CITY && !ruined && !collapsedLot(MAP.buildings,doors,x,z);
     if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
