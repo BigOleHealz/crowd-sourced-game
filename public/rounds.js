@@ -1,4 +1,5 @@
 import {civilianProfiles} from './civilian-fleet.js';
+import {tankHull} from './tank-layout.js';
 import {inTowerBreach,towerCollapsed} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
@@ -32,6 +33,9 @@ function box(a,d,c,w,h,l,yaw=0){
   const cs=Math.cos(yaw),sn=Math.sin(yaw),x=a.x-c.x,z=a.z-c.z,span=[0,1];
   return slab(x*cs+z*sn,d.x*cs+d.z*sn,-w/2,w/2,span) &&
     slab(a.y-c.y,d.y,0,h,span) && slab(-x*sn+z*cs,-d.x*sn+d.z*cs,-l/2,l/2,span)?span[0]:Infinity;
+}
+export function tankRoundContact(tank,from,delta){
+  return tank && !tank.wrecked ? box(from,delta,tank,2*tankHull.halfWidth,tankHull.height,2*tankHull.halfLength,tank.yaw) : Infinity;
 }
 function glassContact(from,delta,pane,doors){
   const acrossX=pane.widthAxis==='x', thickness=.024;
@@ -222,6 +226,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
   for(const car of world.traffic??[])accept(civilianRoundContact(car,round,d),car,car.id);
+  if(world.tank && round.source!=='tank')accept(tankRoundContact(world.tank,round,d),world.tank,'tank');
   const sportHit=roverRoundContact(world.supercar,round,d);
   if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
   const jet=world.jet;

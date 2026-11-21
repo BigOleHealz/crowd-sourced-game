@@ -173,6 +173,7 @@ function recoverTrafficCar(world,car,actors,dt){
 export function stepCityTraffic(world,players,npcs,dt){
   if(!world.traffic?.length)return;
   const vehicles=[...world.traffic,world.rover,world.supercar];
+  if(world.tank)vehicles.push(world.tank);
   if(world.heli.grounded)vehicles.push(world.heli);
   if(world.jet.grounded)vehicles.push(world.jet);
   const actors=[...players.values(),...npcs].filter(a=>a.life.hp && !trafficDriverCar(world,a.id) &&

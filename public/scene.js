@@ -1,3 +1,5 @@
+import {tankView} from './tank-view.js';
+import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
@@ -1142,6 +1144,7 @@ export function createScene(canvas) {
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateTraffic=CITY ? cityTrafficView(scene,Batch,shadowMap) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
+  const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1206,9 +1209,9 @@ export function createScene(canvas) {
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const muzzle=station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const muzzle=station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1260,9 +1263,11 @@ export function createScene(canvas) {
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
+    const inTank=world.tank?.driver===local.id;
+    updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
     updateTraffic?.(cars,dt);
-    const road=cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
+    const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
     updateTireDebris(rover,dt);
@@ -1309,10 +1314,10 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
-      a.root.visible=state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
+      a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
+      if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
@@ -1347,7 +1352,7 @@ export function createScene(canvas) {
     }
     else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
-    else if(driving) desired.set(road.x,road.y+1.03,road.z);
+    else if(driving) desired.set(road.x,road.y+(inTank?2.25:1.03),road.z);
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
@@ -1423,7 +1428,7 @@ export function createScene(canvas) {
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
       camera.position.lerp(overheadEye,overhead);
     }
-    avatars.get(local.id).root.visible=!piloting && local.id!==heli.gunner && (indoors || distance>.86) && (!onFoot || overhead<.48);
+    avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (indoors || distance>.86) && (!onFoot || overhead<.48);
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
