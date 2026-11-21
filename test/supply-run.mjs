@@ -1,3 +1,4 @@
+import {approachPoint} from './helpers/rover-route.mjs';
 import assert from 'node:assert/strict';
 import { newExpedition } from '../public/expedition.js';
 import { HELIPAD } from '../public/world.js';
@@ -27,14 +28,11 @@ if (combined) {
   step(50,()=>driveRover(world,{throttle:0,steer:0},dt));
   assert.ok(distance(rover,DEPOT)<2.4);
   waitStage('transfer');
-  const aim = Math.atan2(HELIPAD.x-rover.x,rover.z-HELIPAD.z);
-  while (rover.yaw < aim-.05) {
-    const prev = rover.yaw;
-    step(1,()=>driveRover(world,{throttle:0,steer:1},dt));
-    assert.ok(rover.yaw > prev,'rover can turn at the depot');
-  }
-  for (let i=0;i<150 && distance(rover,HELIPAD)>4;i++)
-    step(1,()=>driveRover(world,{throttle:1,steer:0},dt));
+  // Arc out of the depot and park beside the rotorcraft, keeping clear of its hull.
+  const transfer={x:HELIPAD.x-2.6,z:HELIPAD.z+1.3};
+  for(let i=0;i<450 && distance(rover,transfer)>.30;i++)
+    step(1,()=>driveRover(world,approachPoint(rover,transfer.x,transfer.z,3),dt));
+  assert(distance(rover,transfer)<.4,'drive to the transfer side of the pad');
   step(50,()=>driveRover(world,{throttle:0,steer:0},dt));
   assert.ok(distance(rover,HELIPAD)<4.6);
   waitStage('delivery');
