@@ -3,6 +3,8 @@ import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
+import {buildingInteriorView} from './building-interior-view.js';
+import {roomAtFeet} from './building-interiors.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
@@ -989,7 +991,7 @@ export function createScene(canvas,onFootfall) {
   renderer.shadowMap.autoUpdate=false;
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
+  const scene=new THREE.Scene(),updateInteriors=buildingInteriorView(scene),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
   scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0067);
   const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
@@ -1172,6 +1174,7 @@ export function createScene(canvas,onFootfall) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
+    updateInteriors(local,world.doors,dt);
     updateDoors?.(world.doors,dt,local,remotes,world.simTick,world.bank);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
@@ -1288,8 +1291,9 @@ export function createScene(canvas,onFootfall) {
     const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
     const villa=CITY && casaRoomAt(local.x,local.y,local.z);
     const clubRoom=CITY && inClub(local);
-    const indoors=Boolean(clubRoom || chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=clubRoom ? Math.max(0,-49.5-local.z) : chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const furnished=roomAtFeet(local,world.doors);
+    const indoors=Boolean(furnished || local.liftTravel || clubRoom || chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=furnished || local.liftTravel ? 1 : clubRoom ? Math.max(0,-49.5-local.z) : chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     // The feet cross a doorway in one tick, but the shoulder rig still spans
     // both rooms. Carry close clearance and framing across the threshold.
     const doorway=CITY && !driving && !piloting && !localStation ? doorwayProximity(local.x,local.y,local.z) : 0;

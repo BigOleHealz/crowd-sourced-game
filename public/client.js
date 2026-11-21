@@ -1,3 +1,6 @@
+import {yachtDoorAction} from './yacht-layout.js';
+import {elevatorControls} from './elevator-controls.js';
+import {buildingAction,doorIsOpen,roomAtFeet} from './building-interiors.js';
 import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
@@ -123,6 +126,12 @@ const market=marketPanel(byId('market-panel'),byId('wallet'),{
 function counter(){
   return world?.market && !vitals.use && canChangeStance(self)?atMarketCounter(self):null;
 }
+let interiorSeq=0;
+function interiorAction(){
+  return canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? yachtDoorAction(world?.yacht,self)??buildingAction(self,world?.doors) : null;
+}
+function sendInterior(action){if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'interior',seq:++interiorSeq,...action}));}
+const elevator=elevatorControls(byId('elevator-dialog'),(s,floor)=>sendInterior({building:s.p.id,floor}),releaseLook,()=>canvas.focus({preventScroll:true}));
 let bankSeq=0,bankReceiptUntil=0;
 function teller(){
   return world?.bank && !vitals.use && canChangeStance(self) && atBankDesk(self) ? bankPrompt(world.bank,id) : null;
@@ -271,6 +280,7 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(elevator.open){if(e.code==='Escape' || e.code==='KeyE'){e.preventDefault();if(!e.repeat)elevator.close();}return;}
   if(bankDialog.open){
     if(e.code==='KeyE' || e.code==='Escape'){
       e.preventDefault();
@@ -335,6 +345,10 @@ function pressAction(code){
     }
     const clubUse=clubInteraction();
     if(clubUse){socket?.send(JSON.stringify({type:'clubSeat',action:vitals.clubSince!=null?'leave':'join'}));return;}
+    const building=interiorAction();
+    if(building?.kind==='lift'){elevator.show(building.s);return;}
+    if(building?.kind==='yachtDoor'){sendInterior({cabin:building.d.id,open:!!(world.yacht.closedCabins&(1<<building.d.id))});return;}
+    if(building?.kind==='door'){sendInterior({door:building.d.id,open:!doorIsOpen(building.d,world.doors)});return;}
     const person=speaker();
     if(person)talk.open(person);
     else queuedInteract=vitals.use;
@@ -559,7 +573,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
-    bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
+    elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -832,6 +846,11 @@ function updateEquipment(local) {
   if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
+  const building=interiorAction();
+  elevator.validate(building);
+  byId('elevator-status').hidden=!local.liftTravel;
+  if(local.liftTravel)byId('elevator-status').textContent='Elevator · '+(local.liftTravel===1?'Ground lobby':'Floor '+local.liftTravel);
+  if(building && !bank && !shop)prompt.textContent='E  ·  '+building.label;
   const clubUse=clubInteraction();
   if(clubUse)prompt.textContent='E  ·  '+clubUse;
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
@@ -839,7 +858,7 @@ function updateEquipment(local) {
   if(touch.active){
     const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
@@ -1009,8 +1028,9 @@ function frame(time) {
       byId('degrees').textContent=String((Math.round(view.yaw*180/Math.PI)%360+360)%360).padStart(3,'0')+'°';
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
+      const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);

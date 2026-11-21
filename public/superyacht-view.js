@@ -1,5 +1,6 @@
 import {wakeTrail} from './boat-wake-view.js';
 import {paneBatch} from './pane-damage-view.js';
+import {yachtRoomDoors} from './yacht-room-doors.js';
 import {cabinTop,lowerStair} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
@@ -202,6 +203,23 @@ export function superyachtView(scene,Batch,renderer,panorama){
   fittings.mesh(root,bodyMat,false);stripe.mesh(root,bodyMat,false);
   metal.mesh(root,new THREE.MeshPhongMaterial({vertexColors:true,shininess:98,specular:0xc1cbd1}),false);
   const updatePanes=cabinGlass.bind(glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100,transparent:true,opacity:.32,depthWrite:false}),false));
+  const cabinLeaves=new THREE.InstancedMesh(new THREE.BoxGeometry(),new THREE.MeshStandardMaterial({color:0xc0ae8b,roughness:.63}),yachtRoomDoors.length*2);
+  const doorPose=new THREE.Object3D(),fractions=yachtRoomDoors.map(()=>0);
+  cabinLeaves.count=0;cabinLeaves.frustumCulled=false;root.add(cabinLeaves);
+  function updateCabinLeaves(mask,dt){
+    let count=0;
+    for(const d of yachtRoomDoors){
+      const wanted=mask&(1<<d.id)?1:0,old=fractions[d.id];
+      const f=fractions[d.id]=old+Math.sign(wanted-old)*Math.min(Math.abs(wanted-old),dt*4);
+      if(f<.002)continue;
+      const half=d.w*f/2;
+      for(const s of [-1,1]){
+        doorPose.position.set(d.x+s*(d.w-half)/2,d.y+d.h/2,d.z);
+        doorPose.scale.set(half-.001,d.h,.059);doorPose.updateMatrix();cabinLeaves.setMatrixAt(count++,doorPose.matrix);
+      }
+    }
+    cabinLeaves.count=count;cabinLeaves.instanceMatrix.needsUpdate=true;
+  }
   const gangway=new THREE.Group();root.add(gangway);
   const ramp=new Batch();
   const end=yachtGangway.outer,start=yachtGangway.inner,drop=yachtGangway.top-yachtGangway.bottom;
@@ -216,7 +234,7 @@ export function superyachtView(scene,Batch,renderer,panorama){
   const wake=wakeTrail(scene);
   return (yacht,dt,local)=>{
     root.visible=!!yacht;wake(yacht,dt,local);if(!yacht)return;
-    updatePanes(yacht.brokenGlass);
+    updatePanes(yacht.brokenGlass);updateCabinLeaves(yacht.closedCabins??0,dt);
     const sink=yacht.wrecked ? Math.min(1,Math.max(0,(6-yacht.recoverySeconds)/2)) : 0;
     root.position.set(yacht.x,yacht.y-sink*2.6,yacht.z);
     root.rotation.set(.055*sink,-yacht.yaw,(yacht.wakeRoll??0)-.12*sink,'YXZ');

@@ -1,4 +1,4 @@
-import {bankSite,bankFront} from './bank-site.js';
+import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
 import * as THREE from 'three';
 
 const green=0x194d48,teal=0x32766a,bronze=0xad8755,ivory=0xe6d9b7;
@@ -17,15 +17,18 @@ export function bankFrontage(scene,Batch){
   box(0xe3d8bf,0,3.93,depth/2,bankSite.w,.32,depth);
   box(stone,0,4.44,depth/2,bankSite.w,.72,depth);
   box(0x8a8170,0,4.85,depth/2,bankSite.w+.38,.11,depth+.40);
-  box(stone,0,2.54,depth-.12,bankSite.w,3.46,.24);
-  const wing=(bankSite.w-5.32)/2;
-  for(const side of [-1,1])box(stone,side*(half-wing/2),2.50,.12,wing,3.40,.24);
+  for(const part of bankServiceParts){
+    const x=part.x-bankSite.x,z=part.z-bankFront,tint=part.kind==='desk'?oak:part.kind==='cabinet'?green:stone;
+    box(tint,x,part.bottom+part.h/2,z,part.w,part.h,part.d);
+    if(part.kind==='desk'){
+      box(bronze,x,1.62,z,1.70,.075,.7);
+      box(ink,x,1.81,z-.1,.44,.33,.075);
+    }
+  }
   for(const side of [-1,1]){
-    box(stone,side*(half-.13),2.52,depth/2,.26,3.42,depth);
-    box(0xb1a084,side*(half-.05),1.04,depth/2,.29,.45,depth);
     box(ivory,side*half,4.49,depth/2,.25,.25,depth+.19);
     // Bronze-grilled clerestories sit between the pilasters on each flank.
-    for(const v of [depth*.28,depth*.72]){
+    for(const v of [depth*.72]){
       const face=side*(half+.025);
       box(bronze,face,2.88,v,.08,1.69,2.42);
       box(0x394d4b,face+side*.048,2.88,v,.038,1.48,2.24);

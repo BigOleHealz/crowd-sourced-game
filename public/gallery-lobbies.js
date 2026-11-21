@@ -1,6 +1,6 @@
 // Ground-floor north/south gallery entries occupy the strip between each
 // building's independently furnished east and west commercial tenancies.
-import {bankSite,bankFront} from './bank-site.js';
+import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
 import {hotel,hotelDoorTop} from './maravela-hotel.js';
 import {fallenTop} from './shop-furniture.js';
 import {retailDepths} from './street-shop-layout.js';
@@ -80,12 +80,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
   if(bank){
-    // Solid service wings flank the public lobby. A rear office closes the lot.
-    for(const side of [-1,1]){
-      const width=(b.w-w)/2;
-      plan.solids.push({kind:'wing',...rect(x+side*(w+width)/2,b.z,width,b.d,galleryCeiling)});
-    }
-    plan.solids.push({kind:'office',...rect(x,bankFront+(depth+b.d)/2,w,b.d-depth,galleryCeiling)});
+    plan.solids.push(...bankServiceParts);
     plan.solids.push({kind:'bankCounter',...rect(x,bankFront+4.12,4.68,.63,1.84)});
     plan.solids.push({kind:'queueRail',...rect(x-.91,bankFront+2.77,.08,1.34,1.56)});
   }

@@ -49,7 +49,9 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     const ceiling=bottom+h,frame=style==='villa'?0x474839:bronze;
     slab(x,bottom+.14,z,w+.22,d+.22,.26);
     slab(x,ceiling-.13,z,w+.30,d+.30,.24);
-    box(0xa59479,x,bottom+h/2,z,w*.76,h-.5,d*.53);
+    masonry(0xb89565,x-8.5,bottom+.68,z,3.15,.94,.75);
+    box(limestone,x-8.5,bottom+1.19,z,3.25,.085,.86);
+    for(const u of [-5,0,5]){seat(x+u,z-2.9,0,0);bench(x+u,z-1.65);}
     for(const p of clubPanes){
         const {alongX,side,bay:t,index:i,x:cx,z:cz}=p;
         const offset=(alongX?d:w)*side/2, u=alongX?cx-x:cz-z;

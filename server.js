@@ -1,3 +1,4 @@
+import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
@@ -230,6 +231,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='interior'){requestInterior(world,players,player,input,ticks);return;}
   if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='clubSeat'){
@@ -356,6 +358,7 @@ sockets.on('connection', ws => {
   };
   if(match){
     Object.assign(player,assignTeam(players));
+    delete player.trip;
     player.state=teamSpawn(player.team,player.slot);
     player.score.team=player.team;
   }
@@ -417,6 +420,7 @@ function resetRound(){
   npcs=freshResidents();
   departedScores.clear();
   for(const player of players.values()){
+    delete player.trip;
     player.state=teamSpawn(player.team,player.slot);
     player.life=newLife(ticks);
     player.score={kills:0,deaths:0,team:player.team};
@@ -479,6 +483,7 @@ function tick() {
     if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
+      delete player.trip;delete player.state.liftTravel;
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
       if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
@@ -499,6 +504,7 @@ function tick() {
       }
       continue;
     }
+    if(advanceElevator(world,player,ticks))continue;
     if (fallingBody) continue;
     if(player.clubSince!=null){
       if(ticks-player.clubSince<30*45)continue;
