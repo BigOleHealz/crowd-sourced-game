@@ -4,14 +4,15 @@ export const launcherSpec={name:'Heat-seeking launcher',range:120,damage:500,coo
 export function lockVehicle(world,key){
   if(key==='heli' || key==='rover' || key==='supercar')return world[key];
   if(key==='superyacht')return world.yacht;
-  return world.boats?.find(b=>b.id===key);
+  return world.boats?.find(b=>b.id===key)??world.traffic?.find(c=>c.id===key);
 }
 export function lockLabel(key){
+  if(key?.startsWith('city-car-'))return 'Civilian car';
   return {heli:'Helicopter',rover:'Pickup',supercar:'Supercar',superyacht:'Yacht'}[key]??'Patrol boat';
 }
 function candidateRange(world,from,dir){
   let far=0;
-  for(const v of [world.heli,world.rover,world.supercar,world.yacht,...(world.boats??[])]){
+  for(const v of [world.heli,world.rover,world.supercar,world.yacht,...(world.boats??[]),...(world.traffic??[])]){
     if(!v || v.wrecked)continue;
     const radius=v===world.yacht?18:v===world.heli?4:3;
     const x=v.x-from.x,y=v.y+1-from.y,z=v.z-from.z;

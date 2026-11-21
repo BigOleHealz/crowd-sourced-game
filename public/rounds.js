@@ -1,3 +1,4 @@
+import {civilianProfiles} from './civilian-fleet.js';
 import {inTowerBreach,towerCollapsed} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
@@ -107,6 +108,11 @@ export function roverRoundContact(rover,start,delta){
   }
   return t===Infinity ? null : {t,wheel};
 }
+export function civilianRoundContact(car,start,delta){
+  if(car.wrecked)return Infinity;
+  const {halfWidth,halfLength,roof}=civilianProfiles[car.model];
+  return box(start,delta,car,halfWidth*2,roof,halfLength*2,car.yaw);
+}
 export function supercarRoundContact(car,from,delta){
   return roverRoundContact(car,from,delta)?.t??Infinity;
 }
@@ -215,6 +221,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=roverRoundContact(world.rover,round,d);
     if(hit)accept(hit.t,world.rover,'rover',false,null,hit.t,hit.wheel);
   }
+  for(const car of world.traffic??[])accept(civilianRoundContact(car,round,d),car,car.id);
   const sportHit=roverRoundContact(world.supercar,round,d);
   if(sportHit)accept(sportHit.t,world.supercar,'supercar',false,null,sportHit.t,sportHit.wheel);
   const jet=world.jet;

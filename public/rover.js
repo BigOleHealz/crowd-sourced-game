@@ -1,3 +1,4 @@
+import {civilianProfiles} from './civilian-fleet.js';
 import {launchAtLip,advanceBridgeFlight} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
@@ -19,6 +20,7 @@ const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 export function stopRover(r) {
   r.speed=0;
   r.lateralSpeed=0;
+  if(r.model)r.engineLoad=0;
 }
 
 export function parkedRover() {
@@ -35,7 +37,7 @@ export function parkedSupercar(){
 export function drivenRoad(world,id){
   if(id==null)return null;
   if(world?.rover?.driver===id)return world.rover;
-  return world?.supercar?.driver===id ? world.supercar : null;
+  return world?.supercar?.driver===id ? world.supercar : world?.traffic?.find(car=>car.driver===id)??null;
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
@@ -51,8 +53,12 @@ export function nearestVehicle(world, feet) {
   return flight <= BOARD_RANGE ? 'heli' : null;
 }
 
+function roadByKind(world,kind){
+  return kind==='rover' || kind==='supercar' ? world[kind] : world.traffic?.find(car=>car.id===kind);
+}
+
 export function interactRover(world, player,kind='rover') {
-  const r = world[kind];
+  const r = roadByKind(world,kind);
   if(!r)return;
   const sport=kind==='supercar';
   if (r.gunner === player.id) r.gunner=null;
@@ -78,7 +84,7 @@ export function interactRover(world, player,kind='rover') {
 }
 
 export function damageRover(world, amount, players,kind='rover',team) {
-  const r=world[kind];
+  const r=roadByKind(world,kind);
   if (!r || r.wrecked || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
   if (r.hp>0) return;
@@ -90,12 +96,12 @@ export function damageRover(world, amount, players,kind='rover',team) {
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
   r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
-  world.rules?.wreckVehicle(team,kind);
+  if(!r.model)world.rules?.wreckVehicle(team,kind);
   delete r.bridgeFlight;stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
 
 export function recoverRover(world,dt,kind='rover') {
-  const r=world[kind];
+  const r=roadByKind(world,kind);
   if (!r?.wrecked) return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
   if (r.recoverySeconds < .0001) world[kind]=kind==='supercar'?parkedSupercar():parkedRover();
@@ -136,23 +142,26 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 }
 
 export function driveRover(world, input, dt, players,kind='rover') {
-  const r = world[kind];
+  const r = roadByKind(world,kind);
   if(r?.bridgeFlight){
     if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind);
     return;
   }
   if (r?.driver == null) return;
-  const sport=kind==='supercar';
+  const sport=kind==='supercar',profile=civilianProfiles[r.model];
   const throttle=input.throttle || 0, steer=input.steer || 0;
-  const reverseLimit=sport ? supercarLayout.reverseSpeed : CITY ? 5.4 : 2.8;
-  const topSpeed=sport?supercarLayout.maxSpeed:16;
+  const reverseLimit=sport ? supercarLayout.reverseSpeed : profile?.reverseSpeed??(CITY ? 5.4 : 2.8);
+  const topSpeed=sport?supercarLayout.maxSpeed:profile?.topSpeed??16;
   const flats=flatTireCount(r);
   const mobility=1/(1+.47*flats);
   const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
   const braking=sport && throttle ? 30 : 18;
-  const acceleration = throttle && r.speed*throttle>=0 ? power*mobility : braking;
+  const drivePower=profile ? profile.driveForce/profile.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1)) : power;
+  const brakePower=profile ? profile.brakeForce/profile.mass : braking;
+  const acceleration = throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower;
+  if(profile)r.engineLoad=Math.abs(throttle);
   const oldSpeed=r.speed;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
   if(sport){r.steer=steer;tickExhaust(r,throttle,oldSpeed,dt);}
@@ -160,7 +169,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const pace=Math.abs(r.speed);
   const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
     1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
   const yaw=r.yaw+turn;
   const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
   r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
