@@ -1,3 +1,4 @@
+import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import * as THREE from 'three';
 import {skyDarkness} from './road-lighting.js';
 
@@ -9,10 +10,10 @@ export function apartmentGlass(atlas,panorama){
   rooms.colorSpace=THREE.SRGBColorSpace;rooms.anisotropy=4;
   const glass=new THREE.MeshStandardMaterial({map:atlas,vertexColors:true,roughness:.30,metalness:.06});
   glass.onBeforeCompile=shader=>{
-    Object.assign(shader.uniforms,{roomPhotos:{value:rooms},windowSky:{value:panorama},nightAmount:skyDarkness});
+    Object.assign(shader.uniforms,{eveningAtlas,eveningReady,roomPhotos:{value:rooms},windowSky:{value:panorama},nightAmount:skyDarkness});
     shader.vertexShader='attribute vec4 apartmentPane; varying vec4 windowPane;\n'+shader.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\nwindowPane=apartmentPane;');
-    shader.fragmentShader='uniform sampler2D roomPhotos,windowSky; uniform float nightAmount; varying vec4 windowPane;\n'+
+    shader.fragmentShader=eveningGLSL+'\nuniform sampler2D roomPhotos,windowSky; uniform float nightAmount; varying vec4 windowPane;\n'+
       shader.fragmentShader.replace('#include <opaque_fragment>',`
         vec3 eyeWorld=inverseTransformDirection(normalize(vViewPosition),viewMatrix);
         vec3 paneNormal=inverseTransformDirection(normal,viewMatrix);
@@ -42,7 +43,8 @@ export function apartmentGlass(atlas,panorama){
         }
         vec3 reflection=reflect(-eyeWorld,paneNormal);
         vec2 skyUV=vec2(atan(reflection.x,-reflection.z)/6.2831853+.5,clamp(.30+.55*asin(clamp(reflection.y,-1.,1.)),.22,.985));
-        vec3 sky=texture2D(windowSky,skyUV,1.7).rgb*mix(vec3(1.),vec3(.07,.096,.16),nightAmount);
+        vec3 sky=texture2D(windowSky,skyUV,1.7).rgb;
+        sky=eveningReflection(sky,skyUV.x,asin(clamp(reflection.y,-1.,1.)),nightAmount);
         float fresnel=.15+.63*pow(1.-facing,2.);
         vec3 behind=mix(room*roomLight,outgoingLight,.18*(1.-nightAmount));
         outgoingLight=mix(behind,sky,fresnel);

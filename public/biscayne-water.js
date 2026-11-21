@@ -1,3 +1,4 @@
+import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {skyDarkness} from './road-lighting.js';
 import {waterfrontWind} from './waterfront-breeze.js';
 
@@ -5,12 +6,14 @@ import {waterfrontWind} from './waterfront-breeze.js';
 // reflected sky without a mirror camera, a second render pass or a simulation.
 export function lightBaySurface(material,panorama){
   material.onBeforeCompile=shader=>{
+    Object.assign(shader.uniforms,{eveningAtlas,eveningReady});
     shader.uniforms.harborSky={value:panorama};
     shader.uniforms.harborWind=waterfrontWind;
     shader.uniforms.harborDark=skyDarkness;
     shader.vertexShader='varying vec3 bayPoint;\n'+shader.vertexShader.replace('#include <project_vertex>',
       '#include <project_vertex>\nbayPoint=(modelMatrix*vec4(transformed,1.)).xyz;');
-    shader.fragmentShader=`varying vec3 bayPoint;
+    shader.fragmentShader=`${eveningGLSL}
+varying vec3 bayPoint;
       uniform vec4 harborWind;
       uniform sampler2D harborSky;
       uniform float harborDark;
@@ -38,7 +41,7 @@ export function lightBaySurface(material,panorama){
       normal=normalize(mat3(viewMatrix)*waveNormal);
     `).replace('#include <opaque_fragment>',`
       float grazing=pow(1.-clamp(dot(waveNormal,viewDir),0.,1.),3.);
-      sky*=mix(vec3(1.),vec3(.064,.093,.15),harborDark);
+      sky=eveningReflection(sky,azimuth,altitude,harborDark);
       outgoingLight=mix(outgoingLight,sky,.032+.29*grazing);
       #include <opaque_fragment>
     `);
