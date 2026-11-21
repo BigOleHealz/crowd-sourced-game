@@ -51,6 +51,12 @@ const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
 const lighting=byId('lighting-choice');
+const costume=byId('parade-costume');
+try{costume.checked=localStorage.getItem('pinewatch.paradeCostume')==='on';}catch{}
+costume.onchange=()=>{
+  try{localStorage.setItem('pinewatch.paradeCostume',costume.checked?'on':'off');}catch{}
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'paradeCostume',enabled:costume.checked}));
+};
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
@@ -484,6 +490,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
+      if(costume.checked)socket.send(JSON.stringify({type:'paradeCostume',enabled:true}));
       sprintBoard=m.raceBoard??[];
       connectedBuild=m.build;market.receive(m);
       if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
@@ -957,7 +964,7 @@ function frame(time) {
     const free=vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
