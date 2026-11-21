@@ -1,10 +1,11 @@
+import {waterHelm} from './water-helm.js';
 import {damageBoat} from './patrol-boats.js';
 import {CITY,MAP,groundHeight,insideTravelArea} from './world.js';
 import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelmFeet,yachtPrompt,
   aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin} from './yacht-layout.js';
 
 export function mooredYacht(){
-  return {id:'superyacht',...yachtBerth,y:MAP.waterY,speed:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
+  return {id:'superyacht',...yachtBerth,y:MAP.waterY,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
     hp:yachtMaxHp,maxHp:yachtMaxHp,wrecked:false,recoverySeconds:0};
 }
 export function interactYacht(world,player){
@@ -27,7 +28,7 @@ export function damageYacht(world,amount,team){
   y.hp=Math.max(0,y.hp-amount);
   if(y.hp)return;
   world.rules?.wreckVehicle(team,'yacht');
-  Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,throttle:0,gangway:false,recoverySeconds:9});
+  Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,yawRate:0,slip:0,throttle:0,gangway:false,recoverySeconds:9});
   if(world.heli?.onYacht){
     delete world.heli.onYacht;world.heli.grounded=false;
     if(!world.heli.wrecked && world.heli.pilot==null)world.heli.abandonedFor=0;
@@ -88,16 +89,12 @@ export function stepYacht(world,input,dt,players){
     }
     return;
   }
-  const throttle=y.driver==null?0:input?.throttle||0,steer=y.driver==null?0:input?.steer||0;
-  y.throttle=throttle;
-  const desired=throttle*(throttle<0?2.0:5.2),rate=throttle && y.speed*throttle>=0?1.1:2.0;
-  y.speed+=Math.max(-rate*dt,Math.min(rate*dt,desired-y.speed));
-  const turn=steer*(y.speed<-.08?-1:1)*(.16+.034*Math.abs(y.speed))*dt;
+  const turn=waterHelm(y,input,dt);
   if(y.speed || turn){
     const from={...y},angle=y.yaw+turn;
     const next={...y,yaw:Math.atan2(Math.sin(angle),Math.cos(angle))};
-    if(turn && !clear(world,next,players,from))next.yaw=y.yaw;
-    next.x+=Math.sin(next.yaw)*y.speed*dt;next.z-=Math.cos(next.yaw)*y.speed*dt;
+    if(turn && !clear(world,next,players,from)){next.yaw=y.yaw;y.yawRate=y.slip=0;}
+    next.x+=Math.sin(next.yaw+y.slip)*y.speed*dt;next.z-=Math.cos(next.yaw+y.slip)*y.speed*dt;
     if(clear(world,next,players,from)){
       Object.assign(y,{x:next.x,z:next.z,yaw:next.yaw});
     }else {
@@ -112,7 +109,7 @@ export function stepYacht(world,input,dt,players){
           if(hull)damageBoat(world,hull,impact,players);
         }
       }
-      y.speed=0;
+      y.speed=y.yawRate=y.slip=0;
     }
     if(y.wrecked)return;
     const angleToBerth=y.yaw-yachtBerth.yaw;
