@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {MAP} from '../public/world.js';
+import {depthSurvey} from '../public/outpost-creek.js';
+const rows=248,cols=176,depth=depthSurvey(cols,rows),extra=-MAP.northBound-MAP.bounds;
+const at=(x,z)=>depth[Math.floor((.5-(z+extra/2)/(125+extra))*rows)*cols+Math.floor((.5+x/125)*cols)]*3.5/255;
+assert(at(0,0)>.75,'riverbed below the bridge');
+assert.equal(at(16,0),0,'dry crown of the ford');
+assert.equal(at(-8,15),0,'dry outpost');
+assert(at(58,25)>2.5,'deep offshore water');
+console.log('PASS rural depth survey follows the river, ford, land and offshore basin');

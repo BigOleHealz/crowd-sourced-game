@@ -432,7 +432,7 @@ function tick() {
   if (players.size) {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
-    stepCityTraffic(world,players,npcs,step);
+    stepCityTraffic(world,players,npcs,step,ticks);
     for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {

@@ -16,6 +16,15 @@ export function roadHandle(car,t){
   const a=boardingDoorAngle(t),c=Math.cos(a),s=Math.sin(a),dx=x-hinge[0],dz=z-hinge[1];
   return mountPosition(car,[hinge[0]+c*dx+s*dz,y,hinge[1]-s*dx+c*dz]);
 }
+// Shared by the animated body and authoritative occupant during a door transition.
+export function roadBoardingPosition(car,action){
+  const t=action.progress,approach=smooth(t,0,.24),enter=smooth(t,action.npcId ? .65 : .45,.97);
+  const handle=roadHandle(car,t),seat=mountPosition(car,roadCabin(car).seat);
+  const c=Math.cos(car.yaw),s=Math.sin(car.yaw),mix=(a,b,f)=>a+(b-a)*f;
+  return {x:mix(mix(action.startX,handle.x-c*.27+s*.12,approach),seat.x,enter),
+    y:mix(mix(action.startY,car.y,approach),seat.y,enter),
+    z:mix(mix(action.startZ,handle.z-s*.27-c*.12,approach),seat.z,enter)};
+}
 export function roadWheelGrip(car,side){
   const {wheel:[x,y,z],radius,tilt}=roadCabin(car),up=radius*.50;
   return mountPosition(car,[x+side*radius*Math.cos(Math.PI/6),y+up*Math.cos(tilt),z+up*Math.sin(tilt)]);

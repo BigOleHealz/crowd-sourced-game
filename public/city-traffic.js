@@ -1,3 +1,5 @@
+import {signalGap} from './junction-signals.js';
+import {gapAhead,roadUsers} from './lane-clearance.js';
 import {beginRoadBoarding} from './road-cabin.js';
 import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
 import {roadGrip} from './road-surface.js';
@@ -121,28 +123,6 @@ function advanceTakeover(world,car,npc,dt,players){
   car.takeover=null;
 }
 
-function gapAhead(car,actors,vehicles,jet){
-  const c=Math.cos(car.yaw),s=Math.sin(car.yaw),profile=civilianProfiles[car.model];
-  let gap=Infinity;
-  function consider(p,width,length,buffer){
-    if(Math.abs(p.y-car.y)>1.8)return;
-    const dx=p.x-car.x,dz=p.z-car.z,along=dx*s-dz*c;
-    if(along<0 || Math.abs(dx*c+dz*s)>profile.halfWidth+width)return;
-    gap=Math.min(gap,Math.max(0,along-profile.halfLength-length-buffer));
-  }
-  for(const a of actors)consider(a.state,.40,.32,.28);
-  for(const other of vehicles){
-    if(other===car || other.crushed)continue;
-    // Project the other vehicle's oriented footprint into this lane.
-    const otherShape=civilianProfiles[other.model];
-    const width=other===jet?2.82:otherShape?.halfWidth??.86;
-    const length=other===jet?3.25:otherShape?.halfLength??1.7;
-    const delta=car.yaw-other.yaw,side=Math.abs(Math.sin(delta)),along=Math.abs(Math.cos(delta));
-    consider(other,width*along+length*side,length*along+width*side,.65+Math.max(0,car.speed-(other.speed??0))*.26);
-  }
-  return gap;
-}
-
 // Stop before the hinge while the channel is reserved for a yacht. Drivers
 // already on the leaves clear them before the bridge starts lifting.
 function bridgeGap(world,car){
@@ -171,15 +151,11 @@ function recoverTrafficCar(world,car,actors,dt){
   delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
-export function stepCityTraffic(world,players,npcs,dt){
+const trafficClocks=new WeakMap();
+export function stepCityTraffic(world,players,npcs,dt,tick){
   if(!world.traffic?.length)return;
-  const vehicles=[...world.traffic,world.rover];
-  if(world.supercar)vehicles.push(world.supercar);
-  if(world.tank)vehicles.push(world.tank);
-  if(world.heli.grounded)vehicles.push(world.heli);
-  if(world.jet.grounded)vehicles.push(world.jet);
-  const actors=[...players.values(),...npcs].filter(a=>a.life.hp && !trafficDriverCar(world,a.id) &&
-    !vehicles.some(v=>v?.driver===a.id || v?.gunner===a.id || v?.pilot===a.id));
+  if(CITY && tick==null){tick=(trafficClocks.get(world)??0)+dt*30;trafficClocks.set(world,tick);}
+  const {vehicles,actors}=roadUsers(world,players,npcs);
   for(const car of world.traffic){
     const npc=npcs.find(n=>n.id===(car.npcDriver??car.takeover?.npcId));
     if(car.sling && !car.wrecked){if(npc)placeDriver(car,npc);continue;}
@@ -194,7 +170,7 @@ export function stepCityTraffic(world,players,npcs,dt){
     if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
-    const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
+    const gap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
     const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);

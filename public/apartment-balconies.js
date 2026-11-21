@@ -1,3 +1,4 @@
+import {apartmentGlass} from './apartment-window-light.js';
 import {wrapDepth,privateDepth,privateWidth,cornerCut} from './balcony-surfaces.js';
 import * as THREE from 'three';
 
@@ -64,14 +65,14 @@ function addPicketLOD(scene, shape, material, pickets, x, y, z) {
   scene.add(lod);
 }
 
-export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podium) {
+export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podium, panorama) {
   const cube = new THREE.BoxGeometry(), leaves = new THREE.IcosahedronGeometry(1, 1);
   const guardPane = new THREE.PlaneGeometry();
   // The narrow, open prism needs only six triangles with its ends covered by the rails.
   const picketShape = new THREE.CylinderGeometry(.017, .017, 1, 3, 1, true);
   const windows = windowCrops.map(crops => crops.map(windowGeometry));
   const stoneMaterial = new THREE.MeshLambertMaterial({vertexColors: true});
-  const glassMaterial = new THREE.MeshStandardMaterial({map: atlas, vertexColors: true, roughness: .48, metalness: .04});
+  const glassMaterial = apartmentGlass(atlas,panorama);
   const panelMaterial = new THREE.MeshLambertMaterial({
     color: 0x77a49e, transparent: true, opacity: .20, depthWrite: false,
     side: THREE.DoubleSide, forceSinglePass: true,
@@ -85,7 +86,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
     const height = eave - podium;
     const {floors,story}=towerStories({eave,facade},podium),start=base+podium;
     const masonry = new Batch(), glazing = new Batch(true), panels = new Batch(), pickets = [];
-    const sheets=paneBatch(glazing),guards=paneBatch(panels);
+    const sheets=paneBatch(glazing),guards=paneBatch(panels),roomCoords=[];
     const cladding = wrap ? 0xd1cfc3 : 0xcfc3ae;
     const concrete = wrap ? 0xcac9bc : 0xb3a58f;
     const frame = wrap ? 0x4e625e : 0x4c5149;
@@ -148,6 +149,9 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
           const glassTint = [0xc1d0cd, 0xd3ded7, 0xabbbb8, 0x9fb4af][seed % 4];
           const glassPattern = (seed ^ (seed >>> 3)) % 4;
           const y=(sill+head)/2;
+          const roomSeed=(seed ^ (seed>>>2) ^ (seed*13>>>5))%128;
+          // PlaneGeometry vertices run upper left/right, then lower left/right.
+          for(const v of [1,0])for(const u of [0,1])roomCoords.push(u,v,roomSeed,opening/panelHeight);
           sheets.add(paneKey(gx,y,gz),()=>glazing.add(windows[type][glassPattern],glassTint,
             gx,y,gz,opening,panelHeight,1,0,yaw));
 
@@ -187,6 +191,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
 
     masonry.mesh(scene, stoneMaterial).userData.impactSurface = 'solid';
     const windowsMesh=glazing.mesh(scene,glassMaterial,false);
+    windowsMesh.geometry.setAttribute('apartmentPane',new THREE.Float32BufferAttribute(roomCoords,4));
     windowsMesh.userData.impactSurface='solid';
     updates.push(sheets.bind(windowsMesh));
     if(wrap)updates.push(guards.bind(panels.mesh(scene,panelMaterial,false)));
