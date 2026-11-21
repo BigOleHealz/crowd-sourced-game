@@ -1,3 +1,4 @@
+import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -178,15 +179,16 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const throttle=input.throttle || 0, steer=input.steer || 0;
   const reverseLimit=sport ? supercarLayout.reverseSpeed : profile?.reverseSpeed??(CITY ? 5.4 : 2.8);
   const topSpeed=sport?supercarLayout.maxSpeed:profile?.topSpeed??16;
+  const surface=roadGrip(r.x,r.z);
   const flats=flatTireCount(r);
   const mobility=flatMobility(r);
-  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
+  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility*surface.pace;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
   const braking=sport && throttle ? 30 : 18;
   const drivePower=profile ? profile.driveForce/profile.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1)) : power;
   const brakePower=profile ? profile.brakeForce/profile.mass : braking;
-  const acceleration = throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower;
+  const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;
   if(profile)r.engineLoad=Math.abs(throttle);
   const oldSpeed=r.speed;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
@@ -195,7 +197,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const pace=Math.abs(r.speed);
   const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
     1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
   const yaw=r.yaw+turn;
   const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
   r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
@@ -207,7 +209,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   // Retain tire slip after an oblique impact while the suspension settles.
   const contact=bumperContacts.get(r);
   const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
-  r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
+  r.lateralSpeed=clamp(side*Math.exp(-grip*surface.traction*dt),-limit/surface.traction,limit/surface.traction);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
   const airborne=launchAtLip(world,r,vx,vz,dt);
