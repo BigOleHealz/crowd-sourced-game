@@ -58,15 +58,17 @@ export function structuralCollapseView(scene,buildings){
       const t=v.clock;
       v.pieces.forEach((p,i)=>{
         piecePose(p,t,pose);
-        matrix.position.set(pose.x,pose.low+pose.h/2,pose.z);matrix.rotation.y=-pose.yaw;
-        matrix.scale.set(pose.w,pose.h,pose.d);matrix.updateMatrix();v.mesh.setMatrixAt(i,matrix.matrix);
+        matrix.matrix.set(pose.xx*pose.w,pose.yx*pose.h,pose.zx*pose.d,pose.x,
+          pose.xy*pose.w,pose.yy*pose.h,pose.zy*pose.d,pose.y,
+          pose.xz*pose.w,pose.yz*pose.h,pose.zz*pose.d,pose.z,0,0,0,1);
+        v.mesh.setMatrixAt(i,matrix.matrix);
       });
       v.mesh.instanceMatrix.needsUpdate=true;
       const {position,opacity,diameter}=v.dust.geometry.attributes;
       v.motes.forEach(({p,dx,dz,r,life},i)=>{
         const u=Math.max(0,Math.min(1,(t-p.land)/life));
         const ground=p.low-p.drop;
-        position.setXYZ(i,p.x+dx*(p.w*.37+r*u*2.5),ground+.2+u*.95,p.z+dz*(p.d*.37+r*u*2.5));
+        position.setXYZ(i,p.x+p.dx+dx*(p.w*.37+r*u*2.5)+p.ux*u*.6,ground+.2+u*.95,p.z+p.dz+dz*(p.d*.37+r*u*2.5)+p.uz*u*.6);
         diameter.setX(i,.32+(2.3+r)*u);
         opacity.setX(i,.48*Math.min(1,u*12)*(1-u));
       });

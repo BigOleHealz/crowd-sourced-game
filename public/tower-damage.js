@@ -1,3 +1,4 @@
+import {damageDirection} from './collapse-direction.js';
 export const towerBase=.7, bandHeight=4, baysAcross=4;
 export const baysPerFloor=baysAcross*baysAcross, towerStride=256;
 const overhang=1.55;
@@ -34,7 +35,11 @@ export function rubbleProgress(ticks){
 }
 export function rubbleHeight(b,x,z,doors){
   const fall=doors?.structureFalls?.find(f=>f.tower===b.towerId);
-  const u=Math.abs((x-b.x)/(b.w/2)),v=Math.abs((z-b.z)/(b.d/2));
+  const dir=doors?.towerDirections?.[b.towerId];
+  const ax=(x-b.x)/(b.w/2),az=(z-b.z)/(b.d/2);
+  // Move the crest toward the fall while keeping the heap inside its lot.
+  const skew=(q,d)=>Math.abs((q-d)/(1+(q<d?d:-d)));
+  const u=skew(ax,.32*(dir?.x??0)),v=skew(az,.32*(dir?.z??0));
   const taper=Math.max(0,1-Math.max(u,v));
   return b.base+(fall?rubbleProgress(fall.age):1)*taper*Math.min(4.5,b.eave*.12)*(.89+.11*Math.cos(x*1.3+z));
 }
@@ -60,8 +65,13 @@ export function breachTower(buildings,doors,point) {
       let i=0;
       while(i<baysPerFloor && set.has(floor+i))i++;
       if(i===baysPerFloor){
-        (doors.structureFalls??=[]).push({key:'tower-'+b.towerId,tower:b.towerId,age:0,
-          missing:lost.filter(id=>Math.floor(id/towerStride)===b.towerId)});
+        const missing=lost.filter(id=>Math.floor(id/towerStride)===b.towerId);
+        const direction=damageDirection(missing.map(id=>({
+          x:(id%baysAcross+.5)/baysAcross-.5,
+          z:(Math.floor(id%baysPerFloor/baysAcross)+.5)/baysAcross-.5,
+        })));
+        (doors.towerDirections??={})[b.towerId]=direction;
+        (doors.structureFalls??=[]).push({key:'tower-'+b.towerId,tower:b.towerId,age:0,missing,direction});
         (doors.collapsedTowers??=[]).push(b.towerId);
         doors.towerBreaches=lost.filter(id=>Math.floor(id/towerStride)!==b.towerId);
       }
