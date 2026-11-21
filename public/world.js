@@ -294,6 +294,14 @@ export function blocked(x, y, z, hp, doors, height=1.7) {
   return solidTopAt(x, z, hp, PLAYER_RADIUS, y+height, doors) > Math.max(y, floor) + 0.001;
 }
 
+// Weight only grounded characters in the shallows. Falling, climbing and
+// deck occupants keep their own movement until the buoyancy model takes over.
+export function waterBlend(state){
+  if(state.swimming)return 1;
+  if(!state.grounded || state.onYacht || state.climb || state.parachute)return 0;
+  return smoothstep(.08,.72,MAP.waterY-state.y);
+}
+
 export function stanceBodyHeight(stance) {
   return stance === 'prone' ? .54 : stance === 'crouch' ? 1.28 : 1.8;
 }
@@ -307,13 +315,20 @@ export function stanceMuzzleHeight(state) {
 }
 
 export function stepPlayer(state, input, dt, hp, world) {
-  const climb=state.climb || (input.jump && findLedge(state,input,hp,world));
+  // One jump press can catch a ledge reached during the first quarter-second
+  // of the approach. Preserve launch height so the buffer never extends reach.
+  const grabAllowed=!input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
+  const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
+    ? {y:state.y,left:.25} : state.grab);
+  const climb=state.climb || ((input.jump || grab) && findLedge(state,input,hp,world,grab));
   if(climb) return stepClimb(state,climb,dt,hp,world);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
   const requested = input.stance ?? state.stance;
   const stance = state.grounded && !input.jump && !parachute && !state.swimming &&
     (requested === 'crouch' || requested === 'prone') ? requested : undefined;
-  const speed = stance === 'prone' ? 1.05 : stance === 'crouch' ? 2.25 : state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const drySpeed=stance==='prone'?1.05:stance==='crouch'?2.25:parachute==='open'?3.6:parachute?2.3:input.sprint?7.4:4.6;
+  const wade=waterBlend(state);
+  const speed=state.swimming?3.05:drySpeed+(Math.min(3.05,drySpeed)-drySpeed)*wade;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
@@ -364,7 +379,8 @@ export function stepPlayer(state, input, dt, hp, world) {
     // Damp the last part of a fall on entry, then converge to surface height.
     const blend=-Math.expm1(-9*dt);
     const nextY=Math.max(floatY-.16,y+(floatY-y)*blend);
-    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true};
+    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true,
+      ...(grab?.left>dt && {grab:{y:grab.y,left:grab.left-dt}})};
   }
   if(state.swimming && !deep && floor<=y+.31) {
     y=floor;grounded=true;vy=0;
@@ -392,6 +408,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;

@@ -1,3 +1,5 @@
+import {strikeFittings} from './road-fittings.js';
+import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -5,7 +7,7 @@ import {tipFurniture} from './shop-furniture.js';
 import {noteGlass} from './pane-damage.js';
 import {breakFrontage,shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP} from './street-lamps.js';
-import { roadContact, sweepRoad } from './road-contact.js';
+import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
@@ -18,7 +20,7 @@ export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function stopRover(r) {
-  r.speed=0;
+  r.speed=0;r.braking=false;
   r.lateralSpeed=0;
   if(r.model)r.engineLoad=0;
 }
@@ -57,11 +59,36 @@ function roadByKind(world,kind){
   return kind==='rover' || kind==='supercar' ? world[kind] : world.traffic?.find(car=>car.id===kind);
 }
 
+export function clearRoadExit(world,car,preferred=-1){
+  const hull=roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const width=hull.halfWidth+.52,length=hull.halfLength+.52;
+  const positions=[];
+  for(const extra of [0,.55]){
+    for(const aft of [-.22,.55,-.67])for(const side of [preferred,-preferred])positions.push([side*(width+extra),aft]);
+    positions.push([0,length+extra],[0,-length-extra]);
+  }
+  for(const [side,aft] of positions){
+    const dx=side*c-aft*s,dz=side*s+aft*c,x=car.x+dx,z=car.z+dz;
+    const y=groundHeight(x,z,car.y+.9,world.doors);
+    if(y<=MAP.waterY+.1 || Math.abs(y-car.y)>.8 || vehicleContact(x,y,z,world,CITY).depth)continue;
+    // Test the path as well as the landing spot: a thin wall or closed door
+    // must not let a passenger emerge on its far side.
+    let clear=true;
+    const steps=Math.ceil(Math.hypot(dx,dz)/.23);
+    for(let i=1;i<=steps && clear;i++){
+      const t=i/steps;
+      clear=!blocked(car.x+dx*t,car.y+(y-car.y)*t,car.z+dz*t,world.hp,world.doors);
+    }
+    if(clear)return {x,y,z,grounded:true,vy:0};
+  }
+}
+
 export function interactRover(world, player,kind='rover') {
   const r = roadByKind(world,kind);
   if(!r)return;
   const sport=kind==='supercar';
-  if (r.gunner === player.id) r.gunner=null;
+  const wasGunner=r.gunner===player.id;
+  if (wasGunner) r.gunner=null;
   else if (r.driver === player.id) {
     r.driver=null;stopRover(r);
     if(r.takeover)r.takeover.playerId=null;
@@ -73,18 +100,7 @@ export function interactRover(world, player,kind='rover') {
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
-  let exit = world.rules?.spawn(player) ?? spawn(player.id-1);
-  for (let i=0; i<8; i++) {
-    const radius=sport?(i%4===0?1.56:2.75):1.7;
-    const angle = r.yaw + i*Math.PI/4;
-    const x = r.x + radius*Math.cos(angle), z = r.z + radius*Math.sin(angle);
-    const y = groundHeight(x,z,Infinity,world.doors);
-    if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
-    if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
-    exit = {x,y,z,vy:0,grounded:true};
-    break;
-  }
-  player.state = exit;
+  player.state=clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
 }
 
 export function damageRover(world, amount, players,kind='rover',team) {
@@ -157,6 +173,9 @@ function registerImpact(world,r,hit,speed,players){
   const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
   r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-nx*reach,y:r.y+.55,z:r.z-nz*reach,panel,damage};
   const team=players?.get(r.driver)?.team;
+  const narrow=other && Number.isFinite(other.x) && (otherRoad || other.radius<2 || (other.w<3 && other.d<3));
+  strikeFittings(r,narrow?other:r.contactSound,damage);
+  if(otherRoad)strikeFittings(other,r,Math.round((2-share)*severity));
   damagePanel(world,r,panel,damage,players);
   if(otherRoad)damagePanel(world,other,contactPanel(other,-nx,-nz),Math.round((2-share)*severity),players,team);
 }
@@ -181,24 +200,26 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const throttle=input.throttle || 0, steer=input.steer || 0;
   const reverseLimit=sport ? supercarLayout.reverseSpeed : profile?.reverseSpeed??(CITY ? 5.4 : 2.8);
   const topSpeed=sport?supercarLayout.maxSpeed:profile?.topSpeed??16;
+  const surface=roadGrip(r.x,r.z);
   const flats=flatTireCount(r);
   const mobility=flatMobility(r);
-  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility;
+  const target = throttle * (throttle<0 ? reverseLimit : topSpeed)*mobility*surface.pace;
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
   const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
   const braking=sport && throttle ? 30 : 18;
   const drivePower=profile ? profile.driveForce/profile.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1)) : power;
   const brakePower=profile ? profile.brakeForce/profile.mass : braking;
-  const acceleration = throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower;
+  const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;
   if(profile)r.engineLoad=Math.abs(throttle);
   const oldSpeed=r.speed;
+  r.braking=!!throttle && oldSpeed*throttle<-.01;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
   if(sport){r.steer=steer;tickExhaust(r,throttle,oldSpeed,dt);}
 
   const pace=Math.abs(r.speed);
   const turnRate=sport ? 1.98 + Math.min(.22,pace*.045)-Math.max(0,pace-6.5)*.048 :
     1.55+Math.min(.45,pace*.09)-Math.max(0,pace-5.7)*.095;
-  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
+  const turn=steer*(profile ? profile.turnRate/1.55 : 1)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*(r.speed<-.05 ? -1 : 1)*turnRate*dt;
   const yaw=r.yaw+turn;
   const rotation=turn && !roadContact(world,r.x,r.z,yaw,r.x,r.z,r) ? turn : 0;
   r.yaw=Math.atan2(Math.sin(r.yaw+rotation),Math.cos(r.yaw+rotation));
@@ -210,7 +231,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   // Retain tire slip after an oblique impact while the suspension settles.
   const contact=bumperContacts.get(r);
   const grip=contact?3.5:5.2+9*(1-drift),limit=contact?16:pace*.20;
-  r.lateralSpeed=clamp(side*Math.exp(-grip*dt),-limit,limit);
+  r.lateralSpeed=clamp(side*Math.exp(-grip*surface.traction*dt),-limit/surface.traction,limit/surface.traction);
   const sn=Math.sin(r.yaw),cs=Math.cos(r.yaw);
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
   const airborne=launchAtLip(world,r,vx,vz,dt);

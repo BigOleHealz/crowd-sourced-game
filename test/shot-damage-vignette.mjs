@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {confirmedShot} from '../public/shot-damage-vignette.js';
+import {confirmedShot,hitAngle} from '../public/shot-damage-vignette.js';
 import {fire,advanceRounds,newExpedition} from '../public/expedition.js';
 import {newLife,healthView,damageActor,respawnDue} from '../public/rivals.js';
 
@@ -34,3 +34,8 @@ if(respawnDue(target,returnTick))target.life=newLife(returnTick);
 assert(!confirmedShot(prior,healthView(target,returnTick)),'respawn');
 assert.equal(healthView(target,returnTick).lastShotTick,undefined);
 console.log('PASS shot-only local confirmation, spawn shield, burst, duplicates, lethal, reconnect, healing and respawn');
+
+assert.equal(damaged.hitSector,4,'shot arriving from behind a north-facing target');
+assert.equal(hitAngle(damaged.hitSector,0),180);
+assert.equal(hitAngle(damaged.hitSector,Math.PI/2),90,'behind becomes right after camera turns east');
+assert.equal(hitAngle(undefined,0),null,'ordinary all-edge feedback when horizontal direction is unavailable');

@@ -1,3 +1,4 @@
+import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
@@ -216,7 +217,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const fittings=trim.mesh(body,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:55,specular:0x797878}),false);
   for(const m of [skin,fittings])Object.assign(m.userData,{vehicle:'supercar',impactSurface:'metal'});
   const updatePanes=carPanes.bind(glass.mesh(body,alpineGlass(panorama,{transparent:true,opacity:.54,depthWrite:false,side:THREE.DoubleSide}),false));
-  lamps.mesh(body,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}),false);
+  const lenses=lamps.mesh(body,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide}),false);
   const wheels=[];
   const tireProfile=[[.252,-.128],[.301,-.127],[.338,-.09],[.35,-.052],[.35,.052],[.338,.09],[.301,.127],[.252,.128]];
   const tire=new THREE.LatheGeometry(tireProfile.map(([r,x])=>new THREE.Vector2(r,x)),40).rotateZ(Math.PI/2);
@@ -265,6 +266,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   for(const g of [cube,sphere,disc,torus])g.dispose();
   let spin=0,time=0;
   const suspensionAxis=new THREE.Vector3();
+  const fittingsDamage=damagedFittings([skin,fittings,lenses],-2.32,2.32,1.02,.46);
   const wreckFinish=roadWreckFinish(body);
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
@@ -274,7 +276,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
     const pose=car.suspension;
     root.rotation.set(car.bridgeFlight ? pose?.pitch??0 : 0,-car.yaw,0,'YXZ');
-    const sag=wreckFinish(car);
+    const sag=wreckFinish(car);fittingsDamage(car);
     body.rotation.set((car.bridgeFlight?0:pose?.pitch??0)-.085*sag,0,(pose?.roll??0)-.10*sag);
     under.visible=!car.bridgeFlight;
     body.position.y=(car.suspension?.heave??0)-.12*sag;

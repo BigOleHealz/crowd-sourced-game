@@ -1,3 +1,4 @@
+import {wakeTrail} from './boat-wake-view.js';
 import * as THREE from 'three';
 import { helmCushion, helmWheel, patrolFleet } from './patrol-boats.js';
 import { turretView } from './mount-view.js';
@@ -156,66 +157,12 @@ function buildBoat(scene,Batch,material,id) {
   return {root,setWrecked};
 }
 
-// Each ribbon retains world-space samples, so its foam stays on the water through a turn.
-function wakeTrail(scene) {
-  const max=19, lanes=3,count=max*lanes*2;
-  const geometry=new THREE.BufferGeometry(),pos=new THREE.Float32BufferAttribute(new Float32Array(count*3),3);
-  const tint=new THREE.Float32BufferAttribute(new Float32Array(count*4),4),uv=new THREE.Float32BufferAttribute(new Float32Array(count*2),2),indices=[];
-  pos.setUsage(THREE.DynamicDrawUsage);tint.setUsage(THREE.DynamicDrawUsage);
-  uv.setUsage(THREE.DynamicDrawUsage);
-  geometry.setAttribute('position',pos);geometry.setAttribute('foamTint',tint);geometry.setAttribute('uv',uv);
-  for(let k=0;k<lanes;k++)for(let i=0;i<max-1;i++){
-    const n=2*(k*max+i);indices.push(n,n+1,n+2,n+1,n+3,n+2);
-  }
-  geometry.setIndex(indices);
-  const material=new THREE.ShaderMaterial({
-    transparent:true,depthWrite:false,side:THREE.DoubleSide,
-    vertexShader:`attribute vec4 foamTint;varying vec4 tint;varying vec2 strip;
-      void main(){tint=foamTint;strip=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec4 tint;varying vec2 strip;
-      float hash(vec2 p){return fract(sin(dot(p,vec2(71.37,16.59)))*43758.5);}
-      float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
-        return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
-      void main(){float eddy=noise(vec2(strip.x*2.9,strip.y*3.7));
-        float strand=1.-smoothstep(.03,.52,abs(strip.x-.50+.24*(eddy-.5)));
-        float patches=smoothstep(.24,.73,.67*eddy+.33*noise(vec2(strip.x*7.,strip.y*9.)));
-        gl_FragColor=vec4(tint.rgb,strand*patches*tint.a);
-        #include <colorspace_fragment>
-      }`
-  });
-  const mesh=new THREE.Mesh(geometry,material);mesh.frustumCulled=false;mesh.visible=false;mesh.renderOrder=1;scene.add(mesh);
-  const samples=[];let time=0,stamp=-1;
-  return (boat,dt)=>{
-    time+=dt;const speed=Math.abs(boat.speed);
-    if(speed>.9&&!boat.wrecked&&time-stamp>.075){
-      const c=Math.cos(boat.yaw),s=Math.sin(boat.yaw),stern=boat.speed>0?2.05:-2.1;
-      samples.unshift({x:boat.x-stern*s,y:boat.y+.034,z:boat.z+stern*c,c,s,time,power:Math.min(1,speed/8)});
-      stamp=time;
-    }
-    while(samples.length && (samples.length>max || time-samples.at(-1).time>1.30)) samples.pop();
-    mesh.visible=samples.length>1;
-    if(!mesh.visible) return;
-    for(let k=0;k<lanes;k++)for(let i=0;i<max;i++){
-      const q=samples[Math.min(i,samples.length-1)],age=time-q.time,lane=k-1;
-      const fade=Math.max(0,1-age/1.3);
-      const spread=lane*(.70+age*(.68+.51*q.power));
-      const chop=.75+.25*Math.sin(q.time*29+k*9.2);
-      const width=(lane?.072+.15*age:.095+.20*age)*chop*q.power;
-      for(let side=0;side<2;side++){
-        const n=(k*max+i)*2+side,lateral=spread+(side?width:-width);
-        pos.setXYZ(n,q.x+q.c*lateral,q.y,q.z+q.s*lateral);uv.setXY(n,side,q.time*2.5+k*5.31);
-        tint.setXYZW(n,.64,.80,.75,(i<samples.length?fade:0)*chop*q.power*(lane?.65:.42));
-      }
-    }
-    pos.needsUpdate=tint.needsUpdate=uv.needsUpdate=true;
-  };
-}
 export function patrolBoatView(scene,Batch,material) {
   const views=patrolFleet().map(site=>({
     id:site.id,...buildBoat(scene,Batch,material,site.id),
     turret:turretView(scene,'boat',Batch,material),wake:wakeTrail(scene),
   }));
-  return (boats,dt)=>{
+  return (boats,dt,local)=>{
     for(const view of views){
       const boat=boats?.find(b=>b.id===view.id);
       view.root.visible=!!boat;
@@ -225,7 +172,7 @@ export function patrolBoatView(scene,Batch,material) {
       const settle=1-Math.exp(-1.20*age);
       view.root.position.set(boat.x,boat.y-.88*settle,boat.z);
       view.root.rotation.set(boat.pitch+.20*settle,-boat.yaw,boat.roll-.39*settle,'YXZ');
-      view.turret(boat);view.wake(boat,dt);
+      view.turret(boat);view.wake(boat,dt,local);
     }
   };
 }

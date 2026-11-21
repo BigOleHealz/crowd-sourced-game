@@ -1,8 +1,7 @@
+import {hotelEntrance} from './maravela-hotel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {roadFraming} from './road-chase.js';
-import {nearestTraffic} from './city-traffic.js';
-import {nearTank} from './tank.js';
-import {nearJet} from './jet.js';
+import {SnapshotClock} from './snapshot-clock.js';
 import {driverPrediction} from './driver-prediction.js';
 import {launcherSpec,lockLabel} from './handheld-launcher.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
@@ -20,7 +19,7 @@ import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt} from './gallery-lobbies.js';
 import {storefrontRoom} from './storefront-layout.js';
 import {aboardYacht,carryOnYacht,yachtHelmFeet,yachtPrompt} from './yacht-layout.js';
-import {nearBoat,crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
+import {crewBoat,helmFeet,localBoatFrame} from './patrol-boats.js';
 import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 const equipmentSpecs={...firearmSpecs,4:launcherSpec};
@@ -30,9 +29,9 @@ import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
-import { drivenRoad, nearestVehicle } from './rover.js';
+import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
-import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
+import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
@@ -111,12 +110,13 @@ function canChangeStance(state) {
 let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
-let queuedBomb=false,queuedMissile=false;
+let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
+const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -133,7 +133,7 @@ function setGuide(open) {
   if (!open) canvas.focus({ preventScroll: true });
 }
 function clearInput() {
-  queuedBomb=queuedMissile=false;
+  queuedHorn=queuedBomb=queuedMissile=false;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
@@ -181,6 +181,7 @@ window.addEventListener('keydown', e => {
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
+  if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;
@@ -191,7 +192,8 @@ window.addEventListener('keydown', e => {
     requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
   }
   if(e.code==='KeyG' && mode)handleCase=true;
-  if (e.code === 'KeyE') queuedInteract = true;
+  if (e.code === 'KeyE') queuedInteract = vitals.use;
+  if (e.code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
   if (e.code === 'KeyF') queuedFire = true;
   if (e.code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (e.code === 'KeyR' && jetPilot()) queuedMissile=true;
@@ -334,7 +336,7 @@ function connect() {
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = m.state; facing = m.state.yaw;
-      damageEdges.reset();
+      damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
       predictedDriver=null;
@@ -352,7 +354,7 @@ function connect() {
       const wasDriving = isDriving(), wasGunner=gunnerRole();
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
-      else damageEdges.update(vitals,authoritative);
+      else damageEdges.update(vitals,authoritative,roverView?.yaw ?? (jetPilot()?world.jet.yaw:camera.yaw));
       vitals = authoritative;
       const road=myRoad(), bump=drivenRoad(m.world,id)?.contactSound;
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
@@ -385,8 +387,12 @@ function connect() {
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
-      samples.push({ time: performance.now(), bullets:world.bullets, traffic:world.traffic,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
-      if (samples.length > 8) samples.shift();
+      const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
+      if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
+      else snapshotClock.accept(sim,arrival);
+      if(samples.at(-1)?.sim===sim)samples.pop();
+      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      if (samples.length > 12) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
     }
@@ -441,9 +447,9 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { type: 'input', seq: ++seq, horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
-    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: queuedInteract, seat:queuedSeat, seatKind:queuedSeatKind,
+    sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || held.has('KeyR')),
     throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
@@ -456,7 +462,7 @@ function tick() {
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
-  queuedBomb=queuedMissile=false;
+  queuedHorn=queuedBomb=queuedMissile=false;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
@@ -479,12 +485,12 @@ function roundFrame(time) {
 
 function remoteFrame(time) {
   if (!samples.length) return { players: [], traffic:world.traffic,tank:world.tank, jet:world.jet, npcs: world.npcs, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover };
-  const target = time - 100;
-  let after = samples.findIndex(s => s.time >= target);
+  const target=snapshotClock.target(time);
+  let after=samples.findIndex(s=>s.sim>=target);
   if (after < 0) return samples.at(-1);
   if (after === 0) return samples[0];
   const a = samples[after - 1], b = samples[after];
-  const t = clamp((target - a.time) / Math.max(1, b.time - a.time), 0, 1);
+  const t=clamp((target-a.sim)/Math.max(1,b.sim-a.sim),0,1);
   function interpolateActors(older, newer) {
     return newer.map(p => {
       const q = older.find(q => p.id === q.id);
@@ -505,9 +511,12 @@ function remoteFrame(time) {
       abandonedFor: b.heli.abandonedFor == null ? null : mix(a.heli.abandonedFor ?? 0,b.heli.abandonedFor,t) };
   }
   function roadFrame(old,car) {
-    if(!old || !car || old.driver!==car.driver || old.wrecked!==car.wrecked)return car;
-    return {...car,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
-      yaw:angleMix(old.yaw,car.yaw,t),steer:mix(old.steer??0,car.steer??0,t),
+    if(!old || !car)return car;
+    const moment=t<.5?old:car;
+    if(old.driver!==car.driver || old.wrecked!==car.wrecked || Math.hypot(old.x-car.x,old.z-car.z)>9)return moment;
+    // Discrete lamp, tire and crew state follows the nearer simulation tick.
+    return {...moment,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
+      yaw:angleMix(old.yaw,car.yaw,t),speed:mix(old.speed,car.speed,t),lateralSpeed:mix(old.lateralSpeed??0,car.lateralSpeed??0,t),steer:mix(old.steer??0,car.steer??0,t),
       suspension:Boolean(old.bridgeFlight)!==Boolean(car.bridgeFlight)?car.suspension:interpolateSuspension(old.suspension,car.suspension,t)};
   }
   let tank=b.tank;
@@ -522,12 +531,7 @@ function remoteFrame(time) {
       return {...frame,takeover:{...car.takeover,progress:mix(old.takeover.progress,car.takeover.progress,t)}};
     return frame;
   });
-  let rover = b.rover;
-  if(a.rover.driver===b.rover.driver && a.rover.wrecked===b.rover.wrecked) {
-    rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
-      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t),
-      suspension:interpolateSuspension(a.rover.suspension,b.rover.suspension,t) };
-  }
+  const rover=roadFrame(a.rover,b.rover);
   for(const [kind,v] of [['heli',heli],['rover',rover]]) {
     if(v.gunner!=null && a[kind].gunner===v.gunner) {
       v.turretYaw=angleMix(a[kind].turretYaw,b[kind].turretYaw,t);
@@ -573,16 +577,19 @@ function drivingView(rover, dt, wheeled) {
   roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
   roverView.road=wheeled ? roadFraming(roverView.road,rover,dt) : null;
   roverView.distance = camera.distance;
-  return roverView;
+  // The rearward angle lives only in the rendered view. Steering and the
+  // driver's saved mouse orbit continue in their normal coordinate frame.
+  const rear=wheeled && held.has('KeyV');
+  roverView.rearAngle=mix(roverView.rearAngle??0,rear?Math.PI:0,-Math.expm1(-dt*10));
+  return roverView.rearAngle>.0001 ? {...roverView,yaw:roverView.yaw+roverView.rearAngle} : roverView;
 }
 
 function updateEquipment(local) {
   const heli = jetPilot()?world.jet:world.heli;
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
-  const boat=myBoat(),nearby=nearBoat(world,local);
+  const boat=myBoat();
   const trafficCar=myRoad()?.model && myRoad();
-  const nearbyTraffic=local.grounded && !isDriving() && !isPilot() && !gunnerRole() && nearestTraffic(world,local);
   const cleared = BREAKABLES.filter(p => world.hp[p.id] === 0).length;
   const gunner=gunnerRole();
   byId('match-kills').textContent=vitals.score?.kills??0;
@@ -611,13 +618,14 @@ function updateEquipment(local) {
   byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=Boolean(kind);
+  byId('look-back-control').hidden=!drivenRoad(world,id);
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
   tracking.hidden=weapon!==4 || !canAim() || !!kind;
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
-  const helmPrompt=yachtPrompt(world,local,id);
+  const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
   if(garage && !vitals.dead){
     const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
@@ -625,33 +633,23 @@ function updateEquipment(local) {
   }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
-  else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire · E exit';
-  else if(!isDriving() && !pilot && !gunner && nearTank(world.tank,local))prompt.textContent='E · Drive tracked tank';
-  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · Center to hold pitch · W/S throttle · F / click cannon · R missile · B drop bomb · E exit';
-  else if(!pilot && !isDriving() && !gunner && nearJet(world.jet,local))prompt.textContent='E · Pilot strike jet';
-  else if (helmPrompt==='leave') prompt.textContent='W/S throttle  ·  A/D steer  ·  E leave helm';
-  else if (helmPrompt==='helm') prompt.textContent='E  ·  Take Solana’s helm';
-  else if (helmPrompt==='gun') prompt.textContent='E  ·  Use Solana’s bow gun';
-  else if (helmPrompt==='gunOccupied') prompt.textContent='Solana’s bow gun is occupied';
-  else if (helmPrompt==='leaveGun') prompt.textContent='Look to aim  ·  Hold F / click to fire  ·  E leave bow gun';
-  else if (helmPrompt==='occupied') prompt.textContent='Solana’s helm is occupied';
-  else if (boat && !gunner) prompt.textContent='W/S throttle  ·  A/D steer  ·  E disembark';
-  else if (trafficCar) prompt.textContent=trafficCar.takeover?'Taking the wheel…':'W/S accelerate or brake  ·  A/D steer  ·  E exit';
-  else if (inGT()) prompt.textContent='W/S accelerate or brake  ·  A/D steer  ·  E exit Vesper GT';
-  else if (!boat && nearby && !kind) prompt.textContent=nearby.driver!=null?'E  ·  Board patrol boat turret':'E  ·  Take patrol boat helm';
-  else if (local.swimming) prompt.textContent='Swim toward a bank or dock  ·  Space to climb out';
-  else if (local.parachute === 'packed') prompt.textContent = 'Free fall  ·  Press Space to deploy parachute';
-  else if (local.parachute === 'open') prompt.textContent = 'Parachute open  ·  WASD / arrows to steer';
-  else if (gunner) prompt.textContent = 'Look around to aim  ·  Hold F / click to fire  ·  E '+(gunner==='heli' && !heli.grounded ? 'bail out' : 'exit');
-  else if (isDriving()) prompt.textContent = 'W/S drive  ·  A/D steer  ·  E park and exit';
-  else if (!pilot && nearestVehicle(world,local)==='supercar') prompt.textContent='E  ·  Drive Vesper GT';
-  else if (!pilot && nearestVehicle(world,local)==='rover') prompt.textContent = world.rover.driver!=null ? 'E  ·  Join rover turret' : 'E  ·  Drive trail rover';
-  else if (nearbyTraffic && !nearestVehicle(world,local)) prompt.textContent=nearbyTraffic.npcDriver?'E  ·  Take the wheel of the '+carNames[nearbyTraffic.model].toLowerCase():'E  ·  Drive '+carNames[nearbyTraffic.model].toLowerCase();
-  else if (heli.wrecked) prompt.textContent = 'Helicopter recovering · ' + Math.ceil(heli.recoverySeconds) + 's';
-  else if (pilot) prompt.textContent = heli.grounded ? 'Space to lift off  ·  E to exit' : 'Space to climb  ·  Shift to descend  ·  E to bail out';
-  else if (heli.pilot != null) prompt.textContent = nearestVehicle(world,local)==='heli' ? 'E  ·  Join helicopter turret' : heli.gunner!=null ? 'Helicopter crew full' : 'Helicopter in use';
-  else if (distance <= BOARD_RANGE && local.grounded && heli.grounded) prompt.textContent = 'E  ·  Pilot helicopter';
-  else prompt.textContent = 'Helicopter  ·  ' + Math.round(distance) + ' m';
+  else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
+  else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
+  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
+  else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
+  else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
+  else if(isDriving())prompt.textContent='W/S accelerate or brake · A/D steer';
+  else if(gunner)prompt.textContent='Look around to aim · Hold F / click to fire';
+  else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':'Space to climb · Shift to descend';
+  else if(helmPrompt==='occupied' || helmPrompt==='gunOccupied')prompt.textContent='Yacht station occupied';
+  else if(local.swimming)prompt.textContent='Swim toward a bank or dock · Space to climb out';
+  else if(local.parachute==='packed')prompt.textContent='Free fall · Press Space to deploy parachute';
+  else if(local.parachute==='open')prompt.textContent='Parachute open · WASD / arrows to steer';
+  else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
+  else prompt.textContent='Helicopter · '+Math.round(distance)+' m';
+  if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
+  if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
+    prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
 }
 
@@ -819,6 +817,15 @@ function frame(time) {
 
 try {
   scene = createScene(canvas);
+  const lighting=byId('lighting-choice');
+  try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
+  if(!lighting.value)lighting.value='day';
+  scene.setLighting(lighting.value);
+  lighting.onchange=()=>{
+    scene.setLighting(lighting.value);
+    try{localStorage.setItem('pinewatch-lighting',lighting.value);}catch{}
+    canvas.focus({preventScroll:true});
+  };
   window.addEventListener('resize', () => scene.resize());
   scene.resize();
   connect();

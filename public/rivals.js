@@ -1,3 +1,4 @@
+import {stepPedestrianReaction} from './pedestrian-reactions.js';
 import {outpostPatrols} from './outpost-patrols.js';
 import {brickellResidents} from './brickell-residents.js';
 import {packedJoints,releaseJoints} from './ragdoll.js';
@@ -28,7 +29,7 @@ export function healthView(actor, tick) {
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
   const lostParts=life.lostParts && Object.fromEntries(Object.entries(life.lostParts).map(
     ([part,hit])=>[part,{...hit,age:Math.min(8,(tick-hit.tick)/30)}]));
-  return { fall, lostParts, lastShotTick:life.lastShotTick, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  return { fall, lostParts, lastShotTick:life.lastShotTick,hitSector:life.hitSector, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 
@@ -69,7 +70,8 @@ export function updateRival(actor, tick, dt, hp, world) {
     actor.life = newLife(tick);
     actor.pauseUntil = tick + 30;
   }
-  if (advanceFall(actor, tick, dt, hp, world) || actor.life.hp === 0 || tick < actor.pauseUntil) return;
+  if (advanceFall(actor,tick,dt,hp,world) || !actor.life.hp){delete actor.reaction;return;}
+  if(stepPedestrianReaction(actor,tick,dt,world) || tick<actor.pauseUntil)return;
   const [x, z] = actor.route.points[actor.next];
   const dx = x - actor.state.x, dz = z - actor.state.z;
   const distance = Math.hypot(dx, dz);
@@ -87,7 +89,7 @@ export function updateRival(actor, tick, dt, hp, world) {
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving, weapon: actor.weapon, ...healthView(actor, tick) };
+    moving: actor.moving, weapon: actor.weapon,...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {

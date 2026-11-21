@@ -1,11 +1,12 @@
 import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
+import {roadGrip} from './road-surface.js';
 import {flatMobility} from './road-wheel-layout.js';
 import {bridges} from './brickell-map.js';
 import {bridgeMiddle,trafficStopLine} from './drawbridges.js';
 import {cityServices,outpostServices} from './traffic-routes.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
-import {driveRover,interactRover,stopRover} from './rover.js';
+import {clearRoadExit,driveRover,interactRover,stopRover} from './rover.js';
 import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
@@ -68,13 +69,10 @@ export function leaveTraffic(world,player){
 }
 
 function exitPoint(world,car){
-  for(const side of [-1,1]){
-    for(const offset of [1.85,2.4]){
-      const {x,z}=seat(car,side*offset),y=groundHeight(x,z,car.y+1,world.doors);
-      if(y>MAP.waterY+.2 && !blocked(x,y,z,world.hp,world.doors))return {side,endX:x,endZ:z};
-    }
-  }
-  return null;
+  const exit=clearRoadExit(world,car);
+  if(!exit)return null;
+  const side=Math.sign((exit.x-car.x)*Math.cos(car.yaw)+(exit.z-car.z)*Math.sin(car.yaw))||-1;
+  return {side,endX:exit.x,endZ:exit.z};
 }
 
 export function tryTrafficInteract(world,player,npcs){
@@ -168,7 +166,7 @@ function recoverTrafficCar(world,car,actors,dt){
   if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
-  delete car.contactSound;delete car.suspension;delete car.crushed;
+  delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
 export function stepCityTraffic(world,players,npcs,dt){
@@ -196,14 +194,15 @@ export function stepCityTraffic(world,players,npcs,dt){
     const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
-    const mobility=flatMobility(car);
+    const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);
     route.offset=passingOffset(world,car,route,actors,dt);
     signalLamps(car,route,dt);
     const cruising=(route.cruise??profile.cruise)*(route.offset>.1?.67:1);
-    const target=route.wait?0:Math.min(cruising*mobility,Math.sqrt(2*brake*gap));
-    const acceleration=profile.driveForce/profile.mass*.68*mobility;
-    const change=clamp(target-car.speed,-brake*dt,acceleration*dt);
+    const target=route.wait?0:Math.min(cruising*mobility*surface.pace,Math.sqrt(2*brake*surface.traction*gap));
+    const acceleration=profile.driveForce/profile.mass*.68*mobility*surface.traction;
+    const change=clamp(target-car.speed,-brake*surface.traction*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
+    car.braking=change<-.01 || gap<.07;
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
     route.distance=(route.distance+car.speed*dt)%route.track.length;
     Object.assign(car,route.track.pose(route.distance));

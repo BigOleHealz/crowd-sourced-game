@@ -11,6 +11,7 @@ import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
+import {damagedFittings} from './road-fittings.js';
 import {crushedScale} from './vehicle-wreck-view.js';
 
 export function createRoverView(scene, Batch, material, shadowMap, panorama) {
@@ -222,6 +223,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   tailTag.updateMatrix();
   tailTag.geometry.applyMatrix4(tailTag.matrix);
   tailTag.position.set(0,0,0);tailTag.scale.setScalar(1);
+  const fittings=damagedFittings([body,trimMesh],nose,pickup?1.75:1.62,.82,.72);
   const updatePanelDamage=roverPanelDamage([body,trimMesh,windows,tailTag],paint);
   const wheels=[];
   const tireSection=[[.18,-.11],[.245,-.139],[.309,-.136],[.356,-.095],[.36,.087],[.31,.136],[.246,.14],[.18,.111]]
@@ -293,7 +295,8 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       facingMaterial.color.setHex(burned ? 0x504b46 : 0xffffff);
       windows.material=burned ? scorchedGlass : glassMat;tailTag.visible=!burned;
     }
-    updatePanelDamage(burned ? crumpled : r.bodyDamage);
+    const rebuilt=updatePanelDamage(burned ? crumpled : r.bodyDamage);
+    fittings(r,rebuilt);
     const pose=r.suspension;
     axles.position.set(r.x,r.y,r.z);
     axles.rotation.set(r.bridgeFlight ? pose?.pitch??0 : 0,-r.yaw,0,'YXZ');

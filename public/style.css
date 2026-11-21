@@ -104,6 +104,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
   opacity: 0;
   transition: opacity 460ms ease-out;
 }
+#damage-edges.directional { mask-image:linear-gradient(var(--strike-angle),transparent 20%,rgba(0,0,0,.13) 46%,#000 86%); }
 #damage-edges.struck { opacity: .85; transition-duration: 90ms; }
 @media (prefers-reduced-motion: reduce) {
   #damage-edges { transition-duration: 230ms; }
@@ -134,3 +135,8 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 
 #destination {display:block;width:100%;pointer-events:auto;font:inherit;font-size:11px;padding:3px 4px;color:#e2f9f5;background:#263935;border:0;}
 #nav-cue {padding:4px 6px;font:600 11px system-ui;color:#aef0fb;}
+#lighting-choice{pointer-events:auto;background:var(--panel);color:#fff9e5;border:1px solid var(--line);border-radius:2px;padding:5px;font:inherit;font-size:12px;}
+.session-controls {grid-template-columns:auto auto;align-items:center;}
+.session-controls .presence {grid-column:1 / -1;}
+@media(min-width:701px){#marina-card{top:105px;}}
+@media(max-width:700px){#marina-card{top:96px;}}

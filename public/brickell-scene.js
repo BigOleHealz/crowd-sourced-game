@@ -104,7 +104,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     ink.fillStyle='#205448';ink.fillRect(6,6,628,132);
     ink.fillStyle='#fff9dd';ink.textAlign='center';ink.textBaseline='middle';
     ink.font='bold 70px sans-serif';ink.fillText(label,320,74);
-    const texture=new THREE.CanvasTexture(face);texture.colorSpace=THREE.SRGBColorSpace;
+    const texture=new THREE.CanvasTexture(face);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=4;
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(3.8,.86),new THREE.MeshBasicMaterial({map:texture}));
     sign.position.set(x,3.62,z+.08);scene.add(sign);
     solids.add(box,0x737c70,x,3.62,z,3.82,.88,.13);

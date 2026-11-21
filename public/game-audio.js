@@ -1,4 +1,5 @@
 import {tireMix,tireLoop} from './tire-road-sound.js';
+import {acousticSpace,transmission} from './acoustic-space.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
@@ -12,6 +13,15 @@ const shapes={
 };
 function synth(context,name) {
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
+  if(name==='horn'){
+    const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*.43),rate),samples=buffer.getChannelData(0);
+    for(let i=0;i<samples.length;i++){
+      const t=i/rate,a=t*Math.PI*2;
+      const tone=Math.sin(a*392)+.72*Math.sin(a*494)+.34*Math.sin(a*784)+.19*Math.sin(a*1176);
+      samples[i]=.48*Math.tanh(tone)*Math.min(1,t*45,Math.max(0,.43-t)*13);
+    }
+    return buffer;
+  }
   if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
@@ -73,7 +83,8 @@ export function createGameAudio(button,slider,level) {
     if(saved && typeof saved.muted==='boolean' && Number.isFinite(saved.volume))
       settings={muted:saved.muted,volume:Math.max(0,Math.min(1,saved.volume))};
   } catch {}
-  let context,master,limiter;
+  let context,master,limiter,reflection,environmentWorld;
+  let listenerSpace=acousticSpace(null,null);
   let previousVehicles={},lastGlass=0;
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
@@ -100,6 +111,11 @@ export function createGameAudio(button,slider,level) {
       limiter=context.createDynamicsCompressor();
       limiter.threshold.value=-12;limiter.ratio.value=5;
       limiter.connect(master);master.connect(context.destination);
+      // A short filtered early reflection shares the same master mute and volume.
+      const echo=context.createDelay(.12),damping=context.createBiquadFilter();
+      echo.delayTime.value=.067;damping.type='lowpass';damping.frequency.value=2400;
+      reflection=context.createGain();reflection.gain.value=0;
+      limiter.connect(echo);echo.connect(damping);damping.connect(reflection);reflection.connect(master);
     }
     if(context.state!=='running')context.resume().catch(()=>{});
   }
@@ -109,21 +125,38 @@ export function createGameAudio(button,slider,level) {
     if(!buffers.has(key))buffers.set(key,designed ? weaponSound(context,name,variant) : synth(context,name));
     const source=context.createBufferSource(),gain=context.createGain(),pan=context.createStereoPanner();
     source.buffer=buffers.get(key);source.loop=loop;
-    source.connect(gain);gain.connect(pan);pan.connect(limiter);
-    const v={source,gain,pan};voices.add(v);
-    source.onended=()=>{voices.delete(v);source.disconnect();gain.disconnect();pan.disconnect();};
+    const tone=context.createBiquadFilter();tone.type='lowpass';tone.Q.value=.65;tone.frequency.value=20000;
+    source.connect(gain);gain.connect(pan);pan.connect(tone);tone.connect(limiter);
+    const v={source,gain,pan,tone,nextTone:0,transmission:1};voices.add(v);
+    source.onended=()=>{voices.delete(v);source.disconnect();gain.disconnect();pan.disconnect();tone.disconnect();};
     return v;
   }
   const audible=()=>context?.state==='running' && !settings.muted && settings.volume>0 && !document.hidden;
+  function passage(voice,point){
+    const now=context.currentTime;
+    if(now>=voice.nextTone){
+      const amount=transmission(listenerSpace,acousticSpace(point,environmentWorld));
+      if(amount!==voice.transmission){
+        const hz=750+19250*amount*amount;
+        if(!voice.nextTone)voice.tone.frequency.value=hz;
+        else voice.tone.frequency.setTargetAtTime(hz,now,.045);
+        voice.transmission=amount;
+      }
+      voice.nextTone=now+.085;
+    }
+    return .42+.58*voice.transmission;
+  }
   function burst(name,point,listener,yaw,volume,eventId=0) {
     if(!audible() || !point || voices.size>=32)return;
     const place=placement(listener,yaw,point);
     if(place.gain<.006)return;
     const v=voice(name,false,eventId%3);
-    v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain;v.pan.pan.value=place.pan;
+    v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
     v.source.start();
   }
   function reset(world) {
+    environmentWorld=world;listenerSpace=acousticSpace(null,null);
+    if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();lastJetRange=null;
     lastGlass=world?.doors?.glassSeq??0;
@@ -134,6 +167,9 @@ export function createGameAudio(button,slider,level) {
     return [['rover',world.rover],['heli',world.heli],['supercar',world.supercar],...(world.traffic??[]).map(c=>[c.id,c])].filter(([,v])=>v);
   }
   function events(world,listener,yaw,shots) {
+    environmentWorld=world;
+    listenerSpace=acousticSpace(listener,world);
+    if(reflection)reflection.gain.setTargetAtTime(listenerSpace.reflection,context.currentTime,.11);
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
     lastGlass=world.doors?.glassSeq??0;
     const impacts=[];
@@ -151,6 +187,7 @@ export function createGameAudio(button,slider,level) {
       if(prior && landing && landing.id!==prior.landingSound?.id){
         burst(landing.speed>=5?'landing-hard':'landing-soft',landing,listener,yaw,Math.min(1.35,.28+.10*landing.speed),landing.id);
       }
+      if(prior && vehicle.horn && prior.horn?.id!==vehicle.horn.id)burst('horn',vehicle.horn,listener,yaw,.94,vehicle.horn.id);
       const contact=prior && bump && bump.id!==prior.contactSound?.id;
       if(contact) {
         const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');
@@ -182,7 +219,7 @@ export function createGameAudio(button,slider,level) {
     }
     const now=context.currentTime,place=placement(listener,yaw,v);
     track.source.playbackRate.setTargetAtTime(rate,now,.13);
-    track.gain.gain.setTargetAtTime(volume*place.gain,now,.08);
+    track.gain.gain.setTargetAtTime(volume*place.gain*passage(track,v),now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
   function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null) {
