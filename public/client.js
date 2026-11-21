@@ -1,3 +1,4 @@
+import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {nearestTraffic} from './city-traffic.js';
 import {nearTank} from './tank.js';
 import {nearJet} from './jet.js';
@@ -603,7 +604,11 @@ function updateEquipment(local) {
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   const helmPrompt=yachtPrompt(world,local,id);
-  if (local.climb) prompt.textContent = 'Pulling up…';
+  const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
+  if(garage && !vitals.dead){
+    const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
+    prompt.textContent=garage.name+' · '+label;
+  }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire · E exit';
@@ -699,6 +704,8 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
   }
   if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
+  ctx.fillStyle='#f4cc70';ctx.font='bold 10px sans-serif';
+  for(const g of roadGarages)ctx.fillText('⚒',sx(g.x)-3,sy(g.z)-3);
   if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
   else drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
