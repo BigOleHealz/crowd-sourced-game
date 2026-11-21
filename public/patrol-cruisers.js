@@ -1,5 +1,7 @@
 import {CITY,groundHeight} from './world.js';
 import {cityServices,outpostServices} from './traffic-routes.js';
+import {boardingSeconds,roadBoardingPosition,roadHandle} from './road-cabin.js';
+import {stepSuspension} from './road-suspension.js';
 import {bridges} from './brickell-map.js';
 
 // The same surveyed lanes carry civilian and marked sedans. Cache their samples
@@ -33,10 +35,36 @@ function dispatch(officer,target,rank){
     active:true,...pose,y:groundHeight(pose.x,pose.z),speed:0,steer:0,hp:250,maxHp:250,wrecked:false};
   return {lane,at,goal:best.at,car,lastSeen:{x:target.x,z:target.z}};
 }
-function dismount(officer,car,world){
-  const x=car.x-1.18*Math.cos(car.yaw),z=car.z-1.18*Math.sin(car.yaw);
-  officer.state={...officer.state,x,z,y:groundHeight(x,z,Infinity,world.doors),grounded:true,vy:0};
+const dt=1/30,brakeRate=5.5;
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+function exitPoint(car,world){
+  const handle=roadHandle(car,0),x=handle.x-1.05*Math.cos(car.yaw),z=handle.z-1.05*Math.sin(car.yaw);
+  return {startX:x,startY:groundHeight(x,z,Infinity,world.doors),startZ:z,progress:1};
+}
+function finishExit(officer,car,action){
+  officer.state={...officer.state,x:action.startX,z:action.startZ,y:action.startY,grounded:true,vx:0,vz:0,vy:0};
   officer.moving=false;delete officer.cruiserId;car.npcDriver=null;car.speed=0;car.steer=0;
+  delete car.boarding;delete car.braking;
+}
+function stepExit(officer,car,world){
+  const action=car.boarding??=exitPoint(car,world);
+  action.progress=Math.max(0,action.progress-dt/boardingSeconds);
+  if(!action.progress){finishExit(officer,car,action);return;}
+  const pose=roadBoardingPosition(car,action);
+  Object.assign(officer.state,{...pose,vx:0,vy:0,vz:0,grounded:true});
+}
+// Detect a raised span even when a fast cruiser still has several metres to stop.
+function bridgeDistance(car,world){
+  if(!CITY || !world.doors?.bridgeLifts)return Infinity;
+  const dz=-Math.cos(car.yaw);
+  if(Math.abs(dz)<.65)return Infinity;
+  let nearest=Infinity;
+  for(const b of bridges){
+    if(!(world.doors.bridgeLifts[b.north]>.05) || car.x<b.west || car.x>b.east)continue;
+    const near=dz>0?b.north-2:b.south+2,far=dz>0?b.south+2:b.north-2;
+    if((far-car.z)/dz>=0)nearest=Math.min(nearest,Math.max(0,(near-car.z)/dz));
+  }
+  return nearest;
 }
 
 export function stepPatrolCruisers(world,officers,players,tick){
@@ -61,19 +89,28 @@ export function stepPatrolCruisers(world,officers,players,tick){
     if(car.sling){
       unit.towed=true;Object.assign(officer.state,{x:car.x,y:car.y,z:car.z});continue;
     }
-    if(unit.towed){dismount(officer,car,world);continue;}
+    if(unit.towed || car.wrecked || car.hp<=0){finishExit(officer,car,exitPoint(car,world));continue;}
+    const surface=(x,z)=>groundHeight(x,z,Infinity,world.doors);
+    if(car.boarding){stepSuspension(car,dt,surface);stepExit(officer,car,world);continue;}
     if(officer.visible){unit.lastSeen.x=target.x;unit.lastSeen.z=target.z;}
     const destination=officer.lastKnown??unit.lastSeen;
     const actual=Math.hypot(destination.x-car.x,destination.z-car.z);
     if(tick%15===0)unit.goal=nearest(lane,destination).at;
     let ahead=wrap(unit.goal-unit.at,lane.route.length);
     if(ahead>lane.route.length-3)ahead=0;
-    const speed=Math.min(11,car.speed+5/30,Math.sqrt(7*ahead));
-    const at=wrap(unit.at+speed/30,lane.route.length),pose=lane.route.pose(at);
-    const raised=CITY && bridges.some(b=>(world.doors?.bridgeLifts?.[b.north]??0)>.05 && pose.z>b.north-2 && pose.z<b.south+2 && pose.x>=b.west && pose.x<=b.east);
-    if(actual<9 || ahead<1.8 || raised || car.wrecked || car.hp<=0){dismount(officer,car,world);continue;}
-    car.steer=Math.max(-1,Math.min(1,Math.sin(pose.yaw-car.yaw)*20));
-    Object.assign(car,pose,{speed,y:groundHeight(pose.x,pose.z,Infinity,world.doors)});
+    const distance=Math.min(Math.max(0,actual-6.5),Math.max(0,ahead-.9),bridgeDistance(car,world));
+    const look=lane.route.pose(wrap(unit.at+3,lane.route.length));
+    const turn=Math.abs(Math.atan2(Math.sin(look.yaw-car.yaw),Math.cos(look.yaw-car.yaw)));
+    const cornerSpeed=Math.sqrt(3.2*3/Math.max(.025,turn));
+    const targetSpeed=distance<.10?0:Math.min(11,cornerSpeed,Math.sqrt(2*brakeRate*distance));
+    const speed=car.speed+clamp(targetSpeed-car.speed,-brakeRate*dt,4.6*dt);
+    car.braking=speed<car.speed-.025 || speed<.1;
+    // Keep the nose behind the stop line if a bridge rises during final braking.
+    const at=wrap(unit.at+Math.min(distance,speed*dt),lane.route.length),pose=lane.route.pose(at);
+    car.steer=clamp(Math.sin(pose.yaw-car.yaw)*20,-1,1);
+    Object.assign(car,pose,{speed,y:surface(pose.x,pose.z)});
+    stepSuspension(car,dt,surface);
+    if(speed<.015 && distance<.10){stepExit(officer,car,world);continue;}
     unit.at=at;
     Object.assign(officer.state,{x:car.x,y:car.y,z:car.z,vy:0,grounded:true});
     officer.yaw=car.yaw;officer.moving=false;

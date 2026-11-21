@@ -386,7 +386,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       const t=car.takeover?.progress??car.boarding?.progress??0;
       door.rotation.y=boardingDoorAngle(t);
       view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && car.blink && car.turnSignal===(i?1:-1);});
-      brake.visible=!!car.takeover || (car.npcDriver!=null && Math.abs(car.speed)<1);
+      brake.visible=!car.wrecked && (!!car.takeover || (car.npcDriver!=null && (car.braking || Math.abs(car.speed)<1)));
     }
   };
 }
