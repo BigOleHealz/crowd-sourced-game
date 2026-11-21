@@ -1,3 +1,4 @@
+import {markPatrolSedan} from './patrol-livery.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
@@ -60,7 +61,7 @@ function wheelModel(Batch,tire,depth,van){
   return b.geometry();
 }
 
-function model(Batch,type,materials){
+function model(Batch,type,materials,patrol=false){
   const {paint,roofEnd,cabinEnd,topFront}=fleet[type];
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
   const van=type==='van',hatch=type==='hatchback';
@@ -301,6 +302,7 @@ function model(Batch,type,materials){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027,-.65],[x,1.064,-.65],.022);
+  if(patrol)markPatrolSedan(chassis,body,box);
   const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
   const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
@@ -344,15 +346,21 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
     shadow:new THREE.MeshBasicMaterial({map:shadowMap,color:0x1c2d31,opacity:.68,transparent:true,depthWrite:false}),
   };
   const views=new Map();
-  return (cars,dt,local)=>{
-    for(const car of cars){
-      let view=views.get(car.id);
+  // Reuse a bounded set of meshes across dispatches; serial officer IDs are ephemeral.
+  const patrolViews=[];
+  return (cars,dt,local,patrolCars=[])=>{
+    for(const view of patrolViews)if(view)view.root.visible=false;
+    let slot=0;
+    for(const car of patrolCars.length?[...cars,...patrolCars]:cars){
+      const index=car.patrol?slot++:-1;
+      let view=car.patrol?patrolViews[index]:views.get(car.id);
       if(Math.hypot(car.x-local.x,car.z-local.z)>185){
         if(view)view.root.visible=false;
         continue;
       }
       if(!view){
-        view=model(Batch,car.model,materials);views.set(car.id,view);
+        view=model(Batch,car.model,materials,car.patrol);
+        if(car.patrol)patrolViews[index]=view;else views.set(car.id,view);
         view.root.name='Traffic '+car.id;scene.add(view.root);
       }
       const {root,chassis,wheels,door,brake}=view;
