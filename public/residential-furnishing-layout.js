@@ -112,7 +112,15 @@ export function furnishRuralHome(plan){
   };
   const wall=w/2;
   put('floor',0,0,w-.33,.008,d-.31,0,false,.007);
-  for(const side of [-1,1])put('wallLining',side*(wall-.166),0,d-.33,3.18,.025,-side*Math.PI/2,false);
+  // Mirror the solid wall bands so interior plaster cannot cover a real window.
+  for(const band of plan.shell){
+    const sideWall=band.d===d,side=Math.sign(sideWall?band.x-x:band.z-z);
+    const u=band.x-x-(sideWall?side*(band.w/2+.011):0);
+    const v=band.z-z-(sideWall?0:side*(band.d/2+.011));
+    const yaw=sideWall?-side*Math.PI/2:side>0?Math.PI:0;
+    put('wallLining',u,v,sideWall?band.d:band.w,band.h,.021,yaw,false,band.bottom-y);
+  }
+  put('ceiling',0,0,w-.25,.05,d-.25,0,false,b.eave-.038);
   put('sofa',-wall+.70,-.23,wide?2.44:1.76,.91,.93,Math.PI/2);
   put('coffee',-wall+1.73,-.23,wide?1.38:1.04,.47,.49,Math.PI/2);
   put('rug',-wall+1.18,-.23,wide?2.88:2.12,.018,1.85,Math.PI/2,false);

@@ -172,12 +172,17 @@ export function residentialFurnishingView(scene,Batch){
           shape(foliage,'linen',[0x6b8e5c,0x436745,0x557548][i%3],u,top+rise,a,.175,.34,.055,.57*Math.sin(angle),angle,-.30*Math.cos(angle));
         }
       }else if(kind==='wallLining'){
-        box('stone',stone,0,h/2,0,w,h,d);
-        wood(0,.48,.014,w,.96,.023);
-        wood(0,.050,.019,w,.10,.037);
-        wood(0,.962,.021,w,.060,.045);
-        const count=Math.ceil(w/.16);
-        for(let i=1;i<count;i++)wood(w*(i/count-.5),.49,.030,.013,.854,.016);
+        const lower=y-origin.y,skirt=Math.min(h,.96-lower);
+        box('stone',0xe0ceb0,0,h/2,0,w,h,d);
+        if(skirt>0){
+          wood(0,skirt/2,.014,w,skirt,.023);
+          if(lower<.01)wood(0,.050,.019,w,.10,.037);
+          if(lower+h>.96)wood(0,skirt,.021,w,.054,.045);
+          const count=Math.ceil(w/.16);
+          for(let i=1;i<count;i++)wood(w*(i/count-.5),skirt/2,.030,.013,Math.max(.01,skirt-.035),.016);
+        }
+      }else if(kind==='ceiling'){
+        box('stone',0xd8c6a8,0,h/2,0,w,h,d);
       }else if(kind==='beam'){
         wood(0,h/2,0,w,h,d);
       }else if(kind==='floor'){
