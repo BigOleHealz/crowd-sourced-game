@@ -1,3 +1,4 @@
+import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
 import {surfaceMarks} from './surface-marks.js';
@@ -1495,7 +1496,7 @@ export function createScene(canvas) {
       avatars.get(local.id).root.visible=false;
     }
     if(glints) glints.position.x=Math.sin(clock*.33)*.09;
-    updatePalms?.(camera);
+    if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     renderer.render(scene,camera);
   }
   function showShots(shots) {
