@@ -293,7 +293,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     }
   }
   if(!avatar.shadow)return;
-  const y=groundHeight(state.x,state.z,state.y+.28,doors),height=clamp(state.y-y,0,1.75);
+  const y=state.grounded && !seated && !station ? state.y : groundHeight(state.x,state.z,state.y+.28,doors);
+  const height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
   avatar.shadow.rotation.y = prone ? avatar.root.rotation.y : fall ? -fall.yaw : 0;
   if (collapse) {
