@@ -1,4 +1,4 @@
-import {roadWreckFinish} from './vehicle-wreck-view.js';
+import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
 import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
@@ -355,7 +355,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
         view.root.name='Traffic '+car.id;scene.add(view.root);
       }
       const {root,chassis,wheels,door,brake}=view;
-      root.visible=true;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
+      root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       const sag=view.wreckFinish(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
       chassis.position.y=(car.suspension?.heave??0)-.17*sag;
