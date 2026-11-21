@@ -62,7 +62,11 @@ export function interactRover(world, player,kind='rover') {
   if(!r)return;
   const sport=kind==='supercar';
   if (r.gunner === player.id) r.gunner=null;
-  else if (r.driver === player.id) {r.driver=null;stopRover(r);if(sport){r.exhaust=0;r.steer=0;throttleMemory.delete(r);}}
+  else if (r.driver === player.id) {
+    r.driver=null;stopRover(r);
+    if(r.takeover)r.takeover.playerId=null;
+    if(sport){r.exhaust=0;r.steer=0;throttleMemory.delete(r);}
+  }
   else {
     if (nearestVehicle(world,player.state)!==kind) return;
     if (r.driver==null) r.driver=player.id;
@@ -101,7 +105,7 @@ export function damageRover(world, amount, players,kind='rover',team) {
 }
 
 export function recoverRover(world,dt,kind='rover') {
-  const r=roadByKind(world,kind);
+  const r=world[kind];
   if (!r?.wrecked) return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
   if (r.recoverySeconds < .0001) world[kind]=kind==='supercar'?parkedSupercar():parkedRover();
