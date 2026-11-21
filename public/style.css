@@ -138,8 +138,8 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #lighting-choice{pointer-events:auto;background:var(--panel);color:#fff9e5;border:1px solid var(--line);border-radius:2px;padding:5px;font:inherit;font-size:12px;}
 .session-controls {grid-template-columns:auto auto;align-items:center;}
 .session-controls .presence {grid-column:1 / -1;}
-@media(min-width:701px){#marina-card{top:105px;}}
-@media(max-width:700px){#marina-card{top:96px;}}
+@media(min-width:701px){.mast .session-controls{grid-template-columns:repeat(3,auto)}#marina-card{top:105px;}}
+@media(max-width:700px){#marina-card{top:126px;}}
 
 #wanted-toggle { pointer-events:auto; min-height:32px; padding:5px 9px; color:#f8f4e3; background:var(--panel); border:1px solid var(--line); font:inherit; font-size:12px; cursor:pointer; }
 #wanted-toggle[aria-pressed="true"], #wanted-status { color:#ffd779; }
@@ -220,7 +220,20 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .touch-play #wallet{min-height:32px}
 
 #bank-receipt:not([hidden]) { display:block;margin-top:3px;color:#d2e7af;font-weight:650; }
-#bank-progress:not([hidden]) { display:block;margin-top:5px;max-width:100%;height:6px;accent-color:#b5d090; }
+#bank-event:not([hidden]) {display:block;max-width:28ch;border-left:3px solid #ffac65;padding:3px 7px;margin-top:4px;background:#392b29;color:#ffdfb7;font-weight:650}
+#bank-dialog {width:min(24rem,calc(100vw - 30px));box-sizing:border-box;max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - env(safe-area-inset-bottom));overflow:auto;padding:20px 22px;color:#f4ecd9;background:#203832;border:1px solid #aba582;border-top:4px solid #c5a570;border-radius:7px;box-shadow:0 10px 36px #0b181980}
+#bank-dialog::backdrop {background:#09181164}
+#bank-dialog .bank-letterhead {margin:0 0 9px;color:#dfc69c;font:600 .8rem Georgia,serif;letter-spacing:.07em}
+#bank-dialog h2 {margin:0;font:600 1.5rem Georgia,serif}
+#bank-dialog small {display:block;font:500 .8rem system-ui;color:#d1dbd0;margin-top:2px}
+#bank-dialog p {line-height:1.4}
+#bank-dialog [data-police-info] {font-size:.88rem;border-top:1px solid #758377;padding-top:10px;margin-bottom:2px}
+#bank-dialog label:not([hidden]) {display:flex;align-items:center;gap:7px;min-height:44px;cursor:pointer}
+#bank-dialog input {width:18px;height:18px;accent-color:#d6b582}
+.bank-choices {display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:12px}
+.bank-choices button {font:600 .95rem system-ui;min-height:44px;padding:6px 16px;border:1px solid #a9ad98;border-radius:4px;color:#f5f1e4;background:#31483e;cursor:pointer}
+.bank-choices [data-rob] {background:#eed4a3;color:#342917;border-color:#eed4a3}
+#bank-dialog :focus-visible {outline:2px solid white;outline-offset:2px}
 
 /* The look surface stays open for another thumb while the stick is held. */
 #touch-look {position:absolute;right:max(20px,env(safe-area-inset-right));top:40%;display:flex;align-items:center;gap:7px;padding:5px 9px;pointer-events:none;color:#fffdf2;background:#17251eda;border:1px solid #b1bfad88;border-radius:20px;font:650 12px/1.2 system-ui}
@@ -255,7 +268,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .touch-play .location h2,.touch-play .kit-row {grid-column:1;margin:0}.touch-play .kit-row {font-size:10px}
 .touch-play .health-readout {grid-column:1/-1;margin:1px 0 0;font-size:10px;gap:5px;flex-wrap:wrap}
 .touch-play #wallet {grid-column:2;grid-row:1/3;margin:0;min-height:44px;min-width:48px;font-size:11px;padding:4px}
-.touch-play #field-prompt,.touch-play #launcher-status,.touch-play #wanted-status,.touch-play #bank-receipt,.touch-play #bank-progress {grid-column:1/-1}
+.touch-play #field-prompt,.touch-play #launcher-status,.touch-play #wanted-status,.touch-play #bank-receipt,.touch-play #bank-event {grid-column:1/-1}
 .touch-play #field-prompt:empty {display:none}
 @media(orientation:portrait){#touch-tip {left:max(13px,env(safe-area-inset-left));right:max(13px,env(safe-area-inset-right));top:24%;transform:none;margin:auto;max-width:285px}#touch-look {top:48%}}
 @media(max-height:450px){#touch-look {top:32%}#touch-controls:has(#touch-tools:not([hidden])) #touch-look {opacity:0}}

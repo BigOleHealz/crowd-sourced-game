@@ -202,6 +202,11 @@ export function dressPerson(rig,p,Batch,material,textiles) {
     const bare=p.shirt==='tank'||p.shirt==='dress';
     for(const side of [-1,1])b.add(oval,bare?p.skin:p.top,side*.161,1.427,.001,.080,.046,.073,0,0,-side*.22);
     if(p.officer)patrolShirtTrim(b,p.county);else addBag(b,p);
+    if(p.extra==='staff'){
+      for(const side of [-1,1])b.beam(0x327c78,[side*.065,1.49,-.069],[.01,1.26,-.146],.017,.008);
+      b.add(box,0xe5e1cb,.01,1.228,-.150,.080,.067,.010);
+      b.add(box,0x426967,.01,1.251,-.157,.076,.012,.003);
+    }
   });
   const shirt=new THREE.Mesh(shirtGeometry(p),textiles.shirts);
   shirt.receiveShadow=true;rig.upper.add(shirt);
