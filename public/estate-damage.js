@@ -1,3 +1,4 @@
+import {damageDirection} from './collapse-direction.js';
 // A missile opens one storey-high wall bay. Losing two distinct supports in a
 // structural bay brings down its slabs, roof and fittings above the lost level.
 import {casaWalls} from './casa-luma.js';
@@ -61,8 +62,11 @@ export function breachEstate(doors,point){
   hits.push(key);
   const fall=estateCondition(doors).falls.at(-1);
   if(fall && !before.some(other=>other.id===fall.id)){
+    const cx=(fall.left+fall.right)/2,cz=(fall.north+fall.south)/2;
+    const direction=damageDirection(estateCondition(doors).cuts.filter(c=>!c.collapse && c.index===fall.index && c.level===fall.level &&
+      covers((c.left+c.right)/2,(c.north+c.south)/2,fall)).map(c=>({x:(c.left+c.right)/2-cx,z:(c.north+c.south)/2-cz})));
     const upper=before.filter(r=>r.left===fall.left && r.north===fall.north && r.low>fall.low);
-    (doors.structureFalls??=[]).push({key:'estate-'+fall.id,age:0,index:fall.index,
+    (doors.structureFalls??=[]).push({key:'estate-'+fall.id,age:0,index:fall.index,direction,
       left:fall.left,right:fall.right,north:fall.north,south:fall.south,low:fall.low,
       high:Math.min(fall.high,...upper.map(r=>r.low))});
   }

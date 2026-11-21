@@ -40,7 +40,7 @@ for(const b of MAP.buildings.filter(b=>b.towerId!=null)){
   assert.equal(top,rubbleHeight(b,b.x,b.z,doors),'the pile starts at ground level when supports fail');
   assert.equal(groundHeight(b.x,b.z,Infinity,doors),top);
   delete doors.structureFalls;
-  assert.equal(groundHeight(b.x,b.z,Infinity,doors),rubbleHeight(b,b.x,b.z),'settled pile supports late arrivals');
+  assert.equal(groundHeight(b.x,b.z,Infinity,doors),rubbleHeight(b,b.x,b.z,doors),'settled pile supports late arrivals');
   assert.equal(breachTower(MAP.buildings,doors,{x:b.x,y:height,z:b.z}),null,'no repeated property credit');
   const roofOnly={};
   for(let i=0;i<16;i++){
