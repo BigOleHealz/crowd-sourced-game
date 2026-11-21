@@ -41,6 +41,7 @@ let sprintBoard=[];
 const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
+const lighting=byId('lighting-choice');
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
@@ -410,7 +411,7 @@ function connect() {
       for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots);
-      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
+      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
@@ -853,7 +854,6 @@ function frame(time) {
 
 try {
   scene = createScene(canvas,audio.footfall);
-  const lighting=byId('lighting-choice');
   try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
   if(!lighting.value)lighting.value='day';
   scene.setLighting(lighting.value);
