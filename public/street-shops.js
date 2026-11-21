@@ -165,8 +165,8 @@ export function streetShops(scene,renderer,Batch,panorama,windows){
     let marker;
     furnishShop(index,side,width,depth,{
       beginPiece:id=>{marker=motion.start(planned.get(id));},
-      endPiece:()=>motion.end(marker),
-      shape:(id,...args)=>shape(geometryByName[id],...args),beam,floorShadow,
+      endPiece:()=>{motion.end(marker);marker=null;},
+      shape:(id,...args)=>shape(geometryByName[id],...args),beam,floorShadow:(...args)=>{if(!marker)floorShadow(...args);},
       detail:on=>{batch=on?merchandise:fittings;},
       sign:(x,y,z,w,h)=>{face.setAttribute('batchUv',uv);batch.add(face,0xffffff,x,y,z,w,h,1);},
     });

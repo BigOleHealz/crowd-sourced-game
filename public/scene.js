@@ -1,3 +1,4 @@
+import {contactShadows} from './contact-shadows.js';
 import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
 import {surfaceMarks} from './surface-marks.js';
@@ -1145,6 +1146,7 @@ export function createScene(canvas) {
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateRounds=flightRounds(scene);
   const marks=surfaceMarks(scene);
+  const contacts=contactShadows(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
@@ -1305,6 +1307,7 @@ export function createScene(canvas) {
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
     effects.update(dt);
+    contacts.begin(world,local);
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
@@ -1342,6 +1345,7 @@ export function createScene(canvas) {
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
+        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(entering)poseTakeover(a,entering,state.id);
         if(skipper){
           a.root.rotation.y=-world.yacht.yaw;
@@ -1352,6 +1356,7 @@ export function createScene(canvas) {
       }
       applyLostParts(a,state,scene,world.hp,dt);
     }
+    contacts.end(world,local);
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
