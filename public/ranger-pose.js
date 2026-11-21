@@ -63,11 +63,15 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   if (open && avatar.makeCanopy && !avatar.canopy) avatar.canopy = avatar.makeCanopy(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
   avatar.root.position.set(state.x,state.y,state.z);
+  const trafficSeat=seated?.model && seated.npcDriver!==undefined;
+  const helm=seated?.id && !trafficSeat;
   const lowCockpit=seated?.kind==='supercar';
   avatar.root.scale.setScalar(lowCockpit ? .80 : seated ? seatedScale : 1);
-  if (avatar.civilian) avatar.root.scale.set(avatar.civilian.width,avatar.civilian.height,1);
+  if(trafficSeat)avatar.root.scale.setScalar(.91);
+  if (avatar.civilian){avatar.root.scale.x*=avatar.civilian.width;avatar.root.scale.y*=avatar.civilian.height;}
   if (seated) {
-    const seat=seated.id ? helmFeet(seated) : mountPosition(seated,lowCockpit ? [-.365,-.27,-.045] : [-.322,.025,-.085]);
+    const seat=helm ? helmFeet(seated) : mountPosition(seated,trafficSeat ? [-.43,seated.model==='van'?-.12:-.22,-.28] :
+      lowCockpit ? [-.365,-.27,-.045] : [-.322,.025,-.085]);
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
@@ -77,7 +81,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
-  const ride=seated?.id ? seated : (seated || station)?.suspension;
+  const ride=helm ? seated : (seated || station)?.suspension;
   const deltaHeading=station ? station.turretYaw-station.yaw : 0;
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
@@ -232,7 +236,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       const y=(.868+.27)/scale-1.01,z=(-.352+.045)/scale;
       gripPose(arm,forearm,(.005+side*.119)/scale,
         1.01+Math.cos(angle)*y+Math.sin(angle)*z,Math.cos(angle)*z-Math.sin(angle)*y,side);
-    } else if(seated?.id) {
+    } else if(trafficSeat) {
+      const y=(1.08+(seated.model==='van'?.12:.22))/avatar.root.scale.y;
+      gripPose(arm,forearm,side*.131/avatar.root.scale.x,y,-.37/avatar.root.scale.z,side);
+    } else if(helm) {
       // Hold the upper left/right spokes in the same frame as the cushion.
       const {y,z,radius,tilt}=helmWheel, up=radius*.5;
       gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/seatedScale,

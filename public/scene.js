@@ -1,4 +1,5 @@
 import {noise} from './terrain-noise.js';
+import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
@@ -1139,6 +1140,7 @@ export function createScene(canvas) {
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
+  const updateTraffic=CITY ? cityTrafficView(scene,Batch,shadowMap) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
@@ -1258,7 +1260,10 @@ export function createScene(canvas) {
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
     const rover=world.rover, supercar=world.supercar;
-    const road=supercar?.driver===local.id ? supercar : rover, driving=road.driver===local.id;
+    const cars=world.traffic??[];
+    updateTraffic?.(cars,dt);
+    const road=cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
+    const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
@@ -1284,7 +1289,9 @@ export function createScene(canvas) {
     for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
-      if(typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
+      const inTraffic=cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
+      if(!entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1295,19 +1302,21 @@ export function createScene(canvas) {
       if(!a) {
         const rival = typeof state.id === 'string';
         a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
       a.label.sprite.visible = state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
-      const seated=state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null;
+      const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(seated || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
+      if(seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
+        if(entering)poseTakeover(a,entering,state.id);
         if(skipper){
           a.root.rotation.y=-world.yacht.yaw;
           for(const kit of a.tools)kit.visible=false;

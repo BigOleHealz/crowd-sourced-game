@@ -1,3 +1,4 @@
+import {waterHelm} from './water-helm.js';
 import {damageYacht} from './superyacht.js';
 import {yachtOverlap} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -13,9 +14,8 @@ export const helmWheel = {y: 1.215, z: -.675, radius: .13, tilt: -.48};
 export const seatedScale = .85;
 export const helmOffset = [0, helmCushion.top - .893 * seatedScale, helmCushion.z];
 const waveClock=new WeakMap();
-const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 function moored(site) {
-  return {...site,y:MAP.waterY,yaw:site.yaw??0,pitch:0,roll:0,speed:0,throttle:0,driver:null,gunner:null,
+  return {...site,y:MAP.waterY,yaw:site.yaw??0,pitch:0,roll:0,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,
     turretYaw:0,turretPitch:0,hp:300,maxHp:300,wrecked:false,recoverySeconds:0};
 }
 export const patrolFleet=()=>CITY?berths.map(moored):[];
@@ -79,7 +79,7 @@ export function damageBoat(world,b,amount,players) {
       actor.state={x:b.x,y:MAP.waterY-.72,z:b.z,vx:0,vy:0,vz:0,grounded:false,swimming:true};
     }
   }
-  Object.assign(b,{driver:null,gunner:null,speed:0,throttle:0,wrecked:true,recoverySeconds:6});
+  Object.assign(b,{driver:null,gunner:null,speed:0,yawRate:0,slip:0,throttle:0,wrecked:true,recoverySeconds:6});
 }
 // Hull footprints are oriented rectangles; test the four separating axes.
 function overlaps(x,z,yaw,other,halfWidth,halfLength){
@@ -126,17 +126,12 @@ export function stepBoat(world,b,input,dt,players){
     return;
   }
   const t=(waveClock.get(b)??0)+dt;waveClock.set(b,t);
-  const throttle=b.driver==null?0:clamp(input?.throttle||0,-1,1);
-  const steer=b.driver==null?0:clamp(input?.steer||0,-1,1);
-  b.throttle=throttle;
-  const target=throttle*(throttle<0?3.2:12.5);
-  const accel=!throttle?2.4:target*b.speed<0?7.5:4.7;
-  b.speed+=clamp(target-b.speed,-accel*dt,accel*dt);
-  const turn=steer*(b.speed<-.08?-1:1)*(.58+Math.min(Math.abs(b.speed),6)*.10)*dt;
+  const turn=waterHelm(b,input,dt);
   const proposed=b.yaw+turn;
   if(turn && canFloat(world,b,b.x,b.z,proposed))b.yaw=Math.atan2(Math.sin(proposed),Math.cos(proposed));
+  else if(turn)b.yawRate=b.slip=0;
   if(b.speed){
-    const x=b.x+Math.sin(b.yaw)*b.speed*dt,z=b.z-Math.cos(b.yaw)*b.speed*dt;
+    const x=b.x+Math.sin(b.yaw+b.slip)*b.speed*dt,z=b.z-Math.cos(b.yaw+b.slip)*b.speed*dt;
     if(canFloat(world,b,x,z,b.yaw)){b.x=x;b.z=z;}
     else {
       const amount=Math.round((Math.abs(b.speed)-5)*4);
@@ -146,13 +141,13 @@ export function stepBoat(world,b,input,dt,players){
         if(yachtOverlap(world.yacht,x,z,b.yaw,1.10,2.75))damageYacht(world,amount);
         damageBoat(world,b,amount,players);
       }
-      b.speed=0;
+      b.speed=b.yawRate=b.slip=0;
     }
   }
   if(b.wrecked)return;
   const wave=Math.sin(t*1.65+b.z*.18+b.x*.08);
   b.y=MAP.waterY+.034*wave;
   b.pitch+=((.013*wave+.035*Math.max(0,b.speed)/12.5)-b.pitch)*Math.min(1,dt*6);
-  b.roll+=((.018*Math.sin(t*1.22+b.x*.17)-steer*b.speed*.012)-b.roll)*Math.min(1,dt*5);
+  b.roll+=((.018*Math.sin(t*1.22+b.x*.17)-b.yawRate*Math.abs(b.speed)*.012)-b.roll)*Math.min(1,dt*5);
 }
 export function helmFeet(b){return mountPosition(b,helmOffset);}

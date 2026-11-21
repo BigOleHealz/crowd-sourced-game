@@ -13,7 +13,7 @@ import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
-import { firearmSpecs, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
+import { firearmSpecs, civilianRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -140,7 +140,12 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,delta);
   const sportContact=supercarRoundContact(world.supercar,from,delta);
   const hitSport=sportContact<(roverContact?.t??Infinity);
-  const roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
+  let roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
+  let road=hitSport?world.supercar:world.rover;
+  for(const car of world.traffic??[]){
+    const distance=civilianRoundContact(car,from,delta)*range;
+    if(distance<roadDistance){roadDistance=distance;road=car;}
+  }
   const post=postContact(world,from,delta);
   const pane=sourceVehicle && !assist ? firstPaneHit(world,from,delta):null;
   // Step one common arcade pulse through the world; scenery and nearer targets
@@ -173,7 +178,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     }
     if(d>=roadDistance){
       to={x:from.x+direction.x*roadDistance,y:from.y+direction.y*roadDistance,z:from.z+direction.z*roadDistance};
-      hitKind=hitSport?'supercar':'rover';target=world[hitKind];break;
+      hitKind=road.kind??'rover';target=road;break;
     }
     const boat=world.boats?.find(b=>{
       if(b.wrecked||b.id===sourceVehicle||to.y<b.y-.50-halo||to.y>b.y+1.05+halo)return false;
@@ -220,7 +225,7 @@ export function fire(world, player, input, tick, players, npcs) {
 
 function targets(world,shooter,players,npcs,source=null) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
+    actor.id !== shooter && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score) {
@@ -275,6 +280,9 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     if (source !== 'rover' && (hitKind === 'rover' || (areaImpact && world.rover && withinBurst(center,world.rover,.8)))) {
       if(!areaImpact && Number.isInteger(wheel))world.rover.flatTires=(world.rover.flatTires ?? 0)|(1<<wheel);
       else damageRover(world,vehicleDamage,players,'rover',score?.team);
+    }
+    for(const car of world.traffic??[]){
+      if(target===car || (areaImpact && withinBurst(center,car,.7)))damageRover(world,vehicleDamage,players,car.id,score?.team);
     }
     if(hitKind==='supercar' || (areaImpact && world.supercar && withinBurst(center,world.supercar,.55))){
       if(!areaImpact && Number.isInteger(wheel))world.supercar.flatTires|=1<<wheel;

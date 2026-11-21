@@ -91,13 +91,13 @@ export function rivalView(actor, tick) {
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {
-  const vehicle = world[kind];
+  const vehicle = world[kind]??world.traffic?.find(car=>car.id===kind);
   const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
   const descent = kind==='heli' ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
   const speed = Math.hypot(vx, vz, descent);
   if (vehicle.wrecked || speed < 1.8) return;
-  const hull={ [kind]:vehicle };
-  const crew = [world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
+  const hull=vehicle.model?{traffic:[vehicle]}:{[kind]:vehicle};
+  const crew = [...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
     if (crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
