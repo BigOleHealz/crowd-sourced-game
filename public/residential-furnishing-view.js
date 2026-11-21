@@ -171,6 +171,13 @@ export function residentialFurnishingView(scene,Batch){
           round('wood',0x796548,u*.38,top+rise*.36,a*.38,.018,rise*.76,.018);
           shape(foliage,'linen',[0x6b8e5c,0x436745,0x557548][i%3],u,top+rise,a,.175,.34,.055,.57*Math.sin(angle),angle,-.30*Math.cos(angle));
         }
+      }else if(kind==='wallLining'){
+        box('stone',stone,0,h/2,0,w,h,d);
+        wood(0,.48,.014,w,.96,.023);
+        wood(0,.050,.019,w,.10,.037);
+        wood(0,.962,.021,w,.060,.045);
+        const count=Math.ceil(w/.16);
+        for(let i=1;i<count;i++)wood(w*(i/count-.5),.49,.030,.013,.854,.016);
       }else if(kind==='beam'){
         wood(0,h/2,0,w,h,d);
       }else if(kind==='floor'){
@@ -195,14 +202,15 @@ export function residentialFurnishingView(scene,Batch){
         box('linen',cream,0,h/2,.028,w-.045,h-.045,.012);
         shape(plane,art,0xfff6e7,0,h/2,.035,w-.146,h-.124,1);
       }else if(kind==='pendant'){
-        const bistro=w>.7,top=h-.022,n=bistro?3:1;
-        brass(0,top,0,.205,.04,.205);
-        brass(0,h*.59,0,.025,h*.72,.025);
+        const bistro=w>.7,shadeH=Math.min(.17,h*.48),stem=h-shadeH-.047,n=bistro?3:1;
+        const width=bistro?.24:w*.63;
+        brass(0,h-.022,0,.205,.04,.205);
+        brass(0,shadeH+.02+stem/2,0,.025,stem,.025);
         for(let i=0;i<n;i++){
           const a=(i-(n-1)/2)*.28;
-          if(a)box('stone',trim,0,h*.42,a/2,.025,.025,Math.abs(a));
-          shape(shade,'stone',stone,0,h*.27,a,bistro?.24:w*.63,h*.42,bistro?.24:w*.63);
-          glow(cylinder,0xffe7bb,0,h*.068,a,bistro?.217:w*.59,.018,bistro?.217:w*.59);
+          if(a)box('stone',trim,0,shadeH+.021,a/2,.025,.025,Math.abs(a));
+          shape(shade,'stone',stone,0,shadeH/2+.02,a,width,shadeH,width);
+          glow(cylinder,0xffe7bb,0,.023,a,width*.93,.018,width*.93);
         }
       }
     }

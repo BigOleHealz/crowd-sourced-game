@@ -35,12 +35,20 @@ function furnishRoom(level,r,role){
   const at=(kind,u,v,w,h,d,solid=true,turn=0,dy=0)=>{
     objects.push(fixture(kind,r.x+side*u,y+dy,r.z+v,w,h,d,yaw+turn,solid));
   };
-  const rug=(u,v,w,d)=>at('rug',u,v,w,.018,d,false);
-  const art=(u,v,w,h)=>at('art',u,v+(Math.sign(p.z-r.z)||1)*1.02,w,h,.055,false,0,1.67-h/2);
+  // Wrap balcony slabs run 4 cm above the nominal room floor.
+  const finishRise=p.b.facade===0?.045:0;
+  const rug=(u,v,w,d)=>at('rug',u,v,w,.018,d,false,0,finishRise);
+  const art=(u,v,w,h)=>{
+    const toMiddle=Math.sign(p.z-r.z)||1,center=1.67-h/2;
+    if(p.b.housing){
+      if(level.rooms.length>2)at('art',u-.54,toMiddle*(r.d/2-.102),w,h,.055,false,(toMiddle>0?Math.PI:0)-yaw,center);
+      else at('art',-rim+.098,1.62,w,h,.055,false,Math.PI,center);
+    }else at('art',u,v+toMiddle*1.02,w,h,.055,false,0,center);
+  };
   const ceiling=height-.152;
   const lamp=(u,v,width,drop)=>at('pendant',u,v,width,drop,width,false,0,ceiling-drop);
 
-  at('floor',0,0,r.d-.13,.008,r.w-.12,false);
+  at('floor',0,0,r.d-.13,.008,r.w-.12,false,0,finishRise);
   if(role==='lounge'){
     const length=Math.min(2.55,r.d*.54),u=rim-.56;
     at('sofa',u,.14,length,.91,.92);
@@ -103,11 +111,12 @@ export function furnishRuralHome(plan){
     objects.push(fixture(kind,x+u,y+dy,z+v,width,height,span,yaw,solid));
   };
   const wall=w/2;
-  put('floor',0,0,w-.33,.008,d-.31,0,false);
+  put('floor',0,0,w-.33,.008,d-.31,0,false,.007);
+  for(const side of [-1,1])put('wallLining',side*(wall-.166),0,d-.33,3.18,.025,-side*Math.PI/2,false);
   put('sofa',-wall+.70,-.23,wide?2.44:1.76,.91,.93,Math.PI/2);
   put('coffee',-wall+1.73,-.23,wide?1.38:1.04,.47,.49,Math.PI/2);
   put('rug',-wall+1.18,-.23,wide?2.88:2.12,.018,1.85,Math.PI/2,false);
-  put('art',-wall+.125,-.23,1.3,.77,.055,Math.PI/2,false,1.30);
+  put('art',-wall+.201,-.23,1.3,.77,.055,Math.PI/2,false,1.30);
   put('plant',-wall+.53,d/2-.55,.52,1.32,.52,0);
   if(wide){
     put('dining',wall-1.45,-.72,1.68,.80,.93,-Math.PI/2);
@@ -116,7 +125,7 @@ export function furnishRuralHome(plan){
   }else{
     put('bed',wall-1.23,-.40,1.55,1.20,2.07,-Math.PI/2);
     put('nightstand',wall-.45,.86,.47,.67,.44,-Math.PI/2);
-    put('art',wall-.125,-.40,1.17,.53,.055,-Math.PI/2,false,1.41);
+    put('art',wall-.201,-.40,1.17,.53,.055,-Math.PI/2,false,1.41);
   }
   for(const v of [-1.47,-.37,1.36])put('beam',0,v,w-.25,.18,.13,0,false,b.eave-.17);
   const drop=b.eave-2.78;
