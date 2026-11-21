@@ -5,6 +5,7 @@ import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
+import {createBasketball} from './basketball-game.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
@@ -108,6 +109,11 @@ function freshWorld(){
     w.volleyball=volleyball.state;
   }
   if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
+  if(CITY && !mode){
+    const game=createBasketball(w,players);
+    Object.defineProperty(w,'hoops',{value:game});
+    w.basketball=game.state;
+  }
   if(mode){
     match=createMatch(mode);
     w.match=match.state;
@@ -322,6 +328,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
+    hoopShot:input.hoopShot===true,
     tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
@@ -553,6 +560,7 @@ function tick() {
       if(input)player.yaw=input.yaw;
       continue;
     }
+    const wasPlayingHoops=world.basketball?.players.includes(player.id);
     if (input) {
       if (!match && input.replaySupply) replaySupplyRun(world);
       if (input.weapon) player.weapon = input.weapon;
@@ -574,6 +582,7 @@ function tick() {
             else world.jet.pilot=player.id;
           }else if(target==='heli')interact(world,player);
           else if(target==='superyacht')interactYacht(world,player);
+          else if(target==='basketball')world.hoops.interact(player,use.role);
           else if(boat)interactBoat(world,boat,player);
           else if(target==='rover' || target==='supercar'){
             if(target==='supercar')player.supercarInput=null;
@@ -675,8 +684,14 @@ function tick() {
     player.sprint = player.moving && !player.state.swimming && !player.state.stance && input.sprint;
     if (input) {
       player.yaw = input.fire ? input.aimYaw : input.yaw;
-      if(player.weapon===4 || player.launcherLock)trackLauncher(world,player,input,ticks,players,npcs);
-      if (input.fire) fire(world, player, input, ticks, players, npcs);
+      if(world.basketball?.players.includes(player.id)){
+        player.yaw=input.hoopShot || world.basketball.charge>0 ? input.aimYaw : input.yaw;
+        player.launcherLock=null;
+        world.hoops.input(player,input);
+      }else if(!wasPlayingHoops){
+        if(player.weapon===4 || player.launcherLock)trackLauncher(world,player,input,ticks,players,npcs);
+        if (input.fire) fire(world, player, input, ticks, players, npcs);
+      }
     }
   }
   stepCargoHook(world,hookInput,step,v=>{
@@ -735,6 +750,7 @@ function tick() {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);
   }
+  world.hoops?.step(step);
   if(marina){
     let changed=false;
     const now=performance.now();

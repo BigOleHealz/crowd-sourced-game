@@ -287,3 +287,15 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #elevator-dialog button{padding:.55rem;color:#f6f2e6;background:#435951;border:1px solid #89958c;border-radius:.22rem;cursor:pointer}
 #elevator-dialog button:disabled{color:#343e37;background:#d6c698;cursor:default}
 #elevator-status:not([hidden]){position:fixed;z-index:12;inset:0;display:grid;place-items:center;pointer-events:none;color:#efd6a7;font-weight:bold;letter-spacing:.04em;background:linear-gradient(90deg,#334342 0%,#586361 48.8%,#293632 49.9%,#596360 50.3%,#344543 100%)}
+#basketball-score { margin-top:7px; width:min(232px,64vw); padding:8px 10px; border:1px solid #bbd5ce63; border-radius:4px; background:#173337ed; font-size:12px; }
+.basketball-tally { display:flex; gap:14px; justify-content:space-between; font-weight:650; color:#81e5df; margin-bottom:4px; }
+.basketball-tally span+span { color:#ffbe7a; }
+.basketball-tally .you { text-decoration:underline; text-underline-offset:3px; }
+.basketball-tally strong { margin-left:4px; font-variant-numeric:tabular-nums; }
+#basketball-score output { display:block; color:#fff4d8; font-size:11px; }
+#basketball-score [role=meter] { position:relative; height:9px; isolation:isolate; margin-top:7px; background:#111c22; border-radius:2px; }
+#basketball-score [role=meter] b, #basketball-score [role=meter] i { position:absolute; inset-block:0; border-radius:2px; }
+#basketball-score [role=meter] b { z-index:1; background:#ffc97542; border-inline:1px solid #ffc975; }
+#basketball-score [role=meter] i { left:0; background:#8be2d4; transition:width 50ms linear; }
+#basketball-score .in-gold i { background:#ffcd78; }
+.touch-play #basketball-score { margin-top:5px; padding:5px 7px; }

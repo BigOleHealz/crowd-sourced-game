@@ -5,6 +5,7 @@ import {nearTank} from './tank.js';
 import {nearJet} from './jet.js';
 import {nearBoat,crewBoat} from './patrol-boats.js';
 import {yachtPrompt} from './yacht-layout.js';
+import {basketballUse} from './basketball-layout.js';
 
 const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
 const action=(target,role,label)=>({target,role,label});
@@ -29,6 +30,9 @@ export function nextUse(world,feet,id,wanted){
     const label={leave:'Leave yacht helm',leaveGun:'Leave bow gun',helm:'Take yacht helm',gun:'Use yacht bow gun'};
     return action('superyacht',yacht,label[yacht]);
   }
+  const basketball=basketballUse(world,feet,id);
+  if(basketball && (!wanted || basketball.target===wanted))return basketball;
+  if(basketball?.role==='leave')return null;
   let pick=null,best=Infinity;
   function offer(v,target,role,label){
     if(wanted && target!==wanted)return;
