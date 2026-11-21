@@ -1,6 +1,6 @@
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
-import {newGait,advanceGait,newFoot,placeFoot,bootSupport} from './locomotion.js';
+import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
 import {groundHeight,stanceDrop} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
@@ -156,6 +156,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       ankle.rotation.set(-.52,0,0);
     } else if(gait) {
       placeFoot(gait,foot,side);
+      fitPlantedBoot(gait,foot,leg.position,state.y,avatar.root.scale.y,doors,groundHeight);
       const floor=bootSupport(foot,state.y,gait.yaw,doors,groundHeight);
       const down=leg.position.y+gait.pelvisY-.126-foot.lift-floor/avatar.root.scale.y;
       const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
