@@ -1,9 +1,10 @@
+import {frontageGlassMaterial} from './frontage-glass-material.js';
 import * as THREE from 'three';
 import {hotel,hotelPanels,hotelGlass} from './maravela-hotel.js';
 
 // Both marquees, the reception joinery and the bell cart share one static
 // architectural mesh. Only the two pairs of glazed leaves move.
-export function maravelaHotelView(scene,Batch,doorWidth,floor,debris){
+export function maravelaHotelView(scene,Batch,doorWidth,floor,debris,panorama){
   const batch=new Batch(),cube=new THREE.BoxGeometry(),column=new THREE.CylinderGeometry(1,1,1,18);
   const orb=new THREE.SphereGeometry(1,16,10),rim=new THREE.TorusGeometry(1,.075,8,32);
   const emerald=0x24473e,walnut=0x72513b,flute=0x987455,brass=0xbd975e;
@@ -47,7 +48,8 @@ export function maravelaHotelView(scene,Batch,doorWidth,floor,debris){
     for(let i=0;i<uv.count;i++)uv.setY(i,1-(row+1)/8+uv.getY(i)/8);
     const mesh=new THREE.Mesh(plane,signMat);mesh.position.set(x,floor+y,z);mesh.rotation.y=yaw;scene.add(mesh);
   }
-  const glass=new THREE.MeshBasicMaterial({color:0x9bc5bc,transparent:true,opacity:.19,depthWrite:false,side:THREE.DoubleSide});
+  const glass=frontageGlassMaterial(panorama);
+  const sheet=new THREE.PlaneGeometry();
   const framing=new THREE.MeshBasicMaterial({vertexColors:true}),moving=[];
   for(const front of hotel.fronts){
     const {z,side}=front,x=hotel.x,face=z+side*.97;
@@ -67,7 +69,7 @@ export function maravelaHotelView(scene,Batch,doorWidth,floor,debris){
     const sliders=hotelGlass(front,0,doorWidth,floor);
     const pair=hotelPanels(front,0,doorWidth).map((p,i)=>{
       const group=new THREE.Group();group.position.set(p.x,floor,p.z);
-      const shard=sliders[i],pane=new THREE.Mesh(cube,glass);
+      const shard=sliders[i],pane=new THREE.Mesh(sheet,glass);
       pane.position.y=(shard.bottom+shard.top)/2-floor;pane.scale.set(shard.width,shard.top-shard.bottom,.015);
       group.add(pane);
       const rails=new Batch(),edge=(x,y,w,h,d)=>rails.add(cube,0x967a52,x,y,0,w,h,d);
