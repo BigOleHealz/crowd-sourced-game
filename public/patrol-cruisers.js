@@ -1,3 +1,4 @@
+import {gapAhead,roadUsers} from './lane-clearance.js';
 import {CITY,groundHeight} from './world.js';
 import {cityServices,outpostServices} from './traffic-routes.js';
 import {boardingSeconds,roadBoardingPosition,roadHandle} from './road-cabin.js';
@@ -21,7 +22,7 @@ function nearest(lane,p){
   }
   return {distance,at};
 }
-function dispatch(officer,target,rank){
+function dispatch(officer,target,rank,traffic){
   let best;
   for(const lane of lanes){
     const hit=nearest(lane,target);
@@ -29,8 +30,17 @@ function dispatch(officer,target,rank){
   }
   if(best.distance>36**2)return;
   const {lane}=best;
-  const at=wrap(best.at-Math.min(29+rank*9,lane.route.length*(.38+rank*.16)),lane.route.length);
-  const pose=lane.route.pose(at),id='patrol-car-'+officer.id;
+  const proposed=best.at-Math.min(29+rank*9,lane.route.length*(.38+rank*.16));
+  let at,pose;
+  for(const offset of [0,-4.5,4.5,-9,9,-14]){
+    at=wrap(proposed+offset,lane.route.length);const candidate=lane.route.pose(at);
+    const y=groundHeight(candidate.x,candidate.z);
+    if(traffic.vehicles.some(v=>!v.crushed && Math.abs(v.y-y)<2 && Math.hypot(v.x-candidate.x,v.z-candidate.z)<4.6))continue;
+    if(traffic.actors.some(a=>a!==officer && Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-candidate.x,a.state.z-candidate.z)<2.4))continue;
+    pose=candidate;break;
+  }
+  if(!pose)return;
+  const id='patrol-car-'+officer.id;
   const car={id,model:'sedan',patrol:true,officerId:officer.id,targetId:officer.targetId,npcDriver:officer.id,
     active:true,...pose,y:groundHeight(pose.x,pose.z),speed:0,steer:0,hp:250,maxHp:250,wrecked:false};
   return {lane,at,goal:best.at,car,lastSeen:{x:target.x,z:target.z}};
@@ -67,10 +77,11 @@ function bridgeDistance(car,world){
   return nearest;
 }
 
-export function stepPatrolCruisers(world,officers,players,tick){
+export function stepPatrolCruisers(world,officers,players,tick,npcs=officers){
   let state=units.get(world);
   if(!state){state=new Map();units.set(world,state);}
   const assigned=new Set(),cars=[];
+  const traffic=roadUsers(world,players,npcs);
   for(const officer of officers){
     const target=players.get(officer.targetId)?.state;
     if(!target || !officer.life.hp)continue;
@@ -79,15 +90,15 @@ export function stepPatrolCruisers(world,officers,players,tick){
     if(!state.has(officer.id)){
       // At most two cruisers per pursuit. Additional responders approach on foot.
       const count=cars.filter(car=>car.targetId===officer.targetId).length;
-      unit=count<2?dispatch(officer,target,count):null;
+      unit=count<2?dispatch(officer,target,count,traffic):null;
       state.set(officer.id,unit);
-      if(unit)officer.cruiserId=unit.car.id;
+      if(unit){officer.cruiserId=unit.car.id;traffic.vehicles.push(unit.car);}
     }
     if(!unit)continue;
     const {car,lane}=unit;cars.push(car);
     if(!car.npcDriver)continue;
     if(car.sling){
-      unit.towed=true;Object.assign(officer.state,{x:car.x,y:car.y,z:car.z});continue;
+      unit.towed=true;delete car.boarding;Object.assign(officer.state,{x:car.x,y:car.y,z:car.z});continue;
     }
     if(unit.towed || car.wrecked || car.hp<=0){finishExit(officer,car,exitPoint(car,world));continue;}
     const surface=(x,z)=>groundHeight(x,z,Infinity,world.doors);
@@ -98,7 +109,9 @@ export function stepPatrolCruisers(world,officers,players,tick){
     if(tick%15===0)unit.goal=nearest(lane,destination).at;
     let ahead=wrap(unit.goal-unit.at,lane.route.length);
     if(ahead>lane.route.length-3)ahead=0;
-    const distance=Math.min(Math.max(0,actual-6.5),Math.max(0,ahead-.9),bridgeDistance(car,world));
+    const arrival=Math.min(Math.max(0,actual-6.5),Math.max(0,ahead-.9),bridgeDistance(car,world));
+    const gap=gapAhead(car,traffic.actors.filter(a=>a!==officer && !a.cruiserId),traffic.vehicles,world.jet);
+    const distance=Math.min(arrival,gap);
     const look=lane.route.pose(wrap(unit.at+3,lane.route.length));
     const turn=Math.abs(Math.atan2(Math.sin(look.yaw-car.yaw),Math.cos(look.yaw-car.yaw)));
     const cornerSpeed=Math.sqrt(3.2*3/Math.max(.025,turn));
@@ -110,7 +123,10 @@ export function stepPatrolCruisers(world,officers,players,tick){
     car.steer=clamp(Math.sin(pose.yaw-car.yaw)*20,-1,1);
     Object.assign(car,pose,{speed,y:surface(pose.x,pose.z)});
     stepSuspension(car,dt,surface);
-    if(speed<.015 && distance<.10){stepExit(officer,car,world);continue;}
+    unit.wait=speed<.015 && gap<.10?(unit.wait??0)+dt:0;
+    if(speed<.015 && (arrival<.10 || unit.wait>1.9)){
+      stepExit(officer,car,world);continue;
+    }
     unit.at=at;
     Object.assign(officer.state,{x:car.x,y:car.y,z:car.z,vy:0,grounded:true});
     officer.yaw=car.yaw;officer.moving=false;
