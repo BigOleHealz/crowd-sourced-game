@@ -1,6 +1,7 @@
 import {lightBaySurface} from './biscayne-water.js';
 import {addQuayMasonry} from './quay-masonry.js';
 import {junctionSignalView} from './junction-signal-view.js';
+import {residentialRuinView} from './residential-ruin-view.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
@@ -72,7 +73,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   addLanternPoint(scene,solids,ground,patch,posts);
   const estateStart=scene.children.length;
   const updateEstates=addLanternBuildings(scene,Batch,panorama);
-  const updateDamage=estateDamageView(scene,scene.children.slice(estateStart),MAP.barriers);
+  const estateMeshes=scene.children.slice(estateStart);
+  const updateDamage=estateDamageView(scene,estateMeshes,MAP.barriers);
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
@@ -185,9 +187,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const apartmentStart=scene.children.length;
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
   const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
+  const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
+  const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
+  const updateHomes=residentialRuinView(scene,[...estateMeshes,...harborMeshes,...podiumParts,citySolids],renderer);
   const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   for(const geometry of [box,...faces])geometry.dispose();
@@ -195,7 +200,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes,tick)=>{
-    updateDamage(doors,dt);updateTowers(doors,dt);updateFalls(doors,dt);
+    updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);

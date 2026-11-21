@@ -1,3 +1,4 @@
+import {ruinedHouseAt} from './residential-sites.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
 import {inTowerBreach,towerCollapsed} from './tower-damage.js';
@@ -47,13 +48,13 @@ function glassContact(from,delta,pane,doors){
 // angle. Use the same swept pane geometry as rounds within the visible span.
 function visitIntactTowerGlass(world,from,d,accept) {
   visitTowerGlass(towerGlass,from,d,world.doors?.brokenPanes,box,(t,p)=>{
-    if (inTowerBreach(MAP.buildings,world.doors,from.x+t*d.x,from.y+t*d.y,from.z+t*d.z)) return;
+    if ((ruinedHouseAt(world.doors,from.x+t*d.x,from.z+t*d.z) || inTowerBreach(MAP.buildings,world.doors,from.x+t*d.x,from.y+t*d.y,from.z+t*d.z))) return;
     accept(t,p);
   });
 }
 export function firstPaneHit(world,from,delta){
   let t=Infinity,target=null;
-  const consider=(hit,pane)=>{if(hit<t && !inTowerBreach(MAP.buildings,world.doors,from.x+hit*delta.x,from.y+hit*delta.y,from.z+hit*delta.z)){t=hit;target=pane;}};
+  const consider=(hit,pane)=>{if(hit<t && !ruinedHouseAt(world.doors,from.x+hit*delta.x,from.z+hit*delta.z) && !inTowerBreach(MAP.buildings,world.doors,from.x+hit*delta.x,from.y+hit*delta.y,from.z+hit*delta.z)){t=hit;target=pane;}};
   if(CITY)for(const b of MAP.buildings){
     const entry=box(from,delta,{x:b.x,y:.82,z:b.z},b.w,3.8,b.d);
     if(entry===Infinity || entry>t)continue;
@@ -191,7 +192,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
     if((kind==='glass' || kind==='scenery') && Number.isFinite(value) &&
-      inTowerBreach(MAP.buildings,world.doors,round.x+d.x*value,round.y+d.y*value,round.z+d.z*value))return;
+      (ruinedHouseAt(world.doors,round.x+d.x*value,round.z+d.z*value) || inTowerBreach(MAP.buildings,world.doors,round.x+d.x*value,round.y+d.y*value,round.z+d.z*value)))return;
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
   }
   for(const lot of world.match?.lots??[]){
