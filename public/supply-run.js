@@ -53,7 +53,7 @@ export function supplyGuidance(world, local, id, touch=false) {
   const home = !heli.wrecked && heli.grounded && near(heli, HELIPAD, 3);
   const guide = (label, action, point) => ({ label, action, point });
   const boardRover = () => guide('Trail rover', rover.driver != null ? 'Your teammate is driving.' :
-    touch ? (CITY?'Approach the pickup and tap Drive pickup.':'Approach the jeep and tap Drive jeep.') : near(local, rover, 2.6) ? 'Press E to drive the rover.' : 'Reach the rover and press E to drive.', rover);
+    touch ? (CITY?'Approach the pickup and tap Get in pickup.':'Approach the jeep and tap Get in jeep.') : near(local, rover, 2.6) ? 'Press E to drive the rover.' : 'Reach the rover and press E to drive.', rover);
   const returnHeli = () => guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Fly back and land on the H.', HELIPAD);
   if (mission.stage === 'complete') return guide('Delivery complete', touch?'Three cases delivered. Tap Replay in Gear for another run.':'Three cases delivered. Press R for another run.', null);
   if (rover.wrecked && (mission.stage === 'pickup' || mission.stage === 'transfer')) return guide('Trail rover','Replacement rover returning to the trailhead.',ROVER_PAD);

@@ -259,3 +259,10 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .touch-play #field-prompt:empty {display:none}
 @media(orientation:portrait){#touch-tip {left:max(13px,env(safe-area-inset-left));right:max(13px,env(safe-area-inset-right));top:24%;transform:none;margin:auto;max-width:285px}#touch-look {top:48%}}
 @media(max-height:450px){#touch-look {top:32%}#touch-controls:has(#touch-tools:not([hidden])) #touch-look {opacity:0}}
+
+#touch-menu .touch-section {margin-top:8px;border-top:1px solid #74827571}
+#touch-menu .touch-section summary {cursor:pointer;padding:12px 0;min-height:44px;box-sizing:border-box;font:650 14px/20px system-ui}
+#touch-menu [data-world-guide] {margin-top:7px;border:1px solid #788d78;border-radius:6px;padding:5px 12px}
+#touch-controls[data-role=seat] #touch-actions [data-action=KeyE] {grid-area:2/2/3/4}
+
+#touch-tools .touch-button:disabled {background:#27352f;border-color:#637266;color:#b7c4b9;}

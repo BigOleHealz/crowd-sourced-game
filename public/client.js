@@ -2,7 +2,7 @@ import {atBankDesk,bankPrompt,bankClaimSeconds} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
-import {createTouchControls,touchLayout} from './touch-controls.js';
+import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
@@ -807,10 +807,12 @@ function updateEquipment(local) {
   if(touch.active){
     const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
+    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
-    touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    const mount=seat && vehicleById(world,kind);
+    const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
+    touch.render(touchLayout({role,active,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!talk.current && active && !garage)prompt.textContent=bank && bank.action!=='start'?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');

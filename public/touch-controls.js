@@ -2,7 +2,7 @@ const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 const gestures={
   foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Drag the left stick to move. Swipe the open right side to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to sprint, change stance or switch weapons.'},
-  car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Driver tools includes the horn and rear view.'},
+  car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Open Driver tools for the horn and rear view.'},
   'armed-car':{name:'Pickup driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe to look around. Fire missile launches straight ahead. Change seats in Driver tools.'},
   tank:{name:'Tank driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to aim',tip:'Push up to drive and sideways to turn. Drag the right side to aim the cannon.',help:'Hold Cannon to fire. Down on the stick brakes or reverses.'},
   helm:{name:'Boat helm',axis:'Steer',up:'Ahead',down:'Astern',look:'Drag to look',tip:'Push up for forward throttle, down for reverse, and sideways to steer.',help:'Swipe the right side to look around. Use the labeled helm action to leave your station.'},
@@ -119,30 +119,34 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   window.addEventListener('blur',reset);
   document.addEventListener('visibilitychange',()=>{if(document.hidden)reset();});
 
-  const options=menu.querySelector('[data-game-options]');
-  // Reuse the game's native selectors and panels so match status and preferences
-  // remain live when a phone menu is open.
+  const options=menu.querySelector('[data-game-options]'),navigation=menu.querySelector('[data-navigation]'),
+    objectives=menu.querySelector('[data-objectives]');
+  // Reparent the live panels while the menu is open so the selectors,
+  // scoreboard and map keep their original event handlers and updates.
   function showMenu(){
     if(menu.open)return;
     menuOpened();reset();tools.hidden=true;
-    reference.open=false;stowed=['#map-choice','.session-controls','.map-panel','#match-card','#supply-card','#marina-card','#help'].map(selector=>{
+    reference.open=navigation.open=objectives.open=false;
+    const slots=[['#map-choice',options],['.session-controls',options],['.map-panel',navigation.lastElementChild],
+      ['#match-card',objectives.lastElementChild],['#supply-card',objectives.lastElementChild],['#marina-card',objectives.lastElementChild]];
+    stowed=slots.map(([selector,parent])=>{
       const el=document.querySelector(selector),slot=document.createComment(selector);
-      el.before(slot);options.append(el);return {el,slot};
+      el.before(slot);parent.append(el);return {el,slot};
     });
     menu.showModal();
   }
   opener.onclick=showMenu;menu.querySelector('[data-close]').onclick=()=>menu.close();
-  menu.addEventListener('close',()=>{for(const {el,slot} of stowed)slot.replaceWith(el);stowed=[];canvas.focus({preventScroll:true});});
-  byId('help').addEventListener('click',()=>{if(menu.open)menu.close();});
+  menu.addEventListener('close',()=>{for(const {el,slot} of stowed)slot.replaceWith(el);stowed=[];if(byId('guide').hidden)canvas.focus({preventScroll:true});});
+  menu.querySelector('[data-world-guide]').onclick=()=>{menu.close();byId('help').click();};
   function setButtons(row,entries){
     const visibleCodes=new Set();
-    for(const [code,label] of entries){
+    for(const [code,label,disabled=false] of entries){
       let button=buttons.get(row.id+'/'+code);
       if(!button){
         button=document.createElement('button');button.type='button';button.className='touch-button';
         button.dataset.action=code;buttons.set(row.id+'/'+code,button);row.append(button);
       }
-      button.hidden=false;
+      button.hidden=false;button.disabled=disabled;
       if(button.textContent!==label)button.textContent=label;
       if(code==='more'){button.setAttribute('aria-controls','touch-tools');button.setAttribute('aria-expanded',String(!tools.hidden));}
       visibleCodes.add(code);
@@ -167,7 +171,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     pad.hidden=!hasGame || !g.axis;quick.hidden=lookCue.hidden=!hasGame;
     if(!hasGame){tip.hidden=true;tipRole=null;lastRole=null;}
     else if(lastRole!==config.role){
-      tipRole=null;tip.hidden=true;lastRole=config.role;
+      tipRole=null;tip.hidden=true;tools.hidden=true;lastRole=config.role;
       if(!seen.has(lastRole))showTip();
     }
     if(!hasGame){reset();tools.hidden=true;}
@@ -177,7 +181,14 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     down(code){for(const button of holds.values())if(button.dataset.action===code)return true;return false;}};
 }
 
-export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,seat,hook,caseAction,race,replay}){
+export function touchUseLabel(use){
+  if(use?.role==='drive' && use.target!=='tank' && use.label.startsWith('Drive ')){
+    return 'Get in '+use.label.slice(6);
+  }
+  return use?.label;
+}
+
+export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(use)quick.push(['KeyE',use]);
@@ -195,7 +206,10 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
     if(caseAction)extra.push(['KeyG','Handle case']);
     if(replay)extra.push(['KeyR','Replay']);
   }
-  if(seat)extra.push(['Digit1',seat[0]+' seat'],['Digit2',seat[1]+' seat']);
+  if(seat)seat.forEach((name,i)=>{
+    const occupied=occupancy?.[i];
+    extra.push(['Digit'+(i+1),occupied?name+' · '+occupied:name+' seat',!!occupied]);
+  });
   if(heli)extra.push([hook?'KeyL':'KeyK',hook?'Release load':'Hold hook']);
   if(['armed-car','car'].includes(role))extra.push(['KeyH','Horn'],['KeyV','Look back']);
   if(race)extra.push(['KeyT','Marina Sprint']);
