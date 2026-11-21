@@ -203,3 +203,18 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 @media(max-height:360px){#touch-tools{grid-template-columns:repeat(4,58px);max-height:120px}}
 .touch-play #conversation {bottom:max(8px,env(safe-area-inset-bottom));max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)));padding:12px 16px;overscroll-behavior:contain}
 .touch-play #conversation [data-leave] {position:sticky;bottom:0;background:#25382c}
+
+#wallet,#market-panel button {pointer-events:auto;cursor:pointer;font:inherit;color:#f0f4e9;background:#2d4137;border:1px solid #728777;border-radius:5px;padding:5px 10px}
+#wallet {margin-top:5px;font-size:12px}
+#market-panel {width:min(26rem,calc(100vw - 30px));max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - env(safe-area-inset-bottom));box-sizing:border-box;padding:18px 20px;overflow:auto;overscroll-behavior:contain;background:#1b2923;color:#eef2e7;border:1px solid #829785;border-radius:9px;}
+#market-panel::backdrop {background:#0a171b70}
+#market-panel h2 {margin:0;font-size:1.35rem}
+#market-panel h3 {margin:14px 0 5px;font-size:.95rem}
+#market-panel [data-funds] {color:#c5dfa7;font-weight:650}
+#market-panel [data-stock]>div,#market-panel [data-inventory]>div {display:flex;align-items:center;justify-content:space-between;gap:15px;padding:9px 0;border-top:1px solid #6a786650}
+#market-panel small {display:block;font-size:.76rem;color:#c6cec3;margin-top:4px}
+#market-panel button {flex-shrink:0}
+#market-panel button:disabled {opacity:.56;cursor:default}
+#market-panel [data-market-status] {color:#f5d898;min-height:1.15em;margin:10px 0 0}
+.touch-play #market-panel button {min-height:44px}
+.touch-play #wallet{min-height:32px}

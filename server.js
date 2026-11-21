@@ -32,6 +32,7 @@ import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat, readdir, readFile } from 'node:fs/promises';
+import {harborTrade,newWallet,walletView} from './harbor-trade.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
@@ -75,6 +76,13 @@ let match;
 function freshWorld(){
   const w=newExpedition();
   w.traffic=newCityTraffic();
+  if(CITY && !mode){
+    const trading=harborTrade(w,(p,tick,message,seq)=>{
+      if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
+    });
+    Object.defineProperty(w,'trading',{value:trading});
+    w.market=trading.state;
+  }
   if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
   if(mode){
     match=createMatch(mode);
@@ -87,6 +95,7 @@ let world = freshWorld();
 function freshResidents(){
   const residents=newRivals();
   syncTrafficDrivers(world,residents);
+  world.trading?.assign(residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -216,6 +225,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='wantedMode'){
     if(typeof input.enabled==='boolean')world.wanted?.set(player,input.enabled);
     return;
@@ -335,6 +345,7 @@ sockets.on('connection', ws => {
     player.state=teamSpawn(player.team,player.slot);
     player.score.team=player.team;
   }
+  if(world.trading)player.wallet=newWallet();
   players.set(id, player);
   updateRoom();
   ws.on('message', (data, binary) => acceptInput(players.get(id), data, binary));
@@ -380,7 +391,7 @@ sockets.on('connection', ws => {
     updateRoom();
     publish();
   });
-  ws.send(JSON.stringify({ type: 'welcome', build, ...(marina && {raceBoard:marina.board()}), scoreKey:player.scoreKey, id, state: playerState(players.get(id)), world: worldView() }));
+  ws.send(JSON.stringify({ type: 'welcome', build, ...(player.wallet && {wallet:walletView(player,ticks)}), ...(marina && {raceBoard:marina.board()}), scoreKey:player.scoreKey, id, state: playerState(players.get(id)), world: worldView() }));
   publish();
 });
 
@@ -664,6 +675,7 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
+  if(players.size)world.trading?.step(players,npcs,ticks);
   world.wanted?.step(npcs,ticks);
   localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}

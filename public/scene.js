@@ -1,3 +1,4 @@
+import {marketStockView} from './market-stock-view.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -1245,8 +1246,9 @@ export function createScene(canvas) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  let sprintGate;
+  let sprintGate,drawMarket;
   function render(local,remotes,view,dt,world) {
+    if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
       sprintGate??=createSprintGate(scene);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
