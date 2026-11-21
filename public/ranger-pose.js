@@ -1,4 +1,4 @@
-import {roadCabin,roadWheelGrip,roadHandle} from './road-cabin.js';
+import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
@@ -48,15 +48,13 @@ function holdWorld(avatar,arm,forearm,side,target){
 // The same authoritative progress moves the occupant and the hinged door.
 // The tracking hand follows the handle through its swing before both hands settle on the rim.
 export function poseRoadBoarding(avatar,car,action){
-  const {progress:t,startX,startY,startZ}=action,cabin=roadCabin(car),seat=mountPosition(car,cabin.seat);
+  const t=action.progress,cabin=roadCabin(car);
   const approach=THREE.MathUtils.smoothstep(t,0,.24),enter=THREE.MathUtils.smoothstep(t,action.npcId ? .65 : .45,.97);
-  const handle=roadHandle(car,t),c=Math.cos(car.yaw),s=Math.sin(car.yaw),mix=THREE.MathUtils.lerp;
-  const standX=handle.x-c*.27+s*.12,standZ=handle.z-s*.27-c*.12;
+  const handle=roadHandle(car,t),mix=THREE.MathUtils.lerp;
   const {root,body,spine,limbs}=avatar;
   avatar.gait=null;
   root.scale.setScalar(mix(1,cabin.scale,enter));
-  root.position.set(mix(mix(startX,standX,approach),seat.x,enter),
-    mix(mix(startY,car.y,approach),seat.y,enter),mix(mix(startZ,standZ,approach),seat.z,enter));
+  root.position.copy(roadBoardingPosition(car,action));
   root.rotation.set((car.suspension?.pitch??0)*enter,-car.yaw-1.57*(1-enter),(car.suspension?.roll??0)*enter,'YXZ');
   const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
   body.position.set(0,-crouch,0);
