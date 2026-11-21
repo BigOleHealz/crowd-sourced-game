@@ -299,3 +299,21 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #basketball-score [role=meter] i { left:0; background:#8be2d4; transition:width 50ms linear; }
 #basketball-score .in-gold i { background:#ffcd78; }
 .touch-play #basketball-score { margin-top:5px; padding:5px 7px; }
+
+#casino-dialog {box-sizing:border-box;width:min(21rem,94vw);max-height:90dvh;overflow:auto;margin:auto 1.1rem 1.1rem auto;padding:1.1rem;color:#fff4d6;background:#14362f;border:1px solid #c39b58;border-top:3px solid #d7b976;border-radius:8px;box-shadow:0 8px 30px #07140e70}
+#casino-dialog::backdrop {background:#09171424}
+#casino-dialog header {display:grid;grid-template-columns:1fr auto;align-items:center;border-bottom:1px solid #637668;padding-bottom:.6rem}
+#casino-dialog header p {grid-column:1/-1;margin:0;color:#e7c694;font:small-caps 1rem Georgia,serif}
+#casino-dialog h2 {margin:.16rem 0 0;font:1.7rem Georgia,serif}
+#casino-dialog h3 {margin:.5rem 0 .25rem;font-size:.82rem}
+#casino-dialog section {display:inline-block;vertical-align:top;min-width:45%;margin-right:3%}
+.casino-cards {display:flex;flex-wrap:wrap;gap:3px;min-height:1.65rem}
+.casino-cards span {border-radius:3px;padding:.23rem .3rem;color:#18201c;background:#fffaea;font:bold 1rem Georgia,serif}
+.casino-cards .red {color:#a42939}.casino-cards .back {background:#4c2950;color:#fff2ca;font:normal .68rem system-ui}
+#casino-dialog output {display:block;margin:.65rem 0}
+.casino-actions:not([hidden]) {display:flex;gap:.3rem;flex-wrap:wrap}
+#casino-dialog button {min-height:40px;padding:.32rem .6rem;border:1px solid #ad935e;border-radius:4px;background:#f5e8cb;color:#18291f;font-weight:650}
+#casino-dialog button:disabled {opacity:.44}
+#casino-dialog details {margin:.6rem 0;font-size:.78rem}
+#casino-dialog [data-action=leave] {background:transparent;color:#f3e5c8}
+@media(max-width:600px){#casino-dialog{margin:auto auto .4rem;width:96vw;max-height:54dvh;padding:.65rem .85rem}}

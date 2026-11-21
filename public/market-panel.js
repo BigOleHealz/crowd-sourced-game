@@ -59,7 +59,7 @@ export function marketPanel(panel,badge,{send,enter,leave}){
   return {
     lootSafe(id){send({type:'market',action:'safe',safe:id,seq:++seq});},
     collectSidearm(id){send({type:'market',action:'collectSidearm',drop:id,seq:++seq});},
-    open,close,get current(){return panel.open;},get chart(){return !!wallet?.chart;},
+    open,close,get current(){return panel.open;},get cash(){return wallet?.cash??0;},get chart(){return !!wallet?.chart;},
     update(world,near,available){
       market=world?.market??null;badge.hidden=!market || !wallet;badge.disabled=!available;
       if(panel.open && (!market || !available || shop && near?.id!==shop.id)){close();return;}

@@ -52,7 +52,16 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     slab(x,ceiling-.13,z,w+.30,d+.30,.24);
     masonry(0xb89565,x-8.5,bottom+.68,z,3.15,.94,.75);
     box(limestone,x-8.5,bottom+1.19,z,3.25,.085,.86);
-    for(const u of [-5,0,5]){seat(x+u,z-2.9,0,0);bench(x+u,z-1.65);}
+    for(const u of [-5,0,5]){
+      const lounge=x+u,lz=z-2.9;
+      box(0x684937,lounge,.48,lz,2.20,.29,.78);
+      box(0x36584e,lounge,.68,lz+.04,2.11,.22,.72);
+      box(0x426257,lounge,.96,lz-.34,2.15,.63,.15,-.08);
+      for(let j=-3;j<=3;j++)box(0x304b43,lounge+j*.28,.97,lz-.246,.015,.57,.019);
+      for(const side of [-1,1])box(0x466253,lounge+side*1.06,.77,lz,.15,.33,.77);
+      cyl(brass,lounge,.32,z-1.65,.39,.10);cyl(bronze,lounge,.54,z-1.65,.11,.43);
+      cyl(limestone,lounge,.79,z-1.65,1.13,.075,.58);
+    }
     for(const p of clubPanes){
         const {alongX,side,bay:t,index:i,x:cx,z:cz}=p;
         const offset=(alongX?d:w)*side/2, u=alongX?cx-x:cz-z;
@@ -191,7 +200,10 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     const label=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map}));
     label.position.set(x,floor+y,z);scene.add(label);
   }
-  plaque(25,4.15,-384.426,5.7,.62,'L A N T E R N','P R I V A T E   Y A C H T   C L U B','#254044');
+  plaque(25,4.15,-384.426,8.45,.69,'L A N T E R N   C L U B   C A S I N O','L A N T E R N   P O I N T   ·   M A R I N A','#213d38');
+  box(0x29443e,26.2,2.90,-389.93,2.34,.53,.08);
+  plaque(26.2,2.90,-389.876,2.29,.49,'C A S I N O','T A B L E   G A M E S','#29443e');
+  box(brass,26.2,2.62,-389.92,2.38,.03,.10);
   for(const [x,z,name,subtitle] of [[-12.9,-378.9,'Casa de Luma','P A T I O   R E S I D E N C E'],[37.5,-425.3,'Palazzo Mare','L A N T E R N   P O I N T']]){
     masonry(limestone,x,.67,z,3.12,1.34,.58);
     plaque(x,.73,z+.301,2.28,.52,name,subtitle,'#47493b');
