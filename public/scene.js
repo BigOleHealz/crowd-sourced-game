@@ -1140,7 +1140,7 @@ export function createScene(canvas) {
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
-  const updateTraffic=CITY ? cityTrafficView(scene,Batch,shadowMap) : null;
+  const updateTraffic=CITY ? cityTrafficView(scene,Batch,shadowMap,panorama) : null;
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
