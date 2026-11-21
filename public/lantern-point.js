@@ -34,7 +34,7 @@ export const lanternPalms=[
 export const lanternSigns=[
   {x:7.8,z:-264,label:'LANTERN POINT',sub:'NORTH VIA LANTERN BRIDGE'},
   {x:7.9,z:-358,label:'LANTERN POINT',sub:'RESIDENCES  /  YACHT CLUB'},
-  {x:39.4,z:-377.2,label:'LANTERN YACHT CLUB',sub:'SOLANA BERTH   →'},
+  {x:39.4,z:-377.2,label:'LANTERN POINT MARINA',sub:'YACHT CLUB  /  EAST QUAY   →'},
   {x:62.9,z:-379.5,label:'SOLANA',sub:'HOME BERTH   /   EAST QUAY'},
 ];
 export const signBarriers=lanternSigns.flatMap(({x,z},i)=>[-1,1].map(s=>({postId:'lantern-sign-'+i,x:x+s*1.4,z,w:.14,d:.14,h:3.35})));

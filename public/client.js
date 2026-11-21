@@ -32,6 +32,7 @@ import { drivenRoad, nearestVehicle } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
+import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
@@ -42,6 +43,13 @@ const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
 window.addEventListener('pagehide',()=>audio.reset());
+const destinationsMenu=byId('destination');
+for(const name of destinations.keys())destinationsMenu.add(new Option(name,name));
+let navigate,route;
+destinationsMenu.onchange=()=>{
+  navigate=landmarkGuide(destinationsMenu.value);route=null;
+  byId('nav-cue').hidden=!navigate;canvas.focus({preventScroll:true});
+};
 const selector=byId('map-choice');
 const chosen=new URLSearchParams(location.search).get('mode');
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
@@ -688,6 +696,11 @@ function drawMap(player, remotes, yaw) {
     if (world.hp[piece.id] === 0) continue;
     ctx.fillStyle = '#acdbcf'; ctx.fillRect(sx(piece.x)-2,sy(piece.z)-2,4,4);
   }
+  if(route){
+    ctx.save();ctx.lineJoin='round';ctx.lineWidth=3;ctx.strokeStyle='#7fe9fc';
+    ctx.beginPath();route.line.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
+    ctx.fillStyle='#b7f6ff';ctx.beginPath();ctx.arc(sx(route.goal[0]),sy(route.goal[1]),4,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
   const heli = world.heli;
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
@@ -780,6 +793,10 @@ function frame(time) {
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id);
+      if(navigate){
+        route=navigate(local.x,local.z,isDriving()?local.yaw:view.yaw);
+        byId('nav-cue').textContent=route.cue+(route.cue==='Arrived' || !route.meters?'':' · '+route.meters+' m');
+      }
       drawMap(local, remotes, view.yaw);
     }
   }
