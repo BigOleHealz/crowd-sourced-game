@@ -1,4 +1,5 @@
 import {createRoadGarages} from './road-garage-view.js';
+import {streetHydrants} from './hydrant-view.js';
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
@@ -1116,6 +1117,7 @@ export function createScene(canvas) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   let glints, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1265,6 +1267,7 @@ export function createScene(canvas) {
     displayedPlayers = remotes;
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
+    updateHydrants(world.doors?.hydrants,dt);
     updateDoors?.(world.doors,dt,local,remotes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt);
