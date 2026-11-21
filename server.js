@@ -1,6 +1,7 @@
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
+import {stepStructuralFalls} from './public/structural-collapse.js';
 import {nearTank,leaveTank,stepTank} from './public/tank.js';
 import {nearJet,stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
@@ -26,7 +27,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
-import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
+import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
@@ -625,6 +626,7 @@ function tick() {
   }
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
+  stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);

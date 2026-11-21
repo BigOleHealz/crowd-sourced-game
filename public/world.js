@@ -99,7 +99,7 @@ export function onBuildingLot(x,z,margin=0) {
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return roof;
-  if(towerCollapsed(b,doors))return rubbleHeight(b,x,z);
+  if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
   const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
@@ -233,7 +233,7 @@ export function sceneryHeight(x,z) {
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
     const pile=collapsedLot(MAP.buildings,doors,x,z);
-    if(pile)return rubbleHeight(pile,x,z);
+    if(pile)return rubbleHeight(pile,x,z,doors);
     const limit=estateSupportLimit(doors,x,z);
     const probe=Math.min(limit,maxBottom);
     const villa=casaFloor(x,z,probe);
