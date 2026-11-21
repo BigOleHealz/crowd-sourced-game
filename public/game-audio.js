@@ -1,3 +1,4 @@
+import {tireMix,tireLoop} from './tire-road-sound.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
@@ -10,6 +11,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
   if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
@@ -213,6 +215,22 @@ export function createGameAudio(button,slider,level) {
     }
     for(const key of loops.keys())if(key.startsWith('traffic/') && !sounding.has(key))stopMotor(key);
   }
+  function roadTires(listener,yaw,cars){
+    const active=new Set();
+    for(const car of cars){
+      if(!car || !audible() || Math.hypot(car.x-listener.x,car.y-listener.y,car.z-listener.z)>32)continue;
+      const mix=tireMix(car);
+      if(!mix)continue;
+      const key='tread/'+(car.id??car.kind??'rover')+'/';
+      active.add(key+mix.surface);
+      motor('tread/'+mix.surface,car,true,mix.rate,mix.volume,listener,yaw,key+mix.surface);
+      if(mix.flat){
+        active.add(key+'flat');
+        motor('tread/flat',car,true,mix.rate,mix.volume*(1+.18*mix.flat),listener,yaw,key+'flat');
+      }
+    }
+    for(const key of loops.keys())if(key.startsWith('tread/') && !active.has(key))stopMotor(key);
+  }
   let lastJetRange=null;
   function jetEngine(listener,yaw,jet,dt){
     const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
@@ -235,5 +253,5 @@ export function createGameAudio(button,slider,level) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,trafficEngines,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,engines,trafficEngines,roadTires,jetEngine,yachtEngine,toggleMute};
 }
