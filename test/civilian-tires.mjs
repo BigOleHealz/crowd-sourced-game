@@ -3,11 +3,13 @@ process.env.PINEWATCH_MAP='brickell';
 const {newExpedition,fire,advanceRounds}=await import('../public/expedition.js');
 const {newCityTraffic,stepCityTraffic,driveTrafficCar}=await import('../public/city-traffic.js');
 const {newRivals,newLife}=await import('../public/rivals.js');
+const {fireEngine}=await import('../public/fire-engine.js');
 const {civilianProfiles}=await import('../public/civilian-fleet.js');
 const {damageRover,driveRover}=await import('../public/rover.js');
 const {wheelsFor,flatWheelDrop,flatMobility}=await import('../public/road-wheel-layout.js');
 const {stanceMuzzleHeight}=await import('../public/world.js');
 const dt=1/30;
+const motorPool=()=>[...newCityTraffic(),fireEngine()];
 function shot(world,car,side,z,height){
   const c=Math.cos(car.yaw),s=Math.sin(car.yaw);
   const local=(x,y,z)=>({x:car.x+c*x-s*z,y:car.y+y,z:car.z+s*x+c*z});
@@ -19,7 +21,7 @@ function shot(world,car,side,z,height){
   for(let t=0;t<6;t++)advanceRounds(world,players,[],50+t);
 }
 for(const model of Object.keys(civilianProfiles)){
-  const w=newExpedition(),cars=newCityTraffic(),car=cars.find(c=>c.model===model);
+  const w=newExpedition(),cars=motorPool(),car=cars.find(c=>c.model===model);
   w.traffic=[car];const npcs=newRivals(),players=new Map(),profile=civilianProfiles[model];
   const home={x:car.x,y:car.y,z:car.z,yaw:car.yaw};
   Object.assign(car,{x:0,y:120,z:0,yaw:.37});
@@ -41,7 +43,7 @@ for(const model of Object.keys(civilianProfiles)){
   damageRover(w,car.hp,players,car.id);
   for(let i=0;i<220;i++)stepCityTraffic(w,players,npcs,dt);
   assert.equal(car.wrecked,false);assert.equal(car.hp,car.maxHp);assert.equal(car.flatTires,0);
-  const ai=newExpedition();ai.traffic=newCityTraffic().filter(c=>c.model===model);
+  const ai=newExpedition();ai.traffic=motorPool().filter(c=>c.model===model);
   const lead=ai.traffic[0];lead.flatTires=15;
   for(let t=0;t<20;t++)stepCityTraffic(ai,players,npcs,dt);
   assert(lead.speed<=profile.cruise*flatMobility(lead)+.001);
@@ -49,7 +51,7 @@ for(const model of Object.keys(civilianProfiles)){
 // Hit the rear bumper of an unoccupied car with the pickup. Both panels
 // and both health meters react once, even with throttle held into contact.
 for(const model of Object.keys(civilianProfiles)){
-  const w=newExpedition(),r=w.rover,car=newCityTraffic().find(c=>c.model===model);
+  const w=newExpedition(),r=w.rover,car=motorPool().find(c=>c.model===model);
   w.traffic=[car];
   Object.assign(car,{x:0,z:-190,y:.7,yaw:0,npcDriver:null,speed:0});
   Object.assign(r,{x:0,z:-185,y:.7,yaw:0,driver:1,speed:12});

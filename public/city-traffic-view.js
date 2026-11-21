@@ -2,6 +2,7 @@ import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
 import {poseRoadBoarding} from './ranger-pose.js';
 import {roadCabin,boardingDoorAngle} from './road-cabin.js';
+import {fireAppliance} from './fire-engine-view.js';
 import {markPatrolSedan} from './patrol-livery.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
@@ -66,10 +67,11 @@ function wheelModel(Batch,tire,depth,van){
 }
 
 function model(Batch,type,materials,patrol=false){
-  const {roofEnd,cabinEnd,topFront}=fleet[type];
-  const paint=patrol?0x253747:fleet[type].paint;
+  const engine=type==='engine';
+  const {roofEnd,cabinEnd,topFront}=engine?{roofEnd:.34,cabinEnd:.41,topFront:-.72}:fleet[type];
+  const paint=engine?0xaf322e:patrol?0x253747:fleet[type].paint;
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
-  const van=type==='van',hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
+  const van=type==='van' || engine,hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
   const body=new Batch(),leaf=new Batch(),glass=new Batch(),lamps=new Batch();
@@ -261,7 +263,7 @@ function model(Batch,type,materials,patrol=false){
   for(const x of [-.40,.20]){
     body.beam(rubber,[x,belt+.065,front-.017],[x+.30,belt+.099,front+.016],.014,.018);
   }
-  if(van){
+  if(van && !engine){
     pane(body,0x53565a,[-w+.09,belt,.256],[w-.09,belt,.256],[topW-.03,roof-.099,.256],[-topW+.03,roof-.099,.256]);
     // Raised cargo flanks curve inward across the roof and carry a recessed
     // sliding-door panel, steel rail, rear-door shutline and loading step.
@@ -307,6 +309,7 @@ function model(Batch,type,materials,patrol=false){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
+  const appliance=engine && fireAppliance(root,chassis,body,box,Batch,materials);
   const beacon=patrol && markPatrolSedan(chassis,door,body,box);
   const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
@@ -319,7 +322,7 @@ function model(Batch,type,materials,patrol=false){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,signals,wheels,tire,beacon,fittings:damagedFittings([sheet,brake,...signals],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
+  return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings:damagedFittings([sheet,brake,...signals],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
@@ -355,6 +358,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const patrolViews=[];
   return (cars,dt,local,patrolCars=[])=>{
     for(const view of patrolViews)if(view)view.root.visible=false;
+    for(const [id,view] of views)if(id.startsWith('fire-engine-'))view.root.visible=false;
     let slot=0;
     for(const car of patrolCars.length?[...cars,...patrolCars]:cars){
       const index=car.patrol?slot++:-1;
@@ -371,6 +375,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const {root,chassis,wheels,door,brake}=view;
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
+      if(view.appliance)view.appliance(car,performance.now()*.001);
       if(view.beacon)view.beacon(car,performance.now()*.001);
       const sag=view.wreckFinish(car);view.fittings(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);

@@ -1,3 +1,4 @@
+import {engineBay} from './water-monitor.js';
 import {signalGap} from './junction-signals.js';
 import {gapAhead,roadUsers} from './lane-clearance.js';
 import {beginRoadBoarding} from './road-cabin.js';
@@ -67,7 +68,7 @@ export function nearestTraffic(world,feet){
 export function leaveTraffic(world,player){
   const car=drivenTraffic(world,player.id);
   if(!car)return false;
-  interactRover(world,player,car.id);
+  interactRover(world,player,car.id);delete car.water;
   return true;
 }
 
@@ -91,7 +92,7 @@ export function tryTrafficInteract(world,player,npcs){
       startX:player.state.x,startY:player.state.y,startZ:player.state.z};
     car.npcDriver=null;car.blink=false;car.turnSignal=0;
   }else beginRoadBoarding(car,player.state);
-  car.driver=player.id;
+  car.driver=player.id;delete car.water;delete car.response;
   stopRover(car);
   return true;
 }
@@ -144,7 +145,12 @@ function bridgeGap(world,car){
 function recoverTrafficCar(world,car,actors,dt){
   car.recoverySeconds=Math.max(0,car.recoverySeconds-dt);
   if(car.recoverySeconds>.0001)return;
-  const [x,z]=path.get(car).bay,y=groundHeight(x,z);
+  // A destroyed dispatched appliance returns to the response pool. The
+  // reserve engine has its own permanent parking bay like the civilian cars.
+  if(car.model==='engine' && car.id!=='fire-engine-0'){
+    world.traffic=world.traffic.filter(v=>v!==car);return;
+  }
+  const [x,z]=path.get(car)?.bay??[engineBay.x,engineBay.z],y=groundHeight(x,z);
   if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
@@ -167,7 +173,9 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
       }
       car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
     }
+    if(car.model==='engine' && car.driver==null && !car.response)delete car.water;
     if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
+    if(car.model==='engine'){if(npc)placeDriver(car,npc);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
     const gap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));

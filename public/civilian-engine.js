@@ -2,6 +2,7 @@
 // Integer harmonics preserve phase at the loop boundary.
 const engines={
   hatchback:{pulse:47,harmonics:[.24,.31,.19,.14,.08,.04],gears:[5.4,10,16],rev:1.9},
+  engine:{pulse:21,harmonics:[.45,.21,.11,.23,.08,.03],gears:[3,6.5,10],rev:1.25},
   sedan:{pulse:38,harmonics:[.44,.31,.15,.065,.03,.005],gears:[6,12,19],rev:1.75},
   van:{pulse:26,harmonics:[.36,.17,.12,.21,.04,.1],gears:[4,8,12],rev:1.5},
 };

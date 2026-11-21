@@ -105,7 +105,8 @@ const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
 const inTank=()=>id!=null && world?.tank?.driver===id;
 const myRoad = () => inTank()?world.tank:drivenRoad(world,id);
-const carNames={hatchback:'Hatchback',sedan:'Sedan',van:'Delivery van'};
+const carNames={hatchback:'Hatchback',sedan:'Sedan',van:'Delivery van',engine:'Fire engine'};
+const inEngine=()=>myRoad()?.model==='engine';
 const unarmedRoad=()=>inGT() || Boolean(myRoad()?.model);
 const inGT = () => myRoad()?.kind==='supercar';
 const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id || atYachtHelm());
@@ -602,9 +603,9 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
+  const fire = (!unarmedRoad() || inEngine()) && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
   const gunner=gunnerRole();
-  const aim=(inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
+  const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (fire || (!lookPaused && canAim())) facing = aim.yaw;
@@ -695,6 +696,10 @@ function remoteFrame(time) {
     const old=a.traffic?.find(v=>v.id===car.id),frame=roadFrame(old,car);
     if(car.takeover && old?.takeover?.npcId===car.takeover.npcId)
       return {...frame,takeover:{...car.takeover,progress:mix(old.takeover.progress,car.takeover.progress,t)}};
+    if(car.model==='engine' && old && frame){
+      frame.monitorYaw=angleMix(old.monitorYaw,car.monitorYaw,t);
+      frame.monitorPitch=mix(old.monitorPitch,car.monitorPitch,t);
+    }
     return frame;
   });
   const patrolCars=b.patrolCars?.map(car=>roadFrame(a.patrolCars?.find(c=>c.id===car.id),car));
@@ -763,7 +768,7 @@ function updateEquipment(local) {
   byId('match-deaths').textContent=vitals.score?.deaths??0;
   byId('kit').textContent = inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? carNames[trafficCar.model] : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || !isDriving()) && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
@@ -791,7 +796,7 @@ function updateEquipment(local) {
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
-  byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-shortcut').hidden = (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
   const bank=teller();
@@ -820,6 +825,7 @@ function updateEquipment(local) {
   else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
+  else if(inEngine())prompt.textContent='W/S accelerate or brake · A/D steer · Mouse aims the water cannon · Hold F / click to spray';
   else if(isDriving())prompt.textContent='W/S accelerate or brake · A/D steer';
   else if(gunner)prompt.textContent='Look around to aim · Hold F / click to fire';
   else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':heli.hook?.load?'Cargo attached · L to release':'Space / Shift altitude · Hold K to lower cargo hook';
@@ -837,7 +843,7 @@ function updateEquipment(local) {
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(touch.active){
-    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model

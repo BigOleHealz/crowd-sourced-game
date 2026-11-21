@@ -18,6 +18,7 @@ import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
 import {trailDistance} from './road-surface.js';
+import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
@@ -1123,7 +1124,7 @@ export function createScene(canvas,onFootfall) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const muzzle=station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1308,7 +1309,7 @@ export function createScene(canvas,onFootfall) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);

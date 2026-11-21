@@ -6,7 +6,7 @@ import {nearJet} from './jet.js';
 import {nearBoat,crewBoat} from './patrol-boats.js';
 import {yachtPrompt} from './yacht-layout.js';
 
-const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatchback:'hatchback',van:'delivery van'};
+const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
 const action=(target,role,label)=>({target,role,label});
 export function nextUse(world,feet,id,wanted){
   if(!world || !feet || feet.climb || id==null)return null;

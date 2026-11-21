@@ -4,6 +4,7 @@ const gestures={
   foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Drag the left stick to move. Swipe the open right side to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to sprint, change stance or switch weapons.'},
   car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Open Driver tools for the horn and rear view.'},
   'armed-car':{name:'Pickup driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe to look around. Fire missile launches straight ahead. Change seats in Driver tools.'},
+  engine:{name:'Fire engine',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to aim',tip:'Use the left stick to drive. Drag the right side to aim the roof monitor.',help:'Hold Spray water to cool a fire. Drag on Spray water to aim while driving.'},
   tank:{name:'Tank driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to aim',tip:'Push up to drive and sideways to turn. Drag the right side to aim the cannon.',help:'Hold Cannon to fire. Down on the stick brakes or reverses.'},
   helm:{name:'Boat helm',axis:'Steer',up:'Ahead',down:'Astern',look:'Drag to look',tip:'Push up for forward throttle, down for reverse, and sideways to steer.',help:'Swipe the right side to look around. Use the labeled helm action to leave your station.'},
   heli:{name:'Helicopter pilot',axis:'Fly',up:'Forward',down:'Back',look:'Drag to look',tip:'Hold Climb to lift off. Drag the stick to fly and swipe the right side to turn your view.',help:'Hold Descend to lower altitude. Fire missile launches straight ahead. Flight tools contains the cargo hook and seat controls.'},
@@ -202,8 +203,8 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
   if(foot && jump)quick.push(['Space',jump]);
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
-  if(foot?canAim:['heli','jet','armed-car','turret','tank'].includes(role)){
-    const label=heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':'Fire';
+  if(foot?canAim:['heli','jet','armed-car','turret','tank','engine'].includes(role)){
+    const label=role==='engine'?'Spray water':heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':'Fire';
     quick.push(['KeyF',label]);
   }
   if(foot){
@@ -217,7 +218,7 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
     extra.push(['Digit'+(i+1),occupied?name+' · '+occupied:name+' seat',!!occupied]);
   });
   if(heli)extra.push([hook?'KeyL':'KeyK',hook?'Release load':'Hold hook']);
-  if(['armed-car','car'].includes(role))extra.push(['KeyH','Horn'],['KeyV','Look back']);
+  if(['armed-car','car','engine'].includes(role))extra.push(['KeyH','Horn'],['KeyV','Look back']);
   if(race)extra.push(['KeyT','Marina Sprint']);
   const toolsName=foot?'Gear':heli || jet?'Flight tools':role==='helm' || role==='turret'?'Crew tools':'Driver tools';
   if(extra.length)quick.push(['more',toolsName]);

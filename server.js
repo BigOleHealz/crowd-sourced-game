@@ -1,4 +1,5 @@
 import {createBank} from './bank-claim.js';
+import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
@@ -79,7 +80,7 @@ const departedScores=new Map();
 let match;
 function freshWorld(){
   const w=newExpedition();
-  w.traffic=newCityTraffic();
+  w.traffic=newCityTraffic();w.traffic.push(fireEngine());
   if(CITY && !mode){
     const trading=harborTrade(w,(p,tick,message,seq)=>{
       if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
@@ -457,6 +458,7 @@ function tick() {
   if (players.size) {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
+    stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
     for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
@@ -569,6 +571,7 @@ function tick() {
       else driveRover(world,roadInput,step,players,kind);
       vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
       if(road.driver!==player.id)continue;
+      if(road.model==='engine')driveWater(world,road,input,ticks);
       if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
       const {x,y,z,yaw}=road;
       player.state = { x,y,z,vy:0,grounded:true };
