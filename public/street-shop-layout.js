@@ -1,3 +1,4 @@
+import {marketTenants} from './harbor-market.js';
 import {furnitureId} from './shop-furniture.js';
 // Tenant identities and fixture placement are shared by rendering, aiming and
 // the authoritative simulator. The renderer supplies primitives and finishes;
@@ -21,8 +22,10 @@ export const tenants = [
   [['Muelle','Canvas & cotton','apparel'],['Channel Press','Charts & books','books']],
   [['Palmetto Clay','Studio ceramics','pottery'],['Palm Exchange','Flowers & plants','florist']],
   [['Bayline Records','Records & tapes','records'],['Pier Market','Fruit & provisions','market']],
+  ...marketTenants,
 ];
 export const palettes = {
+  firstaid: [0x3c716c,0xf2eee1,0xada389,0xa3b0a0],
   books:   [0x384e4d,0xebe3c9,0x98754d,0xb89160],
   florist: [0x485c43,0xece0ca,0x8f7b5e,0xad8061],
   records: [0x7c4236,0xe3cfaa,0x644939,0x9e774f],
@@ -145,6 +148,20 @@ export function furnishShop(index,side,width,depth,draw){
     const z=-Math.max(1.67,depth*.65);
     floorShadow(x,z,w*.67,.73);
     switch(type){
+      case 'firstaid':{
+        shelf(x,w*.86);
+        for(let row=0;row<3;row++)for(let k=0;k<6;k++){
+          const xx=x+(k-2.5)*w*.117,y=.36+row*.62;
+          if((k+row)%2){
+            round(0xd4b88c,xx,y+.117,stockZ+.16,.064,.234);
+            round(0xece7dc,xx,y+.256,stockZ+.16,.049,.042);
+          }else{
+            rect(cream,xx,y+.122,stockZ+.17,.206,.24,.138);
+            rect(accent,xx,y+.122,stockZ+.244,.184,.062,.009);
+          }
+        }
+        break;
+      }
       case 'cycles':{
         // Mechanic's workbench, toolbox and a spare wheel hung from a stand.
         timber(wood,x,.96,stockZ+.31,w*.85,.10,.97);
@@ -264,6 +281,14 @@ export function furnishShop(index,side,width,depth,draw){
           begin(xx,zz);shape(pot,0x828b79,xx,.25,zz,.23,.46,.23);
           bouquet(xx,.46,zz,[0xc37a74,0xe8d4a0,0x9c7190][k],1.25);end();
         }break;
+      case 'firstaid':
+        shelf(x,w*.88);
+        for(let row=0;row<3;row++)for(let k=0;k<5;k++){
+          const xx=x+(k-2)*w*.135,y=.52+.62*row;
+          rect(row%2?0xdcc592:cream,xx,y,stockZ+.09,.24,.29,.18);
+          rect(accent,xx,y+.045,stockZ+.184,.19,.032,.012);
+        }
+        loungeChair(x,middle,0x71978b);break;
       case 'records':
         for(let k=0;k<3;k++)art(x+(k-1)*w*.28,1.93,rear+.085,.66,.67,(variant+k)%7);
         begin(x,middle);table(x,middle,w*.83,.88,.77);
@@ -368,6 +393,9 @@ export function furnishShop(index,side,width,depth,draw){
     ball(cream,windowX,1.34,near,.213,.36,.12);
     shape(pot,shadeColor,windowX,1.03,near,.195,.34,.13);
     round(wood,windowX,1.71,near,.085,.10);
+  }else if(type==='firstaid'){
+    rect(cream,windowX,.46,near,.75,.87,.36);rect(accent,windowX,.92,near,.81,.09,.43);
+    for(let k=0;k<3;k++)rect(0xe5d5bb,windowX+(k-1)*.19,1.07,near,.15,.23,.11);
   }else if(type==='market'){
     timber(wood,windowX,.24,near,.74,.42,.52);
     for(let k=0;k<5;k++)ball(0xc29b50,windowX+(k-2)*.114,.51,near,.088,.074,.10);

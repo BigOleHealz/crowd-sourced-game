@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {stepPlayer,groundHeight,buildingTopAt}=await import('../public/world.js');
 const {galleryPlans,galleryLobbies,galleryPanes,galleryFloor,galleryRoomAt,galleryVehicleRects}=await import('../public/gallery-lobbies.js');
-assert.equal(galleryPlans.length,18);assert.equal(galleryLobbies.length,30);assert.equal(galleryPanes.length,72);
-assert.equal(new Set(galleryPanes.map(p=>p.id)).size,72);
+assert.equal(galleryPlans.length,20);assert.equal(galleryLobbies.length,34);assert.equal(galleryPanes.length,80);
+assert.equal(new Set(galleryPanes.map(p=>p.id)).size,80);
 const {stepHotelDoors}=await import('../public/maravela-hotel.js');
 let entrances=0,windows=0;
 function walk(x,z,heading,distance,doors={}) {
@@ -20,7 +20,8 @@ for(const plan of galleryPlans){
     const back=walk(x,inside.z,side,4.5);
     assert(side*(back.z-z)>.5 && !galleryRoomAt(x,back.y,back.z));
     assert.equal(buildingTopAt(x,z,0,galleryFloor+1.72,plan.hotel?{hotel:{city:1,quay:1}}:{}),-Infinity);
-    assert(buildingTopAt(x,z,0,6.5)>6.5);
+    const topProbe=plan.b.market?4.48:6.5;
+    assert(buildingTopAt(x,z,0,topProbe)>topProbe);
     assert(buildingTopAt(front.sofa.x,front.sofa.z,0,galleryFloor+1.72)>=front.sofa.bottom+front.sofa.h-.01);
     if(plan.rooms[0].shared) {
       const traverse=walk(x,start,-side,plan.b.d+3.4);
