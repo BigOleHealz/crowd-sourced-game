@@ -172,7 +172,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       target=post.target;hitKind=target.lamp!=null?'lamp':'post';
       to={x:from.x+delta.x*post.t,y:from.y+delta.y*post.t,z:from.z+delta.z*post.t};break;
     }
-    if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors)) { blocked = true; break; }
+    if (to.y <= solidTopAt(to.x, to.z, clearCrystals,0,to.y,world.doors,!!sourceVehicle && !assist)) { blocked = true; break; }
     const lot=world.match?.lots.find(l=>l.hp && l.carrier==null && Math.abs(to.x-l.x)<=lotWidth/2 && Math.abs(to.z-l.z)<=lotWidth/2 && to.y>=l.y && to.y<=l.y+lotHeight);
     if(lot){target=lot;hitKind='insured';break;}
     if(yachtSolidAt(world.yacht,to.x,to.y,to.z)){target=world.yacht;hitKind=target.id;break;}

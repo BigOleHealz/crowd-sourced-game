@@ -35,7 +35,8 @@ export function towerGlassIndex(buildings){
       const level=start+floor*story,panes=[];
       function add(x,z,width,bottom,top,yaw,push=0){
         const id=paneKey(x,(bottom+top)/2,z);
-        panes.push({id,x,z,bottom,top,width,yaw,at:{x:x+push*Math.sin(yaw),y:bottom,z:z+push*Math.cos(yaw)}});
+        const axis=Math.abs(Math.sin(yaw))>.5?'x':'z';
+        panes.push({id,x,z,bottom,top,width,yaw,facade:push!==0,axis,side:Math.sign(axis==='x'?x-b.x:z-b.z),at:{x:x+push*Math.sin(yaw),y:bottom,z:z+push*Math.cos(yaw)}});
       }
       if(wrap)outline.forEach(([ax,az],i)=>{
         const [bx,bz]=outline[(i+1)%outline.length];
@@ -76,4 +77,31 @@ export function visitTowerGlass(towers,from,d,broken,box,visit){
       }
     }
   }
+}
+
+// Glazing is swept separately. Below the roof an empty upper room is air;
+// the facade only stops a round on masonry, sills or surviving frame members.
+const shellCache=new WeakMap();
+export function upperShellTop(b,x,z,y,roof){
+  if(y<4.7 || !(b.finish && b.rise || b.housing && hasApartmentBalconies(b.facade)))return;
+  if(y>=roof-.13)return roof;
+  let tower=shellCache.get(b);
+  if(!tower){[tower]=towerGlassIndex([b]);shellCache.set(b,tower);}
+  const row=Math.floor((y-tower.start)/tower.story);
+  const level=tower.start+row*tower.story;
+  if(y-level<.12 || (!b.finish && tower.story-(y-level)<.16))return roof;
+  const dx=x-b.x,dz=z-b.z,nearX=b.w/2-Math.abs(dx),nearZ=b.d/2-Math.abs(dz);
+  if(Math.min(nearX,nearZ)>(b.finish ? .22 : .43))return -Infinity;
+  const axis=nearX<nearZ?'x':'z',side=Math.sign(axis==='x'?dx:dz);
+  const panes=tower.levels[b.finish?0:row]??[];
+  for(const p of panes){
+    if(b.finish?(p.axis!==axis || p.side!==side):(!p.facade || p.axis!==axis || p.side!==side))continue;
+    const along=Math.abs(axis==='x'?z-p.z:x-p.x);
+    if(y<=p.bottom || y>=p.top || along>=p.width/2)continue;
+    const frame=b.finish ? .018 : .0345;
+    if(along<frame || along>p.width/2-frame || y<p.bottom+frame || y>p.top-frame ||
+      (b.finish && Math.abs(y-p.y)<.017))return roof;
+    return -Infinity;
+  }
+  return roof;
 }

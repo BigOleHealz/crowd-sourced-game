@@ -1,3 +1,4 @@
+import {upperShellTop} from './tower-glass.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
@@ -105,6 +106,8 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
+  const shell=round && upperShellTop(b,x,z,probe,roof);
+  if(round && shell!==undefined)return shell;
   const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
   if(gallery!==undefined)return gallery;
   const face=faceAt(b,x);
@@ -145,13 +148,13 @@ function nearbyBarriers(x, z, padding, doors) {
 const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
-  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors)) : -Infinity;
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
+  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     const roof=b.base+b.eave+b.rise*(1-2*dz/b.d);
-    const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors);
+    const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors,round);
     top=Math.max(top,surface);
   }
   for(const b of nearbyBarriers(x,z,padding,doors)){
@@ -283,8 +286,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors) {
-  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,round=false) {
+  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);

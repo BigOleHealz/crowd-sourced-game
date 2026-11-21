@@ -4,7 +4,7 @@ import {tankHull} from './tank-layout.js';
 import {inTowerBreach,towerCollapsed} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
-import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
+import {hasApartmentBalconies,towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
 import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -215,14 +215,14 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
     if(!slab(round.y-base.y,d.y,0,height+2,span))continue;
     // Traverse ground-floor rooms using the same furnishings and glass as movement.
-    if(CITY && (round.y+Math.min(0,d.y)<4.74 || (b.towerId!=null && (world.doors?.towerBreaches?.length || towerCollapsed(b,world.doors))))){
+    if(CITY && (b.finish || b.housing && hasApartmentBalconies(b.facade) || round.y+Math.min(0,d.y)<4.74 || (b.towerId!=null && (world.doors?.towerBreaches?.length || towerCollapsed(b,world.doors))))){
       visitRoundGlass(b,world.doors,pane=>accept(glassContact(round,d,pane,world.doors),pane,'glass'));
       const length=Math.hypot(d.x,d.y,d.z)*(span[1]-span[0]);
       const steps=Math.max(1,Math.ceil(length/.045));
       for(let i=0;i<=steps;i++){
         const f=span[0]+(span[1]-span[0])*i/steps;
         const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
-        if(y<=podiumTop(b,x,z,0,y,b.base+height,world.doors,true)){
+        if(y<=podiumTop(b,x,z,0,y,b.base+height-b.rise*2*Math.abs(z-b.z)/b.d,world.doors,true)){
           accept(f,b.fireHome ? b : null,towerCollapsed(b,world.doors)?'rubble':'scenery');break;
         }
       }
