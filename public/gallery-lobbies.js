@@ -27,7 +27,8 @@ for(const [index,b] of brickellMap.buildings.entries()){
     const left=x-w/2+.10,right=x+w/2-.10;
     const rear=wz(depth),zmin=shared ? b.z-b.d/2 : Math.min(z,rear),zmax=shared ? b.z+b.d/2 : Math.max(z,rear);
     if(!shared || side<0){
-      const room={name:plan.hotel?hotel.name:'Gallery Lobby',index,shared,x,left,right,zmin,zmax,entries:shared ? [b.z-b.d/2,b.z+b.d/2] : [z]};
+      const name=plan.hotel?hotel.name:index===3 && side<0?'Biscayne Mutual Bank':'Gallery Lobby';
+      const room={name,index,shared,x,left,right,zmin,zmax,entries:shared ? [b.z-b.d/2,b.z+b.d/2] : [z]};
       plan.rooms.push(room);galleryLobbies.push(room);
       for(let ix=Math.floor(left/grid);ix<=Math.floor(right/grid);ix++)for(let iz=Math.floor(zmin/grid);iz<=Math.floor(zmax/grid);iz++){
         const key=(ix+32)*128+iz+32;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(room);

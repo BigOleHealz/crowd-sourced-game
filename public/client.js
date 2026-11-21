@@ -436,7 +436,8 @@ function connect() {
     if(m.type==='wallet'){
       market.receive(m);
       if(m.message?.startsWith('Bank payout')){
-        byId('bank-receipt').textContent=m.message;bankReceiptUntil=performance.now()+5500;
+        const receipt=byId('bank-receipt');receipt.textContent=m.message;receipt.hidden=false;
+        bankReceiptUntil=performance.now()+5500;
       }
       return;
     }
