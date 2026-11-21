@@ -1,3 +1,4 @@
+import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
 import {flatMobility} from './road-wheel-layout.js';
 import {bridges} from './brickell-map.js';
 import {bridgeMiddle,trafficStopLine} from './drawbridges.js';
@@ -87,7 +88,7 @@ export function tryTrafficInteract(world,player,npcs){
     if(!npc?.life.hp || !exit)return false;
     car.takeover={npcId:npc.id,playerId:player.id,progress:0,...exit,
       startX:player.state.x,startY:player.state.y,startZ:player.state.z};
-    car.npcDriver=null;
+    car.npcDriver=null;car.blink=false;car.turnSignal=0;
   }
   car.driver=player.id;
   stopRover(car);
@@ -137,7 +138,7 @@ function gapAhead(car,actors,vehicles,jet){
     const width=other===jet?2.82:otherShape?.halfWidth??.86;
     const length=other===jet?3.25:otherShape?.halfLength??1.7;
     const delta=car.yaw-other.yaw,side=Math.abs(Math.sin(delta)),along=Math.abs(Math.cos(delta));
-    consider(other,width*along+length*side,length*along+width*side,.28);
+    consider(other,width*along+length*side,length*along+width*side,.65+Math.max(0,car.speed-(other.speed??0))*.26);
   }
   return gap;
 }
@@ -187,22 +188,26 @@ export function stepCityTraffic(world,players,npcs,dt){
         const exit=exitPoint(world,car);
         letDriverWalk(world,car,npc,exit?.endX??car.x,exit?.endZ??car.z);
       }
-      car.npcDriver=null;stopRover(car);
+      car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
     }
     if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
-    const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car));
+    const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
     const mobility=flatMobility(car);
-    const target=route.wait?0:Math.min((route.cruise??profile.cruise)*mobility,Math.sqrt(2*brake*gap));
+    route.offset=passingOffset(world,car,route,actors,dt);
+    signalLamps(car,route,dt);
+    const cruising=(route.cruise??profile.cruise)*(route.offset>.1?.67:1);
+    const target=route.wait?0:Math.min(cruising*mobility,Math.sqrt(2*brake*gap));
     const acceleration=profile.driveForce/profile.mass*.68*mobility;
     const change=clamp(target-car.speed,-brake*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
     route.distance=(route.distance+car.speed*dt)%route.track.length;
     Object.assign(car,route.track.pose(route.distance));
+    car.x+=Math.cos(car.yaw)*route.offset;car.z+=Math.sin(car.yaw)*route.offset;
     car.y=groundHeight(car.x,car.z,car.y+1,world.doors);
     if(!CITY || bridges.some(b=>Math.abs(car.x)<6 && car.z<b.south && car.z>b.north)){
       stepSuspension(car,dt,(x,z)=>groundHeight(x,z,car.y+1.65,world.doors));
