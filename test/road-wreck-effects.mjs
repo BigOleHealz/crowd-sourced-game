@@ -14,3 +14,22 @@ recoverRover(world,1/30);assert(!world.rover.wrecked);assert.equal(world.rover.h
 damageRover(world,251,players);reportVehicleWreck(world,world.rover,'rover','road',190);
 assert(observer(world.shots).at(-1).id>burst.id);
 console.log('PASS road wreck, ejection without extra damage, one cue per destruction, late observer and six-second replacement.');
+
+const {expireShots}=await import('../public/shot-events.js');
+const delayed=liveShots([]),feed=[{...burst,tick:1},{id:burst.id+1,weapon:1,tick:2}];
+expireShots(feed,20);
+assert.deepEqual(delayed(feed).map(s=>s.id),[burst.id]);
+assert.deepEqual(delayed(feed),[]);
+assert.deepEqual(liveShots(feed)(feed),[]);
+expireShots(feed,62);assert.equal(feed.length,0);
+
+const {roadWreckFinish}=await import('../public/vehicle-wreck-view.js');
+const {Group,Mesh,MeshStandardMaterial,BoxGeometry}=await import('three');
+const group=new Group(),material=new MeshStandardMaterial(),mesh=new Mesh(new BoxGeometry(),material);
+group.add(mesh);
+const finish=roadWreckFinish(group);
+assert.equal(finish({wrecked:false}),0);
+assert(finish({wrecked:true,recoverySeconds:4})>.99);
+assert.notEqual(mesh.material,material);
+finish({wrecked:false});assert.equal(mesh.material,material);
+console.log('PASS delayed burst, late join suppression, visible wreck finish and clean restoration.');

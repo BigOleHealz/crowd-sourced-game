@@ -1,3 +1,4 @@
+import {roadWreckFinish} from './vehicle-wreck-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
@@ -264,6 +265,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   for(const g of [cube,sphere,disc,torus])g.dispose();
   let spin=0,time=0;
   const suspensionAxis=new THREE.Vector3();
+  const wreckFinish=roadWreckFinish(body);
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
     updatePanes(car.brokenGlass);
@@ -271,9 +273,10 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
     const pose=car.suspension;
     root.rotation.set(car.bridgeFlight ? pose?.pitch??0 : 0,-car.yaw,0,'YXZ');
-    body.rotation.set(car.bridgeFlight?0:pose?.pitch??0,0,pose?.roll??0);
+    const sag=wreckFinish(car);
+    body.rotation.set((car.bridgeFlight?0:pose?.pitch??0)-.085*sag,0,(pose?.roll??0)-.10*sag);
     under.visible=!car.bridgeFlight;
-    body.position.y=car.suspension?.heave??0;
+    body.position.y=(car.suspension?.heave??0)-.12*sag;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
     suspensionAxis.set(0,1,0).applyQuaternion(body.quaternion);
     for(const [i,w] of wheels.entries()){

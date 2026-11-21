@@ -1,3 +1,4 @@
+import {roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
 import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
@@ -304,7 +305,7 @@ function model(Batch,type,materials){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,wheels,tire};
+  return {root,chassis,door,brake,wheels,tire,wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
@@ -349,8 +350,9 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const {root,chassis,wheels,door,brake}=view;
       root.visible=true;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-      chassis.rotation.set(car.suspension?.pitch??0,0,car.suspension?.roll??0);
-      chassis.position.y=car.suspension?.heave??0;
+      const sag=view.wreckFinish(car);
+      chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
+      chassis.position.y=(car.suspension?.heave??0)-.17*sag;
       for(const [i,{wheel,patch}] of wheels.entries()){
         const drop=isFlat(car,i)?flatWheelDrop:0;
         wheel.rotation.x-=car.speed*dt/view.tire;
