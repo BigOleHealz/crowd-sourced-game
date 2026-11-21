@@ -1,3 +1,4 @@
+import {requestEveningSky} from './evening-sky.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
 import {patrolLampSide} from './pursuit-signals.js';
@@ -36,6 +37,7 @@ export function roadLighting(scene,ambient,sun){
   const node=new THREE.Object3D(),warm=new THREE.Color(0xffe4af),red=new THREE.Color(0xff392b),blue=new THREE.Color(0x368bff);
   function setLevel(value){
     level=Object.hasOwn(presets,value)?value:'day';
+    if(level!=='day')requestEveningSky();
     const [dark,hemi,key,sky,keyColor,fog]=presets[level];
     skyDarkness.value=dark;ambient.intensity=hemi;ambient.color.setHex(sky);sun.intensity=key;sun.color.setHex(keyColor);scene.fog.color.setHex(fog);
   }

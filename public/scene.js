@@ -1,4 +1,5 @@
 import {districtFireEffects} from './fire-effects.js';
+import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import {inClub} from './club-lucero.js';
@@ -214,16 +215,19 @@ function addSky(scene) {
   atmosphere.wrapS=THREE.RepeatWrapping;
   const sky=new THREE.Mesh(new THREE.SphereGeometry(278,48,22),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,
-    uniforms:{panorama:{value:atmosphere},horizonTint:{value:scene.fog.color},skyDarkness},
+    uniforms:{eveningAtlas,eveningReady,panorama:{value:atmosphere},horizonTint:{value:scene.fog.color},skyDarkness},
     vertexShader:`varying vec3 skyDir;void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform vec3 horizonTint;uniform float skyDarkness;
+    fragmentShader:`${eveningGLSL}
+varying vec3 skyDir;uniform sampler2D panorama;uniform vec3 horizonTint;uniform float skyDarkness;
       void main(){
         vec3 d=normalize(skyDir);
         float longitude=atan(d.x,-d.z)/6.28318530718+.5;
         float latitude=asin(clamp(d.y,-1.,1.));
         float elevation=${CITY?'max(0.,latitude)/1.57079632679':'(degrees(latitude)+26.)/116.'};
         vec3 sky=texture2D(panorama,vec2(longitude,elevation)).rgb;
-        sky*=mix(vec3(1.),vec3(.073,.101,.171),skyDarkness);
+        vec3 evening=eveningReflection(sky,longitude,latitude,skyDarkness);
+        ${CITY?'sky=evening;':`vec3 terrain=sky*mix(vec3(1.),vec3(.065,.086,.14),skyDarkness);
+        sky=mix(terrain,evening,smoothstep(.025,.18,latitude));`}
         ${CITY?'':'sky=mix(sky,horizonTint,.68*(1.-smoothstep(-.18,.10,latitude)));'}
         gl_FragColor=vec4(sky,1.);
         #include <colorspace_fragment>
