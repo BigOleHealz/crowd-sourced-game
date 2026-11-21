@@ -10,6 +10,7 @@ export function startFall(actor, tick, impulse, cause) {
   s.vy = (s.vy || 0) + impulse.y;
   s.grounded = false;
   delete s.climb;
+  delete s.grab;
   delete s.parachute;
   delete s.swimming;
   delete s.stance;

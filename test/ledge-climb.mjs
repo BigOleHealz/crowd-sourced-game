@@ -7,6 +7,23 @@ const start={x:24.5,z:15.8,y:groundHeight(24.5,15.8),grounded:true};
 const climb=s=>stepPlayer(s,jump,dt,{});
 let s=climb(start);assert(s.climb && !s.grounded);
 assert(climb({...start,x:24.915,z:15.96444}).climb,'corner approach lands sufficiently far onto rounded support');
+const {createRangerRig,poseRig}=await import('../public/ranger-pose.js');
+const {Vector3}=await import('three');
+const rig=createRangerRig();
+let early={...start,z:14.65},grabbed=false,contacts=0;
+for(let tick=0;tick<40;tick++){
+  early=stepPlayer(early,{x:0,z:grabbed?0:1,yaw:Math.PI,jump:tick===0},dt,{});
+  if(!tick)assert(!early.climb && early.grab && early.vy>0,'initial press remains a jump out of reach');
+  if(!early.climb)continue;
+  grabbed=true;poseRig(rig,{...early,yaw:early.climb.yaw},dt);
+  const c=early.climb;
+  if(c.t>.25 && c.t<.49)for(const {forearm,side} of rig.limbs){
+    const hand=forearm.localToWorld(new Vector3(0,-.265,0));
+    assert(hand.distanceTo(new Vector3(c.lipX+side*.20*Math.cos(c.yaw),c.top+.035,c.lipZ+side*.20*Math.sin(c.yaw)))<.02);
+    contacts++;
+  }
+}
+assert(grabbed && early.grounded && early.y===2.5 && !early.grab && contacts>8);
 const path=[s];
 while(s.climb){s=stepPlayer(s,idle,dt,{});path.push(s);}
 assert(s.grounded && s.y===2.5 && s.z>16.5);

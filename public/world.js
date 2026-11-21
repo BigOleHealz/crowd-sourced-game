@@ -307,7 +307,12 @@ export function stanceMuzzleHeight(state) {
 }
 
 export function stepPlayer(state, input, dt, hp, world) {
-  const climb=state.climb || (input.jump && findLedge(state,input,hp,world));
+  // One jump press can catch a ledge reached during the first quarter-second
+  // of the approach. Preserve launch height so the buffer never extends reach.
+  const grabAllowed=!input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
+  const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
+    ? {y:state.y,left:.25} : state.grab);
+  const climb=state.climb || ((input.jump || grab) && findLedge(state,input,hp,world,grab));
   if(climb) return stepClimb(state,climb,dt,hp,world);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
   const requested = input.stance ?? state.stance;
@@ -364,7 +369,8 @@ export function stepPlayer(state, input, dt, hp, world) {
     // Damp the last part of a fall on entry, then converge to surface height.
     const blend=-Math.expm1(-9*dt);
     const nextY=Math.max(floatY-.16,y+(floatY-y)*blend);
-    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true};
+    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true,
+      ...(grab?.left>dt && {grab:{y:grab.y,left:grab.left-dt}})};
   }
   if(state.swimming && !deep && floor<=y+.31) {
     y=floor;grounded=true;vy=0;
@@ -392,6 +398,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   }
   if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
+  if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;
