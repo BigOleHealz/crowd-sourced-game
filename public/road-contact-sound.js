@@ -20,3 +20,25 @@ export function roadContactSound(context,hard,wood) {
   }
   return buffer;
 }
+
+// A tyre slap followed by the damped suspension settling. The second pulse
+// arrives slightly later on a hard landing as the rear axle loads up.
+export function roadLandingSound(context,hard){
+  const rate=context.sampleRate,length=hard?.52:.24;
+  const buffer=context.createBuffer(1,Math.ceil(rate*length),rate),wave=buffer.getChannelData(0);
+  let seed=7429,low=0;
+  for(let i=0;i<wave.length;i++){
+    const t=i/rate;
+    seed=(Math.imul(1664525,seed)+1013904223)>>>0;
+    const noise=seed/2147483648-1;
+    low+=(noise-low)*(1-Math.exp(-2*Math.PI*650/rate));
+    let pressure=0;
+    for(const delay of [0,hard?.055:.032]){
+      const u=t-delay;
+      if(u>=0)pressure+=(delay?.46:1)*(.68*Math.sin(2*Math.PI*(hard?58:86)*u)+.65*low)*Math.exp(-u/(hard?.09:.044));
+    }
+    const settle=hard?.16*noise*Math.exp(-Math.abs(t-.095)/.036):0;
+    wave[i]=Math.tanh(pressure+settle)*Math.min(1,t*1200,(length-t)*120);
+  }
+  return buffer;
+}

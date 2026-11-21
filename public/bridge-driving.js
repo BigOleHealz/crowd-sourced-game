@@ -23,6 +23,14 @@ export function launchAtLip(world,car,vx,vz,dt){
   return Math.max(0,dt-duration);
 }
 
+// Persist the last touchdown in ordinary snapshots so remote listeners can
+// hear it even when no network snapshot fell on the landing tick.
+let landingSequence=0;
+export function roadTouchdown(car,speed){
+  if(speed<.8)return;
+  car.landingSound={id:++landingSequence,speed,x:car.x,y:car.y,z:car.z};
+}
+
 export function advanceBridgeFlight(world,car,dt){
   const flight=car.bridgeFlight,gravity=19, previousY=car.y;
   car.x+=flight.vx*dt;car.z+=flight.vz*dt;
@@ -33,6 +41,6 @@ export function advanceBridgeFlight(world,car,dt){
     delete car.bridgeFlight;return 'water';
   }
   if(flight.vy<=0 && car.y<=floor && floor>MAP.waterY){
-    car.y=floor;delete car.bridgeFlight;
+    car.y=floor;roadTouchdown(car,-flight.vy);delete car.bridgeFlight;
   }
 }
