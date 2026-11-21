@@ -25,4 +25,6 @@ export const civilianLooks = {
   'rival-santi':  look(17, 0xdda18e,0x453329,'wave',  'camp',  0x426975,'shorts', 0xbd956b,'shades', 1.07,.99,1.03),
   'rival-mei':    look(18, 0xdd9f84,0x302a28,'bun',   'tank',  0x806687,'skirt',  0x464e54,'hoops',  .93,.96,.83),
   'rival-amir':   look(19, 0xd78b7f,0x3e352f,'crop',  'polo',  0xa28258,'chinos', 0x4b5a64,'watch',  1.10,1.04,.77),
+  'rival-marisol': {...look(20,0xc48b70,0x553227,'bun','tank',0x806687,'slacks',0x343b42,'hoops',1.02,.99,.73),outfit:18},
+  'rival-della': {...look(21,0x905f49,0x454040,'coils','jacket',0x788a80,'skirt',0x765749,'satchel',1.04,1.02,.78),outfit:8},
 };

@@ -33,7 +33,8 @@ if(!process.argv[2]){
     for(const npc of residents)if(!trafficDriverCar(world,npc.id))updateRival(npc,t,dt,world.hp,world);
   }
   const dist=world.traffic.map(()=>0),crossings=new Set();
-  for(let t=0;t<6600;t++){
+  // Give the mainland circuits time to traverse the same distance while observing red lights.
+  for(let t=0;t<(CITY?9000:6600);t++){
     const previous=world.traffic.map(c=>[c.x,c.z]);
     step(t);
     for(const [i,car] of world.traffic.entries()){

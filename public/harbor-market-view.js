@@ -1,0 +1,52 @@
+import * as THREE from 'three';
+import {marketHalls} from './harbor-market.js';
+
+export function furnishMarketStreet(solids){
+  const box=new THREE.BoxGeometry(),tube=new THREE.CylinderGeometry(1,1,1,12);
+  for(const [index,h] of marketHalls.entries()){
+    const {x,z,w,d}=h,blue=index?0x597d80:0x3b6970;
+    const c=index?0xb97658:0xe6dfcd,front=z+d/2;
+    const add=(color,dx,y,dz,ww,hh,dd)=>solids.add(box,color,x+dx,.8+y,z+dz,ww,hh,dd);
+    // Wide walkable porches under ribbed metal fascias. Roof piers are at the
+    // four corners, leaving every shop and gallery entrance exposed.
+    add(0xc8bca6,0,3.79,0,w+.90,.24,d+.90);
+    add(c,0,3.976,0,w+.67,.22,d+.66);
+    add(0x647473,0,4.13,0,w+.76,.10,d+.75);
+    for(let u=-w/2+.6;u<w/2;u+=.44)add(0xa1aaa0,u,4.196,0,.035,.037,d+.51);
+    for(const side of [-1,1]){
+      const xside=side*(w/2-.25);
+      for(const end of [-1,1]){
+        add(0xe1d5c1,xside,1.42,end*(d/2-.17),.18,2.84,.18);
+        add(blue,xside,.18,end*(d/2-.17),.29,.36,.29);
+      }
+      add(blue,side*(w/2+.47),2.815,0,1.19,.1,d-.52);
+      for(let t=-d/2+.77;t<d/2-.63;t+=.60)
+        add(index?0xc5ad8d:0xd6ccc0,side*(w/2+.42),2.90,t,1.28,.07,.09);
+      for(const start of [-1,1]){
+        const u=side*(w/2-.64),v=start*(d/2-.64);
+        add(0x887665,u,3.48,v,.44,.94,.32);
+        for(let j=0;j<6;j++)add(0xbba486,u,3.07+j*.16,v+.04,.48,.056,.37);
+      }
+    }
+    // Eyebrow and timber soffit pick out the north/south arcade entrances.
+    for(const end of [-1,1]){
+      add(blue,0,3.19,end*(d/2+.49),4.86,.22,1.6);
+      for(let k=-6;k<=6;k++)add(0xb58b63,k*.35,3.055,end*(d/2+.44),.26,.045,1.38);
+      for(const u of [-1.35,1.35])add(0xffdbad,u,3.025,end*(d/2+.57),.19,.03,.19);
+    }
+    // A band of flush terracotta and limestone guides the walk from the road
+    // to the arcade. These inlays sit on the existing walkable surface.
+    for(let k=0;k<6;k++){
+      solids.add(box,k%2?0xb9aba0:0xb9a18e,x,.808,front+1.02+k*.41,4.00,.012,.395);
+      for(const side of [-1,1])solids.add(box,0xd4cabc,x+side*2.10,.808,front+1.02+k*.41,.14,.013,.40);
+    }
+    // Roof-mounted ventilation and a high, louvred mechanical screen.
+    add(blue,-2.3,4.39,-1.4,2.70,.47,1.10);
+    for(let k=0;k<11;k++)add(0x293d3c,-3.45+k*.22,4.43,-.842,.073,.27,.038);
+    for(const dx of [1.24,2.40]){
+      solids.add(tube,0x8d9490,x+dx,.8+4.32,z-2.13,.40,.21,.4);
+      solids.add(tube,0x626c6e,x+dx,.8+4.44,z-2.13,.45,.055,.45);
+    }
+  }
+  box.dispose();tube.dispose();
+}

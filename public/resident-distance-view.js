@@ -5,7 +5,7 @@ import {civilianLooks} from './civilian-style.js';
 // the far crowd, including exposed limbs, shoes, hats and bags.
 export function distantResidents(scene){
   const mesh=new THREE.InstancedMesh(new THREE.SphereGeometry(1,8,6),
-    new THREE.MeshLambertMaterial(),20*22);
+    new THREE.MeshLambertMaterial(),Object.keys(civilianLooks).length*22);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   mesh.count=0;mesh.frustumCulled=false;mesh.name='Distant residents';scene.add(mesh);
   const body=new THREE.Object3D(),part=new THREE.Object3D(),joint=new THREE.Object3D();

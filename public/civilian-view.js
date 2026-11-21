@@ -1,3 +1,5 @@
+import {bootSole,bootUpper,trousers,jointGarment} from './ranger-surfaces.js';
+import {patrolCap,patrolBelt,patrolShoulder,patrolShirtTrim} from './patrol-uniform.js';
 import * as THREE from 'three';
 
 const oval = new THREE.SphereGeometry(1, 12, 9);
@@ -36,8 +38,49 @@ const shorts=sections([[-.296,.089,.094],[-.283,.091,.095],[-.12,.099,.109],[.03
 const calf=sections([[-.407,.051,.054],[-.313,.051,.053],[-.189,.070,.077,.012],[-.105,.077,.078,.008],[.02,.068,.065]],14);
 const slacks=sections([[-.393,.071,.078],[-.380,.074,.078],[-.22,.078,.083],[-.10,.085,.088],[.015,.076,.074]],14);
 
+// Elbow, forearm and wrist share a continuous skin, with enough cross-sections
+// around the joint for the two-bone blend when reaching for the wheel or door.
+const patrolArm=sections([[-.52,.034,.029],[-.48,.039,.035],[-.423,.046,.040,-.003],
+  [-.355,.058,.051,.005],[-.315,.058,.052,.01],[-.286,.049,.05,.012],[-.273,.052,.054,.014],
+  [-.247,.057,.054,.011],[-.222,.061,.059,.006],[-.185,.068,.064],[-.137,.065,.066]],16);
+function dressPatrolLimb(limb,p,Batch,material){
+  const {side,arm,forearm,leg,knee,ankle}=limb;
+  const skin=new Batch();
+  skin.add(patrolArm,p.skin,0,0,0);
+  skin.add(shortSleeve,p.top,0,0,0,.97,1,1);
+  skin.add(shortSleeve,p.county?0x967e5c:0x304158,0,-.143,0,.987,.08,1.002);
+  patrolShoulder(skin,side,p.county);
+  skin.add(oval,p.skin,0,-.518,-.002,.041,.049,.030);
+  for(let i=0;i<4;i++){
+    const x=side*(i-1.5)*.016,y=-.545+.004*Math.abs(i-1);
+    skin.add(oval,p.skin,x,y,-.016,.012,.025,.014,.64);
+    skin.add(oval,p.skin,x,y-.015,-.034,.011,.012,.019,-.41);
+  }
+  skin.add(oval,p.skin,-side*.031,-.518,-.027,.015,.030,.014,-.63,0,side*.26);
+  jointGarment(skin,material,arm,forearm,.063);
+
+  const cloth=new Batch();cloth.add(trousers,p.pants,0,0,0,.91,1.01,.92);
+  cloth.beam(0x314050,[side*.086,-.16,-.051],[side*.069,-.30,-.047],.008,.006);
+  if(p.county){
+    for(const [top,bottom,x1,x2] of [[-.083,-.37,.092,.068],[-.37,-.70,.068,.062]])
+      cloth.beam(0x717b59,[side*x1,top,.001],[side*x2,bottom,.004],.014,.010);
+  }
+  jointGarment(cloth,material,leg,knee,.084);
+  const shoe=new Batch();
+  shoe.add(bootSole,0x1e242b,0,0,0,.80,1,.91);
+  shoe.add(bootUpper,0x30343b,0,0,0,.80,.94,.91);
+  shoe.beam(0x494a49,[-.060,-.042,-.144],[.060,-.042,-.144],.005,.004);
+  for(let i=0;i<4;i++){
+    const y=.005+i*.014,z=-.095+i*.016;
+    shoe.beam(0x42454a,[-.040,y,z],[.040,y+.011,z+.017],.007,.006);
+    shoe.beam(0x3a3c3f,[.040,y,z],[-.040,y+.011,z+.017],.007,.006);
+  }
+  shoe.mesh(ankle,material,false);
+}
+
 const faceRows=[[.006,.048,.053,-.025],[.029,.074,.076,-.012],[.080,.093,.090,-.006],[.121,.100,.099],[.169,.101,.102,.003],[.208,.093,.096,.007],[.242,.074,.078,.009],[.263,.045,.051,.011],[.270,.004,.006,.011]];
-function faceGeometry(cell) {
+function faceGeometry(profile) {
+  const {face:cell,officer}=profile,cols=officer?3:4,rows=officer?2:5;
   const verts=[],uv=[],idx=[],n=32;
   for(const [y,w,d,center=0] of faceRows) for(let i=0;i<=n;i++){
     const a=(i/n-.5)*2*Math.PI, front=Math.max(0,Math.cos(a));
@@ -47,7 +90,9 @@ function faceGeometry(cell) {
     // Atlas cells contain a front projection with the outer cheek colour
     // extended around the sides. Hair covers the rear cranial surface.
     const u=.5+.5*Math.sin(Math.max(-Math.PI/2,Math.min(Math.PI/2,a)));
-    uv.push((cell%4+.015+.97*u)/4,1-(Math.floor(cell/4)+.985-.97*y/.270)/5);
+    const v=y/.270+(officer ? .066*Math.exp(-(((y-.144)/.051)**2)):0);
+    if(cell>=20)uv.push((cell-20+.015+.97*u)/2,.015+.97*y/.270);
+    else uv.push((cell%cols+.015+.97*u)/cols,1-(Math.floor(cell/cols)+.985-.97*v)/rows);
   }
   for(let r=0;r<faceRows.length-1;r++) for(let i=0;i<n;i++){
     const k=r*(n+1)+i;
@@ -109,6 +154,7 @@ function shirtGeometry(p){
   const vertices=[],uv=[],indices=[],rows=[1.01,1.09,1.2,1.34,1.426,1.46,1.483];
   const offsets=[.008,0,0,-.006,0,0,0],depth=[.115,.124,.112,.143,.117,.091,.065];
   const widths=[.174,.181,.158,.201,.213,.163,.080];
+  const outfit=p.outfit??p.face;
   const fitted=p.shirt==='dress'||p.shirt==='tank';
   const jacket=p.shirt==='jacket', segments=16;
   for(let panel=0;panel<2;panel++){
@@ -120,7 +166,10 @@ function shirtGeometry(p){
       vertices.push(w*Math.sin(a),y,offsets[r]-depth[r]*Math.cos(a));
       const u=(.5+.485*Math.sin(a))/2+panel*.5;
       const v=(1.483-rows[r])/.473;
-      uv.push((p.face%4+u)/4,1-(Math.floor(p.face/4)+.01+.98*v)/5);
+      if(p.officer){
+        const across=panel?Math.sin(a):-Math.sin(a);
+        uv.push((panel+.5+.485*across)/2,1-(.01+.98*v));
+      }else uv.push((outfit%4+u)/4,1-(Math.floor(outfit/4)+.01+.98*v)/5);
     }
     for(let r=0;r<rows.length-1;r++)for(let i=0;i<segments;i++){
       const a=base+r*(segments+1)+i, b=a+segments+1;
@@ -144,7 +193,7 @@ function addBag(b,p) {
   }
 }
 
-export function dressCivilian(rig,p,Batch,material,textiles) {
+export function dressPerson(rig,p,Batch,material,textiles) {
   const part=(joint,draw)=>{
     const b=new Batch();draw(b);b.mesh(joint,material,false);
   };
@@ -152,11 +201,12 @@ export function dressCivilian(rig,p,Batch,material,textiles) {
     b.add(oval,p.skin,0,1.505,.011,.057,.083,.057);
     const bare=p.shirt==='tank'||p.shirt==='dress';
     for(const side of [-1,1])b.add(oval,bare?p.skin:p.top,side*.161,1.427,.001,.080,.046,.073,0,0,-side*.22);
-    addBag(b,p);
+    if(p.officer)patrolShirtTrim(b,p.county);else addBag(b,p);
   });
   const shirt=new THREE.Mesh(shirtGeometry(p),textiles.shirts);
   shirt.receiveShadow=true;rig.upper.add(shirt);
   part(rig.body,b=>{
+    if(p.officer)patrolBelt(b);
     if(p.bottom==='skirt')b.add(skirt,p.pants,0,0,0);
     else {
       b.add(hip,p.pants,0,0,0,1.12,1,1.04);
@@ -167,10 +217,12 @@ export function dressCivilian(rig,p,Batch,material,textiles) {
       }
     }
   });
-  const face=new THREE.Mesh(faceGeometry(p.face),textiles.faces);
+  const face=new THREE.Mesh(faceGeometry(p),textiles.faces);
   face.position.y=.003;rig.head.add(face);
-  part(rig.head,b=>hairAndAccessories(b,p));
-  for(const {side,leg,knee,ankle,arm,forearm:elbow} of rig.limbs){
+  part(rig.head,b=>{hairAndAccessories(b,p);if(p.officer)patrolCap(b,p.county);});
+  for(const limb of rig.limbs){
+    if(p.officer){dressPatrolLimb(limb,p,Batch,material);continue;}
+    const {side,leg,knee,ankle,arm,forearm:elbow}=limb;
     const bare=p.bottom==='shorts'||p.bottom==='skirt';
     part(leg,b=>{
       if(p.bottom==='skirt')b.add(thigh,p.skin,0,-.136,0,.66,.68,.68);
@@ -209,6 +261,7 @@ export function dressCivilian(rig,p,Batch,material,textiles) {
       if(p.extra==='watch' && side===-1)b.add(oval,0x675d51,0,-.212,0,.043,.016,.040);
     });
   }
-  rig.civilian=p;
-  rig.tools=[];
+  if(!p.officer){rig.civilian=p;rig.tools=[];}
 }
+
+export {dressPerson as dressCivilian};

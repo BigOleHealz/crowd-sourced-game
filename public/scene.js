@@ -1,4 +1,7 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
+import {contactingFoot} from './footsteps.js';
+import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
+import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -23,7 +26,8 @@ import {viewPitch,zenith} from './view-pitch.js';
 import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
-import {dressCivilian} from './civilian-view.js';
+import {patrolProfile} from './patrol-uniform.js';
+import {dressPerson} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
 import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
@@ -49,7 +53,7 @@ import { tracePulse } from './expedition.js';
 import { createSupercarView } from './supercar-view.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
-import { conifers, granite, floorMaterial, creekMaterial, alpineGlass, fieldPaint } from './landscape.js';
+import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
 import { aircraftWreck } from './aircraft-wreck.js';
@@ -144,13 +148,11 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
-function addGround(scene,renderer) {
-  const size = 164;
-  const extra=-MAP.northBound-MAP.bounds;
-  const geo=new THREE.PlaneGeometry(size,size+extra,172,172+Math.round(extra*172/size))
-    .rotateX(-Math.PI/2).translate(0,0,-extra/2);
+function addGround(scene,renderer,riverbed) {
+  const geo=new THREE.PlaneGeometry(terrainWidth,terrainLength,terrainCols,terrainRows)
+    .rotateX(-Math.PI/2).translate(0,0,(terrainWidth-terrainLength)/2);
   const terrainUV=geo.attributes.uv;
-  for(let i=0;i<terrainUV.count;i++)terrainUV.setY(i,terrainUV.getY(i)*(size+extra)/size);
+  for(let i=0;i<terrainUV.count;i++)terrainUV.setY(i,terrainUV.getY(i)*terrainLength/terrainWidth);
   const positions = geo.attributes.position;
   const cover = new Uint8Array(positions.count);
   const colors = [];
@@ -158,10 +160,9 @@ function addGround(scene,renderer) {
   const path = color(0xb2a184), shale = color(0x85877b);
   const c = new THREE.Color();
   // Spread the outer vertices while retaining the original trail resolution.
-  const stretch=(v,lo,hi)=>v+4.6*(Math.min(0,v-lo)+Math.max(0,v-hi));
   for (let i = 0; i < positions.count; i++) {
-    const x=stretch(positions.getX(i),-MAP.bounds-10,MAP.bounds+10);
-    const z=stretch(positions.getZ(i),MAP.northBound-10,MAP.bounds+10);
+    const x=ridgeX(positions.getX(i));
+    const z=ridgeZ(positions.getZ(i));
     positions.setX(i,x);positions.setZ(i,z);
     const y = sceneryHeight(x,z);
     positions.setY(i, y);
@@ -193,7 +194,7 @@ function addGround(scene,renderer) {
   geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
   geo.setAttribute('forestCover',new THREE.Uint8BufferAttribute(cover,1,true));
   geo.computeVertexNormals();
-  const mat=floorMaterial(renderer);
+  const mat=floorMaterial(renderer,riverbed,MAP.waterY);
   const ground = new THREE.Mesh(geo,mat);
   ground.receiveShadow = true;
   scene.add(ground);
@@ -209,16 +210,18 @@ function addSky(scene) {
   atmosphere.wrapS=THREE.RepeatWrapping;
   const sky=new THREE.Mesh(new THREE.SphereGeometry(278,48,22),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,
-    uniforms:{panorama:{value:atmosphere},skyDarkness},
+    uniforms:{panorama:{value:atmosphere},horizonTint:{value:scene.fog.color},skyDarkness},
     vertexShader:`varying vec3 skyDir;void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform float skyDarkness;
+    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform vec3 horizonTint;uniform float skyDarkness;
       void main(){
         vec3 d=normalize(skyDir);
         float longitude=atan(d.x,-d.z)/6.28318530718+.5;
         float latitude=asin(clamp(d.y,-1.,1.));
         float elevation=${CITY?'max(0.,latitude)/1.57079632679':'(degrees(latitude)+26.)/116.'};
         vec3 sky=texture2D(panorama,vec2(longitude,elevation)).rgb;
-        gl_FragColor=vec4(sky*mix(vec3(1.),vec3(.073,.101,.171),skyDarkness),1.);
+        sky*=mix(vec3(1.),vec3(.073,.101,.171),skyDarkness);
+        ${CITY?'':'sky=mix(sky,horizonTint,.68*(1.-smoothstep(-.18,.10,latitude)));'}
+        gl_FragColor=vec4(sky,1.);
         #include <colorspace_fragment>
       }`
   }));
@@ -351,22 +354,6 @@ function addDetails(scene,batch, rng,posts) {
 
     }
   }
-}
-
-function water(scene,rng,renderer) {
-  const extra=-MAP.northBound-MAP.bounds;
-  const geometry=new THREE.PlaneGeometry(125,125+extra).rotateX(-Math.PI/2).translate(0,0,-extra/2);
-  const material=creekMaterial(renderer);
-  material.map.repeat.set(28,28);
-  const surface=new THREE.Mesh(geometry,material);
-  surface.position.y=MAP.waterY; surface.receiveShadow=true; scene.add(surface);
-  const ripples=new Batch();
-  for(let i=0;i<420;i++) {
-    const x=(rng()-.5)*108,z=(rng()-.5)*4.5;
-    if(terrainHeight(x,z)>MAP.waterY-.07) continue;
-    ripples.add(cube, i%4 ? 0x739294:0xa2b5ac,x,MAP.waterY+.012,z,.09+rng()*.35,.005,.007+rng()*.014,0,(rng()-.5)*.18);
-  }
-  return ripples.mesh(scene,new THREE.MeshBasicMaterial({vertexColors:true}),false);
 }
 
 function contactShadowMap() {
@@ -1132,7 +1119,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 }
 
 import {createSprintGate} from './marina-sprint-view.js';
-export function createScene(canvas) {
+export function createScene(canvas,onFootfall) {
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
   renderer.shadowMap.enabled=true;
@@ -1141,7 +1128,7 @@ export function createScene(canvas) {
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
-  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
+  scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0067);
   const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
   sun.position.set(-36,32,-21); sun.castShadow=true;
@@ -1163,12 +1150,13 @@ export function createScene(canvas) {
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
-  let glints, stacks, updateDoors,churchPanes,updateChurch;
+  let updateCreek, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
   } else {
-    addGround(scene,renderer);
+    const riverbed=riverbedTexture(renderer);
+    addGround(scene,renderer,riverbed);
     const forest=new Batch();
     conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds,MAP.northBound);
     forest.mesh(scene,material).userData.impactSurface='wood';
@@ -1179,7 +1167,7 @@ export function createScene(canvas) {
     const posts=breakablePostView(scene,Batch);
     addDetails(scene,features,rng,posts);
     updateDoors=posts.finish();
-    glints=water(scene,rng,renderer);
+    updateCreek=addOutpostCreek(scene,panorama,riverbed);
     stacks=buildOutpost(scene,renderer,Batch);
     meadow(scene,renderer,rng,trailDistance);
   }
@@ -1225,20 +1213,23 @@ export function createScene(canvas) {
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
   const distant=CITY ? distantResidents(scene) : null;
-  let civilianMaterials;
+  let civilianFaces,patrolFaces,civilianShirts,patrolShirts;
   function civilianTexture(path){
     const map=new THREE.TextureLoader().load(path);
     map.colorSpace=THREE.SRGBColorSpace;
     map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return new THREE.MeshLambertMaterial({map});
   }
-  function resident(id,name){
-    civilianMaterials??={
-      faces:civilianTexture('./brickell-faces.webp'),
-      shirts:civilianTexture('./brickell-clothing.webp'),
-    };
+  let nightlifeFaces;
+  function resident(id,name,officer=false){
+    const look=officer?patrolProfile(id,!CITY):civilianLooks[id];
+    const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
+      look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
+    const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
+      (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressCivilian(rig,civilianLooks[id],Batch,material,civilianMaterials);
+    dressPerson(rig,look,Batch,material,{faces,shirts});
+    if(officer)rig.tools=makeFirearms(rig.upper,scene);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
   }
@@ -1289,12 +1280,12 @@ export function createScene(canvas) {
   let sprintGate;
   function render(local,remotes,view,dt,world) {
     if(CITY && !world.match){
-      sprintGate??=createSprintGate(scene);
+      sprintGate??=createSprintGate(scene,Batch);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
     if(!local) return;
     const altitude=Math.max(0,local.y-20);
-    scene.fog.density=(CITY ? .005 : .0125)/(1+Math.min(4,altitude/32));
+    scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
     const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
     if(lanternShadows!==insideLantern){
@@ -1316,7 +1307,7 @@ export function createScene(canvas) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateDoors?.(world.doors,dt,local,remotes);
+    updateDoors?.(world.doors,dt,local,remotes,world.simTick);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
@@ -1378,7 +1369,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.officer ? 0x35689a : state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && civilianLooks[state.id]) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1392,8 +1383,18 @@ export function createScene(canvas) {
       if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
+        const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
-        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
+        if(!seated && !station && !entering && !skipper){
+          contacts.boots(a,state,local);
+          if(onFootfall && previousGait===a.gait && Math.hypot(state.x-local.x,state.y-local.y,state.z-local.z)<17){
+            const side=contactingFoot(previousPhase,a.gait,state);
+            if(side && !state.lostParts?.[side<0?'leftLeg':'rightLeg']){
+              const foot=a.limbs[side<0?0:1].foot;
+              onFootfall(state,{x:foot.wx,y:state.y+(foot.floor??0),z:foot.wz},local,view.yaw,world,side,a.gait.run);
+            }
+          }
+        }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
@@ -1548,7 +1549,7 @@ export function createScene(canvas) {
       camera.translateZ(-1.12);
       avatars.get(local.id).root.visible=false;
     }
-    if(glints) glints.position.x=Math.sin(clock*.33)*.09;
+    updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     renderer.render(scene,camera);
   }

@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
+import {patrolLampSide} from './pursuit-signals.js';
 import {lampWorking} from './road-fittings.js';
 import {CITY,groundHeight} from './world.js';
 
 export const skyDarkness={value:0};
 const presets={
-  day:[0,1.74,1.93,0xd6dce1,0xffe3b5,CITY?0xc0d3d9:0xa5a9a4],
+  day:[0,1.74,1.93,0xd6dce1,0xffe3b5,CITY?0xc0d3d9:0x95a3ac],
   dusk:[.55,1.05,1.08,0x9daaca,0xffa270,0x9996a8],
   night:[1,.82,.48,0x9fafd3,0xa9bdef,0x48546e],
 };
@@ -32,7 +33,7 @@ export function roadLighting(scene,ambient,sun){
   const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,opacity:.50,depthWrite:false,blending:THREE.AdditiveBlending});
   const pools=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2),material,48);
   pools.name='Headlight and brake spill';pools.count=0;pools.frustumCulled=false;pools.visible=false;scene.add(pools);
-  const node=new THREE.Object3D(),warm=new THREE.Color(0xffe4af),red=new THREE.Color(0xff392b);
+  const node=new THREE.Object3D(),warm=new THREE.Color(0xffe4af),red=new THREE.Color(0xff392b),blue=new THREE.Color(0x368bff);
   function setLevel(value){
     level=Object.hasOwn(presets,value)?value:'day';
     const [dark,hemi,key,sky,keyColor,fog]=presets[level];
@@ -41,12 +42,22 @@ export function roadLighting(scene,ambient,sun){
   function frame(world,local){
     let count=0,lead=null,leadDist=Infinity;
     if(level!=='day'){
-      for(const car of [world.rover,world.supercar,...(world.traffic??[])]){
+      for(const car of [world.rover,world.supercar,...(world.patrolCars??[]),...(world.traffic??[])]){
         if(!car || car.wrecked || (car.driver==null && car.npcDriver==null) || car.bridgeFlight)continue;
         const dist=Math.hypot(car.x-local.x,car.z-local.z);
         if(dist>70)continue;
         const priority=car.driver===local.id?-1:dist;
         if(priority<leadDist){lead=car;leadDist=priority;}
+        const side=car.patrol && patrolLampSide(car,performance.now()*.001);
+        if(side && dist<42 && count<pools.instanceMatrix.count){
+          const x=car.x+side*2*Math.cos(car.yaw),z=car.z+side*2*Math.sin(car.yaw);
+          const y=groundHeight(x,z,car.y+.9,world.doors);
+          if(Math.abs(car.y-y)<.65){
+            node.position.set(x,y+.038,z);node.rotation.y=-car.yaw;
+            node.scale.set(6.9,1,5.6);node.updateMatrix();
+            pools.setMatrixAt(count,node.matrix);pools.setColorAt(count++,side<0?blue:red);
+          }
+        }
         for(const rear of [false,true]){
           if(rear && !car.braking)continue;
           for(const side of [-1,1]){

@@ -1,3 +1,5 @@
+import {nearbySpeaker,conversations} from './brickell-conversations.js';
+import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
 import {hotelEntrance} from './maravela-hotel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
@@ -41,6 +43,7 @@ let sprintBoard=[];
 const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
+const lighting=byId('lighting-choice');
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
@@ -103,6 +106,13 @@ const gunnerRole=()=>gunnerVehicle(world,id);
 const jetPilot=()=>id!=null && world?.jet?.pilot===id;
 const isPilot = () => id != null && (world?.heli.pilot === id || jetPilot());
 
+const talk=conversationView(byId('conversation'),releaseLook,()=>{
+  stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});
+});
+function speaker(current=null){
+  const available=canChangeStance(self) && byId('guide').hidden && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup';
+  return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
+}
 function canChangeStance(state) {
   return state?.grounded && !state.swimming && !state.climb && !state.parachute &&
     !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
@@ -126,6 +136,7 @@ function notice(message = '') {
 
 function setGuide(open) {
   byId('guide').hidden = !open;
+  if(open && talk.current)talk.close();
   if (open) byId('unstuck').disabled = !self || vitals.dead || (world?.match && frozenPhase(world.match.phase));
   if(open)releaseLook();
   byId('help').setAttribute('aria-expanded', String(open));
@@ -194,6 +205,13 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(talk.current){
+    if(e.repeat)return;
+    if(['Escape','KeyE'].includes(e.code)){e.preventDefault();talk.close();}
+    else if(['Digit1','Digit2','Digit3'].includes(e.code)){e.preventDefault();talk.answer(Number(e.key)-1);}
+    else if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){e.preventDefault();talk.close();held.add(e.code);}
+    return;
+  }
   if (e.key.toLowerCase() === 'm' && !e.target.closest?.('input, select, textarea, [contenteditable]')) {
     e.preventDefault();
     if (!e.repeat) audio.toggleMute();
@@ -207,6 +225,10 @@ window.addEventListener('keydown', e => {
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
+  if(e.code==='KeyE' && !e.repeat){
+    const person=speaker();
+    if(person){talk.open(person);return;}
+  }
   held.add(e.code);
   if (e.repeat) return;
   if (e.code === 'Space') queuedDeploy = true;
@@ -384,7 +406,7 @@ function connect() {
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
       }
-      world = m.world;
+      world = m.world;world.simTick=m.simTick;
       if(wasJet!==jetPilot()){
         stickX=stickY=0;stopLook();
         byId('flight-cursor').style.transform='';
@@ -410,7 +432,7 @@ function connect() {
       for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots);
-      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
+      audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
@@ -422,6 +444,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
+    talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
     roverView = null;
@@ -652,6 +675,8 @@ function updateEquipment(local) {
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
+  if(talk.current && !speaker(talk.current))talk.close();
+  const person=!talk.current && speaker();
   const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
   if(garage && !vitals.dead){
@@ -661,6 +686,8 @@ function updateEquipment(local) {
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
+  else if(talk.current)prompt.textContent='';
+  else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
@@ -818,9 +845,10 @@ function frame(time) {
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
-    audio.patrolSiren(local,view.yaw,patrolCars);
-    audio.trafficEngines(local,view.yaw,cars);
-    audio.roadTires(local,view.yaw,[rover,supercar,...cars]);
+    audio.patrolSiren(local,view.yaw,patrolCars,dt);
+    const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
+    audio.trafficEngines(local,view.yaw,roadTraffic);
+    audio.roadTires(local,view.yaw,[rover,supercar,...roadTraffic]);
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
@@ -851,8 +879,7 @@ function frame(time) {
 }
 
 try {
-  scene = createScene(canvas);
-  const lighting=byId('lighting-choice');
+  scene = createScene(canvas,audio.footfall);
   try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
   if(!lighting.value)lighting.value='day';
   scene.setLighting(lighting.value);

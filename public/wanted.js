@@ -1,4 +1,4 @@
-import {MAP,blocked,groundHeight,stepPlayer} from './world.js';
+import {CITY,MAP,blocked,groundHeight,stepPlayer} from './world.js';
 import {advanceFall} from './falls.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
@@ -17,13 +17,32 @@ function arrival(world,player,players,number){
     const angle=(player.yaw??0)+2.1+number*1.3+i*2.4,range=12+(i%3)*2;
     const x=p.x+Math.sin(angle)*range,z=p.z-Math.cos(angle)*range,y=groundHeight(x,z);
     if(!Number.isFinite(y)||y<MAP.waterY+.25||blocked(x,y,z,world.hp,world.doors))continue;
-    const officer={name:'Patrol officer',officer:true,targetId:player.id,
+    const officer={name:CITY?'City police officer':'County deputy',officer:true,targetId:player.id,
       state:{x,y,z,grounded:true,vy:0},yaw:angle+Math.PI,moving:false,weapon:2,life:newLife(0,false),
       nextSense:0,nextShot:0,visible:false};
     fallback??=officer;
     if(patrolSight(world,officer,player,players)){fallback=officer;break;}
   }
   if(fallback){fallback.id='officer-'+(++serial);return fallback;}
+}
+
+function approachOnFoot(officer,destination,world){
+  const state=officer.state,dx=destination.x-state.x,dz=destination.z-state.z;
+  const distance=Math.hypot(dx,dz),stop=officer.visible?5.5:1.2;
+  const gap=Math.max(0,distance-stop);
+  // A small dead band keeps someone standing still when the target shifts a little.
+  const moving=gap>(officer.moving ? .12 : .6);
+  const desired=distance>.20?Math.atan2(dx,-dz):officer.yaw;
+  const angle=Math.atan2(Math.sin(desired-officer.yaw),Math.cos(desired-officer.yaw));
+  officer.yaw+=Math.max(-.13,Math.min(.13,angle));
+  officer.sprint=moving && gap>(officer.sprint?4.5:6);
+  // Turn into a change of direction and ease the last two metres into a walk.
+  const pace=moving?Math.min(1,gap/2)*(.24+.76*Math.max(0,Math.cos(angle))):0;
+  if(pace || state.vx || state.vz || !state.grounded){
+    officer.state=stepPlayer(state,{x:Math.sin(officer.yaw)*pace,z:-Math.cos(officer.yaw)*pace,
+      sprint:officer.sprint},1/30,world.hp,world);
+  }
+  officer.moving=Math.hypot(officer.state.vx??0,officer.state.vz??0)>.12;
 }
 
 export function createWanted(world,players,{stepCruisers}={}){
@@ -89,14 +108,8 @@ export function createWanted(world,players,{stepCruisers}={}){
           if(o.visible){s.lastContact=tick;s.lastKnown={x:p.state.x,z:p.state.z};}
         }
         o.lastKnown=s.lastKnown;
-        if(!o.cruiserId){
-          const x=s.lastKnown.x-o.state.x,z=s.lastKnown.z-o.state.z,remaining=Math.hypot(x,z);
-          o.yaw=Math.atan2(x,-z);o.moving=remaining>(o.visible?6:1.5);o.sprint=o.moving&&remaining>10;
-          if(o.moving){
-            o.state=stepPlayer(o.state,{x:x/remaining,z:z/remaining,sprint:o.sprint},1/30,world.hp,world);
-          }
-        }
-        if(o.visible&&dist<=18&&tick>=o.nextShot){
+        if(!o.cruiserId)approachOnFoot(o,s.lastKnown,world);
+        if(!o.cruiserId && o.visible && dist<=18 && tick>=o.nextShot){
           o.nextShot=tick+Math.max(35,90-10*level);
           const sight=patrolSight(world,o,p,players);
           if(sight)firePatrolShot(world,o,p,sight,tick,2+level);
@@ -116,7 +129,7 @@ export function createWanted(world,players,{stepCruisers}={}){
         if(o){o.nextShot=tick+65;officers.push(o);npcs.push(o);}
       }
     }
-    if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick);
+    if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick,npcs);
   }
   return {set,session,view,reset,record,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
     owner(round){const s=projectiles.get(round);return s&&session(s.player)===s?s:undefined;}};

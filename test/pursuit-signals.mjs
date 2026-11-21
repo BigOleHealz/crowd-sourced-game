@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import {signalingCruiser,sirenLoop} from '../public/pursuit-signals.js';
+import {signalingCruiser,sirenLoop,patrolLampSide} from '../public/pursuit-signals.js';
 const active={active:true,npcDriver:'officer-1',hp:250};
 assert(signalingCruiser(active));assert(!signalingCruiser({...active,npcDriver:null}));assert(!signalingCruiser({...active,wrecked:true}));
+assert.deepEqual([.1,.42,.61,.93].map(t=>patrolLampSide(active,t)),[-1,0,1,0]);
+assert.equal(patrolLampSide({...active,npcDriver:null},.1),0);
 const sampleRate=24000;
 const wave=sirenLoop({sampleRate,createBuffer(_,n){const a=new Float32Array(n);return {getChannelData:()=>a};}}).getChannelData(0);
 const crossings=(start,end)=>wave.slice(start,end).reduce((n,v,i)=>n+(v>=0&&wave[start+i-1]<0),0);
