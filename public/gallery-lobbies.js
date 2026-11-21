@@ -76,6 +76,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     }
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
+  if(index===3)plan.solids.push({kind:'bankCounter',...rect(-21.48,-34.28,1.28,.54,1.87)});
   if(plan.hotel){
     for(const [k,p,h] of [['reception',hotel.desk,1.30],['luggage',hotel.cart,1.61]]){
       plan.solids.push({kind:k,...rect(p.x,p.z,p.w,p.d,galleryFloor+h)});
