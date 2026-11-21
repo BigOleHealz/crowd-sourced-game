@@ -23,11 +23,13 @@ for(const side of [-1,1])for(const alongX of [true,false]){
   const span=alongX?w:d,offset=(alongX?d:w)*side/2,n=Math.ceil(span/2.5),bay=span/n;
   for(let i=0;i<n;i++){
     const u=(i+.5)*bay-span/2;
+    if(alongX && side===1 && i===5)continue;
     clubPanes.push({...pane(x+(alongX?u:offset),z+(alongX?offset:u),
       alongX?bay-.06:.065,alongX?.065:bay-.06,.18,3.81),alongX,side,bay,index:i});
   }
 }
 const {x,z,w,d}=clubSalon;
-export const clubBarriers=[...clubPanes,{x,z,w:w*.76,d:d*.53,bottom:.25,h:3.74},
+export const clubBarriers=[...clubPanes,{x:x-8.5,z,w:3.15,d:.75,bottom:.22,h:1.15},
+  ...[-5,0,5].flatMap(u=>[{x:x+u,z:z-2.9,w:.87,d:1.86,h:.78},{x:x+u,z:z-1.65,w:2.06,d:.49,h:.6}]),
   {x,z,w:w+.30,d:d+.30,bottom:3.74,h:3.99}];
 export const estateGlassBarriers=[...estateRailBarriers,...skylights,...clubBarriers];

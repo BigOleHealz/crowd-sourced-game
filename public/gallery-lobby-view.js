@@ -101,6 +101,11 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
       box(0,0xc5b9a4,plan.x,floor-.014,mid,plan.w,.028,depth);
       box(1,0xc7bca8,plan.x,ceiling+.076,mid,plan.w,.152,depth);
     }
+    if(plan.passage){
+      const span=plan.passage.zmax-plan.passage.zmin;
+      box(0,0xbcb19a,plan.x,floor-.014,plan.b.z,1.48,.028,span);
+      box(5,0xf2dab7,plan.x,ceiling-.062,plan.b.z,.09,.022,Math.max(.28,span-.18));
+    }
     for(const entry of plan.ends){
       const {side,z,x,w,depth}=entry;
       const X=u=>x+side*u,Z=v=>z-side*v;
@@ -135,14 +140,12 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
         }
       }
       if(!plan.rooms[0].shared && plan.b!==bankSite){
-        trim(2,0x96754e,0,1.48,depth-.073,w-.25,2.96,.146);
-        trim(4,bronze,0,1.18,depth-.166,1.12,2.36,.055);
-        trim(2,0x8d6c48,0,1.14,depth-.209,1.01,2.26,.038);
-        trim(4,0xb8a07d,.32,1.03,depth-.24,.034,.19,.045);
+        trim(2,0x96754e,0,2.55,depth-.073,1.48,.79,.146);
         trim(5,0xe8cb97,0,2.66,depth-.169,w-.40,.032,.027);
         const wing=(w-1.48)/2;
         for(const sign of [-1,1]){
           const u=sign*(.74+wing/2),at=depth-.97;
+          trim(2,0x96754e,u,1.48,depth-.073,wing,2.96,.146);
           trim(1,travertine,u,1.48,at,wing,2.96,.21);
           trim(4,bronze,sign*.753,1.19,at-.131,.053,2.38,.075);
           trim(4,black,sign*.779,1.19,at+.095,.033,2.38,.055);
@@ -270,8 +273,9 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   windows.userData.impactSurface='glass';scene.add(windows);
   const dummy=new THREE.Object3D(), visible=new Array(panes.length);
   let prior,received=false;
-  function update(doors,bank,tick){
-    moveHotelDoors(doors);updateBank(doors,bank,tick);
+  function update(doors,bankVisual){
+    moveHotelDoors(doors);
+    if(bankVisual)updateBank(doors,bankVisual);
     const broken=doors?.brokenPanes;
     if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
     prior=broken;let changed=false;

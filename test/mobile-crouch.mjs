@@ -20,9 +20,9 @@ for(const hz of [30,60,144]){
   const [lead,trail]=rig.limbs;
   assert(trail.foot.forwardOffset-lead.foot.forwardOffset>.35,'The soles form a long stagger');
   assert(Math.abs(lead.knee.rotation.x-trail.knee.rotation.x)>.36,'The two knees bear different loads');
-  // Physical support points on the five exterior models, in tool-local space.
+  // Physical support points on the held models, in tool-local space.
   const supportPoints=[[-.041,.054,-.207],[-.026,-.052,.050],[-.031,.047,-.148],
-    [-.067,.066,-.152],[-.065,.041,-.137]];
+    [-.067,.066,-.152],[-.065,.041,-.137],[-.058,-.072,.045]];
   function checkHands(){
     for(const [index,support] of supportPoints.entries()){
       state.weapon=index+1;frame();

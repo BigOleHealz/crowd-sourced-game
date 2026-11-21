@@ -32,7 +32,7 @@ export function balconySurfaces(buildings){
   });
   // maxY is the top of the body for side contact and the old foot height for
   // landings. Selecting by story prevents snapping up to a higher balcony.
-  return function query(x,z,r,maxY,doors,ceiling=false){
+  return function query(x,z,r,maxY,doors,ceiling=false,round=false){
     let result=ceiling?Infinity:-Infinity;
     for(const {b,slabs,story,floors} of towers){
       const u=x-b.x,v=z-b.z;
@@ -50,7 +50,18 @@ export function balconySurfaces(buildings){
           if(ceiling)result=Math.min(result,top-slabThickness);
           else{
             result=Math.max(result,top);
-            if(maxY>=top && s.rails.some(([a,b])=>segmentDistance(u,v,a,b)<=r+.028))result=Math.max(result,top+guardHeight);
+            if(maxY>=top)for(const [a,end] of s.rails){
+              if(segmentDistance(u,v,a,end)>r+.028)continue;
+              if(round){
+                const dx=end[0]-a[0],dz=end[1]-a[1],len=Math.hypot(dx,dz);
+                const along=((u-a[0])*dx+(v-a[1])*dz)/len;
+                const railHeight=maxY-top;
+                const spacing=len/Math.ceil(len/(b.facade===0?1.55:.155));
+                if(Math.abs(railHeight-guardHeight)>.028 && Math.abs(railHeight-.12)>.025 &&
+                   Math.abs(along-Math.round(along/spacing)*spacing)>.028)continue;
+              }
+              result=Math.max(result,top+guardHeight);
+            }
           }
           found=true;
         }

@@ -40,7 +40,7 @@ export function stepDistrictFires(doors,tick,rules){
     if(f.stage!=='burning')continue;
     const s=sites.get(id),age=tick-f.start;
     if(age<s.duration && !doors.houseRuins?.[id] && doors.beachWood?.[id]==null && doors.posts?.[id]!==0){
-      f.level=Math.min(3,1+Math.floor(age*3/s.duration));
+      f.level=Math.max(1,Math.min(3,1+Math.floor(age*3/s.duration)));
       continue;
     }
     if(s.kind==='house' && ramHouse(doors,id,f.x,f.z,s.x-f.x,s.z-f.z))

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {interiorPlans} from './building-interiors.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, onBuildingLot } from './world.js';
 
 function atlasMaterial(renderer,name) {
@@ -29,7 +30,15 @@ export function buildOutpost(scene,renderer,Batch) {
   for(const b of MAP.buildings) {
     const {x,z,w,d,base,eave,rise,garage}=b,top=base+eave;
     walls.add(concrete,0xa59882,x,base-1.44,z,w+.14,2.9,d+.14);
-    walls.add(garage ? concrete : facade,0xefebe0,x,base+eave*.5,z,w,eave,d);
+    const plan=interiorPlans.find(p=>p.b===b);
+    for(const wall of plan.shell){
+      const furnishing=wall.kind==='desk';
+      walls.add(furnishing?iron:garage?concrete:facade,furnishing?0x82928a:0xefebe0,
+        wall.x,wall.bottom+wall.h/2,wall.z,wall.w,wall.h,wall.d);
+    }
+    const {length,outer,inner,front}=plan.ramp;
+    const tilt=Math.atan2(inner-outer,length);
+    walls.add(concrete,0xbcaf93,x,(outer+inner)/2-.05,front+length/2,2.15,.10,Math.hypot(length,inner-outer),tilt);
     // Deep eaves, gutters and masonry end walls give the gable a silhouette.
     const run=d*.5+.22, angle=Math.atan2(rise,d*.5);
     for(const sign of [-1,1]) {
@@ -41,11 +50,12 @@ export function buildOutpost(scene,renderer,Batch) {
     walls.add(iron,0x999c8e,x,top+rise+.035,z,w+.47,.14,.24);
     if(garage) {
       for(const side of [-1,1]) {
-        walls.add(door,0xeae2c8,x+side*w*.235,base+eave*.42,z+d/2+.015,w*.425,eave*.84,.055);
+        walls.add(door,0xeae2c8,x+side*(w/4+.42),base+eave*.42,z+d/2+.015,w*.5-.98,eave*.84,.055);
       }
     } else {
       // Sills catch direct light ahead of the photographic window reveals.
       for(const side of [-1,1]) for(const col of [-1,0,1]) for(const row of [.16,.64]) {
+        if(side>0 && col===0)continue;
         walls.add(concrete,0xa7a293,x+col*w*.31,base+eave*row,z+side*(d*.5+.035),w*.20,.09,.16);
       }
       walls.add(concrete,0xab9a85,x-w*.29,top+rise+.10,z-.44,.64,1.44,.70);

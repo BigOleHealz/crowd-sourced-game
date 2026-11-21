@@ -1,9 +1,14 @@
+import {fitParadeBreeches} from './parade-costume.js';
 import {streetRideView,riderPose} from './street-ride-view.js';
 import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
+import {airborneCapsules} from './molotov-view.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
+import {bankPresentation} from './bank-presentation.js';
+import {buildingInteriorView} from './building-interior-view.js';
+import {roomAtFeet} from './building-interiors.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
@@ -19,6 +24,7 @@ import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
 import {trailDistance} from './road-surface.js';
+import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
@@ -675,6 +681,15 @@ function fieldEffects(scene) {
   }
   function shot(s,sourceVehicle) {
     if(s.weapon==='ember'){fireView.pulse(s);return;}
+    if(s.weapon==='molotov'){
+      const at=new THREE.Vector3().copy(s.to);at.y+=.075;
+      for(let i=0;i<12;i++){
+        const angle=i*Math.PI/6+rng()*.16,spread=1.15+rng()*1.6;
+        const v=new THREE.Vector3(Math.cos(angle)*spread,.53+rng()*.98,Math.sin(angle)*spread);
+        plume.puff(at,v,.16,.52,.32+rng()*.20,s.water?0xb4d7d0:i%2?0xffa342:0xf37635,.89);
+      }
+      return;
+    }
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
@@ -984,6 +999,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 
 import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas,onFootfall) {
+  const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
   renderer.shadowMap.enabled=true;
@@ -991,7 +1007,7 @@ export function createScene(canvas,onFootfall) {
   renderer.shadowMap.autoUpdate=false;
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
-  const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
+  const scene=new THREE.Scene(),updateInteriors=buildingInteriorView(scene),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
   scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0067);
   const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
@@ -1059,10 +1075,14 @@ export function createScene(canvas,onFootfall) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
+  const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
   sightModels[0].position.set(0,-.214,-.40);
   sightModels[1].position.set(0,-.125,-.40);
-  sightModels[4].position.set(.115,-.186,-.45);
+  sightModels[4].position.set(.15,-.203,-.80);
+  sightModels[4].rotation.set(.04,.23,-.04);
+  sightModels[5].position.set(.147,-.071,-.78);
+  sightModels[5].rotation.z=-.31;
   sightModels[3].position.set(.136,-.240,-.55);
   camera.remove(sightModels[2]);
   sightModels[2]=scopedEyepiece(camera,Batch);
@@ -1125,7 +1145,7 @@ export function createScene(canvas,onFootfall) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const muzzle=station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
@@ -1145,7 +1165,9 @@ export function createScene(canvas,onFootfall) {
   }
   let sprintGate,drawMarket;
   const drawStreetRides=streetRideView(scene,Batch);
+  let localActorId;
   function render(local,remotes,view,dt,world) {
+    localActorId=local?.id;
     if(local && world.rides)drawStreetRides(world.rides,local,remotes,dt);
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
@@ -1176,7 +1198,9 @@ export function createScene(canvas,onFootfall) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateDoors?.(world.doors,dt,local,remotes,world.simTick,world.bank);
+    updateInteriors(local,world.doors,dt);
+    const bankVisual=CITY?bankPresentation(world.bank,world.simTick??0,reducedMotion?.matches):null;
+    updateDoors?.(world.doors,dt,local,remotes,world.simTick,bankVisual);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
@@ -1214,13 +1238,14 @@ export function createScene(canvas,onFootfall) {
     }
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
+    drawCapsules(world.throwables,world.simTick,dt,local.id,view.sighted);
     effects.fireView.update(world.doors,local,dt);
     effects.update(dt);
     contacts.begin(world,local);
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world):[])]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1243,6 +1268,11 @@ export function createScene(canvas,onFootfall) {
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
+      if(state.weapon===6){
+        const flight=world.throwables?.find(c=>c.shooter===state.id && world.simTick-c.born<12);
+        if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
+      }
+      a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
       a.label.sprite.visible = !state.bankRole && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
@@ -1252,6 +1282,8 @@ export function createScene(canvas,onFootfall) {
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
       if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
+      if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
+      if(a.parade)a.parade.visible=!!state.paradeCostume && !seated && !station && !skipper && !entering;
       if(a.root.visible){
         const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
@@ -1265,7 +1297,7 @@ export function createScene(canvas,onFootfall) {
             }
           }
         }
-        if(state.bankRole)poseBankGuest(a,state,(world.simTick??clock*30)/30);
+        if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
@@ -1292,8 +1324,9 @@ export function createScene(canvas,onFootfall) {
     const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
     const villa=CITY && casaRoomAt(local.x,local.y,local.z);
     const clubRoom=CITY && inClub(local);
-    const indoors=Boolean(clubRoom || chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=clubRoom ? Math.max(0,-49.5-local.z) : chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const furnished=roomAtFeet(local,world.doors);
+    const indoors=Boolean(furnished || local.liftTravel || clubRoom || chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=furnished || local.liftTravel ? 1 : clubRoom ? Math.max(0,-49.5-local.z) : chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     // The feet cross a doorway in one tick, but the shoulder rig still spans
     // both rooms. Carry close clearance and framing across the threshold.
     const doorway=CITY && !driving && !piloting && !localStation ? doorwayProximity(local.x,local.y,local.z) : 0;
@@ -1312,7 +1345,7 @@ export function createScene(canvas,onFootfall) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
@@ -1405,6 +1438,7 @@ export function createScene(canvas,onFootfall) {
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
+    sightModels[5].visible=sighted && local.weapon===6 && !avatars.get(local.id)?.throwSwing;
     sightModels[4].visible=sighted && local.weapon===5;
     sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;
@@ -1439,7 +1473,20 @@ export function createScene(canvas,onFootfall) {
     renderer.render(scene,camera);
   }
   function showShots(shots) {
-    for(const shot of shots)effects.shot(shot,shot.source);
+    for(const shot of shots){
+      if(shot.weapon==='ember'){
+        const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
+        if(tool){
+          const from=tool.localToWorld(new THREE.Vector3(0,.095,-.451));
+          // A close wall can be between the server origin and the visual nozzle.
+          const toward=new THREE.Vector3().subVectors(shot.to,shot.from);
+          if(toward.dot(new THREE.Vector3().subVectors(shot.to,from))>0){
+            effects.shot({...shot,from},shot.source);continue;
+          }
+        }
+      }
+      effects.shot(shot,shot.source);
+    }
   }
   return {resetSurfaceMarks:marks.reset,setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}

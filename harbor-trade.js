@@ -1,4 +1,5 @@
-import {goods,marketStores,atMarketCounter} from './public/market-goods.js';
+import {safeInReach} from './public/estate-safes.js';
+import {goods,marketStores,atMarketCounter,nearbySidearm} from './public/market-goods.js';
 import {groundHeight,MAP} from './public/world.js';
 import {seatVehicle} from './public/seat-selection.js';
 import {drivenRoad} from './public/rover.js';
@@ -38,7 +39,7 @@ export function harborTrade(world,notify){
     observed.add(actor.life);
     const wallet=actor.wallet;
     const cash=wallet?wallet.cash:12+Math.floor(Math.random()*25);
-    const items=wallet?wallet.items:{};
+    const items=wallet?wallet.items:actor.officer && actor.weapon===2?{sidearm:1}:{};
     if(wallet){
       actor.wallet=newWallet();
       if(cash || Object.keys(items).length || wallet.chartUntil)notify(actor,tick,'You dropped your cash and supplies.');
@@ -46,7 +47,7 @@ export function harborTrade(world,notify){
     if(!cash && !Object.keys(items).length)return;
     const {x,y,z}=actor.state;
     const floor=groundHeight(x,z,y+.25,world.doors);
-    const drop={id:nextDrop++,x,y:Math.max(MAP.waterY,floor),z,cash,...(Object.keys(items).length && {items})};
+    const drop={id:nextDrop++,...(actor.officer && items.sidearm?{sidearm:true}:{}),x,y:Math.max(MAP.waterY,floor),z,cash,...(Object.keys(items).length && {items})};
     if(state.drops.length===maxDrops)expiry.delete(state.drops.shift().id);
     state.drops.push(drop);
     expiry.set(drop.id,tick+dropLifetime);
@@ -78,6 +79,7 @@ export function harborTrade(world,notify){
       const d=state.drops[i];
       let buyer=null,nearest=1.22;
       if(tick<expiry.get(d.id)){
+        if(d.sidearm)continue;
         for(const p of buyers){
           if(Math.abs(p.state.y-d.y)>1.35)continue;
           const distance=Math.hypot(p.state.x-d.x,p.state.z-d.z);
@@ -117,6 +119,24 @@ export function harborTrade(world,notify){
     const reply=message=>notify(player,tick,message,input.seq);
     if(!canUseInventory(world,player))return reply('Stand on foot to use your inventory.');
     const {action,item}=input;
+    if(action==='safe'){
+      const safe=safeInReach(player.state,world.doors);
+      if(!safe || safe.id!==input.safe)return;
+      if((world.doors.estateSafes??0)&safe.bit)return reply('Safe already empty.');
+      world.doors.estateSafes=(world.doors.estateSafes??0)|safe.bit;
+      return award(player,safe.cash,tick,'Estate safe +$'+safe.cash+'.');
+    }
+    if(action==='collectSidearm'){
+      const d=nearbySidearm(player.state,state);
+      if(!d || d.id!==input.drop || tick>=expiry.get(d.id))return;
+      state.drops.splice(state.drops.indexOf(d),1);expiry.delete(d.id);state.revision++;
+      addGoods(player.wallet.items,d.items);player.wallet.cash+=d.cash;
+      return reply('Picked up patrol sidearm'+(d.cash?' and $'+d.cash:'')+'.');
+    }
+    if(action==='use' && item==='sidearm' && player.wallet.items.sidearm){
+      player.weapon=2;
+      return notify(player,tick,'Equipped patrol sidearm.',input.seq,2);
+    }
     if(action!=='takeAll' && (typeof item!=='string' || !Object.hasOwn(goods,item)))return reply('Unknown item.');
     if(action==='use')return reply(use(player,item,tick));
     const store=atMarketCounter(player.state);

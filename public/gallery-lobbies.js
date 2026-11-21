@@ -1,6 +1,6 @@
 // Ground-floor north/south gallery entries occupy the strip between each
 // building's independently furnished east and west commercial tenancies.
-import {bankSite,bankFront} from './bank-site.js';
+import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
 import {hotel,hotelDoorTop} from './maravela-hotel.js';
 import {fallenTop} from './shop-furniture.js';
 import {retailDepths} from './street-shop-layout.js';
@@ -11,6 +11,13 @@ export const galleryDoorHead=3.10, galleryStile=.07;
 export const galleryLobbies=[], galleryPanes=[], galleryDoorPanes=[], galleryPlans=[];
 const byBuilding=new WeakMap(), cells=new Map(), grid=20;
 const cellKey=(x,z)=>(Math.floor(x/grid)+32)*128+Math.floor(z/grid)+32;
+function indexRoom(room){
+  for(let ix=Math.floor(room.left/grid);ix<=Math.floor(room.right/grid);ix++)for(let iz=Math.floor(room.zmin/grid);iz<=Math.floor(room.zmax/grid);iz++){
+    const key=(ix+32)*128+iz+32;
+    if(!cells.has(key))cells.set(key,[]);
+    cells.get(key).push(room);
+  }
+}
 const rect=(x,z,w,d,top,bottom=galleryFloor)=>({x,z,w,d,bottom,h:top-bottom});
 for(const [index,b] of brickellMap.buildings.entries()){
   const {east,west}=retailDepths(b);
@@ -32,9 +39,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const name=plan.hotel?hotel.name:bank?bankSite.name:'Gallery Lobby';
       const room={name,index,shared,x,left,right,zmin,zmax,entries:shared ? [b.z-b.d/2,b.z+b.d/2] : [z]};
       plan.rooms.push(room);galleryLobbies.push(room);
-      for(let ix=Math.floor(left/grid);ix<=Math.floor(right/grid);ix++)for(let iz=Math.floor(zmin/grid);iz<=Math.floor(zmax/grid);iz++){
-        const key=(ix+32)*128+iz+32;if(!cells.has(key))cells.set(key,[]);cells.get(key).push(room);
-      }
+      indexRoom(room);
     }
     function block(kind,u,v,width,d,top,bottom=galleryFloor){
       const obstacle={kind,side,...rect(wx(u),wz(v),width,d,top,bottom)};
@@ -61,9 +66,11 @@ for(const [index,b] of brickellMap.buildings.entries()){
       }
     }
     if(!shared){
-      block('rear',0,depth-.073,w,.146,galleryCeiling);
+      if(bank)block('rear',0,depth-.073,w,.146,galleryCeiling);
+      else block('passageHeader',0,depth-.073,1.48,.146,galleryCeiling,galleryFloor+2.155);
       for(const wing of bank ? [] : [-1,1]){
         const width=(w-1.48)/2;
+        block('rear',wing*(.74+width/2),depth-.073,width,.146,galleryCeiling);
         block('portalReturn',wing*(.74+width/2),depth-.97,width,.21,galleryCeiling);
         block('credenza',wing*(w*.30),depth-1.36,.91,.49,galleryFloor+.75);
       }
@@ -80,12 +87,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
   if(bank){
-    // Solid service wings flank the public lobby. A rear office closes the lot.
-    for(const side of [-1,1]){
-      const width=(b.w-w)/2;
-      plan.solids.push({kind:'wing',...rect(x+side*(w+width)/2,b.z,width,b.d,galleryCeiling)});
-    }
-    plan.solids.push({kind:'office',...rect(x,bankFront+(depth+b.d)/2,w,b.d-depth,galleryCeiling)});
+    plan.solids.push(...bankServiceParts);
     plan.solids.push({kind:'bankCounter',...rect(x,bankFront+4.12,4.68,.63,1.84)});
     plan.solids.push({kind:'queueRail',...rect(x-.91,bankFront+2.77,.08,1.34,1.56)});
   }
@@ -94,7 +96,12 @@ for(const [index,b] of brickellMap.buildings.entries()){
       plan.solids.push({kind:k,...rect(p.x,p.z,p.w,p.d,galleryFloor+h)});
     }
   }
-  if(!shared && !bank)plan.solids.push({kind:'core',...rect(x,b.z,w,b.d-2*depth,galleryCeiling)});
+  if(!shared && !bank){
+    const inner=b.d-2*depth,wing=(w-1.48)/2;
+    for(const side of [-1,1])plan.solids.push({kind:'core',...rect(x+side*(.74+wing/2),b.z,wing,inner,galleryCeiling)});
+    plan.passage={name:'Gallery passage',index,x,left:x-.74,right:x+.74,zmin:b.z-inner/2,zmax:b.z+inner/2,entries:plan.ends.map(e=>e.z)};
+    indexRoom(plan.passage);
+  }
 }
 
 export function galleryRoomAt(x,y,z) {
@@ -113,14 +120,14 @@ export function galleryVehicleRects(building,doors) {
 export function galleryTopAt(b,x,z,padding,probe,roof,doors,round=false) {
   const plan=byBuilding.get(b);
   if(!plan || Math.abs(x-plan.x)>plan.w/2+.001 || probe>galleryCeiling+.002)return undefined;
-  const room=plan.rooms.find(r=>z>=r.zmin-padding && z<=r.zmax+padding);
+  const room=plan.rooms.find(r=>z>=r.zmin-padding && z<=r.zmax+padding)??plan.passage;
   if(!room)return undefined;
   const overlaps=o=>Math.abs(o.x-x)<=o.w/2+padding && Math.abs(o.z-z)<=o.d/2+padding;
   let top=plan.hotel ? hotelDoorTop(x,z,padding,doors,galleryDoorWidth,galleryFloor,probe,round) : -Infinity;
   for(const part of plan.solids){
     const down=part.piece && doors?.furniture?.[part.piece.id];
     if(down){top=Math.max(top,fallenTop(part.piece,down,x,z,padding));continue;}
-    if(!overlaps(part))continue;
+    if(!overlaps(part) || probe<part.bottom-.001)continue;
     if(part.glass && (round || doors?.brokenPanes?.[part.glass.id])){
       const glass=part.glass;
       const end=Math.abs(glass.z-z)>=glass.width/2-padding;

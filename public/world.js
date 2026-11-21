@@ -1,4 +1,6 @@
+import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
+import {initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
@@ -101,11 +103,15 @@ export function onBuildingLot(x,z,margin=0) {
 }
 
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
-  if(!CITY)return roof;
+  if(!CITY)return furnishedFloorTop(b,x,z,pad,probe,doors,round)??roof;
   if(ruinedHouseAt(doors,b.x,b.z))return -Infinity;
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
+  const interior=furnishedFloorTop(b,x,z,pad,probe,doors,round);
+  const shell=round && upperShellTop(b,x,z,probe,roof);
+  if(round && shell!==undefined)return Math.max(shell,interior??-Infinity);
+  if(interior!==undefined)return interior;
   const gallery=galleryTopAt(b,x,z,pad,probe,roof,doors,round);
   if(gallery!==undefined)return gallery;
   const face=faceAt(b,x);
@@ -146,13 +152,14 @@ function nearbyBarriers(x, z, padding, doors) {
 const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
-  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors)) : -Infinity;
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
+  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
+  top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     const roof=b.base+b.eave+b.rise*(1-2*dz/b.d);
-    const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors);
+    const surface=podiumTop(b,x,z,padding,maxBottom,roof,doors,round);
     top=Math.max(top,surface);
   }
   for(const b of nearbyBarriers(x,z,padding,doors)){
@@ -172,6 +179,7 @@ for(const b of MAP.buildings) {
   const corners=[-1,1].flatMap(s=>[-1,1].map(t=>terrainHeight(b.x+s*b.w/2,b.z+t*b.d/2)));
   b.base=Math.max(...corners)+.13;
 }
+initializeBuildingInteriors(MAP.buildings,CITY,terrainHeight);
 MAP.rocks=MAP.rocks.filter(r=>!onBuildingLot(r.x,r.z,r.radius*.65));
 
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
@@ -249,6 +257,8 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(villa!==undefined)return villa<=limit+.001 ? villa : cityGround(x,z,probe,doors);
     const palace=mareFloor(x,z,probe);
     if(Number.isFinite(palace))return palace;
+    const interior=furnishedSupport(x,z,probe,doors);
+    if(interior!==undefined)return interior;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
@@ -259,7 +269,7 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
       Math.abs(z - bridge.z) <= bridge.length / 2) {
     return bridge.y;
   }
-  return Math.max(sceneryHeight(x,z),churchFloor(x,z,maxBottom));
+  return Math.max(sceneryHeight(x,z),churchFloor(x,z,maxBottom),furnishedSupport(x,z,maxBottom,doors)??-Infinity,approachRamp(x,z));
 }
 
 export function spawn(index = 0) {
@@ -284,8 +294,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors) {
-  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,round=false) {
+  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round));
   for (const obstacle of obstacles) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
@@ -326,6 +336,7 @@ export function stanceMuzzleHeight(state) {
 export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
+  if(state.liftTravel)return state;
   const grabAllowed=!state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
   const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
     ? {y:state.y,left:.25} : state.grab);
@@ -418,6 +429,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     const ruined=CITY && ruinedHouseAt(doors,x,z);
     const support=ruined?-Infinity:estateSupportLimit(doors,x,z);
     let ceiling=CITY?Math.min(contact.ceiling,casaCeiling(x,state.y,z,support)-height,mareCeiling(x,state.y,z,support)-height):Math.min(contact.ceiling,churchCeiling(x,state.y,z)-height);
+    ceiling=Math.min(ceiling,interiorCeiling({x,y:state.y,z},doors)-height);
     const shops=CITY && !ruined && !collapsedLot(MAP.buildings,doors,x,z);
     if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
