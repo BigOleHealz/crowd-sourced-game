@@ -1,3 +1,4 @@
+import {SnapshotClock} from './snapshot-clock.js';
 import {nearestTraffic} from './city-traffic.js';
 import {nearTank} from './tank.js';
 import {nearJet} from './jet.js';
@@ -105,6 +106,7 @@ let queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
+const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
 const controls = new Set(['KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
@@ -375,8 +377,12 @@ function connect() {
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots);
-      samples.push({ time: performance.now(), bullets:world.bullets, traffic:world.traffic,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
-      if (samples.length > 8) samples.shift();
+      const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
+      if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
+      else snapshotClock.accept(sim,arrival);
+      if(samples.at(-1)?.sim===sim)samples.pop();
+      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id) });
+      if (samples.length > 12) samples.shift();
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
     }
@@ -469,12 +475,12 @@ function roundFrame(time) {
 
 function remoteFrame(time) {
   if (!samples.length) return { players: [], traffic:world.traffic,tank:world.tank, jet:world.jet, npcs: world.npcs, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover };
-  const target = time - 100;
-  let after = samples.findIndex(s => s.time >= target);
+  const target=snapshotClock.target(time);
+  let after=samples.findIndex(s=>s.sim>=target);
   if (after < 0) return samples.at(-1);
   if (after === 0) return samples[0];
   const a = samples[after - 1], b = samples[after];
-  const t = clamp((target - a.time) / Math.max(1, b.time - a.time), 0, 1);
+  const t=clamp((target-a.sim)/Math.max(1,b.sim-a.sim),0,1);
   function interpolateActors(older, newer) {
     return newer.map(p => {
       const q = older.find(q => p.id === q.id);
@@ -495,9 +501,9 @@ function remoteFrame(time) {
       abandonedFor: b.heli.abandonedFor == null ? null : mix(a.heli.abandonedFor ?? 0,b.heli.abandonedFor,t) };
   }
   function roadFrame(old,car) {
-    if(!old || !car || old.driver!==car.driver || old.wrecked!==car.wrecked)return car;
+    if(!old || !car || old.driver!==car.driver || old.wrecked!==car.wrecked || Math.hypot(old.x-car.x,old.z-car.z)>9)return car;
     return {...car,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
-      yaw:angleMix(old.yaw,car.yaw,t),steer:mix(old.steer??0,car.steer??0,t),
+      yaw:angleMix(old.yaw,car.yaw,t),speed:mix(old.speed,car.speed,t),lateralSpeed:mix(old.lateralSpeed??0,car.lateralSpeed??0,t),steer:mix(old.steer??0,car.steer??0,t),
       suspension:Boolean(old.bridgeFlight)!==Boolean(car.bridgeFlight)?car.suspension:interpolateSuspension(old.suspension,car.suspension,t)};
   }
   let tank=b.tank;
@@ -512,12 +518,7 @@ function remoteFrame(time) {
       return {...frame,takeover:{...car.takeover,progress:mix(old.takeover.progress,car.takeover.progress,t)}};
     return frame;
   });
-  let rover = b.rover;
-  if(a.rover.driver===b.rover.driver && a.rover.wrecked===b.rover.wrecked) {
-    rover = { ...b.rover, x: mix(a.rover.x,b.rover.x,t), y: mix(a.rover.y,b.rover.y,t),
-      z: mix(a.rover.z,b.rover.z,t), yaw: angleMix(a.rover.yaw,b.rover.yaw,t),
-      suspension:interpolateSuspension(a.rover.suspension,b.rover.suspension,t) };
-  }
+  const rover=roadFrame(a.rover,b.rover);
   for(const [kind,v] of [['heli',heli],['rover',rover]]) {
     if(v.gunner!=null && a[kind].gunner===v.gunner) {
       v.turretYaw=angleMix(a[kind].turretYaw,b[kind].turretYaw,t);

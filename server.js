@@ -184,7 +184,7 @@ function playerState(player) {
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', players: [...players.values()].map(playerState), world: worldView() });
+  const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: worldView() });
   let packed;
   for (const { ws, packedSnapshots } of players.values()) {
     if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) continue;
