@@ -26,6 +26,7 @@ export { parkedHelicopter, fly, interact } from './airframe.js';
 
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 
+import {strikeFittings} from './road-fittings.js';
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
 
@@ -288,7 +289,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if(!car || source===kind)return;
       if(hitKind!==kind && !(areaImpact && withinBurst(center,car,burstHeight)))return;
       if(!areaImpact && Number.isInteger(wheel))car.flatTires=(car.flatTires??0)|(1<<wheel);
-      else damageRover(world,vehicleDamage,players,kind,score?.team);
+      else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageRover(world,vehicleDamage,players,kind,score?.team);}
     }
     hitRoad(world.rover,'rover',.8);
     hitRoad(world.supercar,'supercar',.55);

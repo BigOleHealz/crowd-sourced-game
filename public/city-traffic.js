@@ -167,7 +167,7 @@ function recoverTrafficCar(world,car,actors,dt){
   if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
-  delete car.contactSound;delete car.suspension;delete car.crushed;
+  delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
 export function stepCityTraffic(world,players,npcs,dt){

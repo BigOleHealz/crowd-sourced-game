@@ -1,3 +1,4 @@
+import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -294,7 +295,7 @@ function model(Batch,type,materials){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027,-.65],[x,1.064,-.65],.022);
-  body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
+  const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
   const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
   for(const [x,z] of wheelsFor({model:type})){
@@ -305,7 +306,7 @@ function model(Batch,type,materials){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,wheels,tire,wreckFinish:roadWreckFinish(chassis)};
+  return {root,chassis,door,brake,wheels,tire,fittings:damagedFittings([sheet,brake],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
@@ -350,7 +351,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const {root,chassis,wheels,door,brake}=view;
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-      const sag=view.wreckFinish(car);
+      const sag=view.wreckFinish(car);view.fittings(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
       chassis.position.y=(car.suspension?.heave??0)-.17*sag;
       for(const [i,{wheel,patch}] of wheels.entries()){

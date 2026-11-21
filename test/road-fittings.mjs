@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {BufferGeometry,Float32BufferAttribute,Mesh} from 'three';
+import {strikeFittings,damagedFittings,lampWorking} from '../public/road-fittings.js';
+const car={x:0,z:0,yaw:0},g=new BufferGeometry();
+g.setAttribute('position',new Float32BufferAttribute([-.7,.51,-2,.7,.51,-2,-.7,.51,2,.7,.51,2],3));
+g.setAttribute('color',new Float32BufferAttribute(Array(12).fill(1),3));
+const update=damagedFittings([new Mesh(g)],-2,2,.85);
+strikeFittings(car,{x:-.73,z:-1.9},55);update(car);
+assert.deepEqual(car.fittingDamage,[55,0,0,0]);assert(!lampWorking(car,0));
+const {position,color}=g.attributes;
+assert(position.getY(0)<.5 && color.getX(0)<.1);assert(color.getX(1)===1 && color.getX(2)===1 && Math.abs(position.getY(1)-.51)<.0001);
+const y=position.getY(0);update(car);assert.equal(position.getY(0),y);
+car.fittingDamage=undefined;update(car);assert(Math.abs(position.getY(0)-.51)<.0001 && color.getX(0)===1);
+car.yaw=Math.PI/2;strikeFittings(car,{x:-2,z:.8},58);assert.deepEqual(car.fittingDamage,[0,0,0,58]);
+console.log('PASS local front/rear/side fittings, dark lens, dropped bumper corner, stable snapshots, pristine replacement.');

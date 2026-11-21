@@ -1,3 +1,4 @@
+import {strikeFittings} from './road-fittings.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -157,6 +158,9 @@ function registerImpact(world,r,hit,speed,players){
   const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
   r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-nx*reach,y:r.y+.55,z:r.z-nz*reach,panel,damage};
   const team=players?.get(r.driver)?.team;
+  const narrow=other && Number.isFinite(other.x) && (otherRoad || other.radius<2 || (other.w<3 && other.d<3));
+  strikeFittings(r,narrow?other:r.contactSound,damage);
+  if(otherRoad)strikeFittings(other,r,Math.round((2-share)*severity));
   damagePanel(world,r,panel,damage,players);
   if(otherRoad)damagePanel(world,other,contactPanel(other,-nx,-nz),Math.round((2-share)*severity),players,team);
 }
