@@ -354,7 +354,7 @@ sockets.on('connection', ws => {
     } else if (world.rover.driver === id) {
       const gunner=players.get(world.rover.gunner);
       if(gunner) interactRover(world,gunner);
-      world.rover={...parkedRover(),hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,cargo:world.rover.cargo};
+      world.rover={...parkedRover(),hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,fittingDamage:world.rover.fittingDamage,cargo:world.rover.cargo};
     } else if (world.supercar?.driver===id) {
       interactRover(world,player,'supercar');
     } else {

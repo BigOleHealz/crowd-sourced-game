@@ -86,5 +86,6 @@ export function roverPanelDamage(meshes,paint) {
       } else geometry.computeVertexNormals();
       geometry.computeBoundingSphere();
     }
+    return true;
   };
 }
