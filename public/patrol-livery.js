@@ -1,3 +1,4 @@
+import {CITY} from './world.js';
 import * as THREE from 'three';
 import {patrolLampSide} from './pursuit-signals.js';
 
@@ -9,9 +10,9 @@ function lettering(){
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=144;
     const ink=canvas.getContext('2d');
     ink.scale(2,2);ink.fillStyle='#e3e6e1';ink.fillRect(0,0,256,72);
-    ink.fillStyle='#243e54';ink.fillRect(0,57,256,9);ink.fillStyle='#b79756';ink.fillRect(0,66,256,3);
-    ink.textAlign='center';ink.fillStyle='#203841';ink.font='bold 37px system-ui';ink.fillText('POLICE',128,39);
-    ink.font='bold 12px system-ui';ink.fillText('P I N E W A T C H',128,54,210);
+    ink.fillStyle=CITY?'#243e54':'#344a37';ink.fillRect(0,57,256,9);ink.fillStyle='#b79756';ink.fillRect(0,66,256,3);
+    ink.textAlign='center';ink.fillStyle='#203841';ink.font='bold 37px system-ui';ink.fillText(CITY?'POLICE':'SHERIFF',128,39,226);
+    ink.font='bold 12px system-ui';ink.fillText(CITY?'P I N E W A T C H':'PINEWATCH COUNTY',128,54,210);
     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
     doorMaterial=new THREE.MeshLambertMaterial({map});
   }

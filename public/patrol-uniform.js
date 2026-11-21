@@ -7,14 +7,42 @@ const faces=[
   [0xc3977c,0x3e302a,'bun'],[0x855f4e,0x302a28,'crop'],[0xba8a71,0x322826,'crop'],
   [0xb78468,0x382b28,'bun'],[0xc39583,0x736b63,'crop'],[0xb28067,0x322b2a,'bun'],
 ];
-export function patrolProfile(id){
+export function patrolProfile(id,county=false){
   const index=Number(id.split('-').at(-1))||0,face=index%faces.length;
   const [skin,hair,cut]=faces[face];
-  return {face,skin,hair,cut,officer:true,top:cloth,pants:trousers,bottom:'slacks',shirt:'uniform'};
+  return {face,skin,hair,cut,officer:true,county,top:county?0xaf9b79:cloth,pants:county?0x39463a:trousers,bottom:'slacks',shirt:'uniform'};
 }
 // These are sewn into the same batches as the head, torso, arms and hips.
 // No separate draw calls are needed for cap hardware, shoulder flashes or belt kit.
-export function patrolCap(b){
+function campaignCrown(){
+  const vertices=[],indices=[],count=28;
+  for(const [y,r,crease] of [[.218,1,0],[.245,.99,0],[.285,.91,.06],[.315,.73,.20],[.323,.53,.23],[.307,.05,.02]]){
+    for(let i=0;i<count;i++){
+      const a=2*Math.PI*i/count,dent=crease*(.5+.5*Math.cos(4*a));
+      vertices.push(.114*(r-dent)*Math.sin(a),y-.013*dent,-.111*(r-dent)*Math.cos(a));
+    }
+  }
+  for(let row=0;row<5;row++)for(let i=0;i<count;i++){
+    const a=row*count+i,b=row*count+(i+1)%count;
+    indices.push(a,a+count,b,b,a+count,b+count);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geo.setIndex(indices);geo.computeVertexNormals();return geo;
+}
+const feltCrown=campaignCrown(),starShape=new THREE.Shape();
+for(let i=0;i<12;i++){
+  const a=Math.PI/2+i*Math.PI/6,r=i%2?.53:1;
+  if(!i)starShape.moveTo(r*Math.cos(a),r*Math.sin(a));else starShape.lineTo(r*Math.cos(a),r*Math.sin(a));
+}
+starShape.closePath();const star=new THREE.ShapeGeometry(starShape);
+export function patrolCap(b,county){
+  if(county){
+    b.add(ball,0x4e5540,0,.219,.002,.168,.009,.168,.026);
+    b.add(feltCrown,0x666950,0,0,0);
+    b.add(taper,0x493a2e,0,.239,.001,.113,.025,.112);
+    b.add(star,brass,0,.259,-.112,.017,.019,1,0,Math.PI);
+    return;
+  }
   b.add(taper,0x263344,0,.218,.011,.112,.046,.109,.035);
   b.add(ball,cloth,0,.248,.005,.124,.051,.117,-.10);
   b.add(ball,leather,0,.207,-.091,.099,.010,.080,-.10);
@@ -35,18 +63,19 @@ export function patrolBelt(b){
   b.add(box,0x373c3e,-.177,1.014,.020,.047,.118,.051,0,-.10,-.04);
   b.beam(0x303638,[-.182,1.063,.038],[-.192,1.133,.044],.010);
 }
-export function patrolShoulder(b,side){
+export function patrolShoulder(b,side,county){
   b.add(ball,0xbca477,side*.075,-.087,.002,.010,.040,.032,0,0,side*.08);
-  b.add(ball,0x25374a,side*.083,-.087,.002,.005,.034,.026);
+  b.add(ball,county?0x364832:0x25374a,side*.083,-.087,.002,.005,.034,.026);
   b.add(ball,brass,side*.088,-.084,.001,.002,.016,.012);
 }
-export function patrolShirtTrim(b){
+export function patrolShirtTrim(b,county){
   for(const side of [-1,1]){
-    b.beam(0x304054,[side*.043,1.481,-.071],[side*.068,1.423,-.129],.033,.013);
-    b.beam(0x425571,[side*.094,1.471,.005],[side*.182,1.448,.004],.032,.010);
+    b.beam(county?0xa4906d:0x304054,[side*.043,1.481,-.071],[side*.068,1.423,-.129],.033,.013);
+    b.beam(county?0x88846a:0x425571,[side*.094,1.471,.005],[side*.182,1.448,.004],.032,.010);
   }
   // Relief keeps the shield and name plate readable when the shirt is in shade.
-  b.add(ball,brass,.092,1.364,-.129,.022,.027,.007,.08,-.36,-.05);
+  if(county)b.add(star,brass,.092,1.364,-.135,.025,.027,1,.08,Math.PI-.31);
+  else b.add(ball,brass,.092,1.364,-.129,.022,.027,.007,.08,-.36,-.05);
   b.add(ball,0x927648,.092,1.365,-.136,.013,.016,.003,.08,-.36);
   b.add(box,brass,-.077,1.348,-.142,.043,.008,.006,.08,.24);
   b.add(box,0x252c30,-.094,1.392,-.130,.041,.055,.026,.13,-.18);

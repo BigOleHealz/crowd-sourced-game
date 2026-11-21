@@ -1,4 +1,4 @@
-import {MAP,blocked,groundHeight,stepPlayer} from './world.js';
+import {CITY,MAP,blocked,groundHeight,stepPlayer} from './world.js';
 import {advanceFall} from './falls.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
@@ -17,7 +17,7 @@ function arrival(world,player,players,number){
     const angle=(player.yaw??0)+2.1+number*1.3+i*2.4,range=12+(i%3)*2;
     const x=p.x+Math.sin(angle)*range,z=p.z-Math.cos(angle)*range,y=groundHeight(x,z);
     if(!Number.isFinite(y)||y<MAP.waterY+.25||blocked(x,y,z,world.hp,world.doors))continue;
-    const officer={name:'Patrol officer',officer:true,targetId:player.id,
+    const officer={name:CITY?'City police officer':'County deputy',officer:true,targetId:player.id,
       state:{x,y,z,grounded:true,vy:0},yaw:angle+Math.PI,moving:false,weapon:2,life:newLife(0,false),
       nextSense:0,nextShot:0,visible:false};
     fallback??=officer;

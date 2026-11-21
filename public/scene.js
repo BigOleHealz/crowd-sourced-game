@@ -1192,10 +1192,10 @@ export function createScene(canvas) {
   function resident(id,name,officer=false){
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       (civilianFaces??=civilianTexture('./brickell-faces.webp'));
-    const shirts=officer?(patrolShirts??=civilianTexture('./pinewatch-patrol-shirt.webp')):
+    const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressPerson(rig,officer?patrolProfile(id):civilianLooks[id],Batch,material,{faces,shirts});
+    dressPerson(rig,officer?patrolProfile(id,!CITY):civilianLooks[id],Batch,material,{faces,shirts});
     if(officer)rig.tools=makeFirearms(rig.upper);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
