@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {brickellResidents} from '../public/brickell-residents.js';
 import {civilianLooks} from '../public/civilian-style.js';
+import {patrolProfile} from '../public/patrol-uniform.js';
 import {dressCivilian} from '../public/civilian-view.js';
 import {distantResidents} from '../public/resident-distance-view.js';
 import {createRangerRig,poseRig} from '../public/ranger-pose.js';
@@ -12,7 +13,7 @@ assert.equal(new Set(Object.values(civilianLooks).map(p=>p.face)).size,ids.lengt
 const material=new THREE.MeshLambertMaterial(), textiles={faces:material,shirts:material};
 // The complex art is baked by the scene batcher. Inspect the textured geometry
 // directly so a malformed cross-section cannot leave a hole across the face.
-class BatchStub { add(){} beam(){} mesh(){} }
+class BatchStub { add(){} beam(){} mesh(){} geometry(){return new THREE.BoxGeometry(.1,.5,.1);} }
 const scene=new THREE.Scene(),distant=distantResidents(scene);
 const origin={x:0,y:0,z:0};
 distant.begin();
@@ -38,4 +39,22 @@ distant.begin();
 assert.equal(distant.add({...origin,id:ids[0]},origin,1,0),false);
 assert.equal(distant.add({...origin,id:ids[1],x:200,dead:true},origin,1,0),false);
 distant.finish();assert.equal(mesh.count,0);
+const profiles=Array.from({length:6},(_,i)=>patrolProfile('officer-'+i));
+assert.equal(new Set(profiles.map(p=>p.face)).size,6);
+const county=patrolProfile('officer-1',true);assert(county.county);assert.notEqual(county.top,profiles[1].top);profiles.push(county);
+for(const profile of profiles){
+  const officer=createRangerRig();dressCivilian(officer,profile,BatchStub,material,textiles);
+  for(const limb of officer.limbs){
+    const mesh=limb.arm.children.find(c=>c.isSkinnedMesh);
+    assert.deepEqual(mesh.skeleton.bones,[limb.arm,limb.forearm]);
+    assert(limb.leg.children.some(c=>c.isSkinnedMesh));
+  }
+  assert.equal(officer.tools.length,4);assert.equal(officer.civilian,undefined);
+  const shirt=officer.upper.children.find(n=>n.isMesh).geometry;
+  const uv=shirt.attributes.uv;
+  assert(uv.getX(0)>uv.getX(16),'front lettering reads left to right when facing an officer');
+  assert(uv.getX(uv.count/2)>uv.getX(uv.count/2+16),'back lettering reads left to right from behind');
+  poseRig(officer,{...origin,id:'officer-1',officer:true,yaw:0,grounded:true,weapon:2},1/60);
+  assert(officer.tools[1].visible);
+}
 console.log('PASS unique civilian roster, textured facial surfaces, unarmed walking rigs and distant crowd capacity.');

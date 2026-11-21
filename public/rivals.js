@@ -1,3 +1,4 @@
+import {sidewalkPace,curbWait} from './sidewalk-crossings.js';
 import {stepPedestrianReaction} from './pedestrian-reactions.js';
 import {outpostPatrols} from './outpost-patrols.js';
 import {brickellResidents} from './brickell-residents.js';
@@ -59,7 +60,7 @@ function patrolStart(route) {
 }
 
 export function newRivals() {
-  return patrols.map(route => ({ id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
+  return patrols.map((route,index) => ({ sidewalk:CITY && index>=2 ? sidewalkPace(index) : null, id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
     state: patrolStart(route), yaw: Math.PI, moving: false, weapon: 1, life: newLife(0, false) }));
 }
 
@@ -68,28 +69,42 @@ export function updateRival(actor, tick, dt, hp, world) {
     actor.state = patrolStart(actor.route);
     actor.next = 1;
     actor.life = newLife(tick);
+    delete actor.crossing;delete actor.checkingTraffic;
     actor.pauseUntil = tick + 30;
   }
   if (advanceFall(actor,tick,dt,hp,world) || !actor.life.hp){delete actor.reaction;return;}
-  if(stepPedestrianReaction(actor,tick,dt,world) || tick<actor.pauseUntil)return;
+  if(stepPedestrianReaction(actor,tick,dt,world)){delete actor.checkingTraffic;return;}
+  if(tick<actor.pauseUntil)return;
   const [x, z] = actor.route.points[actor.next];
   const dx = x - actor.state.x, dz = z - actor.state.z;
   const distance = Math.hypot(dx, dz);
   if (distance < 0.12) {
     actor.next = (actor.next + 1) % actor.route.points.length;
-    actor.pauseUntil = tick + 55;
+    delete actor.crossing;delete actor.checkingTraffic;
+    actor.pauseUntil = tick + (actor.sidewalk ? (actor.next===1 ? actor.sidewalk.pause : 3) : 55);
     actor.state.vx=actor.state.vz=0;
     actor.moving = false;
     return;
   }
-  actor.yaw = Math.atan2(dx, -dz);
+  const heading=Math.atan2(dx,-dz);
+  let speed=.17;
+  if(actor.sidewalk){
+    const turn=Math.atan2(Math.sin(heading-actor.yaw),Math.cos(heading-actor.yaw));
+    actor.yaw+=Math.max(-dt*3.4,Math.min(dt*3.4,turn));
+    if(curbWait(actor,tick,world)){
+      actor.moving=false;actor.state.vx=actor.state.vz=0;actor.checkingTraffic=true;return;
+    }
+    delete actor.checkingTraffic;
+    speed=actor.crossing ? Math.max(.32,actor.sidewalk.speed) : actor.sidewalk.speed;
+    speed*=Math.max(.48,1-.34*Math.abs(turn));
+  }else actor.yaw=heading;
   actor.moving = true;
-  actor.state = stepPlayer(actor.state, { x: dx / distance * .17, z: dz / distance * .17 }, dt, hp, world);
+  actor.state = stepPlayer(actor.state, { x: dx / distance * speed, z: dz / distance * speed }, dt, hp, world);
 }
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving, weapon: actor.weapon,...(actor.officer && {officer:true,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
+    moving: actor.moving,...(actor.checkingTraffic && {checkingTraffic:true}), weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {

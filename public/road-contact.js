@@ -1,3 +1,4 @@
+import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
@@ -63,8 +64,12 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   for(const b of MAP.buildings){
-    if(towerCollapsed(b,world.doors))continue;
-    if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>consider(boxContact(x,z,s,c,box,shape)));
+    if(towerCollapsed(b,world.doors) || ruinedHouseAt(world.doors,b.x,b.z))continue;
+    if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>{
+      const hit=boxContact(x,z,s,c,box,shape);
+      if(hit && vehicle.kind==='tank' && b.towerId==null)hit.home=houseAtPoint(b.x,b.z)?.id;
+      consider(hit);
+    });
     else consider(boxContact(x,z,s,c,b,shape));
   }
   if(CITY)for(const stand of stationFootprints){
@@ -73,13 +78,17 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const reach=shape.halfWidth+shape.halfLength;
   for(const b of estateSolids(MAP.barriers,world.doors)){
     if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
-    if(collapsedLot(MAP.buildings,world.doors,b.x,b.z))continue;
+    if(collapsedLot(MAP.buildings,world.doors,b.x,b.z) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
     if(postDown(world.doors,b) || world.doors?.brokenPanes?.[b.paneId] || world.doors?.brokenSills?.[b.sillPaneId])continue;
     if(CITY && onEstate(b.x,b.z) && terrainHeight(b.x,b.z)+b.h<=(vehicle.y??base)+.30)continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
-    if(b.h>.16)consider(boxContact(x,z,s,c,b,shape));
+    if(b.h>.16){
+      const hit=boxContact(x,z,s,c,b,shape);
+      if(hit && CITY && vehicle.kind==='tank' && !b.postId && b.lamp==null)hit.home=houseAtPoint(b.x,b.z,.25)?.id;
+      consider(hit);
+    }
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
@@ -94,6 +103,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   }
   considerCar(world.tank);considerCar(world.rover);considerCar(world.supercar);
   for(const car of world.traffic??[])considerCar(car);
+  for(const car of world.patrolCars??[])considerCar(car);
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};

@@ -1,8 +1,8 @@
-import {roadCabin,roadWheelGrip,roadHandle} from './road-cabin.js';
+import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
-import {groundHeight,stanceDrop,waterBlend} from './world.js';
+import {groundHeight,waterBlend} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
 export function createRangerRig() {
@@ -48,15 +48,13 @@ function holdWorld(avatar,arm,forearm,side,target){
 // The same authoritative progress moves the occupant and the hinged door.
 // The tracking hand follows the handle through its swing before both hands settle on the rim.
 export function poseRoadBoarding(avatar,car,action){
-  const {progress:t,startX,startY,startZ}=action,cabin=roadCabin(car),seat=mountPosition(car,cabin.seat);
+  const t=action.progress,cabin=roadCabin(car);
   const approach=THREE.MathUtils.smoothstep(t,0,.24),enter=THREE.MathUtils.smoothstep(t,action.npcId ? .65 : .45,.97);
-  const handle=roadHandle(car,t),c=Math.cos(car.yaw),s=Math.sin(car.yaw),mix=THREE.MathUtils.lerp;
-  const standX=handle.x-c*.27+s*.12,standZ=handle.z-s*.27-c*.12;
+  const handle=roadHandle(car,t),mix=THREE.MathUtils.lerp;
   const {root,body,spine,limbs}=avatar;
   avatar.gait=null;
   root.scale.setScalar(mix(1,cabin.scale,enter));
-  root.position.set(mix(mix(startX,standX,approach),seat.x,enter),
-    mix(mix(startY,car.y,approach),seat.y,enter),mix(mix(startZ,standZ,approach),seat.z,enter));
+  root.position.copy(roadBoardingPosition(car,action));
   root.rotation.set((car.suspension?.pitch??0)*enter,-car.yaw-1.57*(1-enter),(car.suspension?.roll??0)*enter,'YXZ');
   const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
   body.position.set(0,-crouch,0);
@@ -91,7 +89,6 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       for(const limb of avatar.limbs){limb.foot.planted=false;limb.foot.sampleY=undefined;}
     }
     advanceGait(gait,state,Math.max(.001,dt));
-    if(crouch)gait.pelvisY-=stanceDrop(state)-.055;
   } else gait=avatar.gait=null;
   avatar.initialized=true;
   const weight=gait?.weight ?? 0, run=gait?.run ?? 0;
@@ -129,21 +126,27 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
-  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
+  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,gait?.pelvisZ ?? 0);
   avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe-gait.brace : 0,
     gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
     gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
-  if(crouch)avatar.spine.rotation.x-=.20*stanceDrop(state);
+  const low=gait?.crouch??0;
+  avatar.spine.rotation.x-=low*(.35-.025*weight);
   // Neck counter-rotation steadies the gaze above the shoulders through each
   // foot strike and lets the head lead the torso into a change of direction.
   avatar.head.position.set(0,1.525,0);
-  avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
+  avatar.head.rotation.set(gait ? -(.42+.43*low)*avatar.spine.rotation.x-.018 : 0,
     gait ? gait.neckYaw-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
     const glance=Math.sin(avatar.cycle*.48+avatar.civilian.face*2.4);
-    avatar.head.rotation.y+=glance*(.06+.19*(1-weight));
+    avatar.head.rotation.y+=state.checkingTraffic ? .56*Math.sin(avatar.cycle*1.45) : glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
+  }
+  if(state.officer && gait){
+    const target=state.searching || state.sprint ? 1 : 0;
+    avatar.officerCarry=(avatar.officerCarry??target)+(target-(avatar.officerCarry??target))*(-Math.expm1(-6*dt));
+    if(state.searching)avatar.head.rotation.y+=.24*Math.sin(avatar.cycle*.77+Number(state.id?.split('-').at(-1)||0))*(1-.55*run);
   }
   if(lowCockpit){
     // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
@@ -206,9 +209,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const down=leg.position.y+gait.pelvisY-.126-foot.lift*(1+1.3*water*(1-water))-floor/avatar.root.scale.y;
       const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
       const vertical=Math.hypot(down,lateral);
-      const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
+      const forward=foot.forwardOffset-gait.pelvisZ;
+      const distance=clamp(Math.hypot(vertical,forward),.20,.7999);
       const hipBend=Math.acos(clamp((.405**2+distance**2-.395**2)/(.81*distance),-1,1));
-      leg.rotation.set(Math.atan2(-foot.forwardOffset,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
+      leg.rotation.set(Math.atan2(-forward,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
       knee.rotation.x=-Math.acos(clamp((distance**2-.405**2-.395**2)/(2*.405*.395),-1,1));
       ankle.rotation.x=(foot.floorPitch??0)+(foot.planted?foot.pitch*.25:foot.pitch)-leg.rotation.x-knee.rotation.x;
       ankle.rotation.z=-leg.rotation.z;
@@ -261,12 +265,19 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
       kit.z=(bloom ? -.322 : -.185)+.037*run;
       weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
+      if(state.officer && gait){
+        const lowered=avatar.officerCarry??0;
+        kit.y-=.12*lowered;kit.z+=.060*lowered;
+        weapon.rotation.x-=.77*lowered;
+      }
       if(prone) {
         kit.set(bloom ? .060 : .099,1.515+.014*swing*weight,bloom ? -.037 : -.010);
         weapon.rotation.set(-avatar.body.rotation.x-avatar.spine.rotation.x,-.035,.012,'YXZ');
-      } else if(crouch) {
-        // Retain the sightline as the torso leans over the bent knees.
-        weapon.rotation.x+=.20*stanceDrop(state);
+      } else if(low) {
+        // Counter the trunk hinge to keep both hands and sights together.
+        weapon.rotation.x+=low*(.35-.025*weight);
+        kit.y+=low*.072;
+        kit.z-=low*(bloom?.083:.061);
       }
       // Aim each wrist at its own contact on the prop, including during the running tilt.
       const handX=side===1 ? .027 : bloom ? -.028 : -.036;
@@ -293,7 +304,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     }
   }
   if(!avatar.shadow)return;
-  const y=groundHeight(state.x,state.z,state.y+.28,doors),height=clamp(state.y-y,0,1.75);
+  const y=state.grounded && !seated && !station ? state.y : groundHeight(state.x,state.z,state.y+.28,doors);
+  const height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
   avatar.shadow.rotation.y = prone ? avatar.root.rotation.y : fall ? -fall.yaw : 0;
   if (collapse) {

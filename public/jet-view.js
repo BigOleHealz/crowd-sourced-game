@@ -1,3 +1,4 @@
+import {missileLaunchers} from './mount-view.js';
 import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
 import * as THREE from 'three';
 
@@ -67,6 +68,10 @@ export function jetView(scene,Batch){
   }
   gear.beam(belly,[0,.68,-1.65],[0,.23,-1.57],.075);
   gear.add(round,0x23282b,0,.18,-1.58,.085,.18,.18);
+  missileLaunchers(body,'jet');
+  // Charcoal inset and a pale inspection stripe make the nose port read against its cowl.
+  body.add(round,0x343d40,-.124,1.03,-2.67,.057,.047,.137,-.11,-.18);
+  for(const side of [-1,1])body.add(box,0xa6aaa1,side*.865,.966,.075,.033,.012,.195,0,side*.20);
   const hull=body.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.30}));
   hull.userData.impactSurface='metal';
   glass.mesh(group,new THREE.MeshPhysicalMaterial({color:0x38515b,metalness:.38,roughness:.16,clearcoat:1,transparent:true,opacity:.88}),false);
