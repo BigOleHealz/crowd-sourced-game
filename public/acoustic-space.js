@@ -1,3 +1,4 @@
+import {club,inClub} from './club-lucero.js';
 import {CITY,MAP} from './world.js';
 import {bridges,within} from './brickell-map.js';
 import {leafSurface} from './drawbridges.js';
@@ -18,6 +19,7 @@ export function acousticSpace(point,world){
   const {x,y,z}=point,doors=world.doors;
   if(CITY){
     if(world.yacht && yachtRoomDepth(world.yacht,x,y,z)>=0)return room('yacht',.12);
+    if(inClub(point))return room('lucero',opening(x,z,club.x,club.z+4.82,1));
     const lobby=galleryRoomAt(x,y,z);
     if(lobby){
       const leak=lobby.name===hotel.name ? Math.max(...hotel.fronts.map(f=>opening(x,z,hotel.x,f.z,doors?.hotel?.[f.id]??0))) :

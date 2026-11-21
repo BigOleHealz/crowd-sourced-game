@@ -49,7 +49,7 @@ for(const profile of profiles){
     assert.deepEqual(mesh.skeleton.bones,[limb.arm,limb.forearm]);
     assert(limb.leg.children.some(c=>c.isSkinnedMesh));
   }
-  assert.equal(officer.tools.length,4);assert.equal(officer.civilian,undefined);
+  assert.equal(officer.tools.length,5);assert.equal(officer.civilian,undefined);
   const shirt=officer.upper.children.find(n=>n.isMesh).geometry;
   const uv=shirt.attributes.uv;
   assert(uv.getX(0)>uv.getX(16),'front lettering reads left to right when facing an officer');

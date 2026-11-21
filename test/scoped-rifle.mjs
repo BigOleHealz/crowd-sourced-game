@@ -11,9 +11,9 @@ const shooter={id:1,weapon:3,state:{x:0,y:180,z:0,grounded:true},yaw:0,life:newL
 const target={id:2,weapon:1,state:{x:0,y:180,z:-160,grounded:true},yaw:0,life:newLife(0,false),inputs:[]};
 const players=new Map([[1,shooter],[2,target]]),aim={aimYaw:0,aimPitch:0};
 const rig=createRangerRig();
-for(const slot of [1,3,2,4,3,1]){
+for(const slot of [1,3,2,4,5,3,1]){
   poseRig(rig,{...shooter.state,id:1,weapon:slot,yaw:0},1/30);
-  assert.deepEqual(rig.tools.map(tool=>tool.visible),[1,2,3,4].map(id=>id===slot));
+  assert.deepEqual(rig.tools.map(tool=>tool.visible),[1,2,3,4,5].map(id=>id===slot));
 }
 fire(world,shooter,aim,0,players,[]);
 fire(world,shooter,aim,spec.cooldown-1,players,[]);
