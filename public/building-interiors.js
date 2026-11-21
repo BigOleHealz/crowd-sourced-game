@@ -81,8 +81,8 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       const front=b.z+b.d/2;
       p.ramp={front,length:2.3,outer:terrain(b.x,front+2.3),inner:b.base};
       door(p,b.x,b.base,front+.025,'x',1.66,p.name,true);
-      p.residential=furnishRuralHome(p);
       outpostOpenings(b,p,terrain);
+      p.residential=furnishRuralHome(p);
     }
   }
   if(!city){
