@@ -1,3 +1,4 @@
+import {bootSole,bootUpper,trousers,jointGarment} from './ranger-surfaces.js';
 import {patrolCap,patrolBelt,patrolShoulder,patrolShirtTrim} from './patrol-uniform.js';
 import * as THREE from 'three';
 
@@ -36,6 +37,42 @@ const thigh=sections([[-.416,.073,.071],[-.31,.079,.086],[-.18,.091,.103],[-.048
 const shorts=sections([[-.296,.089,.094],[-.283,.091,.095],[-.12,.099,.109],[.034,.107,.110]],14);
 const calf=sections([[-.407,.051,.054],[-.313,.051,.053],[-.189,.070,.077,.012],[-.105,.077,.078,.008],[.02,.068,.065]],14);
 const slacks=sections([[-.393,.071,.078],[-.380,.074,.078],[-.22,.078,.083],[-.10,.085,.088],[.015,.076,.074]],14);
+
+// Elbow, forearm and wrist share a continuous skin, with enough cross-sections
+// around the joint for the two-bone blend when reaching for the wheel or door.
+const patrolArm=sections([[-.52,.034,.029],[-.48,.039,.035],[-.423,.046,.040,-.003],
+  [-.355,.058,.051,.005],[-.315,.058,.052,.01],[-.286,.049,.05,.012],[-.273,.052,.054,.014],
+  [-.247,.057,.054,.011],[-.222,.061,.059,.006],[-.185,.068,.064],[-.137,.065,.066]],16);
+function dressPatrolLimb(limb,p,Batch,material){
+  const {side,arm,forearm,leg,knee,ankle}=limb;
+  const skin=new Batch();
+  skin.add(patrolArm,p.skin,0,0,0);
+  skin.add(shortSleeve,p.top,0,0,0,.97,1,1);
+  skin.add(shortSleeve,0x304158,0,-.143,0,.987,.08,1.002);
+  patrolShoulder(skin,side);
+  skin.add(oval,p.skin,0,-.518,-.002,.041,.049,.030);
+  for(let i=0;i<4;i++){
+    const x=side*(i-1.5)*.016,y=-.545+.004*Math.abs(i-1);
+    skin.add(oval,p.skin,x,y,-.016,.012,.025,.014,.64);
+    skin.add(oval,p.skin,x,y-.015,-.034,.011,.012,.019,-.41);
+  }
+  skin.add(oval,p.skin,-side*.031,-.518,-.027,.015,.030,.014,-.63,0,side*.26);
+  jointGarment(skin,material,arm,forearm,.063);
+
+  const cloth=new Batch();cloth.add(trousers,p.pants,0,0,0,.91,1.01,.92);
+  cloth.beam(0x314050,[side*.086,-.16,-.051],[side*.069,-.30,-.047],.008,.006);
+  jointGarment(cloth,material,leg,knee,.084);
+  const shoe=new Batch();
+  shoe.add(bootSole,0x1e242b,0,0,0,.80,1,.91);
+  shoe.add(bootUpper,0x30343b,0,0,0,.80,.94,.91);
+  shoe.beam(0x494a49,[-.060,-.042,-.144],[.060,-.042,-.144],.005,.004);
+  for(let i=0;i<4;i++){
+    const y=.005+i*.014,z=-.095+i*.016;
+    shoe.beam(0x42454a,[-.040,y,z],[.040,y+.011,z+.017],.007,.006);
+    shoe.beam(0x3a3c3f,[.040,y,z],[-.040,y+.011,z+.017],.007,.006);
+  }
+  shoe.mesh(ankle,material,false);
+}
 
 const faceRows=[[.006,.048,.053,-.025],[.029,.074,.076,-.012],[.080,.093,.090,-.006],[.121,.100,.099],[.169,.101,.102,.003],[.208,.093,.096,.007],[.242,.074,.078,.009],[.263,.045,.051,.011],[.270,.004,.006,.011]];
 function faceGeometry(profile) {
@@ -177,7 +214,9 @@ export function dressPerson(rig,p,Batch,material,textiles) {
   const face=new THREE.Mesh(faceGeometry(p),textiles.faces);
   face.position.y=.003;rig.head.add(face);
   part(rig.head,b=>{hairAndAccessories(b,p);if(p.officer)patrolCap(b);});
-  for(const {side,leg,knee,ankle,arm,forearm:elbow} of rig.limbs){
+  for(const limb of rig.limbs){
+    if(p.officer){dressPatrolLimb(limb,p,Batch,material);continue;}
+    const {side,leg,knee,ankle,arm,forearm:elbow}=limb;
     const bare=p.bottom==='shorts'||p.bottom==='skirt';
     part(leg,b=>{
       if(p.bottom==='skirt')b.add(thigh,p.skin,0,-.136,0,.66,.68,.68);
@@ -186,8 +225,8 @@ export function dressPerson(rig,p,Batch,material,textiles) {
     });
     part(knee,b=>b.add(bare?calf:slacks,bare?p.skin:p.pants,0,0,0));
     part(ankle,b=>{
-      const shoe=p.officer?0x282c31:p.bottom==='slacks'?0x614e40:p.shirt==='dress'?0xbb8c6b:0xe0d6c2;
-      b.add(oval,p.officer?0x171c23:0x685e53,0,-.126,-.043,.067,.023,.130);
+      const shoe=p.bottom==='slacks'?0x614e40:p.shirt==='dress'?0xbb8c6b:0xe0d6c2;
+      b.add(oval,0x685e53,0,-.126,-.043,.067,.023,.130);
       b.add(oval,shoe,0,-.096,-.052,.065,.044,.118);
       b.add(oval,shoe,0,-.058,.003,.059,.059,.064);
       if(!bare)b.add(oval,p.pants,0,-.007,0,.068,.044,.073);
@@ -197,7 +236,6 @@ export function dressPerson(rig,p,Batch,material,textiles) {
       }
     });
     part(arm,b=>{
-      if(p.officer)patrolShoulder(b,side);
       b.add(upperArm,p.shirt==='jacket'?p.top:p.skin,0,0,0);
       if(!['tank','dress'].includes(p.shirt)){
         b.add(shortSleeve,p.top,0,0,0);

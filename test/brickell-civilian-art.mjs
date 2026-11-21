@@ -13,7 +13,7 @@ assert.equal(new Set(Object.values(civilianLooks).map(p=>p.face)).size,20);
 const material=new THREE.MeshLambertMaterial(), textiles={faces:material,shirts:material};
 // The complex art is baked by the scene batcher. Inspect the textured geometry
 // directly so a malformed cross-section cannot leave a hole across the face.
-class BatchStub { add(){} beam(){} mesh(){} }
+class BatchStub { add(){} beam(){} mesh(){} geometry(){return new THREE.BoxGeometry(.1,.5,.1);} }
 const scene=new THREE.Scene(),distant=distantResidents(scene);
 const origin={x:0,y:0,z:0};
 distant.begin();
@@ -43,6 +43,11 @@ const profiles=Array.from({length:6},(_,i)=>patrolProfile('officer-'+i));
 assert.equal(new Set(profiles.map(p=>p.face)).size,6);
 for(const profile of profiles){
   const officer=createRangerRig();dressCivilian(officer,profile,BatchStub,material,textiles);
+  for(const limb of officer.limbs){
+    const mesh=limb.arm.children.find(c=>c.isSkinnedMesh);
+    assert.deepEqual(mesh.skeleton.bones,[limb.arm,limb.forearm]);
+    assert(limb.leg.children.some(c=>c.isSkinnedMesh));
+  }
   assert.equal(officer.tools.length,4);assert.equal(officer.civilian,undefined);
   const shirt=officer.upper.children.find(n=>n.isMesh).geometry;
   const uv=shirt.attributes.uv;
