@@ -1,3 +1,4 @@
+import {flatMobility} from './road-wheel-layout.js';
 import {avenues,streets} from './brickell-map.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
@@ -194,8 +195,9 @@ export function stepCityTraffic(world,players,npcs,dt){
     const gap=gapAhead(car,actors,vehicles);
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
-    const target=route.wait?0:Math.min(profile.cruise,Math.sqrt(2*brake*gap));
-    const acceleration=profile.driveForce/profile.mass*.68;
+    const mobility=flatMobility(car);
+    const target=route.wait?0:Math.min(profile.cruise*mobility,Math.sqrt(2*brake*gap));
+    const acceleration=profile.driveForce/profile.mass*.68*mobility;
     const change=clamp(target-car.speed,-brake*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;

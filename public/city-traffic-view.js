@@ -1,12 +1,15 @@
 import * as THREE from 'three';
+import {civilianProfiles} from './civilian-fleet.js';
+import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
+import {tireContactPatch} from './tire-contact-patch.js';
 import {mountPosition} from './mounts.js';
 
 import {alpineGlass} from './landscape.js';
 
 const fleet={
-  sedan:{paint:0x56748b,w:.86,nose:-2.08,tail:2.12,roof:1.52,roofEnd:.55,cabinEnd:1.29,axles:[-1.34,1.30],tire:.317,topFront:-.42},
-  hatchback:{paint:0x287f76,w:.82,nose:-1.82,tail:1.71,roof:1.55,roofEnd:.84,cabinEnd:1.47,axles:[-1.14,1.13],tire:.301,topFront:-.40},
-  van:{paint:0xdacfb8,w:.95,nose:-2.04,tail:2.27,roof:2.10,roofEnd:1.91,cabinEnd:2.16,axles:[-1.28,1.49],tire:.355,topFront:-.64},
+  sedan:{paint:0x56748b,roofEnd:.55,cabinEnd:1.29,topFront:-.42},
+  hatchback:{paint:0x287f76,roofEnd:.84,cabinEnd:1.47,topFront:-.40},
+  van:{paint:0xdacfb8,roofEnd:1.91,cabinEnd:2.16,topFront:-.64},
 };
 const cube=new THREE.BoxGeometry(), roller=new THREE.CylinderGeometry(1,1,1,20),bore=new THREE.CylinderGeometry(1,1,1,10);
 const seatPad=new THREE.SphereGeometry(1,10,6),ring=new THREE.TorusGeometry(.145,.018,7,20);
@@ -29,8 +32,8 @@ function pane(batch,tint,a,b,c,d){skin(batch,tint,[[a,b],[d,c]]);}
 function run(batch,color,points,width,depth=width){
   for(let i=1;i<points.length;i++)batch.beam(color,points[i-1],points[i],width,depth);
 }
-function wheelModel(Batch,tire,van){
-  const b=new Batch(),depth=van?.111:.10;
+function wheelModel(Batch,tire,depth,van){
+  const b=new Batch();
   const profile=[[.62,-.68],[.72,-1],[.91,-.96],[.99,-.72],[1,-.40],[1,.40],[.99,.72],[.91,.96],[.72,1],[.62,.68]];
   const rubberSkin=new THREE.LatheGeometry(profile.map(([r,x])=>new THREE.Vector2(r*tire,x*depth)),24).rotateZ(Math.PI/2);
   b.add(rubberSkin,rubber,0,0,0);rubberSkin.dispose();
@@ -56,7 +59,8 @@ function wheelModel(Batch,tire,van){
 }
 
 function model(Batch,type,materials){
-  const {paint,w,nose,tail,roof,roofEnd,cabinEnd,axles,tire,topFront}=fleet[type];
+  const {paint,roofEnd,cabinEnd,topFront}=fleet[type];
+  const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
   const van=type==='van',hatch=type==='hatchback';
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
@@ -291,10 +295,12 @@ function model(Batch,type,materials){
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027,-.65],[x,1.064,-.65],.022);
   body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
-  const wheelGeometry=wheelModel(Batch,tire,van),wheels=[];
-  for(const z of axles)for(const sign of [-1,1]){
-    const wheel=new THREE.Mesh(wheelGeometry,materials.wheel);wheel.position.set(sign*(w-.078),tire-.004,z);
-    wheel.scale.x=sign;root.add(wheel);wheels.push(wheel);
+  const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
+  for(const [x,z] of wheelsFor({model:type})){
+    const finish=materials.wheel.clone(),patch=tireContactPatch(finish,tire);
+    const wheel=new THREE.Mesh(wheelGeometry,finish);
+    wheel.position.set(x,tire,z);
+    wheel.scale.x=Math.sign(x);root.add(wheel);wheels.push({wheel,patch});
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
@@ -341,7 +347,12 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       chassis.rotation.set(car.suspension?.pitch??0,0,car.suspension?.roll??0);
       chassis.position.y=car.suspension?.heave??0;
-      for(const wheel of wheels)wheel.rotation.x-=car.speed*dt/view.tire;
+      for(const [i,{wheel,patch}] of wheels.entries()){
+        const drop=isFlat(car,i)?flatWheelDrop:0;
+        wheel.rotation.x-=car.speed*dt/view.tire;
+        wheel.position.y=view.tire+(car.suspension?.wheels[i]??-drop);
+        patch.value.set(drop,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
+      }
       const t=car.takeover?.progress??0;
       door.rotation.y=-1.05*smooth(t,0,.24)*(1-smooth(t,.75,1));
       brake.visible=!!car.takeover || (car.npcDriver!=null && Math.abs(car.speed)<1);
