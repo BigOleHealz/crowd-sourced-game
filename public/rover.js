@@ -5,7 +5,7 @@ import {tipFurniture} from './shop-furniture.js';
 import {noteGlass} from './pane-damage.js';
 import {breakFrontage,shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP} from './street-lamps.js';
-import { roadContact, sweepRoad } from './road-contact.js';
+import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
@@ -57,11 +57,36 @@ function roadByKind(world,kind){
   return kind==='rover' || kind==='supercar' ? world[kind] : world.traffic?.find(car=>car.id===kind);
 }
 
+export function clearRoadExit(world,car,preferred=-1){
+  const hull=roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const width=hull.halfWidth+.52,length=hull.halfLength+.52;
+  const positions=[];
+  for(const extra of [0,.55]){
+    for(const aft of [-.22,.55,-.67])for(const side of [preferred,-preferred])positions.push([side*(width+extra),aft]);
+    positions.push([0,length+extra],[0,-length-extra]);
+  }
+  for(const [side,aft] of positions){
+    const dx=side*c-aft*s,dz=side*s+aft*c,x=car.x+dx,z=car.z+dz;
+    const y=groundHeight(x,z,car.y+.9,world.doors);
+    if(y<=MAP.waterY+.1 || Math.abs(y-car.y)>.8 || vehicleContact(x,y,z,world,CITY).depth)continue;
+    // Test the path as well as the landing spot: a thin wall or closed door
+    // must not let a passenger emerge on its far side.
+    let clear=true;
+    const steps=Math.ceil(Math.hypot(dx,dz)/.23);
+    for(let i=1;i<=steps && clear;i++){
+      const t=i/steps;
+      clear=!blocked(car.x+dx*t,car.y+(y-car.y)*t,car.z+dz*t,world.hp,world.doors);
+    }
+    if(clear)return {x,y,z,grounded:true,vy:0};
+  }
+}
+
 export function interactRover(world, player,kind='rover') {
   const r = roadByKind(world,kind);
   if(!r)return;
   const sport=kind==='supercar';
-  if (r.gunner === player.id) r.gunner=null;
+  const wasGunner=r.gunner===player.id;
+  if (wasGunner) r.gunner=null;
   else if (r.driver === player.id) {
     r.driver=null;stopRover(r);
     if(r.takeover)r.takeover.playerId=null;
@@ -73,18 +98,7 @@ export function interactRover(world, player,kind='rover') {
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
-  let exit = world.rules?.spawn(player) ?? spawn(player.id-1);
-  for (let i=0; i<8; i++) {
-    const radius=sport?(i%4===0?1.56:2.75):1.7;
-    const angle = r.yaw + i*Math.PI/4;
-    const x = r.x + radius*Math.cos(angle), z = r.z + radius*Math.sin(angle);
-    const y = groundHeight(x,z,Infinity,world.doors);
-    if (y <= MAP.waterY+.1 || Math.abs(y-r.y) > .8 || blocked(x,y,z,world.hp,world.doors)) continue;
-    if (vehicleContact(x,y,z,world,CITY).depth>0) continue;
-    exit = {x,y,z,vy:0,grounded:true};
-    break;
-  }
-  player.state = exit;
+  player.state=clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
 }
 
 export function damageRover(world, amount, players,kind='rover',team) {
