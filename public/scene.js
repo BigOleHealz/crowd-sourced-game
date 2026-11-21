@@ -36,7 +36,7 @@ import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSm
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
-import {createRangerRig,poseRig} from './ranger-pose.js';
+import {createRangerRig,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
@@ -1348,6 +1348,7 @@ export function createScene(canvas) {
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
         if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(entering)poseTakeover(a,entering,state.id);
+        else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
           a.root.rotation.y=-world.yacht.yaw;
           for(const kit of a.tools)kit.visible=false;

@@ -1,5 +1,7 @@
 import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
+import {poseRoadBoarding} from './ranger-pose.js';
+import {roadCabin,boardingDoorAngle} from './road-cabin.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
@@ -65,7 +67,7 @@ function wheelModel(Batch,tire,depth,van){
 function model(Batch,type,materials){
   const {paint,roofEnd,cabinEnd,topFront}=fleet[type];
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
-  const van=type==='van',hatch=type==='hatchback';
+  const van=type==='van',hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
   const body=new Batch(),leaf=new Batch(),glass=new Batch(),lamps=new Batch();
@@ -118,8 +120,8 @@ function model(Batch,type,materials){
     for(const z of [post-.15,...(van?[]:[cabinEnd-.25])]){
       const moving=side===-1 && z<post,b=moving?leaf:body;
       const x=side*(w-.006)-(moving?hinge:0),along=z-(moving?front:0);
-      b.add(seatPad,0x384248,x,.839,along,.020,.030,.116);
-      b.add(seatPad,van?trim:alloy,x+side*.014,.85,along,.022,.022,.088);
+      b.add(seatPad,0x384248,x,.839+lift,along,.020,.030,.116);
+      b.add(seatPad,van?trim:alloy,x+side*.014,.85+lift,along,.022,.022,.088);
     }
     // Door mirror, painted shell and reflective inset on an angled stalk.
     const moving=side===-1,b=moving?leaf:body,x=moving?0:side*(w-.025),z=front+.18-(moving?front:0);
@@ -291,18 +293,18 @@ function model(Batch,type,materials){
   box(body,trim,0,.61,.04,1.32,.14,2.01);
   for(const side of [-1,1])for(const z of (van?[-.28]:[-.28,.62])){
     const x=side*.42,cloth=van?0x4b5157:0x444b52;
-    body.add(seatPad,cloth,x,.63,z,.249,.093,.245);
-    body.add(seatPad,cloth,x,.83,z+.19,.229,.22,.13,-.11);
-    for(const edge of [-1,1])body.add(seatPad,0x545b60,x+edge*.17,.83,z+.12,.058,.19,.076,-.12);
-    body.add(seatPad,cloth,x,1.096,z+.218,.14,.105,.089,-.10);
+    body.add(seatPad,cloth,x,.63+lift,z,.249,.093,.245);
+    body.add(seatPad,cloth,x,.83+lift,z+.19,.229,.22,.13,-.11);
+    for(const edge of [-1,1])body.add(seatPad,0x545b60,x+edge*.17,.83+lift,z+.12,.058,.19,.076,-.12);
+    body.add(seatPad,cloth,x,1.096+lift,z+.218,.14,.105,.089,-.10);
   }
   box(body,trim,0,.91,front+.125,w*1.72,.11,.35);
   box(body,0x23292d,-.41,.965,front+.19,.38,.087,.14);
   box(body,0x53666e,-.41,.97,front+.269,.235,.053,.01);
   box(body,0x606c6f,0,.905,front+.314,.21,.069,.016);
   box(body,trim,0,.715,-.24,.24,.15,.65);
-  body.add(ring,rubber,-.43,1.05,-.65,1,1,1,-.42);
-  for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027,-.65],[x,1.064,-.65],.022);
+  body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
+  for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
   const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
   const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
@@ -371,8 +373,8 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
         wheel.position.y=view.tire+(car.suspension?.wheels[i]??-drop);
         patch.value.set(drop,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
       }
-      const t=car.takeover?.progress??0;
-      door.rotation.y=-1.05*smooth(t,0,.24)*(1-smooth(t,.75,1));
+      const t=car.takeover?.progress??car.boarding?.progress??0;
+      door.rotation.y=boardingDoorAngle(t);
       view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && car.blink && car.turnSignal===(i?1:-1);});
       brake.visible=!!car.takeover || (car.npcDriver!=null && Math.abs(car.speed)<1);
     }
@@ -383,35 +385,21 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
 // the corresponding instant of the same door, reach, extraction and entry.
 export function poseTakeover(avatar,car,id){
   const action=car.takeover,t=action.progress;
-  const seat=mountPosition(car,[-.43,car.model==='van'?-.12:-.22,-.28]);
-  const npc=id===action.npcId;
-  const exit=smooth(t,.18,.76),enter=smooth(t,.65,.98);
-  const stumble=Math.sin(Math.PI*exit),reach=Math.sin(Math.PI*smooth(t,.07,.67));
-  const door=mountPosition(car,[-1.16,0,-.26]);
+  if(id===action.playerId){poseRoadBoarding(avatar,car,action);return;}
+  const seat=mountPosition(car,roadCabin(car).seat);
+  const exit=smooth(t,.18,.76),inSeat=1-exit,stumble=Math.sin(Math.PI*exit);
   const {root,body,spine,limbs}=avatar;
-  const inSeat=npc ? 1-exit : enter;
   avatar.gait=null;
   root.scale.setScalar(mix(1,.91,inSeat));
   if(avatar.civilian){root.scale.x*=avatar.civilian.width;root.scale.y*=avatar.civilian.height;}
-  if(npc){
-    root.position.set(mix(seat.x,action.endX,exit),mix(seat.y,car.y,exit)+.20*stumble,mix(seat.z,action.endZ,exit));
-    root.rotation.set(.12*stumble,-car.yaw-.96*exit,.69*stumble,'YXZ');
-    body.position.set(0,-.18*stumble,0);spine.rotation.set(-.21*stumble,.20*stumble,0);
-  }else{
-    const approach=smooth(t,0,.21);
-    root.position.set(mix(mix(action.startX,door.x,approach),seat.x,enter),
-      mix(mix(action.startY,car.y,approach),seat.y,enter),
-      mix(mix(action.startZ,door.z,approach),seat.z,enter));
-    root.rotation.set(0,-car.yaw-1.52*(1-enter),0,'YXZ');
-    spine.rotation.set(-.27*reach,0,0);
-    body.position.set(0,-.13*reach,0);
-  }
+  root.position.set(mix(seat.x,action.endX,exit),mix(seat.y,car.y,exit)+.20*stumble,mix(seat.z,action.endZ,exit));
+  root.rotation.set(.12*stumble,-car.yaw-.96*exit,.69*stumble,'YXZ');
+  body.position.set(0,-.18*stumble,0);spine.rotation.set(-.21*stumble,.20*stumble,0);
   for(const {arm,forearm,knee,leg,ankle,side} of limbs){
-    arm.rotation.set(npc?.96*inSeat+.67*stumble:1.0*inSeat+1.22*reach,0,side*(npc?.42*stumble:.14));
-    forearm.rotation.set(.22+.28*inSeat+.36*reach,0,0);
-    leg.rotation.set(1.36*inSeat+(npc?.35*side*stumble:.20*reach),0,side*.10*stumble);
-    knee.rotation.set(-1.30*inSeat-.34*stumble,0,0);
-    ankle.rotation.set(0,0,0);
+    arm.rotation.set(.96*inSeat+.67*stumble,0,side*.42*stumble);
+    forearm.rotation.set(.22+.28*inSeat,0,0);
+    leg.rotation.set(1.36*inSeat+.35*side*stumble,0,side*.10*stumble);
+    knee.rotation.set(-1.30*inSeat-.34*stumble,0,0);ankle.rotation.set(0,0,0);
   }
   for(const tool of avatar.tools)tool.visible=false;
 }

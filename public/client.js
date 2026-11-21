@@ -1,3 +1,4 @@
+import {boardingSeconds} from './road-cabin.js';
 import {hotelEntrance} from './maravela-hotel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {roadFraming} from './road-chase.js';
@@ -515,7 +516,9 @@ function remoteFrame(time) {
     const moment=t<.5?old:car;
     if(old.driver!==car.driver || old.wrecked!==car.wrecked || Math.hypot(old.x-car.x,old.z-car.z)>9)return moment;
     // Discrete lamp, tire and crew state follows the nearer simulation tick.
-    return {...moment,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
+    const boarding=old.boarding && car.boarding
+      ? {...car.boarding,progress:mix(old.boarding.progress,car.boarding.progress,t)} : moment.boarding;
+    return {...moment,boarding,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
       yaw:angleMix(old.yaw,car.yaw,t),speed:mix(old.speed,car.speed,t),lateralSpeed:mix(old.lateralSpeed??0,car.lateralSpeed??0,t),steer:mix(old.steer??0,car.steer??0,t),
       suspension:Boolean(old.bridgeFlight)!==Boolean(car.bridgeFlight)?car.suspension:interpolateSuspension(old.suspension,car.suspension,t)};
   }
@@ -760,6 +763,12 @@ function frame(time) {
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
       const kind=predictedDriver.kind, pose=predictedDriver.pose(t);
+      const localCar=predictedDriver.vehicleId ? myRoad() : world[kind];
+      if(localCar?.boarding || localCar?.takeover){
+        const elapsed=clamp((time-(samples.at(-1)?.time??time))*.001,0,.075);
+        const key=localCar.boarding?'boarding':'takeover',action=localCar[key];
+        pose[key]={...action,progress:Math.min(1,action.progress+elapsed/(key==='boarding'?boardingSeconds:.95))};
+      }
       if(kind==='boat')traffic.boats=world.boats.map(b=>b.driver===id ? {...b,...pose} : traffic.boats.find(v=>v.id===b.id)??b);
       else if(predictedDriver.vehicleId){
         traffic.traffic=world.traffic.map(v=>v.id===predictedDriver.vehicleId?{...v,...pose}:traffic.traffic?.find(c=>c.id===v.id)??v);
