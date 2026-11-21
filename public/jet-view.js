@@ -1,3 +1,4 @@
+import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
 import * as THREE from 'three';
 
 // Cross-sections along the fuselage and engine pods, in the model's -Z nose frame.
@@ -40,10 +41,10 @@ export function jetView(scene,Batch){
   const nozzle=new THREE.CylinderGeometry(1,1,1,24);
   for(const side of [-1,1]){
     const wing=(color,pts,y,h)=>body.add(plate(pts.map(([x,z])=>[side*x,z]),h),color,0,y,0);
-    wing(belly,[[.40,-1.44],[.71,-1.20],[2.82,.64],[2.78,1.12],[1.46,.96],[.48,.63]],.88,.095);
+    wing(belly,wingOutline,.88,.095);
     wing(edge,[[1.37,.70],[2.77,.84],[2.75,1.10],[1.40,.94]],.981,.013);
-    wing(steel,[[.39,1.44],[.68,1.48],[1.68,2.31],[1.63,2.55],[.44,2.18]],1,.068);
-    wing(0x85929a,[[.38,-1.88],[.65,-1.31],[1.12,-.53],[.46,-.67]],1.07,.07);
+    wing(steel,tailOutline,1,.068);
+    wing(0x85929a,strakeOutline,1.07,.07);
     // Thin access panels, flap seams and subdued wing markings break up the skin.
     wing(0x677982,[[.78,-.86],[.89,-.75],[1.69,.15],[1.48,.08]],.979,.006);
     wing(0x657580,[[1.57,.20],[1.74,.27],[1.95,.45],[1.64,.42]],.979,.006);
