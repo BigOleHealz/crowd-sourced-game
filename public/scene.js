@@ -1043,10 +1043,10 @@ function updateSwimRipples(avatar,state) {
   }
 }
 
-function pose(avatar,state,dt,seated,station) {
+function pose(avatar,state,dt,seated,station,doors) {
   if(state.fall?.joints) {poseRagdoll(avatar,state,dt);return;}
   releaseRagdoll(avatar);
-  poseRig(avatar,state,dt,seated,station);
+  poseRig(avatar,state,dt,seated,station,doors);
   updateSwimRipples(avatar,state);
 }
 
@@ -1333,7 +1333,7 @@ export function createScene(canvas) {
       if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
-        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station);
+        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
         if(entering)poseTakeover(a,entering,state.id);
         if(skipper){
           a.root.rotation.y=-world.yacht.yaw;

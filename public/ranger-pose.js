@@ -1,6 +1,6 @@
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
-import {newGait,advanceGait,newFoot,placeFoot} from './locomotion.js';
+import {newGait,advanceGait,newFoot,placeFoot,bootSupport} from './locomotion.js';
 import {groundHeight,stanceDrop} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
@@ -38,7 +38,7 @@ function gripPose(arm,forearm,x,y,z,side,prone=false) {
   forearm.quaternion.setFromUnitVectors(downArm,segment.applyQuaternion(inverseUpper));
 }
 
-export function poseRig(avatar,state,dt,seated=null,station=null) {
+export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   const fall = state.fall, climb=state.climb;
   const onFoot=!fall && !seated && !station && !state.dead && state.grounded!==false && !state.parachute;
   const prone=onFoot && state.stance==='prone';
@@ -47,7 +47,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
   if(onFoot) {
     if(!gait || Math.hypot(state.x-gait.x,state.z-gait.z)>1.8) {
       gait=avatar.gait=newGait(state,avatar.initialized ? avatar.root.rotation.y : -state.yaw);
-      for(const limb of avatar.limbs) limb.foot.planted=false;
+      for(const limb of avatar.limbs){limb.foot.planted=false;limb.foot.sampleY=undefined;}
     }
     advanceGait(gait,state,Math.max(.001,dt));
     if(crouch)gait.pelvisY-=stanceDrop(state)-.055;
@@ -156,18 +156,15 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       ankle.rotation.set(-.52,0,0);
     } else if(gait) {
       placeFoot(gait,foot,side);
-      const c=Math.cos(gait.yaw),s=Math.sin(gait.yaw);
-      const wx=state.x+c*foot.sideOffset+s*foot.forwardOffset;
-      const wz=state.z-s*foot.sideOffset+c*foot.forwardOffset;
-      const slope=clamp(groundHeight(wx,wz)-groundHeight(state.x,state.z),-.15,.15);
-      const down=leg.position.y+gait.pelvisY-.134-foot.lift-slope;
+      const floor=bootSupport(foot,state.y,gait.yaw,doors,groundHeight);
+      const down=leg.position.y+gait.pelvisY-.126-foot.lift-floor/avatar.root.scale.y;
       const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
       const vertical=Math.hypot(down,lateral);
       const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
       const hipBend=Math.acos(clamp((.405**2+distance**2-.395**2)/(.81*distance),-1,1));
       leg.rotation.set(Math.atan2(-foot.forwardOffset,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
       knee.rotation.x=-Math.acos(clamp((distance**2-.405**2-.395**2)/(2*.405*.395),-1,1));
-      ankle.rotation.x=foot.pitch-leg.rotation.x-knee.rotation.x;
+      ankle.rotation.x=(foot.floorPitch??0)+(foot.planted?foot.pitch*.25:foot.pitch)-leg.rotation.x-knee.rotation.x;
       ankle.rotation.z=-leg.rotation.z;
     } else {
       leg.rotation.set(station ? .08 : seated ? 1.36 : airborne ? .20*side : .14,0,0,'ZXY');
@@ -250,7 +247,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
     }
   }
   if(!avatar.shadow)return;
-  const y=groundHeight(state.x,state.z),height=clamp(state.y-y,0,1.75);
+  const y=groundHeight(state.x,state.z,state.y+.28,doors),height=clamp(state.y-y,0,1.75);
   avatar.shadow.position.set(state.x,y+.026,state.z);
   avatar.shadow.rotation.y = prone ? avatar.root.rotation.y : fall ? -fall.yaw : 0;
   if (collapse) {

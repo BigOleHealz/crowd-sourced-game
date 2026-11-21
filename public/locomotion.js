@@ -36,7 +36,14 @@ export function advanceGait(g,state,dt) {
   // A full cycle is two steps. Faster runners lengthen the stride and spend
   // less of each cycle on the supporting leg.
   const stride=1.08+.405*g.speed;
-  g.phase=(g.phase+distance/stride+Math.abs(turn)*.43*(1-g.weight))%1;
+  // Finish the trailing step after a sprint rather than freezing at mid-swing.
+  if(g.speed>3.2)g.finishStep=true;
+  const settling=g.finishStep && g.speed<.75;
+  if(settling && (g.settleTarget==null))g.settleTarget=(Math.floor(g.phase*2)+1)*.5-g.phase;
+  const settle=settling?Math.min(g.settleTarget,dt*1.55):0;
+  if(settling && (g.settleTarget-=settle)<.0001){g.finishStep=false;g.settleTarget=null;}
+  if(!settling)g.settleTarget=null;
+  g.phase=(g.phase+distance/stride+Math.abs(turn)*.68*(1-g.weight)+settle)%1;
   g.duty=.58-.30*smooth(clamp((g.speed-.7)/6.5,0,1));
   g.span=stride*g.duty*g.weight;
   const bounce=-Math.cos(tau*(2*g.phase-g.duty));
@@ -44,7 +51,7 @@ export function advanceGait(g,state,dt) {
   // planted leg, with a smaller vertical excursion as cadence increases.
   g.pelvisY=-.065-g.weight*(.031+.071*g.run)+bounce*g.weight*(.017+.018*g.run);
   g.pelvisX=.016*(1-g.weight)+.029*Math.cos(tau*(g.phase-g.duty/2))*g.weight;
-  g.footLift=g.weight*(.065+.245*g.run)+g.pivot*.085;
+  g.footLift=g.weight*(.065+.245*g.run)+g.pivot*.11+(settling?.045:0);
 }
 
 export function newFoot() {return {planted:false,x:0,z:0,sideOffset:0,forwardOffset:0,lift:0,pitch:0};}
@@ -74,6 +81,21 @@ export function placeFoot(g,foot,side) {
   foot.forwardOffset=s*dx+c*dz;
   const arc=Math.sin(Math.PI*swing);
   foot.lift=arc*arc*(1.4-.8*swing)*g.footLift;
+  foot.wx=x;foot.wz=z;
   const roll=phase<g.duty ? -.16+.55*smooth(phase/g.duty) : .39*Math.cos(Math.PI*swing);
   foot.pitch=-roll*g.weight;
+}
+
+// Probe the tread below this boot at the actor's current storey. A toe sample
+// follows a continuous slope, while a stair lip leaves the sole level.
+export function bootSupport(foot,feetY,yaw,doors,height){
+  if(foot.sampleY===feetY && Math.hypot(foot.wx-foot.sampleX,foot.wz-foot.sampleZ)<.015 &&
+     Math.abs(wrap(yaw-foot.sampleYaw))<.035)return foot.floor;
+  foot.sampleX=foot.wx;foot.sampleZ=foot.wz;foot.sampleY=feetY;foot.sampleYaw=yaw;
+  const floor=height(foot.wx,foot.wz,feetY+.26,doors);
+  const toe=height(foot.wx-Math.sin(yaw)*.17,foot.wz-Math.cos(yaw)*.17,feetY+.26,doors);
+  const delta=toe-floor;
+  foot.floorPitch=Math.abs(delta)<.095?Math.atan2(delta,.17):0;
+  foot.floor=Math.abs(floor-feetY)<.37?floor-feetY:0;
+  return foot.floor;
 }
