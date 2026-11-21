@@ -1,3 +1,4 @@
+import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
 import {tireMix,tireLoop} from './tire-road-sound.js';
 import {acousticSpace,transmission} from './acoustic-space.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
@@ -12,6 +13,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='patrol-siren')return sirenLoop(context);
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
   if(name==='horn'){
     const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*.43),rate),samples=buffer.getChannelData(0);
@@ -269,6 +271,15 @@ export function createGameAudio(button,slider,level) {
     for(const key of loops.keys())if(key.startsWith('tread/') && !active.has(key))stopMotor(key);
   }
   let lastJetRange=null;
+  function patrolSiren(listener,yaw,cars=[]){
+    let nearest,range=120;
+    for(const car of cars){
+      if(!signalingCruiser(car))continue;
+      const d=Math.hypot(car.x-listener.x,car.y-listener.y,car.z-listener.z);
+      if(d<range){range=d;nearest=car;}
+    }
+    motor('patrol-siren',nearest,!!nearest,1,.68,listener,yaw);
+  }
   function jetEngine(listener,yaw,jet,dt){
     const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
     if(!jet || jet.wrecked || Math.abs(jet.speed)<.15 || range>225 || !audible()){
@@ -290,5 +301,5 @@ export function createGameAudio(button,slider,level) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,trafficEngines,roadTires,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
 }
