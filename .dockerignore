@@ -2,8 +2,7 @@
 !Dockerfile
 !package.json
 !package-lock.json
-!server.js
-!island-match.js
+!*.js
 !public/
 !public/*.html
 !public/*.css
