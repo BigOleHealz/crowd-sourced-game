@@ -191,13 +191,33 @@ export function estateCollection(scene,Batch,refreshShadows){
     });
     return true;
   }
-  function picture(home,x,y,z,w,h,side,tile){
+  function picture(home,x,y,z,w,h,side,tile,yaw=0){
     item(home,x,y,z,put=>{
-      put(box,walnut,0xe4c397,0,0,0,w,h,.081);
-      put(box,marble,gold,0,0,side*.045,w-.07,h-.07,.019);
-      put(box,linen,ivory,0,0,side*.058,w-.095,h-.095,.016);
-      put(box,tile,0xfffcf5,0,0,side*.073,w-.21,h-.21,.014);
+      const inset=(texture,tint,offset,width,height,depth)=>
+        put(box,texture,tint,Math.sin(yaw)*side*offset,0,Math.cos(yaw)*side*offset,width,height,depth,0,yaw);
+      inset(walnut,0xe4c397,0,w,h,.081);
+      inset(marble,gold,.045,w-.07,h-.07,.019);
+      inset(linen,ivory,.058,w-.095,h-.095,.016);
+      inset(tile,0xfffcf5,.073,w-.21,h-.21,.014);
     },true);
+  }
+  function tabletop(home,p){
+    const {kind,x,z,w,d,bottom,h}=p,casa=home==='casa',across=w>d;
+    const offset=(across?w:d)*(casa && kind==='console'?-.30:.31);
+    const position=across?[x+offset,z]:[x,z+offset];
+    item(home,position[0],bottom,position[1],put=>{
+      const y=h-bottom,tint=casa?0xb88a65:0x64847b;
+      put(stone,marble,casa?ivory:0xb0a988,0,y+.02,0,.38,.045,.30);
+      put(vase,marble,tint,-.055,y+.043,-.038,.13,.22,.13);
+      put(vase,marble,0xc4b18b,.083,y+.043,.037,.092,.155,.092);
+      for(let n=0;n<3;n++)put(leaf,linen,[0x56674a,0x7d885c,0x697c56][n],
+        -.05,y+.24,-.038,.06,.19,.08,.35+n*.21,n*2,.25-n*.22);
+      if(casa){
+        put(drum,marble,gold,0,y+.023,-.18,.144,.047,.144);
+        put(pin,marble,gold,0,y+.142,-.18,.023,.22,.023);
+        put(drum,linen,0xffe3ba,0,y+.270,-.18,.25,.15,.25);
+      }
+    });
   }
   function carpet(home,x,y,z,w,d,field,border){
     item(home,x,y,z,(put,batch,rugShadows)=>{
@@ -311,5 +331,5 @@ export function estateCollection(scene,Batch,refreshShadows){
       previous=key;for(const group of Object.values(groups))updateGroup(group,doors,state);
     };
   }
-  return {furnish,picture,carpet,brassMobile,finish,abstract,harbor};
+  return {furnish,picture,tabletop,carpet,brassMobile,finish,abstract,harbor};
 }

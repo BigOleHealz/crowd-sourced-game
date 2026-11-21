@@ -37,5 +37,5 @@ export function outpostOpenings(b,p,terrain){
       }
     }
   }
-  part(x-w*.30,z-d*.26,1.44,.68,0,.83,'desk');
+  if(b.garage)part(x-w*.30,z-d*.26,1.44,.68,0,.83,'desk');
 }

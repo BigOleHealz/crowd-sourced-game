@@ -190,8 +190,17 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
         }
         continue;
       }
-      const seated=motion.start(sofa.piece);
       const su=(sofa.x-x)*side,sv=(z-sofa.z)*side,sw=sofa.w;
+      if(palette){
+        const rugZ=(sv+(z-table.z)*side)/2,accent=palette.piping;
+        const rugW=sw+.22,rugD=Math.min(2.04,depth*.42);
+        trim(8,palette.upholstery,su,.012,rugZ,rugW,.014,rugD);
+        for(const s of [-1,1]){
+          trim(8,accent,su+s*(rugW/2-.069),.023,rugZ,.025,.008,rugD-.10);
+          trim(8,accent,su,.023,rugZ+s*(rugD/2-.057),rugW-.11,.008,.025);
+        }
+      }
+      const seated=motion.start(sofa.piece);
       trim(2,0x705c47,su,.21,sv,sw-.05,.20,.68);
       for(const s of [-1,1]){
         orb(cushion,fabric,linen,su+s*sw*.218,.425,sv-.042,sw*.215,.112,.305);

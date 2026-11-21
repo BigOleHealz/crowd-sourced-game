@@ -1,4 +1,6 @@
-// Fixed capacity for two patrol boats and Solana. Samples stay in world space
+import {marinaModel} from './marina-fleet-layout.js';
+
+// Samples stay in world space
 // after the stern passes, including during a turn or a stop.
 export const wakeCapacity=28,wakeLife=3.3,wakeInterval=.125;
 export class WakeTrail{
@@ -11,12 +13,13 @@ export class WakeTrail{
     this.time+=dt;
     while(this.count && this.time-this.at(this.count-1).time>=wakeLife)this.count--;
     if(!b || b.wrecked || Math.abs(b.speed)<.8 || this.time-this.stamp<wakeInterval-1e-6)return;
-    const yacht=b.id==='superyacht',stern=yacht?(b.speed>0?20:-16):(b.speed>0?2.05:-2.1);
+    const yacht=b.id==='superyacht',wake=marinaModel(b)?.wake;
+    const stern=wake?(b.speed>0?wake.ahead:wake.astern):yacht?(b.speed>0?20:-16):(b.speed>0?2.05:-2.1);
     const c=Math.cos(b.yaw),s=Math.sin(b.yaw),x=b.x-stern*s,z=b.z+stern*c;
     if(this.count && Math.hypot(x-this.at(0).x,z-this.at(0).z)>10)this.count=0;
     const q=this.pool[this.head];
-    q.x=x;q.z=z;q.y=b.y+.038;q.time=this.time;q.c=c;q.s=s;q.beam=yacht?3.5:.70;
-    q.power=Math.min(1,Math.abs(b.speed)/(yacht?3.8:8));
+    q.x=x;q.z=z;q.y=b.y+.038;q.time=this.time;q.c=c;q.s=s;q.beam=wake?.beam??(yacht?3.5:.70);
+    q.power=Math.min(1,Math.abs(b.speed)/(wake?.power??(yacht?3.8:8)));
     this.stamp=this.time;this.head=(this.head+1)%wakeCapacity;this.count=Math.min(wakeCapacity,this.count+1);
   }
 }

@@ -17,7 +17,8 @@ import {shatterPane} from './frontage-glass.js';
 import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
-import {patrolFleet,damageBoat,crewBoat} from './patrol-boats.js';
+import {patrolFleet,marinaFleet,damageBoat,crewBoat} from './patrol-boats.js';
+import {marinaHullContains} from './marina-fleet-layout.js';
 import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
@@ -44,11 +45,11 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
   world.shots.push({id:nextShotId++,weapon:'vehicleWreck',source,surface,from:at,to:at,tick});
 }
 
-export function newExpedition() {
+export function newExpedition({civilianMarina=true}={}) {
   return {
     doors:CITY?newStorefrontDoors():{},
     ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar(),tank:parkedTank()} : {}),
-    jet:parkedJet(), heli: parkedHelicopter(), rover: parkedRover(), boats:patrolFleet(),
+    jet:parkedJet(), heli: parkedHelicopter(), rover: parkedRover(), boats:[...patrolFleet(),...(civilianMarina?marinaFleet():[])],
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
@@ -197,9 +198,11 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       hitKind=road.id??road.kind??'rover';target=road;break;
     }
     const boat=world.boats?.find(b=>{
-      if(b.wrecked||b.id===sourceVehicle||to.y<b.y-.50-halo||to.y>b.y+1.05+halo)return false;
+      if(b.wrecked||b.id===sourceVehicle)return false;
+      if(b.boatModel)return marinaHullContains(b,to.x,to.y,to.z,halo);
       const dx=to.x-b.x,dz=to.z-b.z,c=Math.cos(b.yaw),s=Math.sin(b.yaw);
-      return Math.abs(dx*c+dz*s)<=1.04+halo && Math.abs(-dx*s+dz*c)<=2.65+halo;
+      const side=Math.abs(dx*c+dz*s),along=-dx*s+dz*c,up=to.y-b.y;
+      return up>=-.50-halo && up<=1.05+halo && side<=1.04+halo && Math.abs(along)<=2.65+halo;
     });
     if(boat){target=boat;hitKind=boat.id;break;}
     const direct=intersections[0];

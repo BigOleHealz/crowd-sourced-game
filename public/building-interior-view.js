@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import {interiorPlans,doorIsOpen,landingValid,roomAtFeet} from './building-interiors.js';
 import {furnishingSupported} from './estate-damage.js';
+import {residentialFurnishingView} from './residential-furnishing-view.js';
 
 // Reuse two bounded instance buffers: nearby entrances and a single furnished floor.
-export function buildingInteriorView(scene){
+export function buildingInteriorView(scene,Batch){
+  const furnish=residentialFurnishingView(scene,Batch);
   const geometry=new THREE.BoxGeometry(),material=new THREE.MeshLambertMaterial();
   const buffer=new THREE.InstancedMesh(geometry,material,980);
   buffer.userData.interiorFixtures=true;buffer.frustumCulled=false;buffer.count=0;scene.add(buffer);
@@ -67,6 +69,9 @@ export function buildingInteriorView(scene){
   }
   return (feet,doors,dt)=>{
     const room=roomAtFeet(feet,doors),l=room?.l;
+    const model=l?.residential??room?.p.residential;
+    if(model)furnish(model,{x:room.p.x,y:l?.y??room.p.b.base,z:room.p.z});
+    else furnish(null);
     const changedArea=Math.abs(feet.x-lastX)>6 || Math.abs(feet.z-lastZ)>6;
     if(changedArea){lastX=feet.x;lastZ=feet.z;nearby=interiorPlans.filter(p=>Math.abs(p.x-feet.x)<p.w/2+20 && Math.abs(p.z-feet.z)<p.d/2+20);}
     const newBits=JSON.stringify(doors?.roomLeaves??{}),newRev=(doors?.collapsedTowers?.length??0)+(doors?.estateBreaches?.length??0)+Object.keys(doors?.houseRuins??{}).length+Object.keys(doors?.beachWood??{}).length;
@@ -79,7 +84,7 @@ export function buildingInteriorView(scene){
       part(0xe3dac6,b.x,l.y+l.height-.085,b.z,b.w-.42,.12,b.d-.42);
       part(0x577074,b.x,l.y+.009,b.z,1.77,.016,b.d-.85);
       for(const q of l.parts)part(q.color,q.x,q.bottom+q.h/2,q.z,q.w,q.h,q.d);
-      for(const r of l.rooms){
+      if(!model)for(const r of l.rooms){
         part(0xb39773,r.x,l.y+.011,r.z,r.w*.73,.017,r.d*.69);
         part(0xf2deb1,r.x,l.y+l.height-.17,r.z,.55,.035,.3);
       }
