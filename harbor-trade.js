@@ -12,7 +12,7 @@ export function walletView(player,tick){
 function addGoods(bag,items){
   for(const [sku,count] of Object.entries(items))bag[sku]=(bag[sku]??0)+count;
 }
-function onFoot(world,p){
+export function canUseInventory(world,p){
   return p.life.hp>0 && !p.life.fall && p.state.grounded && !p.state.climb && !p.state.swimming &&
     !p.state.parachute && world.jet.pilot!==p.id && world.tank?.driver!==p.id &&
     world.yacht?.driver!==p.id && world.yacht?.gunner!==p.id && !seatVehicle(world,p.id) && !drivenRoad(world,p.id);
@@ -73,7 +73,7 @@ export function harborTrade(world,notify){
     }
     if(tick>=nextDelivery)nextDelivery=tick+stockDelivery;
     if(!state.drops.length)return;
-    const buyers=[...players.values()].filter(p=>onFoot(world,p) || (p.life.hp && !p.life.fall && p.state.swimming));
+    const buyers=[...players.values()].filter(p=>canUseInventory(world,p) || (p.life.hp && !p.life.fall && p.state.swimming));
     for(let i=state.drops.length-1;i>=0;i--){
       const d=state.drops[i];
       let buyer=null,nearest=1.22;
@@ -115,7 +115,7 @@ export function harborTrade(world,notify){
     if(!Number.isSafeInteger(input.seq) || input.seq<1 || input.seq<=(player.tradeSeq??0))return;
     player.tradeSeq=input.seq;
     const reply=message=>notify(player,tick,message,input.seq);
-    if(!onFoot(world,player))return reply('Stand on foot to use your inventory.');
+    if(!canUseInventory(world,player))return reply('Stand on foot to use your inventory.');
     const {action,item}=input;
     if(action!=='takeAll' && (typeof item!=='string' || !Object.hasOwn(goods,item)))return reply('Unknown item.');
     if(action==='use')return reply(use(player,item,tick));
@@ -139,5 +139,8 @@ export function harborTrade(world,notify){
     state.revision++;
     reply(action==='takeAll'?'Collected the remaining stock.':(price?'Bought ':'Collected ')+goods[item].name+'.');
   }
-  return {state,assign,step,request};
+  function award(player,amount,tick,message){
+    player.wallet.cash+=amount;notify(player,tick,message);
+  }
+  return {state,assign,step,request,award};
 }

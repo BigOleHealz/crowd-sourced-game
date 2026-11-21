@@ -1,3 +1,4 @@
+import {atBankDesk,bankPrompt,bankClaimSeconds} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
 import {createTouchControls,touchLayout} from './touch-controls.js';
@@ -117,6 +118,10 @@ const market=marketPanel(byId('market-panel'),byId('wallet'),{
 });
 function counter(){
   return world?.market && !vitals.use && canChangeStance(self)?atMarketCounter(self):null;
+}
+let bankSeq=0,bankReceiptUntil=0;
+function teller(){
+  return world?.bank && !vitals.use && canChangeStance(self) && atBankDesk(self) ? bankPrompt(world.bank,id) : null;
 }
 function openBag(){if(world?.market && canChangeStance(self) && !touchBlocked())market.open();}
 byId('wallet').onclick=openBag;
@@ -284,6 +289,11 @@ function pressAction(code){
   if(code==='KeyE'){
     const shop=counter();
     if(shop){market.open(shop);return;}
+    const bank=teller();
+    if(bank){
+      if(bank.action && socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action:bank.action,seq:++bankSeq}));
+      return;
+    }
     const person=speaker();
     if(person)talk.open(person);
     else queuedInteract=vitals.use;
@@ -422,7 +432,13 @@ function connect() {
     }).catch(error => {console.error(error); connection.close();});
   };
   function receive(m) {
-    if(m.type==='wallet'){market.receive(m);return;}
+    if(m.type==='wallet'){
+      market.receive(m);
+      if(m.message?.startsWith('Bank payout')){
+        byId('bank-receipt').textContent=m.message;bankReceiptUntil=performance.now()+5500;
+      }
+      return;
+    }
     if(m.type==='marinaBoard'){sprintBoard=m.rows;return;}
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
@@ -495,7 +511,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
-    market.reset();
+    market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -729,6 +745,11 @@ function updateEquipment(local) {
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
+  const bank=teller();
+  const claimMeter=byId('bank-progress');
+  claimMeter.hidden=!bank || world.bank.phase!=='claiming';
+  if(!claimMeter.hidden){claimMeter.max=bankClaimSeconds;claimMeter.value=bankClaimSeconds-world.bank.seconds;}
+  byId('bank-receipt').hidden=bankReceiptUntil<=performance.now();
   const shop=counter(),shopLabel=shop && (world.market.shops[shop.id].down?'Loot counter':'Shop with '+(world.npcs.find(n=>n.id===shop.owner)?.name??shop.name));
   market.update(world,shop,canChangeStance(self));
   const person=!talk.current && speaker();
@@ -742,6 +763,7 @@ function updateEquipment(local) {
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(market.current || talk.current)prompt.textContent='';
+  else if(bank)prompt.textContent=bank.detail+(world.bank.phase==='claiming' && bank.action?' · E to cancel':'');
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
@@ -764,13 +786,13 @@ function updateEquipment(local) {
   if(touch.active){
     const role=jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
+    const useLabel=bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
       canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
-    if(!talk.current && active && !garage)prompt.textContent=useLabel || (local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
+    if(!talk.current && active && !garage)prompt.textContent=bank?bank.detail.replace('E to claim','Tap Claim for'):useLabel || (local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
   }
 }
 

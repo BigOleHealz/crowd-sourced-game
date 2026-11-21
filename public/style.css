@@ -218,3 +218,6 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #market-panel [data-market-status] {color:#f5d898;min-height:1.15em;margin:10px 0 0}
 .touch-play #market-panel button {min-height:44px}
 .touch-play #wallet{min-height:32px}
+
+#bank-receipt:not([hidden]) { display:block;margin-top:3px;color:#d2e7af;font-weight:650; }
+#bank-progress:not([hidden]) { display:block;margin-top:5px;max-width:100%;height:6px;accent-color:#b5d090; }
