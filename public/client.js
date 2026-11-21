@@ -851,7 +851,7 @@ function frame(time) {
 }
 
 try {
-  scene = createScene(canvas);
+  scene = createScene(canvas,audio.footfall);
   const lighting=byId('lighting-choice');
   try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
   if(!lighting.value)lighting.value='day';

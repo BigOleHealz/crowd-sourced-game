@@ -1,3 +1,4 @@
+import {contactingFoot} from './footsteps.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -1088,7 +1089,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 }
 
 import {createSprintGate} from './marina-sprint-view.js';
-export function createScene(canvas) {
+export function createScene(canvas,onFootfall) {
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
   renderer.shadowMap.enabled=true;
@@ -1348,8 +1349,18 @@ export function createScene(canvas) {
       if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(a.root.visible){
+        const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
-        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
+        if(!seated && !station && !entering && !skipper){
+          contacts.boots(a,state,local);
+          if(onFootfall && previousGait===a.gait && Math.hypot(state.x-local.x,state.y-local.y,state.z-local.z)<17){
+            const side=contactingFoot(previousPhase,a.gait,state);
+            if(side && !state.lostParts?.[side<0?'leftLeg':'rightLeg']){
+              const foot=a.limbs[side<0?0:1].foot;
+              onFootfall(state,{x:foot.wx,y:state.y+(foot.floor??0),z:foot.wz},local,view.yaw,world,side,a.gait.run);
+            }
+          }
+        }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
