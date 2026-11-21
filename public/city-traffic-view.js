@@ -1,3 +1,4 @@
+import {signalingCruiser} from './pursuit-signals.js';
 import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
 import {poseRoadBoarding} from './ranger-pose.js';
@@ -306,7 +307,7 @@ function model(Batch,type,materials,patrol=false){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
-  if(patrol)markPatrolSedan(chassis,body,box);
+  const beacon=patrol && markPatrolSedan(chassis,body,box);
   const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
   const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
@@ -318,7 +319,7 @@ function model(Batch,type,materials,patrol=false){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,signals,wheels,tire,fittings:damagedFittings([sheet,brake,...signals],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
+  return {root,chassis,door,brake,signals,wheels,tire,beacon,fittings:damagedFittings([sheet,brake,...signals],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
@@ -370,6 +371,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const {root,chassis,wheels,door,brake}=view;
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
+      if(view.beacon)view.beacon(signalingCruiser(car),performance.now()*.001+index*.23);
       const sag=view.wreckFinish(car);view.fittings(car);
       chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
       chassis.position.y=(car.suspension?.heave??0)-.17*sag;

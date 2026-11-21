@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {signalingCruiser,sirenLoop} from '../public/pursuit-signals.js';
+const active={active:true,npcDriver:'officer-1',hp:250};
+assert(signalingCruiser(active));assert(!signalingCruiser({...active,npcDriver:null}));assert(!signalingCruiser({...active,wrecked:true}));
+const sampleRate=24000;
+const wave=sirenLoop({sampleRate,createBuffer(_,n){const a=new Float32Array(n);return {getChannelData:()=>a};}}).getChannelData(0);
+const crossings=(start,end)=>wave.slice(start,end).reduce((n,v,i)=>n+(v>=0&&wave[start+i-1]<0),0);
+assert(crossings(23000,25000)>crossings(0,2000)*1.7);
+assert(Math.abs(wave.at(-1)-wave[0])<.15);
+console.log('PASS occupied pursuit beacon eligibility and seamless swept siren');
