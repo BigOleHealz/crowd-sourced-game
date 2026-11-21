@@ -1331,7 +1331,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,state.officer ? 0x284957 : rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=CITY && rival && civilianLooks[state.id] ? resident(state.id,state.name) : hiker(scene,state.id,rival ? (state.officer ? 0x35689a : state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }

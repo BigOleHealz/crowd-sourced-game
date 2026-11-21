@@ -5,6 +5,8 @@ import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.j
 import {stepHydrants} from './public/hydrants.js';
 import {stepWakeCrossings} from './public/boat-wakes.js';
 import {stepRoadBoarding} from './public/road-cabin.js';
+import {stepPatrolCruisers} from './public/patrol-cruisers.js';
+import {createWanted} from './public/wanted.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
@@ -71,6 +73,7 @@ let match;
 function freshWorld(){
   const w=newExpedition();
   w.traffic=newCityTraffic();
+  if(!mode)Object.defineProperty(w,'wanted',{value:createWanted(w,players,{stepCruisers:stepPatrolCruisers})});
   if(mode){
     match=createMatch(mode);
     w.match=match.state;
@@ -186,7 +189,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -209,6 +212,10 @@ function acceptInput(player, data, binary) {
   try {
     input = JSON.parse(data);
   } catch {
+    return;
+  }
+  if(input?.type==='wantedMode'){
+    if(typeof input.enabled==='boolean')world.wanted?.set(player,input.enabled);
     return;
   }
   if (input?.type === 'snapshotEncoding' && input.encoding === 'deflate') {
@@ -332,6 +339,7 @@ sockets.on('connection', ws => {
   ws.on('close', () => {
     const player=players.get(id);
     match?.release(player);
+    world.wanted?.set(player,false);
     if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
     players.delete(id);
     match?.updateRoster(players);
@@ -421,7 +429,7 @@ function tick() {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
     stepCityTraffic(world,players,npcs,step);
-    for (const npc of npcs) if(!trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
+    for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
@@ -642,6 +650,7 @@ function tick() {
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
+  world.wanted?.step(npcs,ticks);
   localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);

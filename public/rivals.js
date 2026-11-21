@@ -89,7 +89,7 @@ export function updateRival(actor, tick, dt, hp, world) {
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving, weapon: actor.weapon,...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
+    moving: actor.moving, weapon: actor.weapon,...(actor.officer && {officer:true,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {
@@ -101,7 +101,7 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
   const hull=vehicle.model?{traffic:[vehicle]}:{[kind]:vehicle};
   const crew = [world.tank?.driver,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
-    if (crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
+    if ((actor.officer && actor.targetId!==(vehicle.pilot??vehicle.driver)) || crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
     // Use the walking hull immediately after the vehicle moves, before an
     // on-foot tick can push the target clear. Ignore surfaces moving away.
@@ -114,7 +114,10 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
     startFall(actor, tick, impulse, kind);
     if(damageActor(actor,Math.round(speed*18),tick)){
       const driver=actors.find(p=>p.id===(kind==='heli'?vehicle.pilot:vehicle.driver));
-      if(driver?.score && driver!==actor)driver.score.kills++;
+      if(driver?.score && driver!==actor){
+        driver.score.kills++;
+        world.wanted?.record(world.wanted.session(driver),actor.officer?'officer':'defeat',tick);
+      }
     }
   }
 }
