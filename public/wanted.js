@@ -96,7 +96,7 @@ export function createWanted(world,players,{stepCruisers}={}){
             o.state=stepPlayer(o.state,{x:x/remaining,z:z/remaining,sprint:o.sprint},1/30,world.hp,world);
           }
         }
-        if(o.visible&&dist<=18&&tick>=o.nextShot){
+        if(!o.cruiserId&&o.visible&&dist<=18&&tick>=o.nextShot){
           o.nextShot=tick+Math.max(35,90-10*level);
           const sight=patrolSight(world,o,p,players);
           if(sight)firePatrolShot(world,o,p,sight,tick,2+level);
@@ -116,7 +116,7 @@ export function createWanted(world,players,{stepCruisers}={}){
         if(o){o.nextShot=tick+65;officers.push(o);npcs.push(o);}
       }
     }
-    if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick);
+    if(officers.length || world.patrolCars)stepCruisers?.(world,officers,players,tick,npcs);
   }
   return {set,session,view,reset,record,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
     owner(round){const s=projectiles.get(round);return s&&session(s.player)===s?s:undefined;}};
