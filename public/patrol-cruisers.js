@@ -31,7 +31,7 @@ function dispatch(officer,target,rank){
   const pose=lane.route.pose(at),id='patrol-car-'+officer.id;
   const car={id,model:'sedan',patrol:true,officerId:officer.id,targetId:officer.targetId,npcDriver:officer.id,
     active:true,...pose,y:groundHeight(pose.x,pose.z),speed:0,steer:0,hp:250,maxHp:250,wrecked:false};
-  return {lane,at,goal:best.at,car};
+  return {lane,at,goal:best.at,car,lastSeen:{x:target.x,z:target.z}};
 }
 function dismount(officer,car,world){
   const x=car.x-1.18*Math.cos(car.yaw),z=car.z-1.18*Math.sin(car.yaw);
@@ -58,8 +58,10 @@ export function stepPatrolCruisers(world,officers,players,tick){
     if(!unit)continue;
     const {car,lane}=unit;cars.push(car);
     if(!car.npcDriver)continue;
-    const actual=Math.hypot(target.x-car.x,target.z-car.z);
-    if(tick%15===0)unit.goal=nearest(lane,target).at;
+    if(officer.visible){unit.lastSeen.x=target.x;unit.lastSeen.z=target.z;}
+    const destination=officer.lastKnown??unit.lastSeen;
+    const actual=Math.hypot(destination.x-car.x,destination.z-car.z);
+    if(tick%15===0)unit.goal=nearest(lane,destination).at;
     let ahead=wrap(unit.goal-unit.at,lane.route.length);
     if(ahead>lane.route.length-3)ahead=0;
     const speed=Math.min(11,car.speed+5/30,Math.sqrt(7*ahead));
