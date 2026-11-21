@@ -1,7 +1,7 @@
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport} from './locomotion.js';
-import {groundHeight,stanceDrop} from './world.js';
+import {groundHeight,stanceDrop,waterBlend} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
 export function createRangerRig() {
@@ -59,6 +59,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
   const swimming=!!state.swimming && !seated && !station && !fall && !state.dead;
+  const eligibleWater=!seated && !station && !prone && !crouch && !fall && !climb && !state.dead && !state.parachute;
+  const targetWater=eligibleWater?waterBlend(state):0,previousWater=avatar.waterMix??targetWater;
+  const water=avatar.waterMix=eligibleWater?previousWater+clamp(targetWater-previousWater,-dt*3.8,dt*3.8):0;
   const open = state.parachute === 'open' && !state.dead;
   if (open && avatar.makeCanopy && !avatar.canopy) avatar.canopy = avatar.makeCanopy(avatar.root,avatar.material);
   if (avatar.canopy) avatar.canopy.visible = open;
@@ -106,9 +109,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     // Recline at the hips under the coupe roof, keeping the driver's eyes on the road.
     avatar.spine.rotation.x=.50;avatar.head.rotation.x=-.32;
   }
-  if(swimming) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
+  if(water>0) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
-  avatar.body.rotation.x=swimming ? (state.moving ? -1.06 : -.48) : 0;
+  avatar.body.rotation.x=water*(state.moving ? -1.06 : -.48);
   if(prone) {
     // Face down around the hips. The head and hands counter-rotate to look along the ground.
     avatar.body.rotation.x=-1.38;
@@ -119,10 +122,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     grip.set(0,.143,-.008).applyQuaternion(avatar.head.quaternion);
     avatar.head.position.set(-grip.x,1.525+.143-grip.y,-.008-grip.z-.045*weight);
   }
-  if(swimming) {
-    avatar.body.position.y=.72-1.34*Math.cos(avatar.body.rotation.x)+.07+.03*Math.sin(stroke);
-    avatar.body.position.z=-Math.sin(avatar.body.rotation.x)*1.12;
-    avatar.spine.rotation.x=.17;
+  if(water>0) {
+    const swimPitch=state.moving?-1.06:-.48;
+    avatar.body.position.y=THREE.MathUtils.lerp(avatar.body.position.y,.79-1.34*Math.cos(swimPitch)+.03*Math.sin(stroke),water);
+    avatar.body.position.z=-Math.sin(swimPitch)*1.12*water;
+    avatar.spine.rotation.x=THREE.MathUtils.lerp(avatar.spine.rotation.x,.17,water);
   }
   const bloom = state.weapon === 2;
   avatar.body.rotation.z=0;
@@ -158,7 +162,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     } else if(gait) {
       placeFoot(gait,foot,side);
       const floor=bootSupport(foot,state.y,gait.yaw,doors,groundHeight);
-      const down=leg.position.y+gait.pelvisY-.126-foot.lift-floor/avatar.root.scale.y;
+      const down=leg.position.y+gait.pelvisY-.126-foot.lift*(1+1.3*water*(1-water))-floor/avatar.root.scale.y;
       const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
       const vertical=Math.hypot(down,lateral);
       const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
@@ -198,12 +202,6 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const shield=state.reaction!=='horn';
       arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));
       forearm.rotation.x=shield?1.20:.39;
-    } else if(swimming) {
-      const wave=stroke+(side===1?Math.PI:0);
-      leg.rotation.x=-.16+.25*Math.sin(wave);
-      knee.rotation.x=-.21-.19*Math.sin(wave+.9);
-      arm.rotation.set(.45+1.07*Math.cos(wave),side*.23,side*(.76+.48*Math.sin(wave)));
-      forearm.rotation.x=.5+.36*Math.sin(wave);
     } else if(station) {
       const p=station.turretPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
@@ -215,7 +213,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const travel=(gait ? foot.forwardOffset : 0)*person.swing*(bag?.36:1);
       arm.rotation.set(.025+travel,side*.04,side*(bag?.145:.092));
       forearm.rotation.x=(bag?.39:.15)+Math.max(0,travel)*.48;
-    } else if(!seated && !state.parachute && !state.dead) {
+    } else if(!seated && !state.parachute && !state.dead && !swimming) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position;
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
@@ -252,6 +250,14 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
         (z+up*Math.sin(tilt)-helmOffset[2])/seatedScale,side);
     } else if(seated) {
       forearm.rotation.x=.42;
+    }
+    if(water>0){
+      const wave=stroke+(side===1?Math.PI:0),mix=THREE.MathUtils.lerp;
+      leg.rotation.x=mix(leg.rotation.x,-.16+.25*Math.sin(wave),water);
+      knee.rotation.x=mix(knee.rotation.x,-.21-.19*Math.sin(wave+.9),water);
+      arm.rotation.set(mix(arm.rotation.x,.45+1.07*Math.cos(wave),water),mix(arm.rotation.y,side*.23,water),
+        mix(arm.rotation.z,side*(.76+.48*Math.sin(wave)),water));
+      forearm.rotation.x=mix(forearm.rotation.x,.5+.36*Math.sin(wave),water);
     }
   }
   if(!avatar.shadow)return;
