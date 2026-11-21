@@ -1,3 +1,4 @@
+import {supercarLayout as gt} from './supercar-layout.js';
 import { groundHeight } from './world.js';
 
 import { wheelsFor,flatWheelDrop,isFlat } from './road-wheel-layout.js';
@@ -38,12 +39,32 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
       state.rates[i]+=force*h;
       state.heights[i]+=state.rates[i]*h;
     }
-    state.heights[i]=clamp(state.heights[i],ground[i]-.22,ground[i]+.24);
+    const lower=ground[i]-(sport?gt.bumpTravel:.22),upper=ground[i]+(sport?.145:.24);
+    state.heights[i]=clamp(state.heights[i],lower,upper);
+    if(sport && ((state.heights[i]===lower && state.rates[i]<0) || (state.heights[i]===upper && state.rates[i]>0)))state.rates[i]=0;
   }
   const [lf,lr,rf,rr]=state.heights;
   const center=(lf+lr+rf+rr)/4;
   const pitch=Math.atan2((lf+rf-lr-rr)/2,wheelStations[1][1]-wheelStations[0][1]);
   const roll=Math.atan2((rf+rr-lf-lr)/2,wheelStations[2][0]-wheelStations[0][0]);
+  if(sport){
+    // All four arches ride on one rigid chassis. A diagonally raised wheel
+    // needs its own bump stop even when the mean axle height barely changes.
+    const cp=Math.cos(pitch),sp=Math.sin(pitch),cr=Math.cos(roll),sr=Math.sin(roll);
+    const upY=cp*cr;
+    let bodyY=center;
+    for(let i=0;i<4;i++){
+      const [x,z]=wheelStations[i],stationY=cp*sr*x-sp*z;
+      bodyY=Math.max(bodyY,ground[i]+gt.tire-stationY-upY*(gt.tire+gt.bumpTravel));
+    }
+    rover.suspension={heave:rounded(bodyY-rover.y),pitch:rounded(pitch),roll:rounded(roll),
+      wheels:ground.map((contact,i)=>{
+        const [x,z]=wheelStations[i];
+        const lowest=bodyY+cp*sr*x-sp*z+upY*(gt.tire-.24)-gt.tire;
+        return rounded(Math.max(contact,lowest)-rover.y);
+      })};
+    return;
+  }
   rover.suspension={heave:rounded(center-rover.y),pitch:rounded(pitch),roll:rounded(roll),
     wheels:ground.map((contact,i)=>{
       const [x,z]=wheelStations[i];
