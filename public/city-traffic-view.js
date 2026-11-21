@@ -1,138 +1,333 @@
 import * as THREE from 'three';
 import {mountPosition} from './mounts.js';
 
-// Bodywork dimensions in the same street coordinates as the animated driver rigs.
-const fleet={
-  sedan:{paint:0x758d9b,w:.86,nose:-2.08,tail:2.12,roof:1.56,roofEnd:.70,cabinEnd:1.20,axles:[-1.34,1.30]},
-  hatchback:{paint:0x309a8a,w:.82,nose:-1.82,tail:1.71,roof:1.61,roofEnd:1.01,cabinEnd:1.42,axles:[-1.14,1.13]},
-  van:{paint:0xe5e0cf,w:.95,nose:-2.04,tail:2.27,roof:2.12,roofEnd:2.00,cabinEnd:2.13,axles:[-1.28,1.49]},
-};
-const cube=new THREE.BoxGeometry(), roller=new THREE.CylinderGeometry(1,1,1,22);
-const ring=new THREE.TorusGeometry(.145,.016,6,18);
-const cabinTrim=0x30383c,chrome=0x9da9a9,seatCloth=0x54595a;
-const smooth=THREE.MathUtils.smoothstep, mix=THREE.MathUtils.lerp;
+import {alpineGlass} from './landscape.js';
 
-// Give the hood, rocker and cargo box pressed shoulders and tapered ends.
-function shell(batch,paint,sections){
-  const positions=[],indices=[];
-  for(const [z,w,base,top] of sections){
-    const bevel=Math.min(.09,(top-base)*.36);
-    for(const [x,y] of [[-w+.07,base],[-w,base+bevel],[-w,top-bevel],[-w+.07,top],
-      [w-.07,top],[w,top-bevel],[w,base+bevel],[w-.07,base]])positions.push(x,y,z);
+const fleet={
+  sedan:{paint:0x56748b,w:.86,nose:-2.08,tail:2.12,roof:1.52,roofEnd:.55,cabinEnd:1.29,axles:[-1.34,1.30],tire:.317,topFront:-.42},
+  hatchback:{paint:0x287f76,w:.82,nose:-1.82,tail:1.71,roof:1.55,roofEnd:.84,cabinEnd:1.47,axles:[-1.14,1.13],tire:.301,topFront:-.40},
+  van:{paint:0xdacfb8,w:.95,nose:-2.04,tail:2.27,roof:2.10,roofEnd:1.91,cabinEnd:2.16,axles:[-1.28,1.49],tire:.355,topFront:-.64},
+};
+const cube=new THREE.BoxGeometry(), roller=new THREE.CylinderGeometry(1,1,1,20),bore=new THREE.CylinderGeometry(1,1,1,10);
+const seatPad=new THREE.SphereGeometry(1,10,6),ring=new THREE.TorusGeometry(.145,.018,7,20);
+const rubber=0x22262a,trim=0x323a40,alloy=0xaeb7b9;
+const smooth=THREE.MathUtils.smoothstep, mix=THREE.MathUtils.lerp;
+const box=(b,c,x,y,z,sx,sy,sz,...rotation)=>b.add(cube,c,x,y,z,sx,sy,sz,...rotation);
+
+// Skin a set of longitudinal contours with continuous normals across each face.
+function skin(batch,tint,rows){
+  const positions=rows.flat(2),indices=[],stride=rows[0].length;
+  for(let row=1;row<rows.length;row++)for(let j=0;j<stride-1;j++){
+    const i=(row-1)*stride+j;
+    indices.push(i,i+stride,i+stride+1,i,i+stride+1,i+1);
   }
-  for(let row=1;row<sections.length;row++)for(let col=0;col<8;col++){
-    const a=(row-1)*8+col,b=(row-1)*8+(col+1)%8;
-    indices.push(a,a+8,b,b,a+8,b+8);
-  }
-  const end=(sections.length-1)*8;
-  for(let j=1;j<7;j++)indices.push(0,j,j+1,end,end+j+1,end+j);
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();
-  batch.add(g,paint,0,0,0);g.dispose();
+  batch.add(g,tint,0,0,0);g.dispose();
 }
-
-function addPane(batch,a,b,c,d){
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute([...a,...b,...c,...d],3));
-  g.setIndex([0,1,2,0,2,3]);g.computeVertexNormals();batch.add(g,0x99b1b7,0,0,0);g.dispose();
+function pane(batch,tint,a,b,c,d){skin(batch,tint,[[a,b],[d,c]]);}
+function run(batch,color,points,width,depth=width){
+  for(let i=1;i<points.length;i++)batch.beam(color,points[i-1],points[i],width,depth);
+}
+function wheelModel(Batch,tire,van){
+  const b=new Batch(),depth=van?.111:.10;
+  const profile=[[.62,-.68],[.72,-1],[.91,-.96],[.99,-.72],[1,-.40],[1,.40],[.99,.72],[.91,.96],[.72,1],[.62,.68]];
+  const rubberSkin=new THREE.LatheGeometry(profile.map(([r,x])=>new THREE.Vector2(r*tire,x*depth)),24).rotateZ(Math.PI/2);
+  b.add(rubberSkin,rubber,0,0,0);rubberSkin.dispose();
+  // The shared wheel is mirrored per side. Only its outward face needs spokes.
+  b.add(roller,0xa9b0b2,depth*.87,0,0,tire*.68,.018,tire*.68,0,0,Math.PI/2);
+  b.add(roller,0x2d3237,depth,0,0,tire*.56,.017,tire*.56,0,0,Math.PI/2);
+  const disc=(depth+.014);
+  if(van){
+    b.add(roller,0x92999a,disc,0,0,tire*.43,.024,tire*.43,0,0,Math.PI/2);
+    for(let j=0;j<8;j++){
+      const a=j*Math.PI/4;
+      b.add(bore,0x252b30,disc+.013,tire*.33*Math.cos(a),tire*.33*Math.sin(a),.025,.004,.025,0,0,Math.PI/2);
+    }
+  }else for(let j=0;j<5;j++){
+    const a=j*Math.PI*2/5;
+    for(const fork of [-.16,.16]){
+      b.beam(alloy,[disc,tire*.16*Math.cos(a),tire*.16*Math.sin(a)],
+        [disc,tire*.625*Math.cos(a+fork),tire*.625*Math.sin(a+fork)],.019,.029);
+    }
+  }
+  b.add(roller,0xa6acc0,disc+.015,0,0,tire*.215,.022,tire*.215,0,0,Math.PI/2);
+  return b.geometry();
 }
 
 function model(Batch,type,materials){
-  const {paint,w,nose,tail,roof,roofEnd,cabinEnd,axles}=fleet[type],van=type==='van';
-  const root=new THREE.Group(), chassis=new THREE.Group(), door=new THREE.Group();
+  const {paint,w,nose,tail,roof,roofEnd,cabinEnd,axles,tire,topFront}=fleet[type];
+  const van=type==='van',hatch=type==='hatchback';
+  const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
-  const body=new Batch(), leaf=new Batch(), glazing=new Batch(), lamps=new Batch();
-  const box=(b,c,x,y,z,sx,sy,sz)=>b.add(cube,c,x,y,z,sx,sy,sz);
-  const sill=.91,front=-.98,post=.17,hinge=-w+.025;
-  const topW=w-(van?.07:.15),topFront=van?-.65:-.45;
-  shell(body,paint,[[nose,w-.15,.39,.70],[nose+.17,w-.035,.35,.83],[front,w,.36,sill]]);
-  shell(body,paint,[[front,w,.35,.51],[post,w,.32,.49],[tail-.12,w,.36,.53],[tail,w-.1,.42,.55]]);
-  shell(body,paint,[[post,w,.40,sill],[cabinEnd,w,.39,sill],[tail-.14,w-.02,.38,sill-.04],[tail,w-.10,.42,sill-.09]]);
-  shell(body,paint,[[topFront-.045,topW-.06,roof-.10,roof-.04],[topFront+.07,topW,roof-.07,roof],
-    [roofEnd-.12,topW,roof-.067,roof],[roofEnd+.03,topW-.045,roof-.09,roof-.04]]);
-  const fascia=0x393e40;
-  box(body,fascia,0,.57,nose-.008,w*1.19,.16,.045);
-  for(const y of [.525,.57,.615])box(body,chrome,0,y,nose-.035,w*1.12,.012,.018);
-  box(body,0xeadfc2,0,.46,nose-.03,.31,.075,.026);
-  box(body,0xeee4d4,0,.58,tail+.006,.32,.087,.027);
-  for(const side of [-1,1]){
-    const x=v=>side*v;
-    body.beam(paint,[x(w-.045),sill,front],[x(topW),roof-.07,topFront],van?.079:.058);
-    body.beam(cabinTrim,[x(w-.04),sill,post],[x(topW),roof-.07,post],.077);
-    body.beam(paint,[x(w-.045),sill,cabinEnd],[x(topW),roof-.07,roofEnd],van?.11:.085);
-    box(body,cabinTrim,x(w-.026),.396,(front+cabinEnd)*.5,.056,.073,cabinEnd-front);
-    box(body,0xe8e9cd,x(w-.28),.736,nose-.009,van?.30:.34,.087,.039);
-    box(body,0xd68d49,x(w-.15),.733,nose-.012,.067,.088,.043);
-    box(body,0x793a39,x(w-.19),.74,tail,.23,.15,.039);
-    box(lamps,0xfa493a,x(w-.19),.74,tail+.022,.20,.071,.024);
-    box(body,chrome,x(w+.004),.849,.39,.023,.027,.142);
-    if(!van)addPane(glazing,[x(w-.045),sill+.016,post+.05],[x(topW),roof-.092,post+.05],
-      [x(topW),roof-.092,roofEnd-.037],[x(w-.05),sill+.016,cabinEnd-.04]);
-    // The front side windows are rolled down so drivers remain visible from the sidewalk.
-    const moving=side===-1, b=moving?leaf:body;
-    const xx=moving?0:x(w-.025),zz=moving?-front:0;
-    box(b,paint,xx,.705,(front+post)*.5+zz,.07,.408,post-front-.027);
-    box(b,cabinTrim,xx,.916,(front+post)*.5+zz,.081,.04,post-front-.022);
-    box(b,chrome,xx+x(.046),.858,post-.15+zz,.031,.027,.147);
-    box(b,paint,xx+x(.127),.982,front+.17+zz,.175,.095,.126);
-    box(b,chrome,xx+x(.128),.98,front+.236+zz,.128,.057,.01);
-    for(const z of [-.28,.60]){
-      box(body,seatCloth,x(.42),.611,z,.46,.115,.40);
-      body.add(cube,seatCloth,x(.42),.821,z+.19,.44,.451,.10,.095);
-      box(body,0x44494c,x(.42),1.085,z+.21,.24,.148,.090);
-    }
-  }
+  const body=new Batch(),leaf=new Batch(),glass=new Batch(),lamps=new Batch();
+  const front=van?-1.07:-1.02,post=van?.28:.26,hinge=-w+.025;
+  const belt=van?1.025:.965,bottom=van?.325:.27,topW=w-(van?.075:.185);
+  const sideGlassBottom=van?1.033:.964,topRear=roofEnd;
   door.position.set(hinge,0,front);
-  addPane(glazing,[-w+.065,sill,front],[w-.065,sill,front],[topW-.04,roof-.073,topFront],[-topW+.04,roof-.073,topFront]);
+  // Samples include every fender edge, door seam and bumper taper.
+  const stations=[nose,nose+.10,nose+.25,front,post,cabinEnd,tail-.26,tail-.12,tail];
+  const archRadius=tire+.052;
+  for(const axle of axles)for(let j=0;j<=16;j++)stations.push(axle+archRadius*Math.cos(j*Math.PI/16));
+  const slices=[...new Set(stations.filter(z=>z>=nose && z<=tail))].sort((a,b)=>a-b);
+  function level(z){
+    const head=smooth(z,nose,front),rear=smooth(z,cabinEnd,tail);
+    return belt-(van?.19:.21)*(1-head)-(van?.08:hatch?.07:.115)*rear;
+  }
+  function width(z){
+    return w-(van?.12:.14)*(1-smooth(z,nose,nose+.48))-(van?.085:.13)*smooth(z,tail-.42,tail);
+  }
+  function rail(z){
+    const d=Math.min(...axles.map(a=>Math.abs(z-a)));
+    if(d<archRadius-.000001)return tire+Math.sqrt(archRadius*archRadius-d*d);
+    return bottom;
+  }
+  function sideRow(side,z,dx=0,dz=0){
+    const sz=z+dz,span=width(z),low=rail(z),high=level(z);
+    return [[dx+side*(span-.062),low,sz],[dx+side*(span-.013),Math.max(low+.013,bottom+.07),sz],
+      [dx+side*(span-.034),Math.max(low+.02,high-.29),sz],[dx+side*span,high-.108,sz],
+      [dx+side*(span-.018),high-.060,sz],[dx+side*(span-.065),high,sz]];
+  }
+  for(const side of [-1,1]){
+    for(const [a,b] of [[nose,front],[front+.008,post-.008],[post,tail]]){
+      const zs=[a,...slices.filter(z=>z>a && z<b),b];
+      const moving=a===front+.008 && side===-1,part=moving?leaf:body;
+      skin(part,paint,zs.map(z=>sideRow(side,z,moving?-hinge:0,moving?-front:0)));
+    }
+    // Rolled wheel lips have a shaded liner inside the actual body opening.
+    for(const axle of axles){
+      const liners=[],lips=[];
+      for(let j=0;j<=20;j++){
+        const angle=j*Math.PI/20,z=axle+archRadius*Math.cos(angle),y=tire+archRadius*Math.sin(angle);
+        const sx=side*(width(z)-.016);
+        liners.push([[sx,y,z],[side*(w-.22),y-.009,z]]);
+        lips.push([[sx,y,z],[side*width(z),y+.023,z]]);
+      }
+      skin(body,0x252a2d,liners);skin(body,paint,lips);
+    }
+    const sillStart=axles[0]+archRadius,sillEnd=axles[1]-archRadius;
+    box(body,trim,side*(w-.046),bottom+.02,(sillStart+sillEnd)/2,.078,.049,sillEnd-sillStart);
+    for(const z of [post-.15,...(van?[]:[cabinEnd-.25])]){
+      const moving=side===-1 && z<post,b=moving?leaf:body;
+      const x=side*(w-.006)-(moving?hinge:0),along=z-(moving?front:0);
+      b.add(seatPad,0x384248,x,.839,along,.020,.030,.116);
+      b.add(seatPad,van?trim:alloy,x+side*.014,.85,along,.022,.022,.088);
+    }
+    // Door mirror, painted shell and reflective inset on an angled stalk.
+    const moving=side===-1,b=moving?leaf:body,x=moving?0:side*(w-.025),z=front+.18-(moving?front:0);
+    b.beam(trim,[x,.965,z],[x+side*.135,1.015,z+.025],.048,.058);
+    b.add(seatPad,paint,x+side*.15,1.036,z,.106,.059,.088);
+    b.add(seatPad,0x869ca8,x+side*.15,1.033,z+.047,.089,.043,.040);
+    // Recessed shoulder, rubber belt seal and a distinct inset rear door seam.
+    const beltline=[[side*(w-.054),belt-.021,front+.014],[side*(w-.053),belt-.012,post-.012]];
+    run(moving?leaf:body,trim,beltline.map(([x,y,z])=>[x-(moving?hinge:0),y,z-(moving?front:0)]),.020,.034);
+    run(body,trim,[[side*(w-.048),belt-.012,post],[side*(w-.049),belt-.015,cabinEnd-.04]],.019,.028);
+    if(!van)run(body,0x38434a,[[side*(w-.017),belt-.06,cabinEnd-.06],[side*(w-.003),belt-.114,cabinEnd-.08],
+      [side*(w-.029),.74,axles[1]-.25]],.009);
+    const darkPillar=0x263036;
+    body.beam(paint,[side*(w-.052),belt,front],[side*topW,roof-.075,topFront],van?.079:.055);
+    body.beam(darkPillar,[side*(w-.055),sideGlassBottom,post],[side*topW,roof-.069,post+.065],.068);
+    body.beam(paint,[side*(w-.059),belt,cabinEnd],[side*topW,roof-.075,topRear],van?.094:.085);
+    if(!van)pane(body,paint,[side*(w-.061),belt+.012,cabinEnd-.14],[side*topW,roof-.076,topRear-.075],
+      [side*topW,roof-.073,topRear+.021],[side*(w-.068),belt+.006,cabinEnd+.052]);
+    const forward=[side*(w-.059),sideGlassBottom,front+.07],forwardTop=[side*topW,roof-.083,topFront+.034];
+    const backTop=[side*topW,roof-.083,post+.025],back=[side*(w-.058),sideGlassBottom,post-.047];
+    // The driver's window is down. A fixed quarter light and the far-side glass
+    // retain reflections while leaving the moving driver unobstructed.
+    if(side===1)pane(glass,0x8099a6,forward,forwardTop,backTop,back);
+    else{
+      const quarterBase=[side*(w-.060),sideGlassBottom,front+.22];
+      const quarterTop=[mix(forward[0],forwardTop[0],.31),mix(forward[1],forwardTop[1],.31),mix(forward[2],forwardTop[2],.31)];
+      pane(glass,0x738c98,forward,quarterTop,quarterTop,quarterBase);
+      body.beam(trim,quarterTop,quarterBase,.018);
+      // Trim remains on the moving door. Its glass is rolled down so both the
+      // seated occupant and the pull-out are visible from the street.
+      const outerX=-w-hinge+.082;
+      box(leaf,0x353c41,outerX,.681,(post-front)*.5,.065,.39,post-front-.06);
+      box(leaf,0x50595e,outerX+.049,.744,(post-front)*.53,.099,.062,.44);
+      box(leaf,alloy,outerX+.054,.842,(post-front)*.42,.031,.027,.099);
+      leaf.beam(trim,[outerX-.029,belt,post-front-.022],[side*topW-hinge,roof-.097,post-front+.037],.027,.036);
+      leaf.beam(trim,[side*topW-hinge,roof-.097,post-front+.037],[side*topW-hinge,roof-.089,topFront-front+.045],.024,.029);
+    }
+    if(!van)pane(glass,0x536a78,[side*(w-.055),belt+.012,post+.042],[side*topW,roof-.09,post+.11],
+      [side*topW,roof-.09,topRear-.032],[side*(w-.061),belt+.012,cabinEnd-.065]);
+  }
+  // Narrow the ends of the deck and roll the bonnet down to the headlamps.
+  function deck(a,b,rear){
+    const zs=[a,...slices.filter(z=>z>a && z<b),b];
+    skin(body,paint,zs.map(z=>{
+      const span=width(z)-.065,H=level(z),crown=(van?.065:.052)*(rear?.75:1);
+      return [-1,-.83,-.56,0,.56,.83,1].map(f=>[span*f,H+crown*(1-f*f)+.012*(Math.abs(f)===.83),z]);
+    }));
+  }
+  deck(nose,front,false);deck(cabinEnd,tail,true);
+  for(const side of [-1,1]){
+    const line=[nose+.15,nose+.37,(nose+front)*.5,front-.07].map(z=>{
+      const u=smooth(z,nose,front),f=.74-.16*u,span=width(z)-.065;
+      return [side*span*f,level(z)+(van?.065:.052)*(1-f*f)+.007,z];
+    });
+    run(body,van?0xbbbaaa:0x46585d,line,.009);
+  }
+  for(const z of [nose,tail]){
+    const rows=sideRow(1,z),out=z===nose?-1:1;
+    const depth=[.01,.035,.055,.058,.043,0], crown=van?.065:z===tail?.039:.052;
+    skin(body,paint,rows.map(([x,y],i)=>[-1,-.83,-.56,0,.56,.83,1].map(f=>
+      [f*x,y+(1-f*f)*(i===5?crown:0)+(i===5 && Math.abs(f)===.83?.012:0),z+out*depth[i]*(1-f*f)])));
+  }
+  box(body,rubber,0,bottom+.077,(tail+nose)*.5,(w-.19)*2,.10,tail-nose-.27);
+  // Shaped lower intake, two body-coloured bumper cheeks, and inset plate.
+  const grille=van?.55:hatch?.49:.59;
+  // Every intake and rib follows the bumper's changing depth across its face.
+  function fasciaPoint(x,y){
+    const mid=width(nose)-.016;
+    return [x,y,nose-.058*(1-(x/mid)**2)-.003];
+  }
+  function fasciaLine(width,y){
+    return [-1,-.75,-.40,0,.40,.75,1].map(f=>fasciaPoint(f*width,y));
+  }
+  skin(body,0x202a30,[fasciaLine(grille*.77,.438),fasciaLine(grille*.88,.484),fasciaLine(grille,.594)]);
+  for(const y of [.463,.501,.538,.573]){
+    const width=grille*mix(.76,.96,(y-.438)/.156);
+    run(body,0x53616a,fasciaLine(width,y).map(([x,y,z])=>[x,y,z-.006]),.011,.010);
+  }
+  box(body,0x222b30,0,.592,nose-.065,.316,.111,.017);
+  box(body,0xc9c9bc,0,.592,nose-.076,.283,.083,.006);
+  box(body,0x293138,0,.615,tail+.049,.314,.12,.021);
+  box(body,0xd2cfb8,0,.615,tail+.064,.28,.083,.010);
+  for(const side of [-1,1]){
+    const x=side*(w-.10);
+    const lampY=level(nose)-.071;
+    // Swept pockets wrap from the front fascia onto the fenders, with a clear
+    // reflector, amber corner and a thin daylight-running strip.
+    const faceW=width(nose),corner=side*(faceW-.026);
+    const frontZ=(x)=>nose-.063*(1-(x/faceW)**2)-.006;
+    const ix=side*faceW*.42,mid=side*faceW*.78;
+    const a=[ix,lampY-.061,frontZ(ix)],b=[ix,lampY+.027,frontZ(ix)];
+    const innerBend=[mid,lampY+.031,frontZ(mid)],lowerBend=[mid,lampY-.056,frontZ(mid)];
+    const topEdge=[corner,lampY+.027,nose-.008],baseEdge=[corner,lampY-.047,nose-.005];
+    const z=nose+.19,c=[side*(width(z)-.013),level(z)-.062,z],d=[side*(width(z)+.003),level(z)-.121,z-.012];
+    pane(body,0x4d5b64,a,b,innerBend,lowerBend);pane(body,0x526069,lowerBend,innerBend,topEdge,baseEdge);
+    pane(body,0x606c73,baseEdge,topEdge,c,d);
+    const projector=side*faceW*.60;
+    body.add(roller,0x929fa3,projector,lampY-.012,frontZ(projector)-.007,.040,.014,.040,Math.PI/2);
+    body.add(roller,0xcdd1c8,projector,lampY-.012,frontZ(projector)-.014,.026,.013,.026,Math.PI/2);
+    run(body,0xcbd7d6,[b,innerBend,topEdge,c],.017);
+    run(body,0xb97e4c,[d,[c[0],c[1]-.018,c[2]]],.021);
+    const pocket=side*(w-.23);
+    pane(body,0x344148,fasciaPoint(pocket-side*.09,.444),fasciaPoint(pocket-side*.06,.532),
+      fasciaPoint(pocket+side*.068,.516),fasciaPoint(pocket+side*.064,.446));
+    run(body,0x839297,[fasciaPoint(pocket-side*.033,.456),fasciaPoint(pocket+side*.052,.461)],.012);
+    const rearY=level(tail)-.076,rw=width(tail),rx=side*rw*.49,outerX=side*(rw-.029);
+    const rearA=[rx,rearY-.045,tail+.058],rearB=[rx,rearY+.044,tail+.058];
+    const rearC=[outerX,rearY+.040,tail+.008],rearD=[outerX,rearY-.046,tail+.012];
+    const rearZ=tail-.19,q=[side*(width(rearZ)-.012),level(rearZ)-.068,rearZ],r=[side*width(rearZ),level(rearZ)-.14,rearZ];
+    pane(body,0x72282b,rearA,rearB,rearC,rearD);pane(body,0x802d30,rearD,rearC,q,r);
+    run(body,0xc05a50,[rearB,rearC,q],.019);
+    run(lamps,0xff554d,[rearA,rearD,r],.032);
+    body.beam(0x41494d,[side*(w-.20),.41,tail-.024],[side*(w-.34),.405,tail+.032],.046,.063);
+  }
+  // A transverse crown and a raked windscreen give each roof a continuous drip rail.
+  const roofStations=[[topFront-.035,topW-.063,roof-.072],[topFront+.075,topW,roof-.042],
+    [topFront+(topRear-topFront)*.38,topW+.014,roof-.019],[topRear-.14,topW,roof-.033],[topRear+.042,topW-.044,roof-.072]];
+  skin(body,paint,roofStations.map(([z,width,y])=>[-1,-.88,-.54,0,.54,.88,1].map(f=>[width*f,y+.049*(1-f*f),z])));
+  for(const side of [-1,1])run(body,van?paint:alloy,roofStations.map(([z,width,y])=>[width*side,y-.006,z]),.022,.030);
+  // Compound windscreen and its bonded ceramic perimeter; central glass bows forward.
+  const frontGlassPoints=[],upper=[],lower=[];
+  for(const f of [-1,-.68,-.30,0,.30,.68,1]){
+    const u=Math.abs(f),bottomPoint=[f*(w-.066),belt+.012+.026*(1-u*u),front-.053*(1-u*u)];
+    const topPoint=[f*(topW-.026),roof-.086+.043*(1-u*u),topFront-.017*(1-u*u)];
+    lower.push(bottomPoint);upper.push(topPoint);frontGlassPoints.push([bottomPoint,topPoint]);
+  }
+  skin(glass,0x718997,frontGlassPoints);
+  run(body,0x333c40,lower,.030,.030);run(body,0x333c40,upper,.021);
+  for(const x of [-.40,.20]){
+    body.beam(rubber,[x,belt+.065,front-.017],[x+.30,belt+.099,front+.016],.014,.018);
+  }
   if(van){
-    shell(body,paint,[[.24,w-.033,.88,roof-.086],[roofEnd,w-.027,.88,roof-.080],[cabinEnd,w-.061,.88,roof-.12]]);
+    pane(body,0x53565a,[-w+.09,belt,.256],[w-.09,belt,.256],[topW-.03,roof-.099,.256],[-topW+.03,roof-.099,.256]);
+    // Raised cargo flanks curve inward across the roof and carry a recessed
+    // sliding-door panel, steel rail, rear-door shutline and loading step.
+    const zs=[.25,.34,1.55,1.84,2.06,cabinEnd];
     for(const side of [-1,1]){
-      const x=side*(w-.019);
-      box(body,0x238e87,x,1.38,1.14,.038,.125,1.58);
-      box(body,0xce9b55,x,1.27,1.14,.037,.043,1.58);
-      box(body,0x596164,side*.30,1.34,cabinEnd+.006,.56,.53,.022);
-      box(body,chrome,side*.052,.99,cabinEnd+.018,.045,.108,.026);
+      skin(body,paint,zs.map(z=>{
+        const end=smooth(z,1.91,cabinEnd),span=w-.045-end*.050;
+        return [[side*(w-.069),belt,z],[side*span,belt+.065,z],[side*(span+.014),1.64,z],
+          [side*(span-.008),roof-.15,z],[side*(topW-.02),roof-.072-end*.070,z]];
+      }));
+      const x=side*(w-.024);
+      run(body,0x89908b,[[x,1.10,.38],[x,1.81,.38],[x,1.87,.45],[x,1.86,1.55],[x,1.78,1.66],[x,1.10,1.66]],.016);
+      box(body,0x555f64,side*(w-.013),1.13,.99,.017,.024,1.34);
+      box(body,0x39726e,x,1.36,1.11,.021,.050,1.40);
+      box(body,0xb28450,x,1.312,1.11,.023,.018,1.40);
+      box(body,trim,x,1.04,.48,.025,.068,.117);
+      const zx=cabinEnd+.009;
+      pane(body,paint,[side*.012,.93,zx],[side*(w-.10),.93,zx],[side*(w-.11),1.84,zx],[side*.012,1.89,zx]);
+      pane(glass,0x29404e,[side*.075,1.39,zx+.012],[side*(w-.158),1.39,zx+.012],[side*(w-.171),1.82,zx+.012],[side*.075,1.84,zx+.012]);
+      box(body,trim,side*.116,1.20,zx+.02,.105,.032,.026);
     }
-    box(body,cabinTrim,0,1.48,cabinEnd+.013,.022,1.00,.018);
+    box(body,rubber,0,.39,tail+.075,1.55,.115,.17);
   }else{
-    addPane(glazing,[-topW+.039,roof-.073,roofEnd],[topW-.039,roof-.073,roofEnd],[w-.064,sill+.025,cabinEnd],[-w+.064,sill+.025,cabinEnd]);
-    if(type==='hatchback'){
-      box(body,cabinTrim,0,roof-.055,roofEnd+.079,topW*1.92,.051,.175);
-      box(body,0xbd3d32,0,roof-.069,roofEnd+.17,.39,.023,.018);
+    pane(glass,0x54717f,[-topW+.025,roof-.082,topRear],[topW-.025,roof-.082,topRear],
+      [w-.061,belt+.022,cabinEnd],[-w+.061,belt+.022,cabinEnd]);
+    if(hatch){
+      box(body,paint,0,roof-.09,topRear+.08,topW*1.86,.059,.17);
+      box(body,0x9d3631,0,roof-.109,topRear+.17,.32,.020,.017);
     }
   }
-  box(body,cabinTrim,0,.934,front+.09,1.39,.13,.27);
-  body.add(ring,cabinTrim,-.43,1.035,-.65,1,1,1,-.40);
-  body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);
-  glazing.mesh(chassis,materials.glass,false);
+  box(body,trim,0,.61,.04,1.32,.14,2.01);
+  for(const side of [-1,1])for(const z of (van?[-.28]:[-.28,.62])){
+    const x=side*.42,cloth=van?0x4b5157:0x444b52;
+    body.add(seatPad,cloth,x,.63,z,.249,.093,.245);
+    body.add(seatPad,cloth,x,.83,z+.19,.229,.22,.13,-.11);
+    for(const edge of [-1,1])body.add(seatPad,0x545b60,x+edge*.17,.83,z+.12,.058,.19,.076,-.12);
+    body.add(seatPad,cloth,x,1.096,z+.218,.14,.105,.089,-.10);
+  }
+  box(body,trim,0,.91,front+.125,w*1.72,.11,.35);
+  box(body,0x23292d,-.41,.965,front+.19,.38,.087,.14);
+  box(body,0x53666e,-.41,.97,front+.269,.235,.053,.01);
+  box(body,0x606c6f,0,.905,front+.314,.21,.069,.016);
+  box(body,trim,0,.715,-.24,.24,.15,.65);
+  body.add(ring,rubber,-.43,1.05,-.65,1,1,1,-.42);
+  for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027,-.65],[x,1.064,-.65],.022);
+  body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
-  const wheelBatch=new Batch();
-  wheelBatch.add(roller,0x242729,0,0,0,.295,.166,.295,0,0,Math.PI/2);
-  for(const s of [-1,1]){
-    wheelBatch.add(roller,0x676e70,s*.088,0,0,.195,.015,.195,0,0,Math.PI/2);
-    wheelBatch.add(roller,0x303739,s*.098,0,0,.155,.014,.155,0,0,Math.PI/2);
-    for(let n=0;n<5;n++){
-      const a=n*2*Math.PI/5;
-      wheelBatch.add(cube,0xbcc2c0,s*.11,.096*Math.cos(a),.096*Math.sin(a),.023,.163,.037,a);
-    }
-  }
-  const wheelGeometry=wheelBatch.geometry(), wheels=[];
+  const wheelGeometry=wheelModel(Batch,tire,van),wheels=[];
   for(const z of axles)for(const sign of [-1,1]){
-    const wheel=new THREE.Mesh(wheelGeometry,materials.paint);
-    wheel.position.set(sign*(w-.038),.29,z);root.add(wheel);wheels.push(wheel);
+    const wheel=new THREE.Mesh(wheelGeometry,materials.wheel);wheel.position.set(sign*(w-.078),tire-.004,z);
+    wheel.scale.x=sign;root.add(wheel);wheels.push(wheel);
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
-  shadow.scale.set(w*1.32,(tail-nose)*.59,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.028;root.add(shadow);
-  return {root,chassis,door,brake,wheels};
+  shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
+  return {root,chassis,door,brake,wheels,tire};
 }
-
-export function cityTrafficView(scene,Batch,shadowMap){
+export function cityTrafficView(scene,Batch,shadowMap,panorama){
+  const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
+  if(panorama)paint.onBeforeCompile=shader=>{
+    shader.uniforms.bodySky={value:panorama};
+    shader.uniforms.fleetPaint={value:Object.values(fleet).map(({paint})=>new THREE.Color(paint))};
+    shader.fragmentShader='uniform sampler2D bodySky; uniform vec3 fleetPaint[3];\n'+shader.fragmentShader.replace('#include <specularmap_fragment>',`
+      #include <specularmap_fragment>
+      float painted=1.-step(.006,min(distance(vColor,fleetPaint[0]),min(distance(vColor,fleetPaint[1]),distance(vColor,fleetPaint[2]))));
+      specularStrength*=mix(.12,1.,max(painted,smoothstep(.23,.56,max(vColor.r,max(vColor.g,vColor.b)))));
+    `).replace('#include <opaque_fragment>',`
+      float paintDistance=min(distance(vColor,fleetPaint[0]),min(distance(vColor,fleetPaint[1]),distance(vColor,fleetPaint[2])));
+      if(paintDistance<.006){
+        vec3 eye=normalize(vViewPosition), ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
+        vec2 skyUV=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
+        float edge=pow(1.-clamp(dot(normal,eye),0.,1.),2.);
+        float horizon=exp(-pow((ray.y-.09)*5.5,2.));
+        outgoingLight+=texture2D(bodySky,skyUV).rgb*(.028+.14*edge+.095*horizon);
+      }
+      #include <opaque_fragment>`);
+  };
   const materials={
-    paint:new THREE.MeshPhongMaterial({vertexColors:true,shininess:52,specular:0x787d80,side:THREE.DoubleSide}),
-    glass:new THREE.MeshPhongMaterial({vertexColors:true,transparent:true,opacity:.23,depthWrite:false,side:THREE.DoubleSide,shininess:92}),
+    paint,
+    wheel:new THREE.MeshPhongMaterial({vertexColors:true,shininess:32,specular:0x52585b,side:THREE.DoubleSide}),
+    glass:panorama ? alpineGlass(panorama,{transparent:true,opacity:.64,depthWrite:false,side:THREE.DoubleSide}) :
+      new THREE.MeshPhongMaterial({vertexColors:true,transparent:true,opacity:.64,depthWrite:false,side:THREE.DoubleSide,shininess:100}),
     lights:new THREE.MeshBasicMaterial({vertexColors:true}),
     shadowGeometry:new THREE.PlaneGeometry(2,2),
-    shadow:new THREE.MeshBasicMaterial({map:shadowMap,color:0x1c2d31,opacity:.49,transparent:true,depthWrite:false}),
+    shadow:new THREE.MeshBasicMaterial({map:shadowMap,color:0x1c2d31,opacity:.68,transparent:true,depthWrite:false}),
   };
   const views=new Map();
   return (cars,dt)=>{
@@ -146,7 +341,7 @@ export function cityTrafficView(scene,Batch,shadowMap){
       root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       chassis.rotation.set(car.suspension?.pitch??0,0,car.suspension?.roll??0);
       chassis.position.y=car.suspension?.heave??0;
-      for(const wheel of wheels)wheel.rotation.x-=car.speed*dt/.295;
+      for(const wheel of wheels)wheel.rotation.x-=car.speed*dt/view.tire;
       const t=car.takeover?.progress??0;
       door.rotation.y=-1.05*smooth(t,0,.24)*(1-smooth(t,.75,1));
       brake.visible=!!car.takeover || (car.npcDriver!=null && Math.abs(car.speed)<1);
