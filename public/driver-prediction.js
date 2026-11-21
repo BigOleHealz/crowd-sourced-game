@@ -12,7 +12,7 @@ export function driverPrediction(snapshot,id) {
   const road=drivenRoad(snapshot,id), boat=crewBoat(snapshot,id);
   const kind=snapshot.tank?.driver===id?'tank':road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.jet?.pilot===id ? 'jet' :
     snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null;
-  if(!kind)return null;
+  if(!kind || road?.sling || boat?.sling)return null;
   const {jet,heli,rover,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
   const world=structuredClone({jet,heli,rover,supercar,tank,yacht,boats,doors,hp,traffic});
   const vehicle=road?.model ? drivenRoad(world,id) : kind==='boat'?crewBoat(world,id):world[kind];

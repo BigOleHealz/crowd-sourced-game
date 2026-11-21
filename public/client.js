@@ -117,7 +117,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -471,7 +471,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && held.has('KeyK'), releaseHook:world.heli.pilot===id && held.has('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -667,7 +667,7 @@ function updateEquipment(local) {
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
   else if(isDriving())prompt.textContent='W/S accelerate or brake · A/D steer';
   else if(gunner)prompt.textContent='Look around to aim · Hold F / click to fire';
-  else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':'Space to climb · Shift to descend';
+  else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':heli.hook?.load?'Cargo attached · L to release':'Space / Shift altitude · Hold K to lower cargo hook';
   else if(helmPrompt==='occupied' || helmPrompt==='gunOccupied')prompt.textContent='Yacht station occupied';
   else if(local.swimming)prompt.textContent='Swim toward a bank or dock · Space to climb out';
   else if(local.parachute==='packed')prompt.textContent='Free fall · Press Space to deploy parachute';

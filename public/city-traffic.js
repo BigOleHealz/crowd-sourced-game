@@ -182,6 +182,7 @@ export function stepCityTraffic(world,players,npcs,dt){
     !vehicles.some(v=>v?.driver===a.id || v?.gunner===a.id || v?.pilot===a.id));
   for(const car of world.traffic){
     const npc=npcs.find(n=>n.id===(car.npcDriver??car.takeover?.npcId));
+    if(car.sling && !car.wrecked){if(npc)placeDriver(car,npc);continue;}
     if(car.takeover){advanceTakeover(world,car,npc,dt,players);continue;}
     if(car.npcDriver && (car.wrecked || !npc?.life.hp)){
       if(npc){
@@ -217,8 +218,16 @@ export function stepCityTraffic(world,players,npcs,dt){
   }
 }
 
+// After a delivery away from its circuit, the driver parks and leaves on foot.
+export function finishTrafficDelivery(world,car,npcs){
+  const npc=npcs.find(n=>n.id===car.npcDriver);
+  if(!npc)return;
+  const exit=exitPoint(world,car);
+  letDriverWalk(world,car,npc,exit?.endX??car.x,exit?.endZ??car.z);
+  car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
+}
 export function driveTrafficCar(world,car,input,dt,players){
-  if(car.takeover || car.wrecked)return;
+  if(car.takeover || car.wrecked || car.sling)return;
   driveRover(world,input??{},dt,players,car.id);
   stepSuspension(car,dt,(x,z)=>groundHeight(x,z,car.y+1.65,world.doors));
 }
