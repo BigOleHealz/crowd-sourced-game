@@ -60,7 +60,9 @@ export function stepTank(world,input,dt,players){
       if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
       // A track can clear an existing wreck too. A fresh crush uses the
       // normal lethal vehicle damage path for ejection, credit and recovery.
+      const intact=!car.wrecked;
       damageRover(world,car.hp,players,car.kind??'rover',players?.get(t.driver)?.team);
+      if(intact && car.wrecked)world.wanted?.record(world.wanted.session(players?.get(t.driver)),'wreck');
       car.crushed=true;
       ({fraction,hit}=sweepRoad(world,t,dx,dz));
     }

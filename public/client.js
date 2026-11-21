@@ -161,6 +161,29 @@ byId('sound-mute').onclick = e => {
   audio.toggleMute();
   if (e.detail && byId('guide').hidden) canvas.focus({ preventScroll: true });
 };
+const wantedButton=byId('wanted-toggle'),wantedStatus=byId('wanted-status');
+let lastWantedHud;
+function wantedHud(state){
+  const key=state?[state.enabled,state.stars,state.phase,state.phase==='search'?state.escapeSeconds:0].join('/'):'offline';
+  if(key===lastWantedHud)return;
+  lastWantedHud=key;
+  wantedButton.hidden=!!mode;
+  wantedButton.disabled=!state;
+  const enabled=!!state?.enabled;
+  wantedButton.setAttribute('aria-pressed',String(enabled));wantedButton.textContent=enabled?'Police on':'Police off';
+  wantedStatus.hidden=!enabled;
+  if(enabled){
+    const stars=state.stars?'★'.repeat(state.stars)+'☆'.repeat(5-state.stars):'';
+    wantedStatus.textContent=state.stars?stars+'  '+(state.phase==='search'?'Searching · '+state.escapeSeconds+'s':'In pursuit'):'Wanted level clear';
+    wantedStatus.setAttribute('aria-label',state.stars+' of 5 wanted stars, '+state.phase);
+  }
+}
+wantedHud();
+wantedButton.onclick=()=>{
+  if(mode || socket?.readyState!==WebSocket.OPEN)return;
+  socket.send(JSON.stringify({type:'wantedMode',enabled:!vitals.wanted?.enabled}));
+  canvas.focus({preventScroll:true});
+};
 byId('unstuck').onclick = () => {
   if (socket?.readyState !== WebSocket.OPEN || vitals.dead || !self) return;
   socket.send(JSON.stringify({type:'unstuck'}));
@@ -338,7 +361,7 @@ function connect() {
       id = m.id; self = m.state; facing = m.state.yaw;
       damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
-      world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; weapon = m.state.weapon;
+      world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;
       predictedDriver=null;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
@@ -355,7 +378,7 @@ function connect() {
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
       else damageEdges.update(vitals,authoritative,roverView?.yaw ?? (jetPilot()?world.jet.yaw:camera.yaw));
-      vitals = authoritative;
+      vitals = authoritative;wantedHud(vitals.wanted);
       const road=myRoad(), bump=drivenRoad(m.world,id)?.contactSound;
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
@@ -405,7 +428,7 @@ function connect() {
     byId('marina-card').hidden=true;
     byId('match-card').hidden=true;
     byId('flight-cursor').hidden=true;
-    id = null; self = null; world = null; pending = []; samples = [];
+    wantedHud();id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
     byId('presence').textContent = full ? 'World full' : 'Reconnecting';
     notice(full ? 'All 16 places are taken. Retrying shortly…' : 'Connection lost. Rejoining the trail…');

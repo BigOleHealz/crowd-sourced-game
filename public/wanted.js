@@ -1,0 +1,115 @@
+import {MAP,blocked,groundHeight,stepPlayer} from './world.js';
+import {advanceFall} from './falls.js';
+import {newLife} from './rivals.js';
+import {patrolSight,firePatrolShot} from './expedition.js';
+
+const thresholds=[1,3,6,10,15],points={theft:1,defeat:2,wreck:2,officer:3};
+const stars=heat=>thresholds.reduce((n,start)=>n+(heat>=start),0);
+const inactive={enabled:false,stars:0,phase:'off',escapeSeconds:0};
+const fresh=player=>({player,heat:0,lastContact:0,nextDispatch:0});
+const targetCount=level=>level>=4?3:level>=2?2:1;
+let serial=0;
+
+function arrival(world,player,players,number){
+  const p=player.state;let fallback;
+  // Search a ring for walkable ground; never materialize in a room or the water.
+  for(let i=0;i<16;i++){
+    const angle=(player.yaw??0)+2.1+number*1.3+i*2.4,range=12+(i%3)*2;
+    const x=p.x+Math.sin(angle)*range,z=p.z-Math.cos(angle)*range,y=groundHeight(x,z);
+    if(!Number.isFinite(y)||y<MAP.waterY+.25||blocked(x,y,z,world.hp,world.doors))continue;
+    const officer={name:'Patrol officer',officer:true,targetId:player.id,
+      state:{x,y,z,grounded:true,vy:0},yaw:angle+Math.PI,moving:false,weapon:2,life:newLife(0,false),
+      nextSense:0,nextShot:0,visible:false};
+    fallback??=officer;
+    if(patrolSight(world,officer,player,players)){fallback=officer;break;}
+  }
+  if(fallback){fallback.id='officer-'+(++serial);return fallback;}
+}
+
+export function createWanted(world,players,{stepCruisers}={}){
+  const sessions=new Map(),officers=[],projectiles=new WeakMap();
+  let actors,now=0;
+  function removeOfficer(i){
+    const officer=officers[i],index=actors?.indexOf(officer)??-1;
+    if(index>=0)actors.splice(index,1);
+    officers.splice(i,1);
+  }
+  function recall(id){
+    for(let i=officers.length-1;i>=0;i--)if(officers[i].targetId===id)removeOfficer(i);
+    if(world.patrolCars)world.patrolCars=world.patrolCars.filter(c=>c.targetId!==id);
+  }
+  function session(p){return p && sessions.get(p);}
+  function set(p,enabled){
+    if(enabled){if(!session(p))sessions.set(p,fresh(p));}
+    else if(sessions.delete(p))recall(p.id);
+  }
+  function reset(p){
+    if(!session(p))return;
+    sessions.set(p,fresh(p));recall(p.id);
+  }
+  function record(owner,kind,tick=now){
+    if(!owner || session(owner.player)!==owner || !owner.player.life.hp || !Object.hasOwn(points,kind))return;
+    owner.heat=Math.min(thresholds.at(-1),owner.heat+points[kind]);
+    owner.lastContact=tick;owner.lastKnown={x:owner.player.state.x,z:owner.player.state.z};
+  }
+  function view(p,tick){
+    const s=session(p);
+    if(!s)return inactive;
+    const level=stars(s.heat),age=tick-s.lastContact;
+    return {enabled:true,stars:level,phase:!level?'clear':age<45?'pursuit':'search',
+      escapeSeconds:level?Math.max(0,Math.ceil((300-age)/30)):0};
+  }
+  function step(npcs,tick){
+    actors=npcs;now=tick;
+    if(!sessions.size)return;
+    for(let i=officers.length-1;i>=0;i--){
+      const o=officers[i];
+      if(!o.life.hp){advanceFall(o,tick,1/30,world.hp,world);if(tick>=o.life.returnAt)removeOfficer(i);}
+    }
+    for(const [p,s] of sessions){
+      if(!p.life.hp){if(!s.dead){reset(p);session(p).dead=true;}continue;}
+      if(s.dead)delete s.dead;
+      let level=stars(s.heat);
+      if(!level)continue;
+      const crew=officers.filter(o=>o.targetId===p.id && o.life.hp);
+      for(const o of crew){
+        const dx=p.state.x-o.state.x,dz=p.state.z-o.state.z,dist=Math.hypot(dx,dz);
+        if(advanceFall(o,tick,1/30,world.hp,world))continue;
+        if(tick>=o.nextSense){
+          o.nextSense=tick+9;
+          o.visible=dist<28 && !!patrolSight(world,o,p,players);
+          if(o.visible){s.lastContact=tick;s.lastKnown={x:p.state.x,z:p.state.z};}
+        }
+        o.lastKnown=s.lastKnown;
+        if(!o.cruiserId){
+          const x=s.lastKnown.x-o.state.x,z=s.lastKnown.z-o.state.z,remaining=Math.hypot(x,z);
+          o.yaw=Math.atan2(x,-z);o.moving=remaining>(o.visible?6:1.5);o.sprint=o.moving&&remaining>10;
+          if(o.moving){
+            o.state=stepPlayer(o.state,{x:x/remaining,z:z/remaining,sprint:o.sprint},1/30,world.hp,world);
+          }
+        }
+        if(o.visible&&dist<=18&&tick>=o.nextShot){
+          o.nextShot=tick+Math.max(35,90-10*level);
+          const sight=patrolSight(world,o,p,players);
+          if(sight)firePatrolShot(world,o,p,sight,tick,2+level);
+          if(!p.life.hp){reset(p);break;}
+        }
+      }
+      if(!p.life.hp)continue;
+      if(tick-s.lastContact>=300){
+        s.heat=level>1?thresholds[level-2]:0;level=stars(s.heat);
+        s.lastContact=tick-150;
+        if(!level){recall(p.id);continue;}
+        while(crew.length>targetCount(level)){const o=crew.pop();removeOfficer(officers.indexOf(o));}
+      }
+      if(crew.length<targetCount(level)&&officers.length<8&&tick>=s.nextDispatch&&tick-s.lastContact<45){
+        s.nextDispatch=tick+60;
+        const o=arrival(world,p,players,crew.length);
+        if(o){o.nextShot=tick+65;officers.push(o);npcs.push(o);}
+      }
+    }
+    stepCruisers?.(world,officers,players,tick);
+  }
+  return {set,session,view,reset,record,step,tag(round,p){const s=session(p);if(s)projectiles.set(round,s);},
+    owner(round){const s=projectiles.get(round);return s&&session(s.player)===s?s:undefined;}};
+}
