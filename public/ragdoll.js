@@ -35,7 +35,7 @@ export function sampleRanger(actor,dt,world) {
   const swap=state.last;state.last=state.now;state.now=swap;
   const vehicle=crewBoat(world,actor.id)??world?.rover;
   poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt,
-    vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null);
+    vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null,world?.doors);
   readJoints(state.rig,state.now);
   const hit=actor.hitPose??={indices:J,origin:{}};
   hit.joints=state.now;
