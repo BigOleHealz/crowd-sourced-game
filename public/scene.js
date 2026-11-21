@@ -790,7 +790,7 @@ function fieldEffects(scene) {
   }
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
-  const fireView=districtFireEffects(plume.puff,rng);
+  const fireView=districtFireEffects(scene,plume.puff,rng);
   const wreck=aircraftWreck(scene,plume.puff,particle,rng);
   let nextHullPuff=0;
   function yachtExhaust(yacht,dt) {

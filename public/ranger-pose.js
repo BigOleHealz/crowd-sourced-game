@@ -16,7 +16,7 @@ export function createRangerRig() {
     const arm=joint(upper,side*.203,1.447),forearm=joint(arm,0,-.275);
     return {side,leg,knee,ankle,arm,forearm,foot:newFoot()};
   });
-  return {root,body,spine,upper,head,limbs,tools:Array.from({length:4},()=>new THREE.Group()),cycle:0,gait:null};
+  return {root,body,spine,upper,head,limbs,tools:Array.from({length:5},()=>new THREE.Group()),cycle:0,gait:null};
 }
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
 const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();

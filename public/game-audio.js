@@ -16,7 +16,7 @@ import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
-  masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
+  'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
   glass:[.68,0,1800,1], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
@@ -246,7 +246,8 @@ export function createGameAudio(button,slider,level) {
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
-      if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
+      if(shot.weapon==='ember')burst('ember-wash',shot.from,listener,yaw,.36,shot.id);
+      else if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
       else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);

@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import {flameSheets} from './flame-sheets.js';
 import {fireSite} from './district-fire.js';
 
 // All smoke and glow use the scene's existing bounded billboard pool.
-export function districtFireEffects(puff,random){
+export function districtFireEffects(scene,puff,random){
+  const sheets=flameSheets(scene);
   const at=new THREE.Vector3(),velocity=new THREE.Vector3();
   let delay=0,sequence=0;
   function pulse(shot){
@@ -18,13 +20,34 @@ export function districtFireEffects(puff,random){
     }
   }
   function update(doors,local,dt){
-    if(!doors?.fires)return;
+    sheets.tick(dt);
+    if(!doors?.fires){sheets.begin();sheets.finish();return;}
     delay-=dt;if(delay>0)return;
-    delay=.12;sequence++;
+    delay=.12;sequence++;sheets.begin();
     const active=Object.entries(doors.fires).filter(([,v])=>v.stage==='burning' && Math.hypot(local.x-v.x,local.z-v.z)<82)
       .sort(([,a],[,b])=>Math.hypot(local.x-a.x,local.z-a.z)-Math.hypot(local.x-b.x,local.z-b.z)).slice(0,3);
     for(const [id,f] of active){
       const site=fireSite(id),house=site.kind==='house',station=site.kind==='station',spread=f.level;
+      const alongX=house && Math.abs(f.z-site.z)/site.d>Math.abs(f.x-site.x)/site.w;
+      // Fire travels along the siding from the point of impact. Give the
+      // sheets a little clearance so the facade cannot hide their centers.
+      const ox=house&&!alongX?Math.sign(f.x-site.x)*.18:0;
+      const oz=house&&alongX?Math.sign(f.z-site.z)*.18:0;
+      for(let k=0;k<2+spread*2;k++){
+        const u=k/(1+spread*2)-.5;
+        let x=f.x,z=f.z,y=Math.max(.87,f.y-.63),size=1;
+        if(house){
+          const span=spread*(1.45+spread*.48);
+          x=alongX?THREE.MathUtils.clamp(x+u*span,site.x-site.w/2,site.x+site.w/2):x+ox;
+          z=alongX?z+oz:THREE.MathUtils.clamp(z+u*span,site.z-site.d/2,site.z+site.d/2);
+          y+=Math.abs(u)*spread*.20;size=1.19;
+        }else if(station){
+          x=spread===1?f.x+u*.82:site.x+(k%2?3.7:-3.7)+u*1.2;
+          z=site.z+.62-(k%3)*.46;y=1;size=1.06;
+        }else{x+=u*.9;z+=Math.sin(k*3.1)*.20;size=.77;}
+        const variation=.82+.18*Math.sin(k*9.8);
+        sheets.add(x,y,z,size*(.46+spread*.31),size*(.54+spread*.91)*variation);
+      }
       for(let j=0;j<spread+1;j++){
         let x=f.x,y=f.y,z=f.z;
         if(house && j>0){
@@ -47,6 +70,7 @@ export function districtFireEffects(puff,random){
         }
       }
     }
+    sheets.finish();
   }
   return {pulse,update};
 }
