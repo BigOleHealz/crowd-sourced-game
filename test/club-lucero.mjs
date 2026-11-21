@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {club,clubAisle,clubSeat,seatAtClub,leaveClubSeat,inBoothAisle}=await import('../public/club-lucero.js');
+const {buildingTopAt}=await import('../public/world.js');
+const actor=id=>({id,life:{hp:100},state:{...clubAisle,grounded:true},weapon:2});
+const p=actor(1),q=actor(2),guests=new Map([[1,p],[2,q]]);
+assert(buildingTopAt(club.x,club.z+4.82,.27,1.60)<1.0);
+assert(buildingTopAt(club.x+2,club.z+4.82,.27,1.60)>3.0);
+assert(buildingTopAt(club.x,club.z-3.43,0,1.5)>1);
+assert(inBoothAisle(p.state));assert(seatAtClub(p,21,guests));assert.equal(p.state.x,clubSeat.x);
+assert(!seatAtClub(q,22,guests));assert.equal(p.weapon,2);
+leaveClubSeat(p);assert(inBoothAisle(p.state));assert(seatAtClub(q,23,guests));
+leaveClubSeat(q);q.life.hp=0;assert(!seatAtClub(q,24,guests));
+p.state.z=10;assert(!seatAtClub(p,25,guests));
+console.log('PASS open club entrance, solid walls/stage, exclusive booth, equipment retention, leaving, range and life checks');

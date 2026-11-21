@@ -5,7 +5,7 @@ import {roadGarages} from './road-garages.js';
 import {churchPath} from './ridge-church.js';
 
 export const destinations=CITY?new Map([
-  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Biscayne Mutual Bank',[-20,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['Mangle Café',[0,14]],['Biscayne Mutual Bank',[-20,-45]],['Club Lucero',[-71,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
 for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);

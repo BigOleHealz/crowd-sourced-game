@@ -13,7 +13,7 @@ function addGoods(bag,items){
   for(const [sku,count] of Object.entries(items))bag[sku]=(bag[sku]??0)+count;
 }
 export function canUseInventory(world,p){
-  return p.life.hp>0 && !p.life.fall && p.state.grounded && !p.state.climb && !p.state.swimming &&
+  return p.clubSince==null && p.life.hp>0 && !p.life.fall && p.state.grounded && !p.state.climb && !p.state.swimming &&
     !p.state.parachute && world.jet.pilot!==p.id && world.tank?.driver!==p.id &&
     world.yacht?.driver!==p.id && world.yacht?.gunner!==p.id && !seatVehicle(world,p.id) && !drivenRoad(world,p.id);
 }

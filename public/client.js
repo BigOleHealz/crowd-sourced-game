@@ -1,6 +1,7 @@
 import {atBankDesk,bankPrompt,bankClaimSeconds} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
+import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {createTouchControls,touchLayout} from './touch-controls.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
@@ -84,7 +85,7 @@ const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
-const canAim = () => self && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+const canAim = () => self && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -132,7 +133,7 @@ function speaker(current=null){
   return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
 }
 function canChangeStance(state) {
-  return state?.grounded && !state.swimming && !state.climb && !state.parachute &&
+  return vitals.clubSince==null && state?.grounded && !state.swimming && !state.climb && !state.parachute &&
     !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
 }
 
@@ -268,7 +269,7 @@ window.addEventListener('keydown', e => {
   if(touchBlocked() && byId('guide').hidden)return;
   if(e.code==='KeyT' && !e.repeat){startMarinaSprint();return;}
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
-  if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
+  if (e.code === 'Escape') {if(vitals.clubSince!=null)pressAction('KeyE');setGuide(false);releaseLook();return;}
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
@@ -279,7 +280,14 @@ function startMarinaSprint(){
   if(CITY && !mode && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
     socket.send(JSON.stringify({type:'marinaSprint'}));
 }
+function clubInteraction(){
+  if(!CITY || mode || !self || vitals.dead || vitals.fall)return '';
+  if(vitals.clubSince!=null)return 'Leave dance';
+  if(!canChangeStance(self) || !inBoothAisle(self))return '';
+  return 'Sit for a private dance';
+}
 function pressAction(code){
+  if(vitals.clubSince!=null && code!=='KeyE')return;
   if (code === 'Space') queuedDeploy = true;
   if (code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
   if ((code === 'KeyC' || code === 'KeyZ') && canChangeStance(self)) {
@@ -296,6 +304,8 @@ function pressAction(code){
       if(bank.action && socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action:bank.action,seq:++bankSeq}));
       return;
     }
+    const clubUse=clubInteraction();
+    if(clubUse){socket?.send(JSON.stringify({type:'clubSeat',action:vitals.clubSince!=null?'leave':'join'}));return;}
     const person=speaker();
     if(person)talk.open(person);
     else queuedInteract=vitals.use;
@@ -471,6 +481,10 @@ function connect() {
       const changedLife = !!vitals.dead !== !!authoritative.dead;
       if(vitals.dead && !authoritative.dead)damageEdges.reset();
       else damageEdges.update(vitals,authoritative,roverView?.yaw ?? (jetPilot()?world.jet.yaw:camera.yaw));
+      if((vitals.clubSince!=null)!==(authoritative.clubSince!=null)){
+        clearInput();pending=[];
+        if(authoritative.clubSince!=null){camera.yaw=Math.PI/2;camera.pitch=-.055;facing=camera.yaw;showSight(false);}
+      }
       vitals = authoritative;wantedHud(vitals.wanted);
       const road=myRoad(), bump=drivenRoad(m.world,id)?.contactSound;
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
@@ -495,7 +509,7 @@ function connect() {
       if(gunner && gunner!==wasGunner) {camera.yaw=vehicleById(world,gunner).turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
       if (camera.sighted && (!canAim() || authoritative.parachute || authoritative.swimming)) showSight(false);
-      const corrected = isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
+      const corrected = vitals.clubSince!=null || isPilot() || isDriving() || gunner || vitals.dead || vitals.fall ? authoritative : pending.reduce(
         (state, cmd) => stepPlayer(state, cmd, step, world.hp, world), authoritative);
       self = corrected;
       const shots=readShots(world.shots);
@@ -534,6 +548,7 @@ function connect() {
 }
 
 function movementInput() {
+  if(vitals.clubSince!=null)return {x:0,z:0,lateral:0,forward:0,moving:false,sprint:false};
   const right = held.has('KeyD') || held.has('ArrowRight');
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
@@ -585,7 +600,7 @@ function tick() {
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
   if (pending.length > 150) { socket.close(); return; }
-  if (!pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp, world);
+  if (vitals.clubSince==null && !pilot && !driving && !gunner && !vitals.dead && !vitals.fall) self = stepPlayer(self, cmd, step, world.hp, world);
 }
 
 // Interpolate only live rounds. An impact snapshot immediately retires its tracer.
@@ -785,11 +800,14 @@ function updateEquipment(local) {
   if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
+  const clubUse=clubInteraction();
+  if(clubUse)prompt.textContent='E  ·  '+clubUse;
+  else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(touch.active){
     const role=jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
+    const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
@@ -902,10 +920,10 @@ function frame(time) {
   while (accumulator >= step) { tick(); accumulator -= step; }
   if (self) {
     const t = accumulator / step;
-    const free=!vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
+    const free=vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -957,7 +975,7 @@ function frame(time) {
       byId('left-bearing').textContent = headings[(direction + 7) % 8];
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);

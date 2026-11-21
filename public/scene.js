@@ -1,6 +1,8 @@
 import {districtFireEffects} from './fire-effects.js';
 import {marketStockView} from './market-stock-view.js';
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
+import {inClub} from './club-lucero.js';
+import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
@@ -27,7 +29,7 @@ import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
-import {civilianLooks} from './civilian-style.js';
+import {civilianLooks,cabaretLooks} from './civilian-style.js';
 import {patrolProfile} from './patrol-uniform.js';
 import {dressPerson} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
@@ -1239,7 +1241,7 @@ export function createScene(canvas,onFootfall) {
   }
   let nightlifeFaces;
   function resident(id,name,officer=false){
-    const look=officer?patrolProfile(id,!CITY):civilianLooks[id];
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
@@ -1369,7 +1371,7 @@ export function createScene(canvas,onFootfall) {
     const live=new Set();
     distant?.begin();
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
-    for(const state of [local,...remotes,...(world?.npcs ?? [])]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[])]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
@@ -1378,7 +1380,7 @@ export function createScene(canvas,onFootfall) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.performer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1388,7 +1390,7 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && civilianLooks[state.id]) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1414,6 +1416,7 @@ export function createScene(canvas,onFootfall) {
             }
           }
         }
+        if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
@@ -1438,8 +1441,9 @@ export function createScene(canvas,onFootfall) {
     const chapel=!CITY && churchRoom(local.x,local.y,local.z);
     const palace=CITY && inPalazzoMare(local.x,local.y,local.z);
     const villa=CITY && casaRoomAt(local.x,local.y,local.z);
-    const indoors=Boolean(chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
-    const depth=chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
+    const clubRoom=CITY && inClub(local);
+    const indoors=Boolean(clubRoom || chapel || cabinDepth>=0 || palace || villa || tenant || gallery || CITY && storefrontRoom(local.x,local.y,local.z));
+    const depth=clubRoom ? Math.max(0,-49.5-local.z) : chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     // The feet cross a doorway in one tick, but the shoulder rig still spans
     // both rooms. Carry close clearance and framing across the threshold.
     const doorway=CITY && !driving && !piloting && !localStation ? doorwayProximity(local.x,local.y,local.z) : 0;
@@ -1461,7 +1465,7 @@ export function createScene(canvas,onFootfall) {
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
       let shoulder=local.parachute ? 0 : mix(mix(.66,.37,roomBlend),.19,doorway);
-      const shoulderHeight=1.46-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
+      const shoulderHeight=(local.clubSince!=null?1.07:1.46)-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
       if(nearInterior && shoulder){
         sideways.set(cs,0,sn);
         desired.set(local.x,local.y+shoulderHeight,local.z);
@@ -1561,6 +1565,13 @@ export function createScene(canvas,onFootfall) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       avatars.get(local.id).root.visible = false;
+    }
+    if(local.clubSince!=null){
+      // From the booth the camera sits at eye height. Spectators still see
+      // the guest seated against the backrest and can look around freely.
+      camera.position.set(local.x+.10,local.y+1.13,local.z);
+      camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
+      avatars.get(local.id).root.visible=false;
     }
     if(bowSight){
       const pivot=mountPosition(world.yacht,mounts.superyacht.turret);
