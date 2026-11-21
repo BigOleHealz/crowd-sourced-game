@@ -31,8 +31,8 @@ function sign(scene,boat,model){
   context.font='600 21px sans-serif';context.fillText('LANTERN POINT',224,108);
   const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
   const material=new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-3});
-  const plaque=new THREE.Mesh(new THREE.PlaneGeometry(model.beam*.61,.32),material);
-  plaque.position.set(0,model.deck-.21,model.halfLength*.83+.004);scene.add(plaque);
+  const plaque=new THREE.Mesh(new THREE.PlaneGeometry(model.beam*.55,.16),material);
+  plaque.position.set(0,model.deck+.062,model.halfLength*.83+.048);scene.add(plaque);
 }
 
 function buildBoat(scene,Batch,boat,glass){
@@ -79,8 +79,9 @@ function buildBoat(scene,Batch,boat,glass){
   for(let i=0;i<13;i++){
     const width=cockpitWidth/13,x=(i-6)*width;
     block(grain,i%4===0?0xb38662:i%4===1?0xbb906a:wood,x,deck+.013,l*.37,width-.012,.025,l*.84);
-    if(Math.abs(i)<6)block(grain,i%3?wood:0xbe916c,x,deck-.19,l*.915,width-.012,.105,l*.164);
+    if(Math.abs(i-6)<6)block(grain,i%3?wood:0xbe916c,x,deck-.19,l*.915,width-.012,.105,l*.164);
   }
+  block(paint,boat.hull,0,deck+.058,l*.83,w*1.43,.182,.091);
   block(trim,rubber,0,deck-.24,l*.913,w*1.37,.035,l*.17);
   for(const side of [-1,1]){
     const x=side*w*.68;

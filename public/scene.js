@@ -55,6 +55,7 @@ import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
 import { patrolBoatView } from './patrol-boat-view.js';
 import {marinaFleetView} from './marina-fleet-view.js';
+import {marinaHullContains,marinaModel} from './marina-fleet-layout.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
@@ -953,13 +954,15 @@ function pose(avatar,state,dt,seated,station,doors) {
   updateSwimRipples(avatar,state);
 }
 
-function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yacht) {
+const marinaBlocks=(boats,x,y,z,padding)=>boats?.some(b=>marinaHullContains(b,x,y,z,padding));
+function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yacht,marinaBoats) {
   let distance=wanted;
-  const close=indoors || yacht;
+  const close=indoors || yacht || marinaBoats?.length;
   const increment=close ? .08 : .20, minimum=close ? .10 : .45;
   for(let d=minimum;d<=wanted+increment;d+=increment) {
     const x=target.x+vector.x*d,y=target.y+vector.y*d,z=target.z+vector.z*d;
-    if(yachtSolidAt(yacht,x,y,z,.14) || Math.max(groundHeight(x,z,y+.15,doors),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
+    if(yachtSolidAt(yacht,x,y,z,.14) || marinaBlocks(marinaBoats,x,y,z,.18) ||
+      Math.max(groundHeight(x,z,y+.15,doors),buildingTopAt(x,z,.14,y+.15,doors))>y-.15) {distance=Math.min(wanted,Math.max(minimum,d-increment));break;}
   }
   // Sweep the boom against trunk/rock cylinders without testing every mesh.
   const test=(prop, radius) => {
@@ -1285,6 +1288,8 @@ export function createScene(canvas,onFootfall) {
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);
+    const marinaBoats=CITY ? world.boats.filter(b=>b.boatModel && !b.wrecked && b!==boat &&
+      Math.hypot(local.x-b.x,local.z-b.z)<14) : null;
     const yachtHelm=world.yacht?.driver===local.id;
     const localStation=world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
@@ -1311,7 +1316,7 @@ export function createScene(canvas,onFootfall) {
       desired.set(pivot.x,pivot.y,pivot.z);
     }
     else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
-    else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
+    else if(boat)desired.set(boat.x,boat.y+(marinaModel(boat)?.deck??.38)+.67,boat.z);
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
@@ -1325,11 +1330,13 @@ export function createScene(canvas,onFootfall) {
       if(nearInterior && shoulder){
         sideways.set(cs,0,sn);
         desired.set(local.x,local.y+shoulderHeight,local.z);
-        shoulder=Math.max(0,cameraDistance(desired,sideways,shoulder,world.hp,0,world.doors,true,nearbyYacht)-.04);
+        shoulder=Math.max(0,cameraDistance(desired,sideways,shoulder,world.hp,0,world.doors,true,nearbyYacht,marinaBoats)-.04);
       }
       const x=local.x+shoulder*cs,z=local.z+shoulder*sn;
       shoreCamera+=clamp(waterBlend(local)-shoreCamera,-dt*3.8,dt*3.8);
-      const clear=!yachtSolidAt(nearbyYacht,x,local.y+shoulderHeight,z,.16) && buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
+      const clear=!yachtSolidAt(nearbyYacht,x,local.y+shoulderHeight,z,.16) &&
+        !marinaBlocks(marinaBoats,x,local.y+shoulderHeight,z,.16) &&
+        buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
       desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : mix(shoulderHeight,1.00,shoreCamera)),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
@@ -1358,10 +1365,10 @@ export function createScene(canvas,onFootfall) {
     const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
-    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht);
+    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats);
     // When backed against an interior wall, the usual boom can collapse into
     // the character. Swing it along the wall for a short three-quarter view.
-    if(onFoot && nearInterior){
+    if(onFoot && (nearInterior || marinaBoats?.length)){
       let orbit=0;
       if(clearance<1.50){
         // Try the previous side first to avoid oscillating at a door jamb.
@@ -1370,7 +1377,7 @@ export function createScene(canvas,onFootfall) {
         let best=clearance;
         for(const angle of [first*turn,-first*turn,first*Math.PI*.57,-first*Math.PI*.57]){
           sideways.copy(boom).applyAxisAngle(up,angle);
-          const available=cameraDistance(target,sideways,Math.min(wanted,1.64),world.hp,0,world.doors,true,cameraYacht);
+          const available=cameraDistance(target,sideways,Math.min(wanted,1.64),world.hp,0,world.doors,true,cameraYacht,marinaBoats);
           if(available>best+.18){orbit=angle;best=available;}
           if(best>1.47)break;
         }
@@ -1378,7 +1385,7 @@ export function createScene(canvas,onFootfall) {
       indoorAngle=THREE.MathUtils.damp(indoorAngle,orbit,10,dt);
       if(Math.abs(indoorAngle)>.01){
         boom.applyAxisAngle(up,indoorAngle);
-        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true,cameraYacht);
+        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true,cameraYacht,marinaBoats);
       }
     }else indoorAngle=0;
     // Pull in at obstructions, then ease back out as the orbit clears them.

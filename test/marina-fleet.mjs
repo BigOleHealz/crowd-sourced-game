@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {nearBoat,interactBoat,stepBoat,nearbyHull,helmFeet,damageBoat}=await import('../public/patrol-boats.js');
-const {marinaBerths,marinaModels,marinaModel,hullSize}=await import('../public/marina-fleet-layout.js');
+const {marinaBerths,marinaModels,marinaModel,marinaHullContains,hullSize}=await import('../public/marina-fleet-layout.js');
 const {nextUse}=await import('../public/use-target.js');
 const {selectSeat}=await import('../public/seat-selection.js');
 const {vehicleContact}=await import('../public/vehicle-contact.js');
@@ -57,6 +57,9 @@ for(const [i,site] of marinaBerths.entries()){
   }
   const outer=mountPosition(boat,[model.halfWidth-.08,.10,0]);
   assert(vehicleContact(outer.x,outer.y,outer.z,world,true).depth>0);
+  assert(marinaHullContains(boat,outer.x,outer.y,outer.z));
+  const cabin=mountPosition(boat,[0,model.deck+.82,0]);
+  assert.equal(marinaHullContains(boat,cabin.x,cabin.y,cabin.z),Boolean(model.roof));
   assert(nearbyHull([boat],null,boat.x,boat.z,boat.yaw+.3,.4,.6));
   assert(!nearbyHull([boat],null,boat.x,boat.z+model.halfWidth+4,boat.yaw,.35,.45));
 

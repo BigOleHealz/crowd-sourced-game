@@ -60,3 +60,13 @@ export const marinaBerths=[
 
 const patrolSize={halfWidth:1.10,halfLength:2.75};
 export const hullSize=boat=>marinaModel(boat)??patrolSize;
+
+export function marinaHullContains(boat,x,y,z,padding=0){
+  const {shapes,halfLength,halfWidth}=marinaModel(boat);
+  const dx=x-boat.x,dz=z-boat.z,up=y-boat.y;
+  if(Math.hypot(dx,dz)>Math.hypot(halfLength,halfWidth)+padding*2)return false;
+  const c=Math.cos(boat.yaw),s=Math.sin(boat.yaw);
+  const side=Math.abs(dx*c+dz*s),along=-dx*s+dz*c;
+  return shapes.some(([half,fore,aft,bottom,top])=>
+    side<=half+padding && along>=fore-padding && along<=aft+padding && up>=bottom-padding && up<=top+padding);
+}
