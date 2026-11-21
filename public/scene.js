@@ -1,3 +1,4 @@
+import {districtFireEffects} from './fire-effects.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -479,7 +480,17 @@ function makeFirearms(body) {
   launcher.add(cube,rubber,0,.0,.02,.064,.15,.07);
   launcher.add(cube,sand,-.083,.23,-.05,.066,.074,.14);
   tube.dispose();
-  const tools=[carbine,sidearm,meridian,launcher].map(batch=>batch.mesh(body,handheldFinish,false));
+  const ember=new Batch();
+  ember.add(cube,0x3e5258,0,-.035,.04,.064,.16,.08,-.15);
+  ember.add(round,0xd5763d,0,.081,-.14,.117,.108,.25);
+  for(const s of [-1,1]){
+    ember.add(cube,0x465459,s*.083,.10,-.13,.019,.112,.24);
+    ember.add(cube,0xebca7b,s*.095,.115,-.11,.009,.024,.12);
+  }
+  ember.add(cube,0x435a5c,0,.085,-.34,.17,.17,.08);
+  ember.add(round,0xeeba66,0,.085,-.383,.065,.065,.012);
+  const tools=[carbine,sidearm,meridian,launcher,ember].map(batch=>batch.mesh(body,handheldFinish,false));
+  tools[4].name='Ember projector';
   tools[3].name='Heat-seeking launcher';
   tools[2].name='Meridian scoped rifle';
   for(const tool of tools) tool.position.set(.12,1.33,-.20);
@@ -746,6 +757,7 @@ function fieldEffects(scene) {
   }
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
+  const fireView=districtFireEffects(plume.puff,rng);
   const wreck=aircraftWreck(scene,plume.puff,particle,rng);
   let nextHullPuff=0;
   function yachtExhaust(yacht,dt) {
@@ -781,6 +793,7 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='ember'){fireView.pulse(s);return;}
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
@@ -821,7 +834,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,wreck,glassBurst,update,yachtExhaust,trail:plume.trail};
+  return {shot,burst,wreck,glassBurst,update,fireView,yachtExhaust,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -1166,6 +1179,7 @@ export function createScene(canvas) {
   const sightModels=makeFirearms(camera);
   sightModels[0].position.set(0,-.194,-.40);
   sightModels[1].position.set(0,-.151,-.44);
+  sightModels[4].position.set(.17,-.20,-.46);
   sightModels[3].position.set(.19,-.27,-.46);
   sightModels[2].position.set(0,-.216,-.37);
   const effects=fieldEffects(scene);
@@ -1313,6 +1327,7 @@ export function createScene(canvas) {
     }
     updateMissiles(world.missiles ?? [],dt);
     updateRounds(world.bullets);
+    effects.fireView.update(world.doors,local,dt);
     effects.update(dt);
     contacts.begin(world,local);
     const live=new Set();
@@ -1487,6 +1502,7 @@ export function createScene(canvas) {
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
+    sightModels[4].visible=sighted && local.weapon===5;
     sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;
     const bowSight=localStation==='superyacht' && !local.dead && !local.fall;

@@ -1,3 +1,5 @@
+import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
+import {burnableContact,hitFireSite} from './district-fire.js';
 import {tankMuzzle} from './tank-layout.js';
 import {parkedTank,damageTank} from './tank.js';
 import {breachTower} from './tower-damage.js';
@@ -219,9 +221,19 @@ export function trackLauncher(world,player,input,tick,players,npcs){
 
 export function fire(world, player, input, tick, players, npcs) {
   if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
-  const spec=player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
+  const spec=player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
+  if(player.weapon===5){
+    const flat=Math.cos(input.aimPitch)*spec.range;
+    const d={x:Math.sin(input.aimYaw)*flat,y:Math.sin(input.aimPitch)*spec.range,z:-Math.cos(input.aimYaw)*flat};
+    const actors=targets(world,player.id,players,npcs);
+    const hit=segmentContact(world,{...from,shooter:player.id},d,actors,new Map(),actorIntersection);
+    const t=Math.min(1,hit.t),to={x:from.x+d.x*t,y:from.y+d.y*t,z:from.z+d.z*t};
+    if(Number.isFinite(hit.t))hitFireSite(world.doors,burnableContact(hit,to),to,tick,true,player.team);
+    world.shots.push({id:nextShotId++,shooter:player.id,weapon:'ember',from,to,tick});
+    return;
+  }
   if(player.weapon===4){
     const lock=lockStatus(player,tick);
     const id=nextShotId++;
@@ -425,6 +437,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     Object.assign(m,hit.to);
     m.remaining--;
     if(!hit.hitKind && !hit.blocked) return m.remaining>0;
+    if(CITY && hit.blocked && stationContact(hit.to))hitFireSite(world.doors,fuelStop.id,hit.to,tick,false);
     if (CITY && (hit.blocked || hit.hitKind==='glass')) {
       const cell=breachTower(MAP.buildings,world.doors,hit.to);
       if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',31_250);
@@ -496,11 +509,12 @@ export function advanceRounds(world,players,npcs,tick){
     r.x+=d.x*t;r.y+=d.y*t;r.z+=d.z*t;r.left-=step*fraction;r.age++;
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
+    if(CITY && hit.target?.fireSite)hitFireSite(world.doors,hit.target.fireSite,to,tick,false);
     if(hit.target && !Number.isInteger(hit.wheel) && ['heli','rover','supercar'].includes(hit.hitKind)){
       const pane=windowContact(hit.hitKind,hit.target,to,d,CITY);
       if(pane){(hit.target.brokenGlass??={})[pane.id]=true;noteGlass(world.doors,pane);}
     }
-    const injury=hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r),world.wanted?.owner(r));
+    const injury=hit.hitKind!=='scenery' && hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r),world.wanted?.owner(r));
     if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});

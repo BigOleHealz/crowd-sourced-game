@@ -1,3 +1,4 @@
+import {addFuelStop} from './pelican-fuel-view.js';
 import {furnishMarketStreet} from './harbor-market-view.js';
 import {residentialRuinView} from './residential-ruin-view.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
@@ -191,6 +192,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
+  const updateFuelStop=addFuelStop(scene,Batch,solids);
   const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
@@ -201,6 +203,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
+    updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);

@@ -18,6 +18,19 @@ const shapes={
 function synth(context,name) {
   if(name==='patrol-siren')return sirenLoop(context);
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
+  if(name==='district-fire'){
+    const rate=context.sampleRate,buffer=context.createBuffer(1,rate*2,rate),samples=buffer.getChannelData(0);
+    let seed=2447,brown=0,pop=0;
+    for(let i=0;i<samples.length;i++){
+      seed=(Math.imul(seed,1664525)+1013904223)>>>0;
+      const n=seed/2147483648-1;
+      brown+=(n-brown)*.041;pop*=.986;
+      if(seed<3100000)pop=.15+Math.abs(n)*.35;
+      const edge=Math.min(1,i/256,(samples.length-1-i)/256);
+      samples[i]=edge*(brown*.68+n*pop);
+    }
+    return buffer;
+  }
   if(name==='horn'){
     const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*.43),rate),samples=buffer.getChannelData(0);
     for(let i=0;i<samples.length;i++){
@@ -195,6 +208,13 @@ export function createGameAudio(button,slider,level) {
       if(voices.size>=24)return;
       burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
     });
+    let nearest,range=34;
+    for(const f of Object.values(world.doors?.fires??{})){
+      if(f.stage!=='burning')continue;
+      const distance=Math.hypot(listener.x-f.x,listener.y-f.y,listener.z-f.z);
+      if(distance<range){nearest=f;range=distance;}
+    }
+    motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
