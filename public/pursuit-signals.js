@@ -1,6 +1,5 @@
-// Only a dispatched, occupied cruiser signals. Parked cars remain in the world
-// while the same officer pursues on foot.
-export const signalingCruiser=car=>car.active && car.npcDriver!=null && !car.wrecked && car.hp>0;
+// Dispatched cars signal automatically. A player controls the light bar after taking the wheel.
+export const signalingCruiser=car=>(car.emergencyLights || car.active && car.npcDriver!=null) && !car.wrecked && car.hp>0;
 
 export function patrolLampSide(car,seconds){
   if(!signalingCruiser(car))return 0;

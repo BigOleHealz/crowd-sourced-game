@@ -1,4 +1,5 @@
 import {CITY,MAP,blocked,groundHeight,stepPlayer} from './world.js';
+import {releaseCruiser} from './cruiser-handoff.js';
 import {advanceFall} from './falls.js';
 import {bankDoor,bankRoadZ} from './bank-site.js';
 import {inBankLobby} from './bank-rules.js';
@@ -76,15 +77,8 @@ export function createWanted(world,players,{stepCruisers}={}){
   }
   function recall(id){
     for(let i=officers.length-1;i>=0;i--)if(officers[i].targetId===id)removeOfficer(i);
-    if(world.patrolCars){
-      if(!officers.length){
-        stepCruisers?.(world,[],players,now);
-        delete world.patrolCars;
-      }else{
-        const remaining=world.patrolCars.filter(c=>c.targetId!==id);
-        if(remaining.length)world.patrolCars=remaining;else delete world.patrolCars;
-      }
-    }
+    for(const car of [...(world.patrolCars??[])])if(car.targetId===id)releaseCruiser(world,car);
+    if(!world.patrolCars?.length)delete world.patrolCars;
   }
   function session(p){return p && sessions.get(p);}
   function set(p,enabled){

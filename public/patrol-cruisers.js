@@ -1,3 +1,4 @@
+import {releaseCruiser} from './cruiser-handoff.js';
 import {gapAhead,roadUsers} from './lane-clearance.js';
 import {CITY,groundHeight} from './world.js';
 import {cityServices,outpostServices} from './traffic-routes.js';
@@ -90,11 +91,19 @@ export function stepPatrolCruisers(world,officers,players,tick,npcs=officers){
     if(!state.has(officer.id)){
       // At most two cruisers per pursuit. Additional responders approach on foot.
       const count=cars.filter(car=>car.targetId===officer.targetId).length;
-      unit=count<2?dispatch(officer,target,count,traffic):null;
+      // Bound the district fleet without evicting a visible or occupied cruiser.
+      const parked=world.traffic?.filter(c=>c.released)??[];
+      let room=parked.length+cars.length<16;
+      if(!room){
+        const old=parked.find(c=>c.driver==null && !c.boarding && !c.sling &&
+          [...players.values()].every(p=>Math.hypot(c.x-p.state.x,c.z-p.state.z)>160));
+        if(old){world.traffic.splice(world.traffic.indexOf(old),1);room=true;}
+      }
+      unit=count<2 && room?dispatch(officer,target,count,traffic):null;
       state.set(officer.id,unit);
       if(unit){officer.cruiserId=unit.car.id;traffic.vehicles.push(unit.car);}
     }
-    if(!unit)continue;
+    if(!unit || unit.car.released)continue;
     const {car,lane}=unit;cars.push(car);
     if(!car.npcDriver)continue;
     if(car.sling){
@@ -131,7 +140,10 @@ export function stepPatrolCruisers(world,officers,players,tick,npcs=officers){
     Object.assign(officer.state,{x:car.x,y:car.y,z:car.z,vy:0,grounded:true});
     officer.yaw=car.yaw;officer.moving=false;
   }
-  for(const id of state.keys())if(!assigned.has(id))state.delete(id);
+  for(const [id,unit] of state)if(!assigned.has(id)){
+    if(unit)releaseCruiser(world,unit.car);
+    state.delete(id);
+  }
   if(cars.length)world.patrolCars=cars;
   else delete world.patrolCars;
   return cars;

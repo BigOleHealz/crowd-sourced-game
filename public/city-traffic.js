@@ -1,3 +1,4 @@
+import {releaseCruiser} from './cruiser-handoff.js';
 import {signalGap} from './junction-signals.js';
 import {gapAhead,roadUsers} from './lane-clearance.js';
 import {beginRoadBoarding} from './road-cabin.js';
@@ -56,7 +57,8 @@ export function syncTrafficDrivers(world,npcs){
 export function nearestTraffic(world,feet){
   if(!feet?.grounded || feet.swimming || feet.parachute)return null;
   let near=null,min=3.05;
-  for(const car of world.traffic??[]){
+  const parked=(world.patrolCars??[]).filter(car=>!car.npcDriver && !car.boarding && !car.sling);
+  for(const car of parked.length?[...(world.traffic??[]),...parked]:world.traffic??[]){
     if(car.driver!=null || car.takeover || car.wrecked || Math.abs(car.speed)>.12)continue;
     const d=Math.hypot(car.x-feet.x,car.y-feet.y,car.z-feet.z);
     if(d<=min){near=car;min=d;}
@@ -84,6 +86,7 @@ export function tryTrafficInteract(world,player,npcs){
   if(!player.life.hp || player.life.fall || player.state.climb)return false;
   const car=nearestTraffic(world,player.state);
   if(!car)return false;
+  if(car.patrol && !car.released)releaseCruiser(world,car);
   if(car.npcDriver){
     const npc=npcs.find(n=>n.id===car.npcDriver),exit=exitPoint(world,car);
     if(!npc?.life.hp || !exit)return false;
@@ -167,7 +170,7 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
       }
       car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
     }
-    if(car.wrecked){recoverTrafficCar(world,car,actors,dt);continue;}
+    if(car.wrecked){if(!car.released)recoverTrafficCar(world,car,actors,dt);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
     const gap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));

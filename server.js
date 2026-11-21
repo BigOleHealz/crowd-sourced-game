@@ -240,6 +240,11 @@ function acceptInput(player, data, binary) {
       world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
     return;
   }
+  if(input?.type==='cruiserLights'){
+    const car=drivenRoad(world,player.id);
+    if(car?.patrol && !car.wrecked && typeof input.on==='boolean')car.emergencyLights=input.on;
+    return;
+  }
   if(input?.type==='wantedMode'){
     if(typeof input.enabled==='boolean')world.wanted?.set(player,input.enabled);
     return;
