@@ -1,3 +1,5 @@
+import {atMarketCounter} from './market-goods.js';
+import {marketPanel} from './market-panel.js';
 import {createTouchControls,touchLayout} from './touch-controls.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
@@ -111,6 +113,15 @@ const isPilot = () => id != null && (world?.heli.pilot === id || jetPilot());
 const talk=conversationView(byId('conversation'),releaseLook,()=>{
   stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});
 });
+const market=marketPanel(byId('market-panel'),byId('wallet'),{
+  enter:releaseLook,leave(){stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});},
+  send(message){if(socket?.readyState!==WebSocket.OPEN)return false;socket.send(JSON.stringify(message));return true;}
+});
+function counter(){
+  return world?.market && !vitals.use && canChangeStance(self)?atMarketCounter(self):null;
+}
+function openBag(){if(world?.market && canChangeStance(self) && !touchBlocked())market.open();}
+byId('wallet').onclick=openBag;
 function speaker(current=null){
   const available=canChangeStance(self) && byId('guide').hidden && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup';
   return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
@@ -129,7 +140,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -233,6 +244,10 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(market.current){
+    if(!e.repeat && ['Escape','KeyE','KeyI'].includes(e.code)){e.preventDefault();market.close();}
+    return;
+  }
   if(talk.current){
     if(e.repeat)return;
     if(['Escape','KeyE'].includes(e.code)){e.preventDefault();talk.close();}
@@ -267,7 +282,10 @@ function pressAction(code){
     requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
   }
   if(code==='KeyG' && mode)handleCase=true;
+  if(code==='KeyI')openBag();
   if(code==='KeyE'){
+    const shop=counter();
+    if(shop){market.open(shop);return;}
     const person=speaker();
     if(person)talk.open(person);
     else queuedInteract=vitals.use;
@@ -406,12 +424,13 @@ function connect() {
     }).catch(error => {console.error(error); connection.close();});
   };
   function receive(m) {
+    if(m.type==='wallet'){market.receive(m);return;}
     if(m.type==='marinaBoard'){sprintBoard=m.rows;return;}
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
       sprintBoard=m.raceBoard??[];
-      connectedBuild=m.build;
+      connectedBuild=m.build;market.receive(m);
       if(previousScoreKey)socket.send(JSON.stringify({type:'resumeScore',key:previousScoreKey}));
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
@@ -478,6 +497,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
+    market.reset();
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -711,6 +731,8 @@ function updateEquipment(local) {
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
+  const shop=counter(),shopLabel=shop && (world.market.shops[shop.id].down?'Loot counter':'Shop with '+(world.npcs.find(n=>n.id===shop.owner)?.name??shop.name));
+  market.update(world,shop,canChangeStance(self));
   const person=!talk.current && speaker();
   const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
@@ -721,7 +743,8 @@ function updateEquipment(local) {
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
-  else if(talk.current)prompt.textContent='';
+  else if(market.current || talk.current)prompt.textContent='';
+  else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
@@ -743,7 +766,7 @@ function updateEquipment(local) {
   if(touch.active){
     const role=jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=person?'Talk to '+conversations[person].name:use?.label;
+    const useLabel=shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
@@ -825,6 +848,10 @@ function drawMap(player, remotes, yaw) {
   for(const g of roadGarages)ctx.fillText('⚒',sx(g.x)-3,sy(g.z)-3);
   if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
   else drawSupplyMap(ctx,sx,sy,world,player,id);
+  if(market.chart && world.market){
+    ctx.fillStyle='#d4ff98';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+    for(const d of world.market.drops)ctx.fillText(d.cash?'$':'+',sx(d.x),sy(d.z)-3);
+  }
   for (const remote of remotes) {
     ctx.fillStyle = teamColors[remote.team] ?? '#b3e6ec'; ctx.beginPath(); ctx.arc(sx(remote.x),sy(remote.z),5,0,Math.PI*2); ctx.fill();
   }

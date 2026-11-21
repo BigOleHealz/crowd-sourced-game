@@ -1,4 +1,5 @@
 import {districtFireEffects} from './fire-effects.js';
+import {marketStockView} from './market-stock-view.js';
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
@@ -1293,8 +1294,9 @@ export function createScene(canvas,onFootfall) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
-  let sprintGate;
+  let sprintGate,drawMarket;
   function render(local,remotes,view,dt,world) {
+    if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
       sprintGate??=createSprintGate(scene,Batch);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
