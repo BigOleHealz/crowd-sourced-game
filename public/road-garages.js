@@ -9,7 +9,7 @@ export function garageAt(car){
 }
 const visits=new WeakMap();
 export function needsRoadRepair(car){
-  return car.hp<car.maxHp || car.flatTires || Object.keys(car.brokenGlass??{}).length || Object.values(car.bodyDamage??{}).some(v=>v>0);
+  return car.hp<car.maxHp || car.flatTires || car.fittingDamage?.some(Boolean) || Object.keys(car.brokenGlass??{}).length || Object.values(car.bodyDamage??{}).some(v=>v>0);
 }
 
 export function serviceRoadCar(car,dt){
@@ -28,6 +28,6 @@ export function serviceRoadCar(car,dt){
   }
   car.hp=car.maxHp;car.flatTires=0;
   car.bodyDamage={front:0,rear:0,left:0,right:0};
-  delete car.brokenGlass;delete car.contactSound;delete car.repairPercent;
+  delete car.fittingDamage;delete car.brokenGlass;delete car.contactSound;delete car.repairPercent;
   visits.delete(car);
 }
