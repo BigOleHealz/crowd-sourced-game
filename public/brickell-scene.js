@@ -1,3 +1,4 @@
+import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
 import {estateDamageView} from './estate-damage-view.js';
@@ -150,7 +151,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const faces=[0,1,2,3].map(i=>atlas(new THREE.BoxGeometry(),i%2,1-Math.floor(i/2),2,2));
   const updateGallery=galleryLobbyView(scene,renderer,Batch,panorama,debris);
   const furnishPortico=streetShops(scene,renderer,Batch,panorama,breakables);
-  const base=.80,podium=3.9;
+  const base=balconyBase,podium=balconyPodium;
   MAP.buildings.forEach(({x,z,w,d,eave:h,facade,housing},i)=>{
     const avenueCorner=x===-17 && z===7;
     const {west:westDepth,east:eastDepth,x:coreX,w:coreWidth,rooms,ends}=galleryPlans[i];
