@@ -1,3 +1,4 @@
+import {wrapDepth,privateDepth,privateWidth,cornerCut} from './balcony-surfaces.js';
 import * as THREE from 'three';
 
 import {chamferedOutline,guardHeight,hasApartmentBalconies,railGeometry,towerBays,towerStories} from './tower-glass.js';
@@ -25,7 +26,7 @@ function windowGeometry([left, top, right, bottom]) {
 }
 
 function wrapSlab(x, z) {
-  const outline = new THREE.Shape(chamferedOutline(x, z, .65).map(([u, v]) => new THREE.Vector2(u, -v)));
+  const outline = new THREE.Shape(chamferedOutline(x, z, cornerCut).map(([u, v]) => new THREE.Vector2(u, -v)));
   const slab = new THREE.ExtrudeGeometry(outline, {depth: 1, bevelEnabled: false});
   return slab.rotateX(-Math.PI / 2);
 }
@@ -89,7 +90,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
     const concrete = wrap ? 0xcac9bc : 0xb3a58f;
     const frame = wrap ? 0x4e625e : 0x4c5149;
     const metal = wrap ? 0x627973 : 0x3e4b4a;
-    const projection = 1.45;
+    const projection = wrapDepth;
     const slab = wrap ? wrapSlab(w / 2 + projection, d / 2 + projection) : null;
     const outline = wrap ? chamferedOutline(w / 2 + projection - .10, d / 2 + projection - .10, .60) : null;
 
@@ -161,7 +162,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
           if (!wrap) {
             // Private balconies are narrower than the structural bay. The
             // terracotta fascia faces out, above a shaded concrete soffit.
-            const depth = 1.22, width = opening + .13;
+            const depth = privateDepth, width = privateWidth(opening);
             const left = center - width / 2 + .06, right = center + width / 2 - .06;
             const front = depth - .085;
             solid(concrete, center, level - .065, depth / 2 - .10, width, .21, depth + .20);

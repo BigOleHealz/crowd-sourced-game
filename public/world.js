@@ -1,3 +1,4 @@
+import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
 import {breachedFloor,inTowerBreach,collapsedLot,towerCollapsed,rubbleHeight} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
@@ -139,9 +140,11 @@ function nearbyBarriers(x, z, padding, doors) {
   return index.columns.get(Math.floor(x/cellWidth))?.get(Math.floor(z/cellWidth)) ?? noBarriers;
 }
 
+const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
+
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors) {
-  let top=CITY ? parapetTop(x,z,padding,maxBottom,doors) : -Infinity;
+  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors)) : -Infinity;
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
@@ -399,6 +402,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
+    if(CITY && vy>0)ceiling=Math.min(ceiling,balconyAt(x,z,PLAYER_RADIUS,state.y+height,doors,true)-height);
     if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {
       y = floor;
