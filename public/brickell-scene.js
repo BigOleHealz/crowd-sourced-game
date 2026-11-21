@@ -1,3 +1,4 @@
+import {addFuelStop} from './pelican-fuel-view.js';
 import {lightBaySurface} from './biscayne-water.js';
 import {addQuayMasonry} from './quay-masonry.js';
 import {junctionSignalView} from './junction-signal-view.js';
@@ -191,6 +192,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const harborStart=scene.children.length;
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
+  const updateFuelStop=addFuelStop(scene,Batch,solids);
   const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
@@ -201,7 +203,9 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateJunctions=junctionSignalView(scene,posts);
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
+
   return (doors,dt,local,remotes,tick)=>{
+    updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
