@@ -756,7 +756,7 @@ function updateEquipment(local) {
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
-  tracking.hidden=weapon!==4 || !canAim() || !!kind;
+  tracking.hidden=weapon!==4 || !canAim() || !!kind || (touch.active && !camera.sighted);
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
@@ -805,7 +805,7 @@ function updateEquipment(local) {
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(touch.active){
-    const role=jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=clubUse || bank?.label || shopLabel || (person?'Talk to '+conversations[person].name:use?.label);
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
@@ -813,7 +813,7 @@ function updateEquipment(local) {
     touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
       canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
-    if(!talk.current && active && !garage)prompt.textContent=bank?bank.detail.replace('E to claim','Tap Claim for'):useLabel || (local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
+    if(!talk.current && active && !garage)prompt.textContent=bank && bank.action!=='start'?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
   }
 }
 
@@ -981,7 +981,7 @@ function frame(time) {
       if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
-      else updateSupplyHud(world,local,id);
+      else updateSupplyHud(world,local,id,touch.active);
       if(navigate){
         route=navigate(local.x,local.z,isDriving()?local.yaw:view.yaw);
         byId('nav-cue').textContent=route.cue+(route.cue==='Arrived' || !route.meters?'':' · '+route.meters+' m');

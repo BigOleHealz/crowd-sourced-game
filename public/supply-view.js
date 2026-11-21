@@ -75,8 +75,8 @@ export function createSupplyView(scene) {
 const captions = {pickup:'1 / 3 · Collect',transfer:'2 / 3 · Transfer',delivery:'3 / 3 · Deliver',complete:'Completed'};
 const bearings = ['N','NE','E','SE','S','SW','W','NW'];
 
-export function updateSupplyHud(world, local, id) {
-  const guide = supplyGuidance(world,local,id);
+export function updateSupplyHud(world, local, id, touch=false) {
+  const guide = supplyGuidance(world,local,id,touch);
   const card = document.getElementById('supply-card');
   card.hidden = !guide;
   if (!guide) return;

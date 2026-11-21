@@ -1,9 +1,34 @@
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
+const gestures={
+  foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Drag the left stick to move. Swipe the open right side to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to sprint, change stance or switch weapons.'},
+  car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Driver tools includes the horn and rear view.'},
+  'armed-car':{name:'Pickup driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe to look around. Fire missile launches straight ahead. Change seats in Driver tools.'},
+  tank:{name:'Tank driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to aim',tip:'Push up to drive and sideways to turn. Drag the right side to aim the cannon.',help:'Hold Cannon to fire. Down on the stick brakes or reverses.'},
+  helm:{name:'Boat helm',axis:'Steer',up:'Ahead',down:'Astern',look:'Drag to look',tip:'Push up for forward throttle, down for reverse, and sideways to steer.',help:'Swipe the right side to look around. Use the labeled helm action to leave your station.'},
+  heli:{name:'Helicopter pilot',axis:'Fly',up:'Forward',down:'Back',look:'Drag to look',tip:'Hold Climb to lift off. Drag the stick to fly and swipe the right side to turn your view.',help:'Hold Descend to lower altitude. Fire missile launches straight ahead. Flight tools contains the cargo hook and seat controls.'},
+  jet:{name:'Jet pilot',axis:'Throttle',up:'Faster',down:'Slower',look:'Drag to fly',tip:'Push up for throttle. Drag up or down to pitch and sideways to bank.',help:'Hold Cannon for guns, tap Missile to launch, and tap Bomb to drop. Release the right thumb to center the flight stick.'},
+  turret:{name:'Gunner',look:'Drag to aim',tip:'Drag the open right side to turn the turret. Hold Fire turret to shoot.',help:'You can aim while holding Fire turret by dragging that same thumb.'},
+  seat:{name:'Seated',look:'Drag to look',tip:'Swipe the right side to look around. Tap Leave dance to stand.',help:'Your movement and equipment controls return when you stand.'},
+};
 export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked}){
   const byId=id=>document.getElementById(id);
   const root=byId('touch-controls'),pad=byId('touch-pad'),knob=byId('touch-stick'),menu=byId('touch-menu');
   const quick=byId('touch-actions'),tools=byId('touch-tools'),opener=byId('touch-menu-open');
+  const tip=byId('touch-tip'),lookCue=byId('touch-look'),reference=byId('touch-reference');
+  const seen=new Set();
+  try{for(const role of JSON.parse(localStorage.getItem('pinewatch.touchTips.v1')||'[]'))seen.add(role);}catch{}
+  let tipRole=null,lastRole=null,sawStick=false,sawLook=false;
+  function dismissTip(){
+    if(tipRole){seen.add(tipRole);try{localStorage.setItem('pinewatch.touchTips.v1',JSON.stringify([...seen]));}catch{}}
+    tip.hidden=true;tipRole=null;
+  }
+  function showTip(){
+    if(!layout?.active || !visible)return;
+    tipRole=layout.role;sawStick=sawLook=false;tip.querySelector('span').textContent=gestures[tipRole].tip;tip.hidden=false;
+  }
+  tip.querySelector('button').onclick=dismissTip;
+  reference.querySelector('[data-replay-tip]').onclick=()=>{menu.close();showTip();};
   const primary=matchMedia('(pointer: coarse)');
   const holds=new Map(),buttons=new Map(),axes={x:0,y:0};
   let visible=false,moveId=null,lookId=null,prevX=0,prevY=0,originX=0,originY=0,radius=34;
@@ -22,7 +47,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   function setMode(on){
     if(visible===on)return;
     visible=on;root.hidden=!on;document.documentElement.classList.toggle('touch-play',on);
-    if(!on){reset();if(menu.open)menu.close();tools.hidden=true;}
+    if(!on){reset();tip.hidden=true;lastRole=null;current='';if(menu.open)menu.close();tools.hidden=true;}
     if(on && layout)render(layout);
   }
   setMode(primary.matches);
@@ -36,6 +61,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     const dx=(e.clientX-originX)/radius,dy=(e.clientY-originY)/radius;
     const distance=Math.hypot(dx,dy),amount=clamp((distance-.10)/.90,0,1);
     axes.x=distance?dx/distance*amount:0;axes.y=distance?-dy/distance*amount:0;
+    if(tipRole && amount>.35){sawStick=true;if(sawLook)dismissTip();}
     knob.style.transform='translate('+axes.x*radius+'px,'+-axes.y*radius+'px)';
   }
   pad.addEventListener('pointerdown',e=>{
@@ -76,7 +102,9 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     if(e.pointerType!=='touch' || !visible)return;
     if(e.pointerId===moveId){consume(e);padMotion(e);}
     if(e.pointerId===lookId){
-      consume(e);look(e.clientX-prevX,e.clientY-prevY);prevX=e.clientX;prevY=e.clientY;
+      const dx=e.clientX-prevX,dy=e.clientY-prevY;
+      if(tipRole && Math.hypot(dx,dy)>2){sawLook=true;if(sawStick || !gestures[tipRole].axis)dismissTip();}
+      consume(e);look(dx,dy);prevX=e.clientX;prevY=e.clientY;
     }
   },{passive:false});
   function release(e){
@@ -97,7 +125,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   function showMenu(){
     if(menu.open)return;
     menuOpened();reset();tools.hidden=true;
-    stowed=['#map-choice','.session-controls','.map-panel','#match-card','#supply-card','#marina-card','#help'].map(selector=>{
+    reference.open=false;stowed=['#map-choice','.session-controls','.map-panel','#match-card','#supply-card','#marina-card','#help'].map(selector=>{
       const el=document.querySelector(selector),slot=document.createComment(selector);
       el.before(slot);options.append(el);return {el,slot};
     });
@@ -130,8 +158,18 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     const key=JSON.stringify(config);
     if(key===current)return;
     current=key;
-    byId('touch-axis-label').textContent=config.axis;
-    pad.hidden=quick.hidden=!hasGame;
+    const g=gestures[config.role];
+    root.dataset.role=config.role;
+    pad.querySelector('.pad-up').textContent=g.up||'▴';pad.querySelector('.pad-down').textContent=g.down||'▾';
+    byId('touch-axis-label').textContent=g.axis||'';pad.setAttribute('aria-label',g.name+' joystick');
+    lookCue.querySelector('span').textContent=g.look;
+    reference.querySelector('h3').textContent=g.name;reference.querySelector('p').textContent=g.tip+' '+g.help;
+    pad.hidden=!hasGame || !g.axis;quick.hidden=lookCue.hidden=!hasGame;
+    if(!hasGame){tip.hidden=true;tipRole=null;lastRole=null;}
+    else if(lastRole!==config.role){
+      tipRole=null;tip.hidden=true;lastRole=config.role;
+      if(!seen.has(lastRole))showTip();
+    }
     if(!hasGame){reset();tools.hidden=true;}
     setButtons(quick,config.quick);setButtons(tools,config.tools);
   }
@@ -148,7 +186,8 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(foot?canAim:['heli','jet','armed-car','turret','tank'].includes(role)){
-    quick.push(['KeyF',heli || role==='armed-car'?'Missile':'Fire']);
+    const label=heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':'Fire';
+    quick.push(['KeyF',label]);
   }
   if(foot){
     if(stance)extra.push(['KeyC',stance==='crouch'?'Stand':'Crouch'],['KeyZ',stance==='prone'?'Stand':'Prone'],['run',sprint?'Walk':'Sprint']);
@@ -156,10 +195,11 @@ export function touchLayout({role,active,use,stance,canAim,sighted,jump,sprint,s
     if(caseAction)extra.push(['KeyG','Handle case']);
     if(replay)extra.push(['KeyR','Replay']);
   }
-  if(seat)extra.push(['Digit1',seat[0]],['Digit2',seat[1]]);
+  if(seat)extra.push(['Digit1',seat[0]+' seat'],['Digit2',seat[1]+' seat']);
   if(heli)extra.push([hook?'KeyL':'KeyK',hook?'Release load':'Hold hook']);
   if(['armed-car','car'].includes(role))extra.push(['KeyH','Horn'],['KeyV','Look back']);
   if(race)extra.push(['KeyT','Marina Sprint']);
-  if(extra.length)quick.push(['more','Actions']);
-  return {active,axis:foot?'Move':heli?'Fly':jet?'Throttle':role==='helm'?'Helm':role==='turret'?'Look':'Drive',quick,tools:extra};
+  const toolsName=foot?'Gear':heli || jet?'Flight tools':role==='helm' || role==='turret'?'Crew tools':'Driver tools';
+  if(extra.length)quick.push(['more',toolsName]);
+  return {active,role,axis:gestures[role].axis,quick,tools:extra};
 }
