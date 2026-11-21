@@ -267,7 +267,14 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
-        if(actor.id!==shooter && actor.life.hp<priorHP)actor.life.lastShotTick=tick;
+        if(actor.id!==shooter && actor.life.hp<priorHP){
+          actor.life.lastShotTick=tick;
+          // One of eight incoming sectors is enough to shade the victim's HUD.
+          // For splash damage use the blast centre rather than the launch path.
+          const dx=areaImpact ? center.x-actor.state.x : -(direction?.x??0);
+          const dz=areaImpact ? center.z-actor.state.z : -(direction?.z??0);
+          actor.life.hitSector=Math.hypot(dx,dz)>.03 ? (Math.round(Math.atan2(dx,-dz)*4/Math.PI)+8)%8 : undefined;
+        }
         if(defeated && score && score!==actor.score)score.kills++;
         if(actor===target && hitPart && actor.life.hp<priorHP) {
           if(hitPart==='head' && !defeated)continue;

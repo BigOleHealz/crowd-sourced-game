@@ -104,6 +104,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
   opacity: 0;
   transition: opacity 460ms ease-out;
 }
+#damage-edges.directional { mask-image:linear-gradient(var(--strike-angle),transparent 20%,rgba(0,0,0,.13) 46%,#000 86%); }
 #damage-edges.struck { opacity: .85; transition-duration: 90ms; }
 @media (prefers-reduced-motion: reduce) {
   #damage-edges { transition-duration: 230ms; }
