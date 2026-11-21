@@ -23,6 +23,7 @@ import {distantResidents} from './resident-distance-view.js';
 import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
 import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
+import {roadLighting,skyDarkness} from './road-lighting.js';
 import {vehicleWreckBurst} from './vehicle-wreck-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
@@ -202,15 +203,16 @@ function addSky(scene) {
   atmosphere.wrapS=THREE.RepeatWrapping;
   const sky=new THREE.Mesh(new THREE.SphereGeometry(278,48,22),new THREE.ShaderMaterial({
     side:THREE.BackSide,depthWrite:false,
-    uniforms:{panorama:{value:atmosphere}},
+    uniforms:{panorama:{value:atmosphere},skyDarkness},
     vertexShader:`varying vec3 skyDir;void main(){skyDir=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
-    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;
+    fragmentShader:`varying vec3 skyDir;uniform sampler2D panorama;uniform float skyDarkness;
       void main(){
         vec3 d=normalize(skyDir);
         float longitude=atan(d.x,-d.z)/6.28318530718+.5;
         float latitude=asin(clamp(d.y,-1.,1.));
         float elevation=${CITY?'max(0.,latitude)/1.57079632679':'(degrees(latitude)+26.)/116.'};
-        gl_FragColor=vec4(texture2D(panorama,vec2(longitude,elevation)).rgb,1.);
+        vec3 sky=texture2D(panorama,vec2(longitude,elevation)).rgb;
+        gl_FragColor=vec4(sky*mix(vec3(1.),vec3(.073,.101,.171),skyDarkness),1.);
         #include <colorspace_fragment>
       }`
   }));
@@ -1091,7 +1093,7 @@ export function createScene(canvas) {
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
   scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0125);
-  scene.add(new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74));
+  const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);
   sun.position.set(-36,32,-21); sun.castShadow=true;
   sun.shadow.mapSize.set(1024,1024);
@@ -1104,6 +1106,7 @@ export function createScene(canvas) {
   if(CITY)scene.add(sun.target);
   let lanternShadows=false,shoreCamera=0;
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
+  const lighting=roadLighting(scene,ambient,sun);
   const panorama=addSky(scene);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
@@ -1255,6 +1258,7 @@ export function createScene(canvas) {
     resize();
     const heli=world?.heli ?? parked;
     effects.wreck(heli,dt);
+    lighting.frame(world,local);
     displayedWorld = world;
     displayedPlayers = remotes;
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
@@ -1492,7 +1496,7 @@ export function createScene(canvas) {
   function showShots(shots) {
     for(const shot of shots)effects.shot(shot,shot.source);
   }
-  return {render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

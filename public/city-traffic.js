@@ -202,6 +202,7 @@ export function stepCityTraffic(world,players,npcs,dt){
     const acceleration=profile.driveForce/profile.mass*.68*mobility*surface.traction;
     const change=clamp(target-car.speed,-brake*surface.traction*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
+    car.braking=change<-.01 || gap<.07;
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
     route.distance=(route.distance+car.speed*dt)%route.track.length;
     Object.assign(car,route.track.pose(route.distance));

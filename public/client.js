@@ -817,6 +817,15 @@ function frame(time) {
 
 try {
   scene = createScene(canvas);
+  const lighting=byId('lighting-choice');
+  try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
+  if(!lighting.value)lighting.value='day';
+  scene.setLighting(lighting.value);
+  lighting.onchange=()=>{
+    scene.setLighting(lighting.value);
+    try{localStorage.setItem('pinewatch-lighting',lighting.value);}catch{}
+    canvas.focus({preventScroll:true});
+  };
   window.addEventListener('resize', () => scene.resize());
   scene.resize();
   connect();

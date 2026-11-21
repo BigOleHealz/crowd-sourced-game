@@ -20,7 +20,7 @@ export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
 export function stopRover(r) {
-  r.speed=0;
+  r.speed=0;r.braking=false;
   r.lateralSpeed=0;
   if(r.model)r.engineLoad=0;
 }
@@ -212,6 +212,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;
   if(profile)r.engineLoad=Math.abs(throttle);
   const oldSpeed=r.speed;
+  r.braking=!!throttle && oldSpeed*throttle<-.01;
   r.speed += clamp(target-r.speed,-acceleration*dt,acceleration*dt);
   if(sport){r.steer=steer;tickExhaust(r,throttle,oldSpeed,dt);}
 

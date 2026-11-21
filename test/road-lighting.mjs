@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {lampPose} from '../public/road-lighting.js';
+import {lampWorking} from '../public/road-fittings.js';
+const car={kind:'supercar',x:0,y:.7,z:12,yaw:0,suspension:{pitch:0,roll:0,heave:0}};
+const flat=lampPose(car,-1);
+assert(flat.z<car.z && flat.x<car.x && flat.aim<0);
+car.suspension.pitch=.08;
+assert(lampPose(car,-1).y>flat.y && lampPose(car,-1).aim>flat.aim);
+car.yaw=Math.PI/2;assert(lampPose(car,1).x>car.x && lampPose(car,1,true).x<car.x);
+car.fittingDamage=[60,0,0,0];assert(!lampWorking(car,0) && lampWorking(car,2));
+console.log('PASS dipped headlamp aim, suspension pitch, rotated rear spill and independently failed lenses.');
