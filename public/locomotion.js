@@ -8,7 +8,7 @@ const tau=2*Math.PI;
 
 export function newGait(state,yaw) {
   return {x:state.x,z:state.z,yaw,turnRate:0,vx:0,vz:0,loadX:0,loadZ:0,brace:0,speed:0,weight:0,run:0,phase:0,
-    duty:.58,span:0,gazeYaw:yaw,shoulderYaw:yaw,neckYaw:0,twist:0,bank:0,pelvisY:-.045,pelvisX:0,footLift:0,pivot:0};
+    crouch:state.stance==='crouch'?1:0,pelvisZ:0,duty:.58,span:0,gazeYaw:yaw,shoulderYaw:yaw,neckYaw:0,twist:0,bank:0,pelvisY:-.045,pelvisX:0,footLift:0,pivot:0};
 }
 
 export function advanceGait(g,state,dt) {
@@ -48,7 +48,13 @@ export function advanceGait(g,state,dt) {
 
   // A full cycle is two steps. Faster runners lengthen the stride and spend
   // less of each cycle on the supporting leg.
-  const stride=1.08+.405*g.speed;
+  const crouching=Number(state.stance==='crouch');
+  if(state.stance==='prone' || g.wasProne)g.crouch=crouching;
+  else g.crouch+=(crouching-g.crouch)*follow(16,dt);
+  g.wasProne=state.stance==='prone';
+  if(Math.abs(crouching-g.crouch)<.001)g.crouch=crouching;
+  const walkStride=1.08+.405*g.speed;
+  const stride=walkStride+g.crouch*(.80+.23*g.speed-walkStride);
   // Finish the trailing step after a sprint rather than freezing at mid-swing.
   if(g.speed>3.2)g.finishStep=true;
   const settling=g.finishStep && g.speed<.75;
@@ -60,13 +66,21 @@ export function advanceGait(g,state,dt) {
   // Release a planted boot before the pelvis travels beyond a human leg's
   // usable fore-and-aft reach, including during a short burst of speed.
   g.duty=Math.min(.58-.30*smooth(clamp((g.speed-.7)/6.5,0,1)),Math.max(.28,.74/stride));
+  g.duty+=(.54-g.duty)*g.crouch;
   g.span=stride*g.duty*g.weight;
   const bounce=-Math.cos(tau*(2*g.phase-g.duty));
   // A loaded rear hip supports the idle stance; weight transfers across the
   // planted leg, with a smaller vertical excursion as cadence increases.
   g.pelvisY=-.065-g.weight*(.031+.071*g.run)+bounce*g.weight*(.017+.018*g.run)-.15*Math.hypot(g.bank,g.brace);
   g.pelvisX=.016*(1-g.weight)+.029*Math.cos(tau*(g.phase-g.duty/2))*g.weight-.13*g.bank;
+  // Sit behind the ankles, then hinge the trunk forward above the hips.
+  // A low centre of mass advances between footfalls without springing up.
+  g.pelvisZ=g.crouch*(.17-.035*g.weight);
+  const lowHips=-.445-.014*g.weight+.010*bounce*g.weight;
+  g.pelvisY+=(lowHips-g.pelvisY)*g.crouch;
+  g.pelvisX+=g.crouch*(.025*(1-g.weight)+.010*Math.cos(tau*g.phase)*g.weight);
   g.footLift=g.weight*(.065+.245*g.run)+g.pivot*.11+(settling?.045:0);
+  g.footLift+=(.058*g.weight+.064*g.pivot-g.footLift)*g.crouch;
 }
 
 export function newFoot() {return {planted:false,x:0,z:0,sideOffset:0,forwardOffset:0,lift:0,pitch:0};}
@@ -77,8 +91,11 @@ export function placeFoot(g,foot,side) {
   const c=Math.cos(g.yaw),s=Math.sin(g.yaw);
   const dirLength=Math.hypot(g.vx,g.vz);
   const vx=dirLength>.05 ? g.vx/dirLength : -s, vz=dirLength>.05 ? g.vz/dirLength : -c;
-  const spread=.113+.014*(1-g.weight);
-  const stagger=.092*(1-g.weight)+.011*g.weight;
+  // Set one sole and then the other as an idle actor changes stance.
+  const adjustment=clamp((g.crouch-(side===1?.50:0))*2,0,1);
+  const footCrouch=smooth(adjustment)*(1-g.weight)+g.crouch*g.weight;
+  const spread=.113+.014*(1-g.weight)+.021*footCrouch;
+  const stagger=.092*(1-g.weight)+.011*g.weight+footCrouch*(.104-.067*g.weight);
   const neutralX=g.x+side*(spread*c+stagger*s);
   const neutralZ=g.z+side*(-spread*s+stagger*c);
   const strideOffset=g.span*(phase<g.duty ? .5-phase/g.duty : smooth(swing)-.5);
@@ -95,10 +112,10 @@ export function placeFoot(g,foot,side) {
   foot.sideOffset=c*dx-s*dz;
   foot.forwardOffset=s*dx+c*dz;
   const arc=Math.sin(Math.PI*swing);
-  foot.lift=arc*arc*(1.4-.8*swing)*g.footLift;
+  foot.lift=arc*arc*(1.4-.8*swing)*g.footLift+Math.sin(Math.PI*adjustment)**2*.035*(1-g.weight);
   foot.wx=x;foot.wz=z;
   const roll=phase<g.duty ? -.16+.55*smooth(phase/g.duty) : .39*Math.cos(Math.PI*swing);
-  foot.pitch=-roll*g.weight;
+  foot.pitch=-roll*g.weight*(1-.57*g.crouch);
 }
 
 // Probe the tread below this boot at the actor's current storey. A toe sample
@@ -120,18 +137,19 @@ export function bootSupport(foot,feetY,yaw,doors,height){
 // The hip and intended plant give the local grade without sampling mesh bones.
 export function fitPlantedBoot(g,foot,leg,feetY,scaleY,doors,height){
   if(!foot.planted)return;
-  const hipX=leg.x+g.pelvisX,side=foot.sideOffset-hipX,forward=foot.forwardOffset;
+  const hipX=leg.x+g.pelvisX,hipZ=g.pelvisZ??0;
+  const side=foot.sideOffset-hipX,forward=foot.forwardOffset-hipZ;
   const horizontal=side*side+forward*forward,reach=.799;
   const hip=leg.y+g.pelvisY-.126;
   const down=hip-bootSupport(foot,feetY,g.yaw,doors,height)/scaleY;
   if(horizontal+down*down<=reach*reach || horizontal<.00001)return;
   const c=Math.cos(g.yaw),s=Math.sin(g.yaw);
-  const x=g.x+hipX*c,z=g.z-hipX*s;
+  const x=g.x+hipX*c+hipZ*s,z=g.z-hipX*s+hipZ*c;
   const floor=height(x,z,feetY+.26,doors);
   const underHip=hip-(Math.abs(floor-feetY)<.37?(floor-feetY)/scaleY:0);
   const grade=down-underHip;
   const a=horizontal+grade*grade,b=underHip*grade;
   const t=clamp((-b+Math.sqrt(Math.max(0,b*b-a*(underHip*underHip-reach*reach))))/a,0,1);
-  foot.sideOffset=hipX+side*t;foot.forwardOffset=forward*t;
+  foot.sideOffset=hipX+side*t;foot.forwardOffset=hipZ+forward*t;
   foot.wx=x+t*(c*side+s*forward);foot.wz=z+t*(-s*side+c*forward);
 }

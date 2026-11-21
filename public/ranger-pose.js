@@ -2,7 +2,7 @@ import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-ca
 import {helmFeet,helmOffset,helmWheel,seatedScale} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
-import {groundHeight,stanceDrop,waterBlend} from './world.js';
+import {groundHeight,waterBlend} from './world.js';
 import {mountPosition,gunnerFeet} from './mounts.js';
 const TAU=Math.PI*2, clamp=THREE.MathUtils.clamp;
 export function createRangerRig() {
@@ -89,7 +89,6 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       for(const limb of avatar.limbs){limb.foot.planted=false;limb.foot.sampleY=undefined;}
     }
     advanceGait(gait,state,Math.max(.001,dt));
-    if(crouch)gait.pelvisY-=stanceDrop(state)-.055;
   } else gait=avatar.gait=null;
   avatar.initialized=true;
   const weight=gait?.weight ?? 0, run=gait?.run ?? 0;
@@ -127,15 +126,16 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
-  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,0);
+  avatar.body.position.set(gait?.pelvisX ?? 0,gait?.pelvisY ?? 0,gait?.pelvisZ ?? 0);
   avatar.spine.rotation.set(gait ? -.048-.065*weight-.095*run+.009*breathe-gait.brace : 0,
     gait ? .065*(1-weight)+gait.twist+swing*(.056+.082*run)*weight : 0,
     gait ? gait.bank-roll-.026*(1-weight) : 0,'YXZ');
-  if(crouch)avatar.spine.rotation.x-=.20*stanceDrop(state);
+  const low=gait?.crouch??0;
+  avatar.spine.rotation.x-=low*(.35-.025*weight);
   // Neck counter-rotation steadies the gaze above the shoulders through each
   // foot strike and lets the head lead the torso into a change of direction.
   avatar.head.position.set(0,1.525,0);
-  avatar.head.rotation.set(gait ? -.42*avatar.spine.rotation.x-.018 : 0,
+  avatar.head.rotation.set(gait ? -(.42+.43*low)*avatar.spine.rotation.x-.018 : 0,
     gait ? gait.neckYaw-.62*swing*(.056+.082*run)*weight-.045*(1-weight) : 0,
     gait ? -.58*avatar.spine.rotation.z : 0,'YXZ');
   if(avatar.civilian && gait){
@@ -209,9 +209,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const down=leg.position.y+gait.pelvisY-.126-foot.lift*(1+1.3*water*(1-water))-floor/avatar.root.scale.y;
       const lateral=foot.sideOffset-leg.position.x-gait.pelvisX;
       const vertical=Math.hypot(down,lateral);
-      const distance=clamp(Math.hypot(vertical,foot.forwardOffset),.20,.7999);
+      const forward=foot.forwardOffset-gait.pelvisZ;
+      const distance=clamp(Math.hypot(vertical,forward),.20,.7999);
       const hipBend=Math.acos(clamp((.405**2+distance**2-.395**2)/(.81*distance),-1,1));
-      leg.rotation.set(Math.atan2(-foot.forwardOffset,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
+      leg.rotation.set(Math.atan2(-forward,vertical)+hipBend,0,Math.atan2(lateral,down),'ZXY');
       knee.rotation.x=-Math.acos(clamp((distance**2-.405**2-.395**2)/(2*.405*.395),-1,1));
       ankle.rotation.x=(foot.floorPitch??0)+(foot.planted?foot.pitch*.25:foot.pitch)-leg.rotation.x-knee.rotation.x;
       ankle.rotation.z=-leg.rotation.z;
@@ -272,9 +273,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       if(prone) {
         kit.set(bloom ? .060 : .099,1.515+.014*swing*weight,bloom ? -.037 : -.010);
         weapon.rotation.set(-avatar.body.rotation.x-avatar.spine.rotation.x,-.035,.012,'YXZ');
-      } else if(crouch) {
-        // Retain the sightline as the torso leans over the bent knees.
-        weapon.rotation.x+=.20*stanceDrop(state);
+      } else if(low) {
+        // Counter the trunk hinge to keep both hands and sights together.
+        weapon.rotation.x+=low*(.35-.025*weight);
+        kit.y+=low*.072;
+        kit.z-=low*(bloom?.083:.061);
       }
       // Aim each wrist at its own contact on the prop, including during the running tilt.
       const handX=side===1 ? .027 : bloom ? -.028 : -.036;
