@@ -21,6 +21,14 @@ export function createRangerRig() {
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
 const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
 const upperLength=.275, lowerLength=.265;
+// Forward offset and support-hand contact in each display prop's local frame.
+const carryFits=[
+  {forward:-.248,side:-.041,height:.054,reach:-.207},
+  {forward:-.322,side:-.026,height:-.052,reach:.050},
+  {forward:-.290,side:-.031,height:.047,reach:-.148},
+  {forward:-.238,side:-.067,height:.066,reach:-.152},
+  {forward:-.245,side:-.065,height:.041,reach:-.137}
+];
 
 // Solve the two visible arm segments in body space. An outward elbow bend keeps
 // both hands on the grips as the field kit bobs, including on a turning turret.
@@ -260,10 +268,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       forearm.rotation.x=(bag?.39:.15)+Math.max(0,travel)*.48;
     } else if(!seated && !state.parachute && !state.dead && !swimming) {
       const weapon=avatar.tools[toolIndex];
-      const kit=weapon.position;
+      const kit=weapon.position,fit=carryFits[toolIndex];
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
       kit.y=(bloom ? 1.290 : 1.340)+.005*breathe-.059*run;
-      kit.z=(bloom ? -.322 : -.185)+.037*run;
+      kit.z=fit.forward+.037*run;
       weapon.rotation.set(-.12-.30*run,-.05-.11*run,.018+swing*.024*run,'YXZ');
       if(state.officer && gait){
         const lowered=avatar.officerCarry??0;
@@ -280,9 +288,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
         kit.z-=low*(bloom?.083:.061);
       }
       // Aim each wrist at its own contact on the prop, including during the running tilt.
-      const handX=side===1 ? .027 : bloom ? -.028 : -.036;
-      const handY=side===1 ? -.048 : bloom ? -.049 : .038;
-      const handZ=side===1 ? .037 : bloom ? .031 : -.21;
+      const handX=side===1 ? .027 : fit.side;
+      const handY=side===1 ? -.048 : fit.height;
+      const handZ=side===1 ? .044 : fit.reach;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
       gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
     } else if(cabin) {

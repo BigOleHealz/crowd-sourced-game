@@ -29,6 +29,31 @@ export function equipmentFinish(){
   return finish;
 }
 
+// The held prop has more screen area in the sight camera. Cool metal catches
+// a narrow sky highlight, while warm furniture and dark grips stay diffuse.
+// Both finishes reuse the mounted equipment's existing two texture samplers.
+let handheld;
+export function carriedFinish(){
+  if(handheld)return handheld;
+  const base=equipmentFinish();
+  handheld=base.clone();
+  handheld.name='Carried equipment finish';
+  handheld.onBeforeCompile=shader=>{
+    base.onBeforeCompile(shader);
+    shader.fragmentShader=shader.fragmentShader.replace('#include <lights_phong_fragment>',`
+      #include <lights_phong_fragment>
+      float alloy=smoothstep(.010,.048,vColor.b-vColor.r);
+      float timber=smoothstep(.032,.10,vColor.r-vColor.g)*smoothstep(.017,.046,vColor.g-vColor.b);
+      float streak=texture2D(alloyGrain,vec2(fieldPoint.z*1.3,fieldPoint.y*19.+fieldPoint.x*7.)).r;
+      material.diffuseColor*=mix(1.,.77+.48*streak,timber);
+      material.specularColor=mix(vec3(.033),vec3(.30,.34,.37),alloy);
+      material.specularShininess=mix(14.,55.,alloy);
+    `);
+  };
+  handheld.addEventListener('dispose',()=>{handheld=undefined;});
+  return handheld;
+}
+
 // The mesh, paint, and make-believe inventory plate stay in a single batch.
 export function equipmentPlate(batch,row,side,x,y,z,width,height){
   const geo=new THREE.PlaneGeometry(1,1),uv=geo.getAttribute('uv');
