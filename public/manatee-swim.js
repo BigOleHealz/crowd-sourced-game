@@ -86,7 +86,7 @@ export function createManatees(world,water) {
     for(const [i,p] of motion.entries()){
       const h=manateeHabitats[i],goal=orbit(h,time+1.9),breath=breathing(h,time),padding=1.92*h.size;
       let ax=(goal.x-p.x)*.52,az=(goal.z-p.z)*.52,pressure=0,dive=0;
-      const keel=boat=>(boat.y??water)-(boat===world.yacht?1.25:.58)-.56*h.size;
+      const keel=boat=>(boat.y??water)+(boat===world.yacht?-1.25:(marinaModel(boat)?.keel??-.58))-.56*h.size;
       for(const boat of vessels){
         if(Math.hypot(p.x-boat.x,p.z-boat.z)>42)continue;
         const yacht=boat===world.yacht;

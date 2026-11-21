@@ -28,8 +28,10 @@ assert(cameUp.every(Boolean),'Every manatee surfaces');
 assert(deepest.every(y=>y<water-.83),'Each animal spends time well below the surface');
 assert(travelled.every(n=>n>40),'No animal gets stuck in the shallows');
 
-for(const yacht of [false,true]){
-  const boat={x:93,z:-396,yaw:0,speed:yacht?2.5:3.5};
+const {marinaModels}=await import('../public/marina-fleet-layout.js');
+for(const kind of ['patrol','superyacht',...Object.keys(marinaModels)]){
+  const yacht=kind==='superyacht';
+  const boat={x:93,z:-396,yaw:0,speed:yacht?2.5:3.5,boatModel:kind};
   const world=yacht?{yacht:boat}:{boats:[boat]};
   const game=createManatees(world,water);
   let nearby=false;
@@ -40,7 +42,7 @@ for(const yacht of [false,true]){
     for(const [i,p] of game.state.entries()){
       const d=manateeHullClearance(boat,p.x,p.z,yacht).distance;
       nearby ||= d<4;
-      const h=manateeHabitats[i],draft=yacht?1.25:.58;
+      const h=manateeHabitats[i],draft=yacht?1.25:-(marinaModels[kind]?.keel??-.58);
       assert(d>=1.92*h.size-.003 || p.y+.54*h.size<water-draft,
         'The animal clears the hull by swimming around it or safely below the keel');
       assert(Math.hypot(p.x-prior[i][0],p.z-prior[i][1])<.09,
@@ -51,7 +53,6 @@ for(const yacht of [false,true]){
 }
 console.log('Manatees swim deterministically, surface, stay in deep water and give boats room.');
 
-const {marinaModels}=await import('../public/marina-fleet-layout.js');
 for(const [boatModel,model] of Object.entries(marinaModels)){
   const boat={x:94,z:-420,yaw:0,boatModel,speed:0};
   assert(Math.abs(manateeHullClearance(boat,boat.x,boat.z+model.halfLength+1).distance-1)<.002);
