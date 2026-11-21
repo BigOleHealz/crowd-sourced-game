@@ -114,7 +114,7 @@ let queuedReplay = false, queuedDeploy = false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -179,6 +179,7 @@ window.addEventListener('keydown', e => {
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
+  if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
   held.add(e.code);
   if (e.repeat) return;
@@ -572,7 +573,11 @@ function drivingView(rover, dt, wheeled) {
   roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
   roverView.road=wheeled ? roadFraming(roverView.road,rover,dt) : null;
   roverView.distance = camera.distance;
-  return roverView;
+  // The rearward angle lives only in the rendered view. Steering and the
+  // driver's saved mouse orbit continue in their normal coordinate frame.
+  const rear=wheeled && held.has('KeyV');
+  roverView.rearAngle=mix(roverView.rearAngle??0,rear?Math.PI:0,-Math.expm1(-dt*10));
+  return roverView.rearAngle>.0001 ? {...roverView,yaw:roverView.yaw+roverView.rearAngle} : roverView;
 }
 
 function updateEquipment(local) {
@@ -609,6 +614,7 @@ function updateEquipment(local) {
   byId('tool-shortcut').hidden=jetPilot() || inTank() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=Boolean(kind);
+  byId('look-back-control').hidden=!drivenRoad(world,id);
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
   tracking.hidden=weapon!==4 || !canAim() || !!kind;
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
