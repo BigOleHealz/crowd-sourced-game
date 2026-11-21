@@ -17,6 +17,7 @@ import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
 import {createRoadGarages} from './road-garage-view.js';
@@ -1034,6 +1035,7 @@ export function createScene(canvas,onFootfall) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
@@ -1495,6 +1497,7 @@ export function createScene(canvas,onFootfall) {
       camera.translateZ(-1.12);
       avatars.get(local.id).root.visible=false;
     }
+    updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     renderer.render(scene,camera);
