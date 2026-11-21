@@ -1,3 +1,4 @@
+import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.js';
 import {stepHydrants} from './public/hydrants.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
@@ -257,7 +258,7 @@ function acceptInput(player, data, binary) {
     tracking:input.tracking===true, weapon: [1,2,3,4].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
-    bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -504,6 +505,7 @@ function tick() {
     }
     const road=drivenRoad(world,player.id);
     if (road) {
+      if(input?.horn)soundRoadHorn(world,road,npcs,ticks);
       const kind=road.kind??'rover',before={...road};
       let roadInput=input||idle;
       if(kind==='supercar'){
@@ -627,6 +629,7 @@ function tick() {
   stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
+  localWorldReactions(world,npcs,ticks);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);

@@ -10,6 +10,15 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='horn'){
+    const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*.43),rate),samples=buffer.getChannelData(0);
+    for(let i=0;i<samples.length;i++){
+      const t=i/rate,a=t*Math.PI*2;
+      const tone=Math.sin(a*392)+.72*Math.sin(a*494)+.34*Math.sin(a*784)+.19*Math.sin(a*1176);
+      samples[i]=.48*Math.tanh(tone)*Math.min(1,t*45,Math.max(0,.43-t)*13);
+    }
+    return buffer;
+  }
   if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
   if(name==='chainGun')return chainGunLoop(context);
@@ -149,6 +158,7 @@ export function createGameAudio(button,slider,level) {
       if(prior && landing && landing.id!==prior.landingSound?.id){
         burst(landing.speed>=5?'landing-hard':'landing-soft',landing,listener,yaw,Math.min(1.35,.28+.10*landing.speed),landing.id);
       }
+      if(prior && vehicle.horn && prior.horn?.id!==vehicle.horn.id)burst('horn',vehicle.horn,listener,yaw,.94,vehicle.horn.id);
       const contact=prior && bump && bump.id!==prior.contactSound?.id;
       if(contact) {
         const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');

@@ -193,6 +193,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null) {
       ankle.rotation.x=.27*fold;
       gripPose(arm,forearm,side*.20,THREE.MathUtils.lerp(1.42,handHeight,reach*release),
         -.14-reach*release*(.17+.08*lift),side);
+    } else if(state.reaction && !seated && !station){
+      const shield=state.reaction!=='horn';
+      arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));
+      forearm.rotation.x=shield?1.20:.39;
     } else if(swimming) {
       const wave=stroke+(side===1?Math.PI:0);
       leg.rotation.x=-.16+.25*Math.sin(wave);
