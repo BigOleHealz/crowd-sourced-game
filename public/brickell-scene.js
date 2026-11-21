@@ -183,7 +183,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const podiumParts=scene.children.slice(frontageStart);
   addBrickellHorizon(scene,facadeMaterial.map);
   const apartmentStart=scene.children.length;
-  const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium);
+  const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
   const towerParts=[towerWalls,...scene.children.slice(apartmentStart)];
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
