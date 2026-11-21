@@ -1,7 +1,7 @@
 import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
-import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
+import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
@@ -375,167 +375,6 @@ function contactShadowMap() {
   gradient.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=gradient;ctx.fillRect(0,0,32,32);
   return new THREE.CanvasTexture(stamp);
-}
-
-// Field equipment uses the same vertex-colored batches as the hikers.
-// Each loadout costs a single draw call while equipped.
-const fieldKits=new WeakMap();
-function makeFirearms(body,scene) {
-  if(fieldKits.has(scene)){
-    const copies=fieldKits.get(scene).map(template=>template.clone());
-    body.add(...copies);return copies;
-  }
-  const carbine = new Batch(true), sidearm = new Batch(true);
-  const graphite=0x303537, iron=0x4d514e, edge=0x797d78;
-  const sand=0xa89876, clay=0x766c56, rubber=0x353635, enamel=0x848a75;
-  const tube=new THREE.CylinderGeometry(1,1,1,16);
-  function profile(batch,tint,outline,width,bevel=.006) {
-    const shape=new THREE.Shape(outline.map(([z,y])=>new THREE.Vector2(z,y)));
-    const geo=new THREE.ExtrudeGeometry(shape,{depth:width,bevelEnabled:true,bevelSegments:2,bevelThickness:bevel,bevelSize:bevel});
-    geo.rotateY(-Math.PI/2);batch.add(geo,tint,width/2,0,0);geo.dispose();
-  }
-  function endCap(batch,z,y,radius,length,tint) {
-    batch.add(tube,tint,0,y,z,radius,length,radius,Math.PI/2);
-  }
-
-  // A sun-faded upper shell stands out against the ranger's dark sleeves.
-  // Leave open air below the cheek rest so the shoulder silhouette reads in profile.
-  profile(carbine,clay,[[.272,.096],[.235,.124],[.092,.120],[.068,.088],[.113,.066],[.207,.071],[.235,.024],[.270,.017]],.064);
-  profile(carbine,rubber,[[.268,.102],[.287,.096],[.290,-.025],[.258,-.028],[.248,-.001]],.071);
-  profile(carbine,graphite,[[.100,.099],[-.195,.096],[-.180,.035],[-.088,.009],[-.042,.023],[.049,.044],[.099,.065]],.071);
-  profile(carbine,sand,[[.100,.111],[.074,.142],[-.297,.140],[-.394,.113],[-.388,.067],[-.181,.054],[-.128,.083],[.071,.084]],.078);
-  profile(carbine,iron,[[.042,.042],[.005,.040],[-.011,.011],[.019,-.085],[.065,-.075]],.053);
-  profile(carbine,iron,[[-.058,.030],[-.129,.026],[-.143,-.062],[-.164,-.109],[-.113,-.123],[-.080,-.070]],.056);
-  profile(carbine,graphite,[[-.108,-.111],[-.163,-.101],[-.175,-.123],[-.118,-.140]],.062);
-  profile(carbine,clay,[[-.182,.083],[-.354,.080],[-.377,.063],[-.354,.027],[-.207,.024],[-.175,.045]],.084);
-  for(const side of [-1,1]){
-    for(let n=0;n<3;n++) carbine.add(cube,graphite,side*.041,.113,-.243-.039*n,.011,.015,.026);
-    carbine.add(cube,iron,side*.042,.111,-.055,.012,.026,.106);
-    carbine.add(cube,edge,side*.050,.113,-.025,.013,.013,.030);
-    carbine.add(cube,enamel,side*.043,.112,.047,.011,.022,.031);
-    carbine.add(cube,0xead2a2,side*.041,.131,-.125,.007,.010,.168);
-    for(let j=0;j<3;j++) carbine.add(cube,0x77827d,side*.029,-.051,-.104-j*.014,.008,.078,.005,-.22);
-  }
-  for(const side of [-1,1]){
-    equipmentPlate(carbine,0,side,side*.046,.104,.008,.106,.027);
-    for(let i=0;i<5;i++)carbine.add(cube,0x474944,side*.044,.060,-.208-i*.029,.007,.022,.013,-.38);
-    carbine.beam(0x5c5e53,[side*.032,.090,.234],[side*.033,.052,.167],.011);
-  }
-  // The shoulder pad and short sight hood break up the rectangular silhouette.
-  for(let i=0;i<5;i++)carbine.add(cube,rubber,0,-.002+i*.018,.286,.066,.009,.010);
-  endCap(carbine,-.427,.092,.025,.095,iron);
-  endCap(carbine,-.489,.092,.036,.058,graphite);
-  endCap(carbine,-.519,.092,.022,.006,edge);
-  endCap(carbine,-.524,.092,.013,.007,graphite);
-  carbine.add(cube,graphite,0,.153,-.026,.061,.023,.118);
-  const aperture=new THREE.TorusGeometry(.031,.0055,8,28);
-  carbine.add(aperture,graphite,0,.194,-.025);
-  carbine.add(aperture,iron,0,.194,-.064);
-  aperture.dispose();
-  for(const side of [-1,1]) carbine.add(cube,iron,side*.032,.194,-.045,.007,.012,.043);
-
-  // The sidearm has a short, broad blue-grey upper and a contrasting palm swell.
-  profile(sidearm,graphite,[[.096,.092],[-.231,.093],[-.218,.041],[-.134,.034],[-.104,.012],[.051,.022],[.096,.056]],.059);
-  profile(sidearm,0x555c60,[[.092,.102],[.067,.127],[-.192,.126],[-.241,.102],[-.238,.071],[.076,.071]],.062);
-  profile(sidearm,0x373b39,[[.075,.043],[.006,.035],[.020,-.015],[.045,-.111],[.103,-.097],[.090,-.036]],.060);
-  profile(sidearm,rubber,[[.042,-.096],[.101,-.082],[.113,-.103],[.045,-.119]],.067);
-  for(const side of [-1,1]){
-    sidearm.add(cube,iron,side*.036,.093,.029,.009,.039,.075);
-    sidearm.add(cube,0x697975,side*.035,.093,-.078,.009,.030,.082);
-    sidearm.add(cube,0xb8c6b9,side*.042,.101,-.068,.008,.009,.047);
-    for(let j=0;j<3;j++) sidearm.add(cube,edge,side*.039,.094,.045-j*.017,.006,.023,.005);
-    // Chamfered flats, a moulded palm panel and a small precinct property plate.
-    sidearm.add(cube,0x686c67,side*.036,.084,-.129,.005,.007,.027);
-    for(let rib=0;rib<5;rib++)sidearm.add(cube,0x424641,side*.032,-.018-rib*.015,.052+rib*.003,.006,.006,.045,-.10);
-    equipmentPlate(sidearm,1,side,side*.039,.108,-.070,.093,.019);
-
-  }
-  sidearm.beam(iron,[0,.028,-.104],[0,-.026,-.085],.014);
-  sidearm.beam(iron,[0,-.026,-.085],[0,-.030,.024],.014);
-  for(const side of [-1,1]) {
-    sidearm.add(cube,graphite,side*.018,.139,.062,.014,.024,.025);
-    sidearm.add(cube,0xd6d3b8,side*.018,.144,.076,.006,.005,.004);
-  }
-  sidearm.add(cube,enamel,0,.140,-.196,.009,.020,.018);
-  endCap(sidearm,-.237,.086,.023,.025,graphite);
-  // The Meridian has a long triangular forebody, ivory spine, and a large
-  // open teal optic. Its two silhouettes share one model in and out of ADS.
-  const meridian=new Batch(true), slate=0x51594d, ivory=0x777b66, teal=0x424943;
-  profile(meridian,slate,[[.32,.12],[.22,.138],[.08,.11],[-.11,.09],[-.11,.052],[.09,.052],[.23,-.03],[.32,-.024]],.059);
-  profile(meridian,ivory,[[.08,.142],[-.12,.156],[-.50,.129],[-.62,.103],[-.52,.080],[-.20,.068],[.08,.086]],.073);
-  profile(meridian,slate,[[.069,.08],[.003,.066],[-.009,.028],[.022,-.079],[.072,-.061]],.048);
-  profile(meridian,teal,[[-.12,.07],[-.53,.096],[-.47,.054],[-.20,.028]],.064);
-  endCap(meridian,-.654,.101,.020,.21,graphite);
-  endCap(meridian,-.756,.101,.027,.079,slate);
-  for(const z of [-.174,-.047])meridian.add(cube,graphite,0,.17,z,.045,.068,.033);
-  const opticalHeight=.216;
-  for(const [z,r,tint] of [[.008,.052,slate],[-.027,.050,teal],[-.139,.046,slate],[-.237,.062,slate],[-.249,.061,ivory]]){
-    const rim=new THREE.TorusGeometry(r,.006,6,32);
-    meridian.add(rim,tint,0,opticalHeight,z);rim.dispose();
-  }
-  // An annular shell keeps the view through the optic clear on its -Z axis.
-  const contour=[[.050,.009],[.050,-.031],[.039,-.058],[.039,-.149],[.059,-.213],[.059,-.249]];
-  const shell=new THREE.LatheGeometry(contour.map(([r,z])=>new THREE.Vector2(r,-z)),32);
-  meridian.add(shell,graphite,0,opticalHeight,0,1,1,1,-Math.PI/2);
-  shell.dispose();
-  // Fine in-world crosshairs remain attached to the optic as it follows the cursor.
-  for(const sign of [-1,1]){
-    meridian.add(cube,graphite,.019*sign,opticalHeight,-.055,.033,.0014,.0014);
-    meridian.add(cube,graphite,0,opticalHeight+.019*sign,-.055,.0014,.033,.0014);
-  }
-  meridian.add(cube,0xdfaa70,0,opticalHeight,-.055,.0021,.0021,.0014);
-  for(const side of [-1,1]){
-    meridian.add(round,0x505548,side*.023,.12,.206,.023,.032,.081,-.055);
-    meridian.add(cube,0x343a35,side*.033,.060,-.303,.016,.024,.106,-.10);
-    equipmentPlate(meridian,2,side,side*.044,.117,-.223,.111,.025);
-  }
-  endCap(meridian,-.434,.11,.045,.045,0x474f44);
-  meridian.add(trunk,0x353d38,0,.267,-.108,.026,.026,.026);
-  const etchedRim=new THREE.TorusGeometry(.055,.0018,4,24);
-  for(let i=0;i<4;i++)meridian.add(etchedRim,0x5b6055,0,.216,-.226+i*.003);
-  etchedRim.dispose();
-  const launcher=new Batch(true);
-  endCap(launcher,-.12,.14,.103,.76,0x71765a);
-  profile(launcher,0x4d5141,[[.25,.115],[.29,.147],[.28,.181],[.18,.188],[.09,.142],[.09,.088],[.17,.075]],.198,.012);
-  profile(launcher,0x42463a,[[-.12,.073],[-.19,.082],[-.245,.044],[-.23,.009],[-.164,.016],[-.129,.032]],.098,.008);
-  for(const side of [-1,1]){
-    launcher.beam(0x363b34,[side*.089,.19,.161],[side*.107,.19,.082],.021,.013);
-    equipmentPlate(launcher,3,side,side*.105,.142,-.138,.158,.036);
-  }
-  for(const z of [-.51,-.30,.12,.27])endCap(launcher,z,.14,.116,.042,graphite);
-  endCap(launcher,-.534,.14,.085,.007,0x222a29);
-  const cushion=new THREE.CapsuleGeometry(.062,.124,3,12);
-  launcher.add(cushion,0x665f4d,0,.061,.105,1.35,1,.71,Math.PI/2);cushion.dispose();
-  for(const side of [-1,1]){
-    launcher.beam(0x4c5145,[side*.060,.169,.10],[side*.060,.272,.050],.023);
-    launcher.beam(0x444a40,[side*.060,.272,.050],[side*.060,.266,-.153],.027,.029);
-    launcher.beam(0x4c5145,[side*.060,.266,-.153],[side*.060,.193,-.193],.023);
-  }
-  launcher.add(cube,rubber,0,.0,.02,.064,.15,.07);
-  launcher.add(cube,0x555d4d,-.091,.229,-.07,.084,.072,.17);
-  launcher.add(cube,0x292f2b,-.093,.229,.018,.073,.059,.014);
-  launcher.add(cube,0x52665d,-.093,.233,.027,.056,.039,.004);
-  launcher.add(cube,0x7e8271,-.14,.219,-.08,.013,.018,.035);
-  tube.dispose();
-  const ember=new Batch(true);
-  ember.add(cube,0x3e5258,0,-.035,.04,.064,.16,.08,-.15);
-  ember.add(round,0xd5763d,0,.081,-.14,.117,.108,.25);
-  for(const s of [-1,1]){
-    ember.add(cube,0x465459,s*.083,.10,-.13,.019,.112,.24);
-    ember.add(cube,0xebca7b,s*.095,.115,-.11,.009,.024,.12);
-  }
-  ember.add(cube,0x435a5c,0,.085,-.34,.17,.17,.08);
-  ember.add(round,0xeeba66,0,.085,-.383,.065,.065,.012);
-
-
-  const tools=[carbine,sidearm,meridian,launcher,ember].map(batch=>batch.mesh(body,equipmentFinish(),false));
-  tools[4].name='Ember projector';
-  tools[0].name='Field carbine';tools[1].name='Patrol sidearm';
-  tools[3].name='Heat-seeking launcher';
-  tools[2].name='Meridian scoped rifle';
-  for(const tool of tools){tool.position.set(.12,1.33,-.20);tool.geometry.userData.sharedFieldKit=true;}
-  if(scene)fieldKits.set(scene,tools.map(tool=>tool.clone()));
-  return tools;
 }
 
 function landingMarks(batch) {
@@ -1041,7 +880,7 @@ function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
     for(const z of [-.150,-.111,-.076,.025,.054])boot.add(cube,0x41443a,0,-.119,z,.114,.012,.016);
     boot.mesh(ankle,uniform);
   }
-  rig.tools=makeFirearms(upper,scene);
+  rig.tools=carriedEquipment(upper,scene,Batch);
   return finishAvatar(scene,rig,material,shadowMap,name);
 }
 
@@ -1218,12 +1057,13 @@ export function createScene(canvas,onFootfall) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
-  const sightModels=makeFirearms(camera,scene);
-  sightModels[0].position.set(0,-.194,-.40);
-  sightModels[1].position.set(0,-.151,-.44);
-  sightModels[4].position.set(.17,-.20,-.46);
-  sightModels[3].position.set(.19,-.27,-.46);
-  sightModels[2].position.set(0,-.216,-.37);
+  const sightModels=carriedEquipment(camera,scene,Batch);
+  sightModels[0].position.set(0,-.214,-.40);
+  sightModels[1].position.set(0,-.125,-.40);
+  sightModels[4].position.set(.115,-.186,-.45);
+  sightModels[3].position.set(.136,-.240,-.55);
+  camera.remove(sightModels[2]);
+  sightModels[2]=scopedEyepiece(camera,Batch);
   const effects=fieldEffects(scene);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
@@ -1253,7 +1093,7 @@ export function createScene(canvas,onFootfall) {
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     dressPerson(rig,look,Batch,material,{faces,shirts});
-    if(officer)rig.tools=makeFirearms(rig.upper,scene);
+    if(officer)rig.tools=carriedEquipment(rig.upper,scene,Batch);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
   }
@@ -1564,6 +1404,7 @@ export function createScene(canvas,onFootfall) {
     sightModels[4].visible=sighted && local.weapon===5;
     sightModels[3].visible=sighted && local.weapon===4;
     sightModels[2].visible=sighted && local.weapon===3;
+    if(sightModels[2].visible)sightModels[2].scale.setScalar(Math.min(1,camera.aspect));
     const bowSight=localStation==='superyacht' && !local.dead && !local.fall;
     const fov = bowSight ? 26 : sighted ? (local.weapon===3 ? 19 : 32) : 55+6*roomBlend;
     if (camera.fov !== fov) {
