@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {paneBatch} from './pane-damage-view.js';
 import {interiorPlans} from './building-interiors.js';
 import { MAP, BREAKABLES, HELIPAD, terrainHeight, onBuildingLot } from './world.js';
 
@@ -20,8 +21,9 @@ function tile(shape,index) {
 }
 
 export function buildOutpost(scene,renderer,Batch) {
+  const glass=new Batch(),panes=paneBatch(glass),sheet=new THREE.BoxGeometry();
   const walls=new Batch(true), masonry=atlasMaterial(renderer,'./depot-masonry.webp');
-  const [facade,iron,concrete,door]=[0,1,2,3].map(n=>tile(new THREE.BoxGeometry(),n));
+  const [facade,iron,concrete]=[0,1,2].map(n=>tile(new THREE.BoxGeometry(),n));
   const chimney=tile(new THREE.CylinderGeometry(.11,.13,1,10),1);
   const gable=new THREE.BufferGeometry();
   gable.setAttribute('position',new THREE.Float32BufferAttribute([0,0,-.5,0,1,0,0,0,.5],3));
@@ -38,7 +40,7 @@ export function buildOutpost(scene,renderer,Batch) {
     }
     const {length,outer,inner,front}=plan.ramp;
     const tilt=Math.atan2(inner-outer,length);
-    walls.add(concrete,0xbcaf93,x,(outer+inner)/2-.05,front+length/2,2.15,.10,Math.hypot(length,inner-outer),tilt);
+    walls.add(concrete,0xbcaf93,x,(outer+inner)/2-.05,front+length/2,garage?w-.28:2.15,.10,Math.hypot(length,inner-outer),tilt);
     // Deep eaves, gutters and masonry end walls give the gable a silhouette.
     const run=d*.5+.22, angle=Math.atan2(rise,d*.5);
     for(const sign of [-1,1]) {
@@ -48,15 +50,12 @@ export function buildOutpost(scene,renderer,Batch) {
       walls.add(iron,0x78766a,x+w*.5-.19,base+eave*.48,z+sign*(d*.5+.06),.08,eave*.96,.08);
     }
     walls.add(iron,0x999c8e,x,top+rise+.035,z,w+.47,.14,.24);
-    if(garage) {
-      for(const side of [-1,1]) {
-        walls.add(door,0xeae2c8,x+side*(w/4+.42),base+eave*.42,z+d/2+.015,w*.5-.98,eave*.84,.055);
-      }
-    } else {
-      // Sills catch direct light ahead of the photographic window reveals.
-      for(const side of [-1,1]) for(const col of [-1,0,1]) for(const row of [.16,.64]) {
-        if(side>0 && col===0)continue;
-        walls.add(concrete,0xa7a293,x+col*w*.31,base+eave*row,z+side*(d*.5+.035),w*.20,.09,.16);
+    if(!garage){
+      for(const pane of plan.glazing){
+        const {x,z,w,sill,head}=pane,h=head-sill,mid=(head+sill)/2;
+        panes.add(pane.paneId,()=>glass.add(sheet,0xc0d2c7,x,mid,z,w,h,.037));
+        for(const sign of [-1,1])walls.add(iron,0x778079,x+sign*(w/2+.015),mid,z,.04,h+.08,.17);
+        for(const y of [head+.035,sill-.035])walls.add(concrete,0xb8ae9c,x,y,z,w+.11,.07,.20);
       }
       walls.add(concrete,0xab9a85,x-w*.29,top+rise+.10,z-.44,.64,1.44,.70);
       walls.add(concrete,0x756d5b,x-w*.29,top+rise+.86,z-.44,.80,.13,.83);
@@ -64,9 +63,10 @@ export function buildOutpost(scene,renderer,Batch) {
     walls.add(chimney,0x888778,x+w*.34,top+rise+.23,z+.16,1,1.34,1);
   }
   walls.mesh(scene,masonry).userData.impactSurface='solid';
-  for(const shape of [facade,iron,concrete,door,gable,chimney]) shape.dispose();
+  for(const shape of [facade,iron,concrete,gable,chimney,sheet]) shape.dispose();
 
-  return buildStacks(scene,renderer,Batch);
+  const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.2,transparent:true,opacity:.29,depthWrite:false});
+  return {stacks:buildStacks(scene,renderer,Batch),updateGlass:panes.bind(glass.mesh(scene,material,false))};
 }
 
 export function buildStacks(scene,renderer,Batch) {
