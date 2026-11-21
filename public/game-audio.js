@@ -1,3 +1,4 @@
+import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
 import {doorBuffer,doorCue} from './car-door-sound.js';
@@ -25,6 +26,18 @@ function synth(context,name) {
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
   if(name==='patrol-siren')return sirenLoop(context);
+  if(name==='branch-alarm'){
+    const rate=context.sampleRate,buffer=context.createBuffer(1,Math.round(rate*1.6),rate);
+    const wave=buffer.getChannelData(0);
+    // Two struck pitches and a rest distinguish the indoor bell from a passing siren.
+    for(let i=0;i<wave.length;i++){
+      const time=i/rate,second=time>=.34,t=second?time-.34:time;
+      const angle=2*Math.PI*(second?622:784)*t;
+      const envelope=Math.min(1,t*240)*Math.exp(-8*t)*Math.min(1,(1.6-time)*35);
+      wave[i]=envelope*(.58*Math.sin(angle)+.23*Math.sin(2.71*angle)+.12*Math.sin(4.13*angle));
+    }
+    return buffer;
+  }
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
   if(name==='district-fire'){
     const rate=context.sampleRate,buffer=context.createBuffer(1,rate*2,rate),samples=buffer.getChannelData(0);
@@ -234,6 +247,9 @@ export function createGameAudio(button,slider,level) {
       const inEarshot=world.map==='brickell' && Math.hypot(listener.x-clubSpeaker.x,listener.z-clubSpeaker.z)<19;
       if(inEarshot && audible() && !buffers.has('lucero'))loadClubTrack();
       motor('lucero',clubSpeaker,inEarshot && buffers.has('lucero'),1,.56,listener,yaw);
+      const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
+      const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
+      motor('branch-alarm',bankDesk,nearBank,1,.84,listener,yaw);
       const local=new Set();
       for(const layer of [bed,water]){
         if(!layer || layer.gain<.009)continue;

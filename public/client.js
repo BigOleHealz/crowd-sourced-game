@@ -1,4 +1,5 @@
-import {atBankDesk,bankPrompt,bankClaimSeconds} from './bank-rules.js';
+import {bankConversation,bankBulletin} from './bank-conversation.js';
+import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
@@ -126,6 +127,14 @@ let bankSeq=0,bankReceiptUntil=0;
 function teller(){
   return world?.bank && !vitals.use && canChangeStance(self) && atBankDesk(self) ? bankPrompt(world.bank,id) : null;
 }
+function bankAction(action,serial,pursuit=false){
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action,seq:++bankSeq,serial,pursuit}));
+}
+const bankDialog=bankConversation(byId('bank-dialog'),{
+  enter:releaseLook,
+  leave(){stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});},
+  confirm(serial,pursuit){if(teller()?.action==='talk')bankAction('rob',serial,pursuit);}
+});
 function openBag(){if(world?.market && canChangeStance(self) && !touchBlocked())market.open();}
 byId('wallet').onclick=openBag;
 function speaker(current=null){
@@ -256,6 +265,13 @@ byId('help').onclick = () => setGuide(byId('guide').hidden);
 byId('close-guide').onclick = () => setGuide(false);
 window.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if(bankDialog.open){
+    if(e.code==='KeyE' || e.code==='Escape'){
+      e.preventDefault();
+      if(!e.repeat)bankDialog.close();
+    }
+    return;
+  }
   if(market.current){
     if(!e.repeat && ['Escape','KeyE','KeyI'].includes(e.code)){e.preventDefault();market.close();}
     return;
@@ -307,7 +323,8 @@ function pressAction(code){
     if(shop){market.open(shop);return;}
     const bank=teller();
     if(bank){
-      if(bank.action && socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'bank',action:bank.action,seq:++bankSeq}));
+      if(bank.action==='talk')bankDialog.show(world.bank.serial,!!vitals.wanted?.enabled);
+      else if(bank.action==='collect')bankAction('collect',world.bank.serial);
       return;
     }
     const clubUse=clubInteraction();
@@ -534,7 +551,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
-    market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
+    bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
     canvas.classList.remove('armed');
@@ -770,9 +787,10 @@ function updateEquipment(local) {
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
   const bank=teller();
-  const claimMeter=byId('bank-progress');
-  claimMeter.hidden=!bank || world.bank.phase!=='claiming';
-  if(!claimMeter.hidden){claimMeter.max=bankClaimSeconds;claimMeter.value=bankClaimSeconds-world.bank.seconds;}
+  if(bankDialog.open && bank?.action!=='talk')bankDialog.close();
+  const bulletin=bankBulletin(world.bank,local,id),event=byId('bank-event');
+  if(event.textContent!==bulletin)event.textContent=bulletin;
+  event.hidden=!bulletin;
   byId('bank-receipt').hidden=bankReceiptUntil<=performance.now();
   const shop=counter(),shopLabel=shop && (world.market.shops[shop.id].down?'Loot counter':'Shop with '+(world.npcs.find(n=>n.id===shop.owner)?.name??shop.name));
   market.update(world,shop,canChangeStance(self));
@@ -786,8 +804,8 @@ function updateEquipment(local) {
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
-  else if(market.current || talk.current)prompt.textContent='';
-  else if(bank)prompt.textContent=bank.detail+(world.bank.phase==='claiming' && bank.action?' · E to cancel':'');
+  else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
+  else if(bank)prompt.textContent=bank.detail;
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
@@ -821,7 +839,7 @@ function updateEquipment(local) {
     touch.render(touchLayout({role,active,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
-    if(!talk.current && active && !garage)prompt.textContent=bank && bank.action!=='start'?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
+    if(!talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
   }
 }
 
