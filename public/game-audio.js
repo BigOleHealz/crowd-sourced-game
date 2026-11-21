@@ -1,3 +1,4 @@
+import {ambientScene,ambientBuffer} from './district-ambience.js';
 import {doorBuffer,doorCue} from './car-door-sound.js';
 import {roadHandle} from './road-cabin.js';
 import {bootSurface,stepBuffer} from './footsteps.js';
@@ -17,6 +18,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
   if(name==='patrol-siren')return sirenLoop(context);
   if(name.startsWith('tread/'))return tireLoop(context,name.slice(6));
@@ -92,7 +94,7 @@ export function createGameAudio(button,slider,level) {
   } catch {}
   let context,master,limiter,reflection,environmentWorld;
   let listenerSpace=acousticSpace(null,null);
-  let previousVehicles={},lastGlass=0;
+  let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
     action.textContent=settings.muted ? 'Unmute' : 'Mute';
@@ -175,7 +177,7 @@ export function createGameAudio(button,slider,level) {
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
-    voices.clear();loops.clear();lastJetRange=null;lastPatrol=null;
+    voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles={};
     if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
@@ -183,9 +185,20 @@ export function createGameAudio(button,slider,level) {
   function roadAndAirVehicles(world){
     return [['rover',world.rover],['heli',world.heli],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
   }
-  function events(world,listener,yaw,shots) {
+  function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
     listenerSpace=acousticSpace(listener,world);
+    if(context && context.currentTime>=nextEnvironment){
+      nextEnvironment=context.currentTime+.2;
+      const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
+      const local=new Set();
+      for(const layer of [bed,water]){
+        if(!layer || layer.gain<.009)continue;
+        const key='amb/'+layer.name;local.add(key);
+        motor(key,layer.point,true,1,layer.gain,listener,yaw);
+      }
+      for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
+    }
     if(reflection)reflection.gain.setTargetAtTime(listenerSpace.reflection,context.currentTime,.11);
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
     lastGlass=world.doors?.glassSeq??0;
