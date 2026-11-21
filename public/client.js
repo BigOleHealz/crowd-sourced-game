@@ -163,10 +163,13 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
-let touchSprint=false;
+let touchSprint=false,handingMouseToTouch=false;
 function touchBlocked(){return !byId('guide').hidden || !!document.querySelector('dialog[open], [aria-modal="true"]:not(dialog):not([hidden])');}
 const touch=createTouchControls(canvas,{
   blocked:touchBlocked,
+  releaseMouse(){
+    handingMouseToTouch=true;clearInput();stopLook();document.exitPointerLock();
+  },
   wake(){lookPaused=false;canvas.classList.remove('look-paused');stopLook();canvas.focus({preventScroll:true});},
   menuOpened:releaseLook,
   look(dx,dy){
@@ -211,7 +214,10 @@ function releaseLook(){
 document.addEventListener('pointerlockchange',()=>{
   canvas.classList.toggle('captured',locked());
   if(locked()){lookPaused=false;canvas.classList.remove('look-paused');stopLook();}
-  else releaseLook();
+  else if(handingMouseToTouch){
+    handingMouseToTouch=false;
+    if(!touchBlocked() && !windowBlurred && !document.hidden){lookPaused=false;canvas.classList.remove('look-paused');}
+  }else releaseLook();
 });
 function pauseControls() { releaseLook(); }
 byId('sound-mute').onclick = e => {
