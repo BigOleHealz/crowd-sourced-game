@@ -1,3 +1,4 @@
+import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
@@ -12,7 +13,7 @@ import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
 // Round the corners of each chassis. Flat faces stay at the modeled extents.
 const pickup={halfWidth:.82,halfLength:CITY?1.69:1.55,corner:.16};
-const shapeFor=vehicle=>vehicle?.kind==='tank'?tankHull:vehicle?.kind==='supercar'?supercarLayout:civilianProfiles[vehicle?.model]??pickup;
+export const roadHullFor=vehicle=>vehicle?.kind==='tank'?tankHull:vehicle?.kind==='supercar'?supercarLayout:civilianProfiles[vehicle?.model]??pickup;
 const props=[...MAP.rocks,...MAP.trees,...BREAKABLES];
 const bridgeRails=MAP.bridge?[-1,1].map(side=>({
   x:MAP.bridge.x+side*MAP.bridge.width/2,z:MAP.bridge.z,w:.10,d:9.6,h:1,
@@ -55,7 +56,7 @@ function roundContact(x,z,s,c,prop,radius,shape){
 
 // Outward-facing normal points from the obstacle into free space.
 export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
-  const shape=shapeFor(vehicle);
+  const shape=roadHullFor(vehicle);
   const s=Math.sin(yaw),c=Math.cos(yaw);
   const floorProbe=CITY && onEstate(x,z) ? (vehicle.y??.8)+.32 : Infinity;
   const base=groundHeight(x,z,floorProbe,world.doors);
@@ -83,12 +84,13 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     consider(roundContact(x,z,s,c,prop,prop.radius,shape));
+  consider(jetRoadContact(world.jet,x,base,z,yaw,shape));
   const heli=world.heli;
   const roof=shape.roof??shape.height??1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
-    if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(shapeFor(parked).roof??shapeFor(parked).height??1.66)<=base)return;
-    consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
+    if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;
+    consider(boxContact(x,z,s,c,parked,shape,roadHullFor(parked)));
   }
   considerCar(world.tank);considerCar(world.rover);considerCar(world.supercar);
   for(const car of world.traffic??[])considerCar(car);
