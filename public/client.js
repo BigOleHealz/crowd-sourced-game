@@ -487,7 +487,7 @@ function remoteFrame(time) {
     if(!old || !car || old.driver!==car.driver || old.wrecked!==car.wrecked)return car;
     return {...car,x:mix(old.x,car.x,t),y:mix(old.y,car.y,t),z:mix(old.z,car.z,t),
       yaw:angleMix(old.yaw,car.yaw,t),steer:mix(old.steer??0,car.steer??0,t),
-      suspension:interpolateSuspension(old.suspension,car.suspension,t)};
+      suspension:Boolean(old.bridgeFlight)!==Boolean(car.bridgeFlight)?car.suspension:interpolateSuspension(old.suspension,car.suspension,t)};
   }
   const supercar=roadFrame(a.supercar,b.supercar);
   const traffic=b.traffic?.map(car=>{

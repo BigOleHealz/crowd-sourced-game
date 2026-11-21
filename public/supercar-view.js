@@ -8,8 +8,12 @@ import {alpineGlass} from './landscape.js';
 const orange=0xff7716, ember=0xf46611, carbon=0x24272a, steel=0x9ba5a4;
 const clamp=THREE.MathUtils.clamp;
 import {sectionAt,sections,canopy,glassQuads} from './vehicle-glass-layout.js';
+function fenderHeight(z,shoulder){
+  const dz=Math.min(...spec.wheels.map(axle=>Math.abs(z-axle)));
+  return dz>=spec.archRadius?shoulder:Math.max(shoulder,spec.tire+Math.sqrt(spec.archRadius**2-dz**2)+.055);
+}
 function bonnetHeight(x,z){
-  const [,w,hood,shoulder]=sectionAt(z),u=Math.abs(x)/w;
+  const [,w,hood,baseShoulder]=sectionAt(z),u=Math.abs(x)/w,shoulder=fenderHeight(z,baseShoulder);
   const profile=[[0,hood],[.52,hood+.012],[.78,shoulder-.012],[.91,shoulder],[.976,shoulder-.038]];
   for(let i=1;i<profile.length;i++){
     const [v,h]=profile[i],[v0,h0]=profile[i-1];
@@ -43,15 +47,16 @@ function face(batch,tint,a,b,c,d){
 }
 function bodywork(batch){
   const positions=[],indices=[],stations=sections.map(s=>s[0]);
-  for(const axle of spec.wheels)for(let i=0;i<=24;i++)stations.push(axle-.385*Math.cos(Math.PI*i/24));
+  for(const axle of spec.wheels)for(let i=0;i<=24;i++)stations.push(axle-spec.archRadius*Math.cos(Math.PI*i/24));
   const slices=[...new Set(stations)].sort((a,b)=>a-b);
   for(const [i,z] of slices.entries()){
     const [,w,hood,shoulder,sill]=sectionAt(z);
     const dz=Math.min(...spec.wheels.map(axle=>Math.abs(z-axle)));
-    const arch=dz<.385 ? spec.tire+Math.sqrt(.385**2-dz**2) : sill;
+    const arch=dz<spec.archRadius ? spec.tire+Math.sqrt(spec.archRadius**2-dz**2) : sill;
     const rail=Math.max(sill,arch);
-    const half=[[0,hood],[w*.52,hood+.012],[w*.78,shoulder-.012],[w*.91,shoulder],
-      [w*.976,shoulder-.038],[w,Math.max(rail+.015,shoulder-.11)],[w*.988,rail],[w*.795,rail+.002]];
+    const crown=fenderHeight(z,shoulder);
+    const half=[[0,hood],[w*.52,hood+.012],[w*.78,crown-.012],[w*.91,crown],
+      [w*.976,crown-.038],[w,Math.max(rail+.015,crown-.11)],[w*.988,rail],[w*.795,rail+.002]];
     const ring=[...half.slice(1).reverse().map(([x,y])=>[-x,y]),...half];
     for(const [x,y] of ring)positions.push(x,y,z);
     const n=ring.length;
@@ -84,6 +89,14 @@ function jetGeometry(){
   const g=surface(vertices,index);g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));return g;
 }
 
+// A grounded hub follows its chassis-local suspension axis until the tire
+// touches the sampled road height. The root already carries any airborne tilt.
+export function placeGTWheel(position,x,z,hubY,body,axis){
+  position.set(x,0,z).applyQuaternion(body.quaternion);
+  const travel=(hubY-body.position.y-position.y)/axis.y;
+  position.addScaledVector(axis,travel);
+  position.y=hubY;
+}
 export function createSupercarView(scene,Batch,shadowMap,panorama){
   const root=new THREE.Group(),body=new THREE.Group();root.name='Vesper GT';root.add(body);scene.add(root);
   const paint=new Batch(),trim=new Batch(),glass=new Batch(),lamps=new Batch();
@@ -117,8 +130,8 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     // True arch cut-outs above the spinning wheels, with dark wheelhouse liners.
     for(const axle of spec.wheels){
       const line=[];for(let i=0;i<=22;i++){
-        const a=Math.PI*i/22,z=axle-.383*Math.cos(a),w=sectionAt(z)[1];
-        line.push([s*w*.987,spec.tire+.383*Math.sin(a)+.008,z]);
+        const a=Math.PI*i/22,z=axle-spec.archRadius*Math.cos(a),w=sectionAt(z)[1];
+        line.push([s*w*.987,spec.tire+spec.archRadius*Math.sin(a)+.008,z]);
       }
       strip(trim,0x28272a,line,.023);
     }
@@ -202,7 +215,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
       hub.position.set(side*spec.axle,spec.tire,z);root.add(hub);hub.add(rotation);
       const rubber=tireMat.clone(),patch=tireContactPatch(rubber,spec.tire);
       rotation.add(new THREE.Mesh(tire,rubber),new THREE.Mesh(rimGeometry,wheelMaterial));
-      wheels.push({hub,rotation,patch,front:z<0});
+      wheels.push({hub,rotation,patch,x:side*spec.axle,z,front:z<0});
     }
   }
   const tag=document.createElement('canvas');tag.width=300;tag.height=72;
@@ -218,6 +231,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   const jets=spec.exhaust.map(([x,y,z])=>{const m=new THREE.Mesh(jet,hot);m.position.set(x,y,z+.075);m.visible=false;body.add(m);return m;});
   for(const g of [cube,sphere,disc,torus])g.dispose();
   let spin=0,time=0;
+  const suspensionAxis=new THREE.Vector3();
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
     updatePanes(car.brokenGlass);
@@ -229,9 +243,11 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     under.visible=!car.bridgeFlight;
     body.position.y=car.suspension?.heave??0;
     time+=frame;spin=(spin-speed*frame/spec.tire)%(Math.PI*2);
+    suspensionAxis.set(0,1,0).applyQuaternion(body.quaternion);
     for(const [i,w] of wheels.entries()){
       const flat=isFlat(car,i);
-      w.hub.position.y=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      const hubY=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
+      placeGTWheel(w.hub.position,w.x,w.z,hubY,body,suspensionAxis);
       w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
       w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
     }
