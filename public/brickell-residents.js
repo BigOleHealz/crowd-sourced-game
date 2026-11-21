@@ -1,5 +1,6 @@
 // Short pedestrian circuits on the existing mainland and Harbor Key. Fern
 // and Rowan retain their original routes and identifiers in both districts.
+import {hotelRegulars} from './brickell-conversations.js';
 export const brickellResidents=[
   {id:'rival-ines',name:'Inés',points:[[-66,-13.8],[-60,-13.8],[-61,-16.2]]},
   {id:'rival-omar',name:'Omar',points:[[-29,-40],[-23,-40],[-26,-42]]},
@@ -19,4 +20,5 @@ export const brickellResidents=[
   {id:'rival-santi',name:'Santi',points:[[58,-215.8],[58,-210.4],[60.1,-212.1]]},
   {id:'rival-mei',name:'Mei',points:[[-36.5,-250.7],[-40.5,-250.7],[-38.6,-252.3]]},
   {id:'rival-amir',name:'Amir',points:[[15,-266],[21.4,-266],[19.5,-267.8]]},
+  ...hotelRegulars,
 ];

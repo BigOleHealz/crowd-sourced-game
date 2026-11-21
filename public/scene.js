@@ -1176,13 +1176,15 @@ export function createScene(canvas,onFootfall) {
     map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return new THREE.MeshLambertMaterial({map});
   }
+  let nightlifeFaces;
   function resident(id,name,officer=false){
+    const look=officer?patrolProfile(id,!CITY):civilianLooks[id];
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
-      (civilianFaces??=civilianTexture('./brickell-faces.webp'));
+      look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     const shirts=officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressPerson(rig,officer?patrolProfile(id,!CITY):civilianLooks[id],Batch,material,{faces,shirts});
+    dressPerson(rig,look,Batch,material,{faces,shirts});
     if(officer)rig.tools=makeFirearms(rig.upper);
     scene.add(rig.root);
     return finishAvatar(scene,rig,material,shadowMap,name);
