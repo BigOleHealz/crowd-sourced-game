@@ -1,3 +1,5 @@
+import {hitMarineWildlife,marineContact} from './marine-contacts.js';
+import {swimWeapon} from './shark-swim.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
 import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
 import {burnableContact,hitFireSite} from './district-fire.js';
@@ -144,6 +146,9 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   let target = null, hitKind = null, to, blocked = false, headshot=false, hitPart=null, injuryPoint=null;
   const intersections=actors.map(actor=>actorIntersection(actor,from,direction)).sort((a,b)=>a.distance-b.distance);
   const delta={x:direction.x*range,y:direction.y*range,z:direction.z*range};
+  const wildlife=marineContact(world,from,
+    {x:from.x+delta.x,y:from.y+delta.y,z:from.z+delta.z});
+  const wildlifeDistance=wildlife ? wildlife.t*range : Infinity;
   const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,delta);
   const sportContact=supercarRoundContact(world.supercar,from,delta);
   const tankDistance=sourceVehicle==='tank'?Infinity:tankRoundContact(world.tank,from,delta)*range;
@@ -164,7 +169,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   // Step one common arcade pulse through the world; scenery and nearer targets
   // intercept it before anything farther along the same beam.
   for (let sample=1; sample*spacing<=range+.00001;sample++) {
-    const d=Math.min(range,sample*spacing);
+    const d=Math.min(range,sample*spacing,wildlifeDistance);
     to = { x: from.x + direction.x * d, y: from.y + direction.y * d, z: from.z + direction.z * d };
     if(pane?.target && pane.t<=post.t && pane.t*range<=d){
       target=pane.target;hitKind='glass';
@@ -214,6 +219,9 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       target=intersections.find(entry=>entry.distance===Infinity && assistedActorHit(to,entry.actor,halo))?.actor;
     }
     if (target) { hitKind = typeof target.id === 'number' ? 'player' : 'npc'; break; }
+    if(d>=wildlifeDistance){
+      target=wildlife.target;hitKind=wildlife.kind;break;
+    }
   }
   return { target, hitKind, to, blocked, headshot, hitPart, injuryPoint };
 }
@@ -224,9 +232,10 @@ export function trackLauncher(world,player,input,tick,players,npcs){
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if ((player.state.swimming && (!world.sharks || !swimWeapon(player.weapon))) || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
   const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
+  if(player.state.swimming)player.swimArmedUntil=tick+18;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   if(player.weapon===6){
     throwCapsule(world,nextShotId++,player,from,input,tick);
@@ -281,6 +290,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
+    hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0);
     if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
     for (const crystal of BREAKABLES) {
       if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
