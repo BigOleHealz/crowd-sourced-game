@@ -1081,6 +1081,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
   return distance;
 }
 
+import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas) {
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
@@ -1229,7 +1230,12 @@ export function createScene(canvas) {
     const dx = to.x - muzzle.x, dz = to.z - muzzle.z;
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
+  let sprintGate;
   function render(local,remotes,view,dt,world) {
+    if(CITY && !world.match){
+      sprintGate??=createSprintGate(scene);
+      sprintGate(local.race?.phase==='racing'?local.race.next:-1);
+    }
     if(!local) return;
     const altitude=Math.max(0,local.y-20);
     scene.fog.density=(CITY ? .005 : .0125)/(1+Math.min(4,altitude/32));

@@ -125,3 +125,9 @@ dd { text-align: right; color: var(--accent); margin: 0; }
   border:1.5px solid #f5edcd; border-radius:50%; box-shadow:0 0 2px 1px #212827; pointer-events:none; }
 #flight-cursor::after { content:''; position:absolute; inset:4px; background:#f5edcd; border-radius:50%; }
 #play-reticle:has(+ #flight-cursor:not([hidden])) { display:block; }
+
+#marina-card { position:fixed; top:90px; right:30px; width:205px; max-width:38vw; padding:9px 12px; background:var(--panel); border-right:3px solid #89ffe3; font-size:12px; }
+#marina-card strong, #marina-card output {display:block; margin-bottom:4px;}
+#marina-card summary {cursor:pointer; color:#a9f4df;}
+#marina-card ol {padding-left:22px;max-height:20vh;overflow:auto;}
+@media(max-width:700px){#marina-card{top:70px;right:10px;width:160px;}}
