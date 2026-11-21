@@ -12,9 +12,9 @@ const homes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
 export const sharkSizes=[.88,1.16,1.03,.97,1.29];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
 
-function openWater(x,z,padding){
-  if(x-padding<brickellMap.westBound || x+padding>brickellMap.bounds ||
-     z-padding<brickellMap.northBound || z+padding>brickellMap.bounds)return false;
+function openWater(x,z,padding,edgePadding=padding){
+  if(x-edgePadding<brickellMap.westBound || x+edgePadding>brickellMap.bounds ||
+     z-edgePadding<brickellMap.northBound || z+edgePadding>brickellMap.bounds)return false;
   return water-cityGround(x,z)>=deep && water-cityGround(x-padding,z)>=deep &&
     water-cityGround(x+padding,z)>=deep && water-cityGround(x,z-padding)>=deep &&
     water-cityGround(x,z+padding)>=deep;
@@ -23,7 +23,7 @@ function clearCourse(a,b){
   const steps=Math.ceil(distance(a,b)/1.6);
   for(let k=1;k<=steps;k++){
     const t=k/steps;
-    if(!openWater(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,1.5))return false;
+    if(!openWater(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,1.5,0))return false;
   }
   return true;
 }
@@ -122,7 +122,7 @@ export function createSharks(){
     const swimmers=new Map(),observers=[...players.values()];
     for(const p of observers){
       const {x,z}=p.state;
-      if(!p.life.hp || p.life.fall || !p.state.swimming || !openWater(x,z,5)){
+      if(!p.life.hp || p.life.fall || !p.state.swimming || !openWater(x,z,5,0)){
         exposure.delete(p);continue;
       }
       const began=exposure.get(p)??time;
@@ -164,6 +164,9 @@ export function createSharks(){
       }
       const desired=Math.atan2(goal.x-s.x,s.z-goal.z);
       const diff=Math.atan2(Math.sin(desired-s.yaw),Math.cos(desired-s.yaw));
+      // Ease off when the swimmer crosses inside the turning circle: a shark
+      // must be able to line up another pass instead of orbiting forever.
+      if(s.phase==='approach')speed*=clamp(.38+.62*Math.cos(diff),.38,1);
       const yaw=s.yaw+clamp(diff,-dt*1.7,dt*1.7);
       const next=atBearing(s,yaw,speed*dt);
       if(openWater(next.x,next.z,1.5)){

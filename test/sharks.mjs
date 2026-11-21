@@ -34,8 +34,8 @@ assert.equal(near.life.hp,hp);
 assert.equal(shore.life.hp,100);assert.equal(deck.life.hp,100);
 assert(bayfront.game.state.every(s=>s.target==null));
 for(const s of bayfront.game.state)assert(water-cityGround(s.x,s.z)>2.05);
-const alone=player(2,76,-495),open=bay(alone);
-open.step(85);
+const alone=player(2,105,-500),open=bay(alone);
+open.step(130);
 assert.equal(alone.life.hp,0,'Sustained swimming in another offshore channel can be lethal');
 assert.equal(alone.score.deaths,1,'Existing server defeat and respawn rules apply once');
 
