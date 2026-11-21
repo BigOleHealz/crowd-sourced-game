@@ -7,6 +7,7 @@ import {furnishingSupported} from './estate-damage.js';
 import {bankSite,bankServiceParts,bankServiceDoors} from './bank-site.js';
 import {stations,sandHeight} from './beach-layout.js';
 import {galleryPlans} from './gallery-lobbies.js';
+import {residentialProfile,furnishResidentialLevel,furnishRuralHome} from './residential-furnishing-layout.js';
 
 export const interiorPlans=[], interiorDoors=[];
 const byBuilding=new WeakMap(), grid=new Map();
@@ -31,7 +32,7 @@ function panel(p,x,y,z,angle,exitX,exitZ){
   p.panels.push({x,y,z,angle,exitX,exitZ,index:p.panels.length,p});
 }
 function floorPlan(p,y,height,n){
-  const {b}=p,level={p,n,y,height,parts:[],rooms:[],doors:[]};
+  const {b}=p,level={p,n,y,height,parts:[],rooms:[],doors:[]},residential=residentialProfile(p);
   const add=(x,z,w,d,lo,h,kind,col)=>level.parts.push(box(x,z,w,d,y+lo,h,kind,col));
   const rows=b.d>=12?2:1,usable=b.d-.90,span=usable/rows;
   for(const side of [-1,1]){
@@ -46,6 +47,7 @@ function floorPlan(p,y,height,n){
       const number=(n+2)*100+row*2+(side<0?1:2);
       const d=door(p,line,y,z,'z',gap,'Room '+number,false,n);
       level.doors.push(d);level.rooms.push({number,x:line+side*roomW/2,z,w:roomW,d:span});
+      if(residential)continue;
       const far=b.x+side*(b.w/2-1.36);
       add(far,z+.28,1.55,Math.min(2.05,span*.56),0,.42,'bed',0x765b46);
       add(far,z+.28,1.55,Math.min(2.05,span*.56),.42,.13,'linen',0xe5dccd);
@@ -54,6 +56,7 @@ function floorPlan(p,y,height,n){
       add(line+side*1.0,z+span*.38,.8,.48,0,.76,'desk',0x8f7355);
     }
   }
+  if(residential)level.residential=furnishResidentialLevel(level);
   p.levels.push(level);
   panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
 }
@@ -77,6 +80,7 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       const front=b.z+b.d/2;
       p.ramp={front,length:2.3,outer:terrain(b.x,front+2.3),inner:b.base};
       door(p,b.x,b.base,front+.025,'x',1.66,p.name,true);
+      p.residential=furnishRuralHome(p);
       outpostOpenings(b,p,terrain);
     }
   }
@@ -169,6 +173,11 @@ export function roomDoorTop(x,z,pad,probe,doors){
   }
   return top;
 }
+function partsTop(parts,x,z,pad,probe,top){
+  for(const s of parts)
+    if(probe>=s.bottom-.001 && isInside(s,x,z,pad))top=Math.max(top,s.bottom+s.h);
+  return top;
+}
 function storyAt(p,y){if(!p?.levels.length || y<floorY-.001 || !Number.isFinite(y))return;return p.levels[Math.min(p.levels.length-1,Math.floor((y-floorY+.001)/p.levels[0].height))];}
 export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   const p=byBuilding.get(b);
@@ -182,15 +191,14 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   }
   if(p.type==='outpost'){
     if(probe>b.base+b.eave-.1)return;
-    let top=isInside(b,x,z)?b.base:-Infinity;
-    for(const s of p.shell)if(probe>=s.bottom-.001 && isInside(s,x,z,pad))top=Math.max(top,s.bottom+s.h);
-    return top;
+    const top=partsTop(p.shell,x,z,pad,probe,isInside(b,x,z)?b.base:-Infinity);
+    return p.residential?partsTop(p.residential.collisions,x,z,pad,probe,top):top;
   }
   const level=storyAt(p,probe);
   if(!level || probe>=b.base+b.eave-.08)return;
   if(!round && (Math.abs(x-b.x)>b.w/2-.37-pad || Math.abs(z-b.z)>b.d/2-.37-pad))return b.base+b.eave;
-  let top=level.y;
-  for(const s of level.parts)if(probe>=s.bottom-.001 && isInside(s,x,z,pad))top=Math.max(top,s.bottom+s.h);
+  let top=partsTop(level.parts,x,z,pad,probe,level.y);
+  if(level.residential)top=partsTop(level.residential.collisions,x,z,pad,probe,top);
   for(const d of level.doors)if(!doorIsOpen(d,doors) && intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+2.12);
   return top;
 }

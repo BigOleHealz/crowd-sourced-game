@@ -1013,7 +1013,7 @@ export function createScene(canvas,onFootfall) {
   renderer.shadowMap.autoUpdate=false;
   renderer.shadowMap.needsUpdate=true;
   renderer.outputColorSpace=THREE.SRGBColorSpace;
-  const scene=new THREE.Scene(),updateInteriors=buildingInteriorView(scene),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
+  const scene=new THREE.Scene(),updateInteriors=buildingInteriorView(scene,Batch),camera=new THREE.PerspectiveCamera(55,1,.09,CITY?730:400);
   scene.fog=new THREE.FogExp2(CITY ? 0xc0d3d9 : 0xa5a9a4,CITY ? .005 : .0067);
   const ambient=new THREE.HemisphereLight(0xd6dce1,0xaaa087,1.74);scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffe3b5,1.93);

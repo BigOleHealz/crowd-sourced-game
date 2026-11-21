@@ -13,7 +13,7 @@ export function residentialFurnishingView(scene,Batch){
   const cylinder=new THREE.CylinderGeometry(.5,.5,1,12);
   const shade=new THREE.CylinderGeometry(.29,.5,1,16);
   const foliage=new THREE.SphereGeometry(.5,7,4);
-  const plane=new THREE.PlaneGeometry();
+  const plane=new THREE.PlaneGeometry(),floorboard=new THREE.PlaneGeometry().rotateX(-Math.PI/2);
   const attributes=new Map();
   function surface(g,tile){
     let uv=attributes.get(g);
@@ -170,6 +170,17 @@ export function residentialFurnishingView(scene,Batch){
           const u=r*Math.cos(angle),a=r*Math.sin(angle);
           round('wood',0x796548,u*.38,top+rise*.36,a*.38,.018,rise*.76,.018);
           shape(foliage,'linen',[0x6b8e5c,0x436745,0x557548][i%3],u,top+rise,a,.175,.34,.055,.57*Math.sin(angle),angle,-.30*Math.cos(angle));
+        }
+      }else if(kind==='beam'){
+        wood(0,h/2,0,w,h,d);
+      }else if(kind==='floor'){
+        const count=Math.ceil(d/.255),row=d/count,board=w/3;
+        for(let j=0;j<count;j++){
+          const shift=j%3*board/3,first=board-shift;
+          for(let u=-w/2,span=first,n=0;u<w/2-.001;u+=span,span=Math.min(board,w/2-u),n++){
+            const tint=[timber,0xb18b65,0xbb9a77,0xa78368][(j*3+n*5)%4];
+            shape(floorboard,'wood',tint,u+span/2,.008,((j+.5)/count-.5)*d,span-.008,1,row-.007);
+          }
         }
       }else if(kind==='rug'){
         box('linen',rug,0,.013,0,w,.017,d);

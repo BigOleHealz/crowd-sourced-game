@@ -20,9 +20,13 @@ export function residentialProfile(plan){
 }
 
 const fixture=(kind,x,y,z,w,h,d,yaw,solid)=>({kind,x,y,z,w,h,d,yaw,solid});
-export function furnishingCollision(item){
+function furnishingCollision(item){
   const across=Math.abs(Math.sin(item.yaw))>.5;
   return {kind:item.kind,x:item.x,z:item.z,w:across?item.d:item.w,d:across?item.w:item.d,bottom:item.y,h:item.h};
+}
+
+function layout(profile,furnishings){
+  return {profile,furnishings,collisions:furnishings.filter(item=>item.solid).map(furnishingCollision)};
 }
 
 function furnishRoom(level,r,role){
@@ -32,10 +36,11 @@ function furnishRoom(level,r,role){
     objects.push(fixture(kind,r.x+side*u,y+dy,r.z+v,w,h,d,yaw+turn,solid));
   };
   const rug=(u,v,w,d)=>at('rug',u,v,w,.018,d,false);
-  const art=(u,v,w,h,turn=0)=>at('art',u,v,w,h,.055,false,turn,1.67-h/2);
+  const art=(u,v,w,h)=>at('art',u,v+(Math.sign(p.z-r.z)||1)*1.02,w,h,.055,false,0,1.67-h/2);
   const ceiling=height-.152;
   const lamp=(u,v,width,drop)=>at('pendant',u,v,width,drop,width,false,0,ceiling-drop);
 
+  at('floor',0,0,r.d-.13,.008,r.w-.12,false);
   if(role==='lounge'){
     const length=Math.min(2.55,r.d*.54),u=rim-.56;
     at('sofa',u,.14,length,.91,.92);
@@ -44,6 +49,10 @@ function furnishRoom(level,r,role){
     rug(u-.49,.14,length+.38,1.89);
     art(rim-.091,.14,length*.67,.70);
     lamp(u-.42,.14,.62,.30);
+    if(level.rooms.length===2){
+      at('dining',rim-.55,r.d*.35,.82,.76,.71);
+      at('chair',rim-1.28,r.d*.35,.51,.85,.50,true,Math.PI);
+    }
   }else if(role==='dining'){
     const u=rim-1.00,length=Math.min(1.85,r.d*.31);
     at('dining',u,.14,length,.80,.94);
@@ -55,7 +64,7 @@ function furnishRoom(level,r,role){
     art(rim-.084,.14,1.44,.64);
     lamp(u,.14,.80,.36);
   }else if(role==='bedroom'){
-    const depth=Math.min(2.16,r.w-1.20),width=Math.min(1.72,r.d*.42),u=rim-.14-depth/2;
+    const depth=Math.min(2.16,r.w-1.54),width=Math.min(1.72,r.d*.42),u=rim-.14-depth/2;
     at('bed',u,-.05,width,1.20,depth);
     for(const end of [-1,1]){
       at('nightstand',rim-.36,-.05+end*(width/2+.31),.47,.67,.44);
@@ -80,10 +89,7 @@ export function furnishResidentialLevel(level){
   const {rooms,p}=level,profile=residentialProfile(p);
   if(!profile)return;
   const roles=rooms.length===2?['lounge','bedroom']:['lounge','dining','bedroom','study'];
-  return {
-    profile,
-    furnishings:rooms.flatMap((room,i)=>furnishRoom(level,room,roles[i])),
-  };
+  return layout(profile,rooms.flatMap((room,i)=>furnishRoom(level,room,roles[i])));
 }
 
 // The lodge and cabin have one shallow open room. Keep the central entrance bay
@@ -97,6 +103,7 @@ export function furnishRuralHome(plan){
     objects.push(fixture(kind,x+u,y+dy,z+v,width,height,span,yaw,solid));
   };
   const wall=w/2;
+  put('floor',0,0,w-.33,.008,d-.31,0,false);
   put('sofa',-wall+.70,-.23,wide?2.44:1.76,.91,.93,Math.PI/2);
   put('coffee',-wall+1.73,-.23,wide?1.38:1.04,.47,.49,Math.PI/2);
   put('rug',-wall+1.18,-.23,wide?2.88:2.12,.018,1.85,Math.PI/2,false);
@@ -111,7 +118,8 @@ export function furnishRuralHome(plan){
     put('nightstand',wall-.45,.86,.47,.67,.44,-Math.PI/2);
     put('art',wall-.125,-.40,1.17,.53,.055,-Math.PI/2,false,1.41);
   }
+  for(const v of [-1.47,-.37,1.36])put('beam',0,v,w-.25,.18,.13,0,false,b.eave-.17);
   const drop=b.eave-2.78;
   for(const side of [-1,1])put('pendant',side*w*.28,-.37,.65,drop,.65,0,false,2.69);
-  return {profile,furnishings:objects};
+  return layout(profile,objects);
 }
