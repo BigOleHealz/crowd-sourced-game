@@ -1,3 +1,4 @@
+import {ridgeFloor} from './outpost-relief.js';
 import * as THREE from 'three';
 
 const TAU=Math.PI*2;
@@ -41,7 +42,8 @@ export function floorMaterial(renderer,riverbed,waterY) {
   const loader=new THREE.TextureLoader();
   const gravel=loader.load('./trail-gravel.webp');
   const litter=loader.load('./forest-duff.webp');
-  for (const tile of [gravel,litter]) {
+  const ledge=loader.load('./outpost-ledge.webp');
+  for (const tile of [gravel,litter,ledge]) {
     tile.colorSpace=THREE.SRGBColorSpace;
     tile.wrapS=tile.wrapT=THREE.MirroredRepeatWrapping;
     tile.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -49,11 +51,11 @@ export function floorMaterial(renderer,riverbed,waterY) {
   gravel.repeat.set(43,43);
   const material=new THREE.MeshLambertMaterial({map:gravel,vertexColors:true});
   material.onBeforeCompile=shader=>{
-    shader.uniforms.forestDuff={value:litter};
+    shader.uniforms.forestDuff={value:litter};shader.uniforms.ledge={value:ledge};
     shader.uniforms.riverbed={value:riverbed};shader.uniforms.waterY={value:waterY};
-    shader.vertexShader='attribute float forestCover; varying float cover; varying vec3 bank;\n'+shader.vertexShader
-      .replace('#include <begin_vertex>','#include <begin_vertex>\n cover=forestCover;bank=transformed;');
-    shader.fragmentShader='uniform sampler2D forestDuff,riverbed; uniform float waterY; varying float cover; varying vec3 bank;\n'+shader.fragmentShader
+    shader.vertexShader='attribute float forestCover; varying float cover; varying vec3 bank,bankNormal;\n'+shader.vertexShader
+      .replace('#include <begin_vertex>','#include <begin_vertex>\n cover=forestCover;bank=transformed;bankNormal=normal;');
+    shader.fragmentShader='uniform sampler2D forestDuff,riverbed,ledge; uniform float waterY; varying float cover; varying vec3 bank,bankNormal;\n'+shader.fragmentShader
       .replace('#include <map_fragment>', `
         vec3 gravel=texture2D(map,vMapUv).rgb;
         vec3 duff=texture2D(forestDuff,vMapUv*1.31).rgb;
@@ -64,9 +66,23 @@ export function floorMaterial(renderer,riverbed,waterY) {
           float wet=1.-smoothstep(.05,.68,height+.08*sin(bank.z*3.1+bank.x*.9));
           soil=mix(soil,stones*mix(1.3,.89,wet),1.-smoothstep(.18,.82,height));
         }
-        diffuseColor.rgb*=soil;`);
+        vec3 n=normalize(bankNormal);
+        float pasture=smoothstep(-.5,.8,height);
+        float outer=smoothstep(28.,45.,max(abs(bank.x),max(bank.z,-bank.z-52.)));
+        float strata=.10*sin(.28*bank.y+.12*bank.z+.05*bank.x)+.06*sin(.17*bank.x-.10*bank.z);
+        float exposed=outer*pasture*smoothstep(.03,.30,1.-n.y+strata);
+        if(exposed>.001){
+          vec2 horizontal=vec2(bank.x*.92+bank.z*.39,bank.z*.92-bank.x*.39);
+          vec2 planes=vec2(horizontal.x*.52+horizontal.y*.48,-bank.y+horizontal.y*.13);
+          vec3 stone=texture2D(ledge,planes*.15+vec2(.17,.04)).rgb;
+          // The joints run into the slope. The lower, damp shelves keep deeper values.
+          soil=mix(soil,stone*(1.38+.77*smoothstep(.31,.97,n.y)),exposed*.96);
+        }
+        diffuseColor.rgb*=soil;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        diffuseColor.rgb=mix(diffuseColor.rgb,soil*vec3(.69,.68,.63),.86*exposed);`);
   };
-  material.addEventListener('dispose',()=>litter.dispose());
+  material.addEventListener('dispose',()=>{litter.dispose();ledge.dispose();});
   return material;
 }
 
@@ -108,7 +124,7 @@ export function conifers(scene,wood,trees,ground,renderer,bounds,northBound) {
   for(let i=0;i<170;i++){
     const a=rng()*TAU,d=48+rng()*25,x=d*Math.cos(a),z=d*Math.sin(a);
     const outside=z<northBound || z>bounds || Math.abs(x)>bounds;
-    if(outside && ground(x,z)>-1.3)stands.push({x,z,height:5.4+rng()*8.5,radius:.17+rng()*.22,near:false});
+    if(outside && ground(x,z)>-.20)stands.push({x,z,height:5.4+rng()*8.5,radius:.17+rng()*.22,near:false});
   }
   // The outer valley floor is outside the playable map. Tall forest in the
   // sheltered draws softens the drop-off from the air and leaves clearings
@@ -120,8 +136,23 @@ export function conifers(scene,wood,trees,ground,renderer,bounds,northBound) {
     if(edge<bounds+.7 || edge>bounds+23)continue;
     const grove=noise(x*.065+9,z*.071-3);
     if(rimRandom()>.27+.68*grove)continue;
+    if(ground(x,z)<-.20)continue;
     const H=7+7*grove+8*rimRandom();
     stands.push({x,z,height:H,radius:H*.03,near:false});
+  }
+  // Place distant forest in world space so the canopy shifts against the
+  // panorama in flight. Rock faces and the nearest valley rim remain clear.
+  const ridgeRandom=random(28179);
+  for(let z=northBound-95;z<=bounds+95;z+=5.6)for(let x=-141;x<141;x+=5.6){
+    const px=x+(ridgeRandom()-.5)*4.8,pz=z+(ridgeRandom()-.5)*4.8;
+    const outside=Math.hypot(Math.max(0,Math.abs(px)-bounds),Math.max(0,pz-bounds,northBound-pz));
+    if(outside<23 || outside>101)continue;
+    const canopy=noise(px*.041+15,pz*.044-5)+.27*noise(px*.13,pz*.11);
+    if(canopy<.42 || ridgeRandom()>clamp((canopy-.26)*.98,0,.78))continue;
+    const y=ground(px,pz);
+    if(y<-1 || Math.hypot(ground(px+1,pz)-y,ground(px,pz+1)-y)>1.35)continue;
+    const height=4.3+5.6*canopy+5.4*ridgeRandom();
+    stands.push({x:px,z:pz,height,radius:height*.026,near:false});
   }
   const map=new THREE.TextureLoader().load('./conifer-atlas.webp',()=>{renderer.shadowMap.needsUpdate=true;});
   map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
@@ -134,9 +165,9 @@ export function conifers(scene,wood,trees,ground,renderer,bounds,northBound) {
   crowns.customDepthMaterial=shade;crowns.castShadow=true;crowns.frustumCulled=false;
   const species=[],transform=new THREE.Object3D(),tint=new THREE.Color();
   for(const [i,tree] of stands.entries()){
-    const {x,z,height:H,radius}=tree,y=ground(x,z),variant=rng()>.45?1:0;
+    const {x,z,height:H,radius}=tree,y=tree.near?ground(x,z):ridgeFloor(x,z),variant=rng()>.45?1:0;
     const width=H*(.42+rng()*.18)*(variant?.92:1);
-    transform.position.set(x,y-.025,z);
+    transform.position.set(x,y-.006*H-.04,z);
     transform.scale.set(width,H,width);transform.updateMatrix();
     crowns.setMatrixAt(i,transform.matrix);species.push(variant);
     tint.setRGB(.69+rng()*.24,.73+rng()*.20,.73+rng()*.19);

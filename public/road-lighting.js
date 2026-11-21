@@ -6,7 +6,7 @@ import {CITY,groundHeight} from './world.js';
 
 export const skyDarkness={value:0};
 const presets={
-  day:[0,1.74,1.93,0xd6dce1,0xffe3b5,CITY?0xc0d3d9:0xa5a9a4],
+  day:[0,1.74,1.93,0xd6dce1,0xffe3b5,CITY?0xc0d3d9:0x95a3ac],
   dusk:[.55,1.05,1.08,0x9daaca,0xffa270,0x9996a8],
   night:[1,.82,.48,0x9fafd3,0xa9bdef,0x48546e],
 };

@@ -28,7 +28,8 @@ export function addOutpostCreek(scene,panorama,bed){
     shader.fragmentShader=`uniform sampler2D riverDepth,riverSky;uniform float riverTime,riverDark;varying vec3 riverPoint;
     `+shader.fragmentShader.replace('#include <map_fragment>',`
       vec2 p=riverPoint.xz;
-      float depth=3.5*texture2D(riverDepth,vMapUv).r;
+      vec2 surveyUV=vec2(.5+p.x/${width.toFixed(1)},.5-(p.y-(${center.toFixed(1)}))/${length.toFixed(1)});
+      float depth=3.5*texture2D(riverDepth,clamp(surveyUV,0.,1.)).r;
       float creek=1.-smoothstep(3.,7.,abs(p.y-.7*sin(p.x*.15)));
       float riffle=creek*(1.-smoothstep(.25,1.20,depth));
       vec2 flow=vec2(p.x,p.y-.7*sin(p.x*.15)*creek);
@@ -67,7 +68,7 @@ export function addOutpostCreek(scene,panorama,bed){
   };
   material.customProgramCacheKey=()=>'outpost-creek';
   material.addEventListener('dispose',()=>depth.dispose());
-  const surface=new THREE.Mesh(new THREE.PlaneGeometry(width,length).rotateX(-Math.PI/2),material);
+  const surface=new THREE.Mesh(new THREE.PlaneGeometry(width+192,length+192).rotateX(-Math.PI/2),material);
   surface.name='Outpost river';surface.position.set(0,MAP.waterY,center);surface.receiveShadow=true;scene.add(surface);
   return seconds=>{time.value=seconds;};
 }
