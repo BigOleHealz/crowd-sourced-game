@@ -30,4 +30,3 @@ export function gapAhead(car,actors,vehicles,jet){
   }
   return gap;
 }
-
