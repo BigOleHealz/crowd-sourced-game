@@ -107,6 +107,7 @@ const types = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.ogg': 'audio/ogg',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
