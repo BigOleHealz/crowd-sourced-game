@@ -1,8 +1,8 @@
 // Metre-scale layout shared by the walkable shell, rendered fixtures and booth.
-export const club={x:-70,z:-54.4,floor:.8,w:8.8,d:9.8};
-export const clubSeat={x:-73.29,y:.8,z:-53.34,yaw:Math.PI/2};
-export const clubAisle={x:-72.11,y:.8,z:-53.34};
-export const clubSpeaker={x:-70,y:2.7,z:-58.2};
+export const club={x:-71.55,z:-54.4,floor:.8,w:8.8,d:9.8};
+export const clubSeat={x:club.x-3.29,y:.8,z:-53.34,yaw:Math.PI/2};
+export const clubAisle={x:club.x-2.11,y:.8,z:-53.34};
+export const clubSpeaker={x:club.x,y:2.7,z:-58.2};
 const parts=[];
 function solid(role,u,v,w,d,bottom,h,color){
   parts.push({role,x:club.x+u,z:club.z+v,w,d,bottom,h,color});
@@ -35,6 +35,6 @@ export function seatAtClub(player,ticks,players){
   player.yaw=clubSeat.yaw;player.moving=player.sprint=false;return true;
 }
 export const clubCast=[
-  {id:'lucero-luz',name:'Luz Rivera · 36',x:-69.1,z:-57.76,y:1.07},
-  {id:'lucero-daniel',name:'Daniel Sol · 41',x:-71.2,z:-57.59,y:1.07},
+  {id:'lucero-luz',name:'Luz Rivera · 36',x:club.x+.9,z:-57.76,y:1.07},
+  {id:'lucero-daniel',name:'Daniel Sol · 41',x:club.x-1.2,z:-57.59,y:1.07},
 ];

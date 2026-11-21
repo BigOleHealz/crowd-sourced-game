@@ -57,7 +57,7 @@ export function clubInterior(scene,Batch){
   mat.onBeforeCompile=shader=>{
     shader.uniforms.luceroGrain={value:grain};
     shader.vertexShader='varying vec3 clubPosition,clubNormal;\n'+shader.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nclubPosition=position-vec3(-70.,.8,-54.4);clubNormal=normal;');
+      '#include <begin_vertex>\nclubPosition=position-vec3(-71.55,.8,-54.4);clubNormal=normal;');
     shader.fragmentShader='uniform sampler2D luceroGrain;varying vec3 clubPosition,clubNormal;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
       vec3 pos=clubPosition,n=normalize(clubNormal);
       vec2 uv=abs(n.y)>.64?pos.xz:(abs(n.x)>.55?pos.zy:pos.xy);
@@ -85,7 +85,7 @@ export function castForAudience(local,remotes,simTick){
   const travel=guest?Math.min(1,Math.max(0,(simTick-guest.clubSince)/72)):0;
   const fraction=travel*travel*(3-2*travel);
   return clubCast.map((p,i)=>({...p,...(i===1 && guest?{
-    x:p.x+(-71.47-p.x)*fraction,y:p.y-.27*Math.min(1,fraction*2),
+    x:p.x+(club.x-1.47-p.x)*fraction,y:p.y-.27*Math.min(1,fraction*2),
     z:p.z+(-53.38-p.z)*fraction,moving:travel>0 && travel<1}:{}),
     yaw:i===1 && guest?-Math.PI/2:Math.PI,grounded:true,hp:100,performer:i+1}));
 }
