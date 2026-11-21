@@ -89,7 +89,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const roof=shape.roof??shape.height??1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
-    if(!parked || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;
+    if(!parked || parked.crushed || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;
     consider(boxContact(x,z,s,c,parked,shape,roadHullFor(parked)));
   }
   considerCar(world.tank);considerCar(world.rover);considerCar(world.supercar);

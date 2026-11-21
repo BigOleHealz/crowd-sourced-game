@@ -20,6 +20,11 @@ export function vehicleWreckBurst(event,puff,particle,random){
   }
 }
 
+export function crushedScale(car){
+  if(!car.crushed)return 1;
+  return car.recoverySeconds>4.6 ? .24 : 0;
+}
+
 const burnedMetal=new THREE.MeshLambertMaterial({color:0x4f4340,vertexColors:true,side:THREE.DoubleSide});
 
 // Only swap the wreck's own meshes; civilian paint and glass are shared

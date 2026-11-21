@@ -485,7 +485,7 @@ function tick() {
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
     if(world.tank?.driver===player.id){
-      stepTank(world,input,step);
+      stepTank(world,input,step,players);
       if(input?.fire)fireTank(world,player,ticks);
       const t=world.tank;
       player.state={x:t.x,y:t.y,z:t.z,grounded:true,vy:0};

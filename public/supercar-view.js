@@ -1,4 +1,4 @@
-import {roadWreckFinish} from './vehicle-wreck-view.js';
+import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
@@ -269,6 +269,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
   return (car,dt=0)=>{
     root.visible=!!car;if(!car)return;
     updatePanes(car.brokenGlass);
+    root.scale.y=crushedScale(car);root.visible=root.scale.y>0;
     const frame=clamp(dt,0,.1),speed=car.speed??0;
     root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
     const pose=car.suspension;

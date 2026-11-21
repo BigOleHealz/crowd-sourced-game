@@ -131,7 +131,7 @@ function gapAhead(car,actors,vehicles,jet){
   }
   for(const a of actors)consider(a.state,.40,.32,.28);
   for(const other of vehicles){
-    if(other===car)continue;
+    if(other===car || other.crushed)continue;
     // Project the other vehicle's oriented footprint into this lane.
     const otherShape=civilianProfiles[other.model];
     const width=other===jet?2.82:otherShape?.halfWidth??.86;
@@ -167,7 +167,7 @@ function recoverTrafficCar(world,car,actors,dt){
   if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
-  delete car.contactSound;delete car.suspension;
+  delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
 export function stepCityTraffic(world,players,npcs,dt){

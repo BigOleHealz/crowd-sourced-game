@@ -1,3 +1,4 @@
+import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
 import {roadContact,sweepRoad} from './road-contact.js';
 import {vehicleContact} from './vehicle-contact.js';
@@ -35,7 +36,7 @@ export function damageTank(world,amount,players){
   if(driver)leaveTank(world,driver);
   tank.driver=null;tank.speed=tank.turnRate=0;tank.wrecked=true;tank.recoverySeconds=9;
 }
-export function stepTank(world,input,dt){
+export function stepTank(world,input,dt,players){
   const t=world.tank;
   if(t.wrecked){
     t.recoverySeconds=Math.max(0,t.recoverySeconds-dt);
@@ -53,7 +54,16 @@ export function stepTank(world,input,dt){
   else t.turnRate=0;
   if(t.speed){
     const dx=Math.sin(t.yaw)*t.speed*dt,dz=-Math.cos(t.yaw)*t.speed*dt;
-    const {fraction,hit}=sweepRoad(world,t,dx,dz);
+    let {fraction,hit}=sweepRoad(world,t,dx,dz);
+    while(hit){
+      const car=hit.object;
+      if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
+      // A track can clear an existing wreck too. A fresh crush uses the
+      // normal lethal vehicle damage path for ejection, credit and recovery.
+      damageRover(world,car.hp,players,car.kind??'rover',players?.get(t.driver)?.team);
+      car.crushed=true;
+      ({fraction,hit}=sweepRoad(world,t,dx,dz));
+    }
     t.x+=dx*fraction;t.z+=dz*fraction;t.y=groundHeight(t.x,t.z,t.y+1,world.doors);
     if(hit)t.speed=0;
   }

@@ -1284,7 +1284,7 @@ export function createScene(canvas) {
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
-    roverLabel.sprite.visible=local.id!==rover.driver && local.id!==rover.gunner;
+    roverLabel.sprite.visible=!rover.crushed && local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const stack of stacks) {
       const {prop,mesh}=stack;

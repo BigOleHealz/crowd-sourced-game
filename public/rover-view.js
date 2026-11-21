@@ -11,6 +11,8 @@ import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 
 // The chassis, cab panels and doors share a single static mesh; each wheel
 // gets one rotating mesh and each load unit gets one toggled mesh.
+import {crushedScale} from './vehicle-wreck-view.js';
+
 export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const root = new THREE.Group(), chassis = new Batch();
   const axles=new THREE.Group();
@@ -283,6 +285,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const crumpled={front:.92,rear:.42,left:.65,right:.26};
   let burned=false;
   return function update(r,dt) {
+    root.scale.y=axles.scale.y=crushedScale(r);root.visible=axles.visible=root.scale.y>0;
     updatePanes(r.brokenGlass);
     if(burned!==r.wrecked){
       burned=r.wrecked;
@@ -300,10 +303,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     const sag=1-Math.exp(-2.8*age);
     root.position.set(r.x,r.y+(pose?.heave ?? 0)-.20*sag,r.z);
     root.rotation.set((pose?.pitch ?? 0)-.13*sag,-r.yaw,(pose?.roll ?? 0)-.18*sag,'YXZ');
-    shadow.visible=!r.bridgeFlight;
+    shadow.visible=root.visible && !r.bridgeFlight;
     shadow.position.set(r.x,r.y+.055,r.z); shadow.rotation.copy(root.rotation);
     if(contact){
-      contact.visible=r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;
+      contact.visible=root.visible && r.x>=-9.5 && r.x<=9.5 && r.z>=-9 && r.z<=27;
       if(contact.visible) {
         shadow.rotation.set(0,-r.yaw,0);
         const c=Math.cos(r.yaw),s=Math.sin(r.yaw);
