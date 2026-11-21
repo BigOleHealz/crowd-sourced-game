@@ -57,6 +57,7 @@ export function addCasaLuma({collection,box,masonry,pane,cyl,beam,leaf,railing,s
   collection.carpet('casa',-34.1,3.97,-405.00,4.8,3.38,0x819485,0xe0c8a9);
   for(const p of casaFurniture){
     if(collection.furnish(p,'casa'))continue;
+    if(p.kind==='console' || p.kind==='desk')collection.tabletop('casa',p);
     const {kind,x,z,w,d,bottom}=p,h=p.h-bottom;
     const block=(color,u,y,v,width,height,depth)=>box(color,x+u,bottom+y,z+v,width,height,depth);
     const legs=(height)=>{for(const u of [-1,1])for(const v of [-1,1])block(walnut,u*(w/2-.11),height/2,v*(d/2-.11),.085,height,.085);};
