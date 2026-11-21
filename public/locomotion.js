@@ -8,7 +8,7 @@ const tau=2*Math.PI;
 
 export function newGait(state,yaw) {
   return {x:state.x,z:state.z,yaw,turnRate:0,vx:0,vz:0,speed:0,weight:0,run:0,phase:0,
-    duty:.58,span:0,twist:0,bank:0,pelvisY:-.045,pelvisX:0,footLift:0,pivot:0};
+    duty:.58,span:0,gazeYaw:yaw,shoulderYaw:yaw,neckYaw:0,twist:0,bank:0,pelvisY:-.045,pelvisX:0,footLift:0,pivot:0};
 }
 
 export function advanceGait(g,state,dt) {
@@ -21,14 +21,17 @@ export function advanceGait(g,state,dt) {
   g.weight+=(smooth(clamp(g.speed/.78,0,1))-g.weight)*follow(18,dt);
   g.run+=(smooth(clamp((g.speed-1.6)/5.8,0,1))-g.run)*follow(11,dt);
 
-  // A critically damped turn eases in when the player reverses direction.
-  // Choose the short arc across north and cap the swing at a full sprint.
-  const error=wrap(-state.yaw-g.yaw), stiffness=15, decay=Math.exp(-stiffness*dt);
+  // The visor follows the look direction first. The chest follows the gaze,
+  // and the weight-bearing hips catch up through the planted turn steps.
+  g.gazeYaw=wrap(g.gazeYaw+wrap(-state.yaw-g.gazeYaw)*follow(32,dt));
+  g.shoulderYaw=wrap(g.shoulderYaw+wrap(g.gazeYaw-g.shoulderYaw)*follow(13,dt));
+  const error=wrap(g.shoulderYaw-g.yaw), stiffness=19, decay=Math.exp(-stiffness*dt);
   const impulse=g.turnRate-stiffness*error;
   const turn=clamp(error+(-error+impulse*dt)*decay,-9*dt,9*dt);
   g.turnRate=clamp((g.turnRate-stiffness*impulse*dt)*decay,-9,9);
   g.yaw=wrap(g.yaw+turn);
-  g.twist=clamp(wrap(-state.yaw-g.yaw)*.52,-.53,.53);
+  g.twist=clamp(wrap(g.shoulderYaw-g.yaw),-.57,.57);
+  g.neckYaw=clamp(wrap(g.gazeYaw-g.yaw-g.twist),-.72,.72);
   const turning=turn/dt;
   g.bank+=(clamp(-turning*g.speed*.0055,-.19,.19)-g.bank)*follow(10,dt);
   g.pivot+=(clamp(Math.abs(turning)/3,0,1)*(1-g.weight)-g.pivot)*follow(18,dt);
