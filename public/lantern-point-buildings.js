@@ -1,3 +1,4 @@
+import {addEstateSafes} from './estate-safe-view.js';
 import {estateCollection} from './estate-collection.js';
 import {breezeMaterial,addClubBurgees} from './waterfront-breeze.js';
 import {terracePanes,skylights,clubPanes} from './estate-exterior-glass.js';
@@ -306,7 +307,8 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   const updateGlass=panes.bind(glass.mesh(scene,alpineGlass(sky,{transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}),false));
   water.mesh(scene,new THREE.MeshPhongMaterial({map:waterMap,vertexColors:true,shininess:90,specular:0xa6cac0}),false);
   for(const g of [cube,plane,drum,sphere,pot,ripples])g.dispose();
+  const updateSafes=addEstateSafes(scene,Batch);
   const updateCollection=collection.finish();
   const updateStone=sillStone.bind(stoneMesh),updateTrim=sillTrim.bind(trimMesh);
-  return doors=>{updateCollection(doors);updateGlass(doors?.brokenPanes);updateStone(doors?.brokenSills);updateTrim(doors?.brokenSills);};
+  return doors=>{updateSafes(doors);updateCollection(doors);updateGlass(doors?.brokenPanes);updateStone(doors?.brokenSills);updateTrim(doors?.brokenSills);};
 }

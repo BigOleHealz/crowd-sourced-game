@@ -57,6 +57,7 @@ export function marketPanel(panel,badge,{send,enter,leave}){
   panel.querySelector('[data-done]').onclick=close;takeAll.onclick=()=>transact('takeAll');
   panel.addEventListener('close',()=>{shop=null;leave();});
   return {
+    lootSafe(id){send({type:'market',action:'safe',safe:id,seq:++seq});},
     open,close,get current(){return panel.open;},get chart(){return !!wallet?.chart;},
     update(world,near,available){
       market=world?.market??null;badge.hidden=!market || !wallet;badge.disabled=!available;

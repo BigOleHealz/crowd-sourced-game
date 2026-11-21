@@ -1,3 +1,4 @@
+import {safeInReach} from './public/estate-safes.js';
 import {goods,marketStores,atMarketCounter} from './public/market-goods.js';
 import {groundHeight,MAP} from './public/world.js';
 import {seatVehicle} from './public/seat-selection.js';
@@ -117,6 +118,13 @@ export function harborTrade(world,notify){
     const reply=message=>notify(player,tick,message,input.seq);
     if(!canUseInventory(world,player))return reply('Stand on foot to use your inventory.');
     const {action,item}=input;
+    if(action==='safe'){
+      const safe=safeInReach(player.state,world.doors);
+      if(!safe || safe.id!==input.safe)return;
+      if((world.doors.estateSafes??0)&safe.bit)return reply('Safe already empty.');
+      world.doors.estateSafes=(world.doors.estateSafes??0)|safe.bit;
+      return award(player,safe.cash,tick,'Estate safe +$'+safe.cash+'.');
+    }
     if(action!=='takeAll' && (typeof item!=='string' || !Object.hasOwn(goods,item)))return reply('Unknown item.');
     if(action==='use')return reply(use(player,item,tick));
     const store=atMarketCounter(player.state);
