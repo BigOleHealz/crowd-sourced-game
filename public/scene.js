@@ -23,6 +23,7 @@ import {dressCivilian} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
 import {aimGlassPoint} from './rounds.js';
 import {retailRoom} from './frontage-glass.js';
+import {doorwayProximity} from './doorway-camera.js';
 import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
 import {roadLighting,skyDarkness} from './road-lighting.js';
 import {vehicleWreckBurst} from './vehicle-wreck-view.js';
@@ -1367,9 +1368,10 @@ export function createScene(canvas) {
     const depth=chapel ? 1 : cabinDepth>=0 ? cabinDepth : palace ? 1 : villa ? Math.min(villa.w/2-Math.abs(local.x-villa.x),villa.d/2-Math.abs(local.z-villa.z)) : gallery ? galleryEntryDepth(gallery,local.z) : tenant ? (tenant.x-local.x)*tenant.side : doorX-local.x;
     // The feet cross a doorway in one tick, but the shoulder rig still spans
     // both rooms. Carry close clearance and framing across the threshold.
-    const interiorTarget=indoors ? .28+.72*THREE.MathUtils.smoothstep(depth,0,1.10) : 0;
+    const doorway=CITY && !driving && !piloting && !localStation ? doorwayProximity(local.x,local.y,local.z) : 0;
+    const interiorTarget=Math.max(doorway*.45,indoors ? .28+.72*THREE.MathUtils.smoothstep(depth,0,1.10) : 0);
     interiorBlend=THREE.MathUtils.damp(interiorBlend,interiorTarget,8,dt);
-    const roomBlend=interiorBlend,nearInterior=indoors || roomBlend>.015;
+    const roomBlend=interiorBlend,nearInterior=indoors || doorway>0 || roomBlend>.015;
     if(localStation) {
       const pivot=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
       desired.set(pivot.x,pivot.y,pivot.z);
@@ -1384,7 +1386,7 @@ export function createScene(canvas) {
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
-      let shoulder=local.parachute ? 0 : mix(.66,.37,roomBlend);
+      let shoulder=local.parachute ? 0 : mix(mix(.66,.37,roomBlend),.19,doorway);
       const shoulderHeight=1.46-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
       if(nearInterior && shoulder){
         sideways.set(cs,0,sn);
@@ -1468,7 +1470,7 @@ export function createScene(canvas) {
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
       camera.position.lerp(overheadEye,overhead);
     }
-    avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (indoors || distance>.86) && (!onFoot || overhead<.48);
+    avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
