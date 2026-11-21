@@ -1,3 +1,4 @@
+import {estateCollection} from './estate-collection.js';
 import {breezeMaterial,addClubBurgees} from './waterfront-breeze.js';
 import {terracePanes,skylights,clubPanes} from './estate-exterior-glass.js';
 import {paneKey} from './pane-damage.js';
@@ -13,7 +14,7 @@ const cream=0xe5ddc6, limestone=0xccb994, bronze=0x79654c, dark=0x41443f;
 const teak=0xaa7952, brass=0xbda06b, linen=0xe9e3d4;
 
 // Glass, water and shaded masonry each have a single material for the district.
-export function addLanternBuildings(scene,Batch,sky){
+export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   const main=new Batch(), stone=new Batch(true), glass=new Batch(), water=new Batch(true);
   const panes=paneBatch(glass),sillStone=paneBatch(stone),sillTrim=paneBatch(main);
   const cube=new THREE.BoxGeometry(), plane=new THREE.PlaneGeometry();
@@ -110,7 +111,8 @@ export function addLanternBuildings(scene,Batch,sky){
       leaf(k%1>.4?0x779060:0x587448,xx,y+.62,zz,.68,.45,.72,-.13,k);
     }
   }
-  addCasaLuma({box,masonry,cyl,beam,leaf,railing,seat,trough,
+  const collection=estateCollection(scene,Batch,refreshShadows);
+  addCasaLuma({collection,box,masonry,cyl,beam,leaf,railing,seat,trough,
     pane:(x,y,z,w,h,yaw)=>panes.add(paneKey(x,floor+y,z),()=>glass.add(plane,0x738e8b,x,floor+y,z,w,h,1,0,yaw)),
   });
   for(const p of skylights){
@@ -123,7 +125,7 @@ export function addLanternBuildings(scene,Batch,sky){
   for(const x of [-32, -18])for(const z of [-390,-395])seat(x,z,0,x<-25?Math.PI/2:-Math.PI/2);
   // Successive limestone terraces open south. The arcade is a real cut-out
   // profile: the pedestrian loggia has headroom between its individual columns.
-  furnishPalazzo({scene,box,masonry,cyl,beam,leaf,
+  furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,
     sill:(p,draw)=>sillStone.add(p.sillPaneId,()=>sillTrim.add(p.sillPaneId,draw)),pane:(x,y,z,width,height,across)=>
     panes.add(paneKey(x,floor+y,z),()=>glass.add(plane,0x839c98,x,floor+y,z,width,height,1,0,across?0:Math.PI/2))});
   function archRow(x,z,count,spacing,r,h,base,depth){
@@ -304,6 +306,7 @@ export function addLanternBuildings(scene,Batch,sky){
   const updateGlass=panes.bind(glass.mesh(scene,alpineGlass(sky,{transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}),false));
   water.mesh(scene,new THREE.MeshPhongMaterial({map:waterMap,vertexColors:true,shininess:90,specular:0xa6cac0}),false);
   for(const g of [cube,plane,drum,sphere,pot,ripples])g.dispose();
+  const updateCollection=collection.finish();
   const updateStone=sillStone.bind(stoneMesh),updateTrim=sillTrim.bind(trimMesh);
-  return doors=>{updateGlass(doors?.brokenPanes);updateStone(doors?.brokenSills);updateTrim(doors?.brokenSills);};
+  return doors=>{updateCollection(doors);updateGlass(doors?.brokenPanes);updateStone(doors?.brokenSills);updateTrim(doors?.brokenSills);};
 }
