@@ -48,8 +48,8 @@ function dressPatrolLimb(limb,p,Batch,material){
   const skin=new Batch();
   skin.add(patrolArm,p.skin,0,0,0);
   skin.add(shortSleeve,p.top,0,0,0,.97,1,1);
-  skin.add(shortSleeve,0x304158,0,-.143,0,.987,.08,1.002);
-  patrolShoulder(skin,side);
+  skin.add(shortSleeve,p.county?0x967e5c:0x304158,0,-.143,0,.987,.08,1.002);
+  patrolShoulder(skin,side,p.county);
   skin.add(oval,p.skin,0,-.518,-.002,.041,.049,.030);
   for(let i=0;i<4;i++){
     const x=side*(i-1.5)*.016,y=-.545+.004*Math.abs(i-1);
@@ -61,6 +61,10 @@ function dressPatrolLimb(limb,p,Batch,material){
 
   const cloth=new Batch();cloth.add(trousers,p.pants,0,0,0,.91,1.01,.92);
   cloth.beam(0x314050,[side*.086,-.16,-.051],[side*.069,-.30,-.047],.008,.006);
+  if(p.county){
+    for(const [top,bottom,x1,x2] of [[-.083,-.37,.092,.068],[-.37,-.70,.068,.062]])
+      cloth.beam(0x717b59,[side*x1,top,.001],[side*x2,bottom,.004],.014,.010);
+  }
   jointGarment(cloth,material,leg,knee,.084);
   const shoe=new Batch();
   shoe.add(bootSole,0x1e242b,0,0,0,.80,1,.91);
@@ -195,7 +199,7 @@ export function dressPerson(rig,p,Batch,material,textiles) {
     b.add(oval,p.skin,0,1.505,.011,.057,.083,.057);
     const bare=p.shirt==='tank'||p.shirt==='dress';
     for(const side of [-1,1])b.add(oval,bare?p.skin:p.top,side*.161,1.427,.001,.080,.046,.073,0,0,-side*.22);
-    if(p.officer)patrolShirtTrim(b);else addBag(b,p);
+    if(p.officer)patrolShirtTrim(b,p.county);else addBag(b,p);
   });
   const shirt=new THREE.Mesh(shirtGeometry(p),textiles.shirts);
   shirt.receiveShadow=true;rig.upper.add(shirt);
@@ -213,7 +217,7 @@ export function dressPerson(rig,p,Batch,material,textiles) {
   });
   const face=new THREE.Mesh(faceGeometry(p),textiles.faces);
   face.position.y=.003;rig.head.add(face);
-  part(rig.head,b=>{hairAndAccessories(b,p);if(p.officer)patrolCap(b);});
+  part(rig.head,b=>{hairAndAccessories(b,p);if(p.officer)patrolCap(b,p.county);});
   for(const limb of rig.limbs){
     if(p.officer){dressPatrolLimb(limb,p,Batch,material);continue;}
     const {side,leg,knee,ankle,arm,forearm:elbow}=limb;

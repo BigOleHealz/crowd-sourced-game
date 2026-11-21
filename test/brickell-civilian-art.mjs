@@ -41,6 +41,7 @@ assert.equal(distant.add({...origin,id:ids[1],x:200,dead:true},origin,1,0),false
 distant.finish();assert.equal(mesh.count,0);
 const profiles=Array.from({length:6},(_,i)=>patrolProfile('officer-'+i));
 assert.equal(new Set(profiles.map(p=>p.face)).size,6);
+const county=patrolProfile('officer-1',true);assert(county.county);assert.notEqual(county.top,profiles[1].top);profiles.push(county);
 for(const profile of profiles){
   const officer=createRangerRig();dressCivilian(officer,profile,BatchStub,material,textiles);
   for(const limb of officer.limbs){
