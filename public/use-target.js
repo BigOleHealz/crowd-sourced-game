@@ -10,6 +10,10 @@ const names={rover:CITY?'pickup':'jeep',supercar:'Vesper GT',sedan:'sedan',hatch
 const action=(target,role,label)=>({target,role,label});
 export function nextUse(world,feet,id,wanted){
   if(!world || !feet || feet.climb || id==null)return null;
+  if(feet.ride){
+    const item=world.rides?.find(r=>r.id===feet.ride.id && r.rider===id);
+    if(item)return feet.grounded?action(item.id,'exit','Get off '+item.label):null;
+  }
   const road=drivenRoad(world,id),boat=crewBoat(world,id);
   if(road?.takeover)return null;
   if(road || world.rover.gunner===id){
@@ -30,6 +34,9 @@ export function nextUse(world,feet,id,wanted){
     if(wanted && target!==wanted)return;
     const d=(v.x-feet.x)**2+(v.y-feet.y)**2+(v.z-feet.z)**2;
     if(d<best){pick=action(target,role,label);best=d;}
+  }
+  for(const r of world.match ? [] : world.rides || []){
+    if(r.rider==null && feet.grounded && !feet.swimming && Math.hypot(r.x-feet.x,r.z-feet.z)<=1.9 && Math.abs(r.y-feet.y)<.9)offer(r,r.id,'mount','Ride '+r.label);
   }
   const nearby=nearestVehicle(world,feet);
   if(nearby){

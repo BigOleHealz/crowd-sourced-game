@@ -86,7 +86,7 @@ const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
-const canAim = () => self && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
+const canAim = () => self && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole();
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -148,7 +148,7 @@ function speaker(current=null){
   return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
 }
 function canChangeStance(state) {
-  return vitals.clubSince==null && state?.grounded && !state.swimming && !state.climb && !state.parachute &&
+  return vitals.clubSince==null && !state?.ride && state?.grounded && !state.swimming && !state.climb && !state.parachute &&
     !vitals.dead && !vitals.fall && !isPilot() && !isDriving() && !gunnerRole();
 }
 
@@ -602,7 +602,7 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
+  const fire = !self.ride && !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
   const gunner=gunnerRole();
   const aim=(inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -616,7 +616,7 @@ function tick() {
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || down('KeyR')),
-    throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
+    throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?stickOutput(stickX):(driving || self.ride)?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
     lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
@@ -835,6 +835,10 @@ function updateEquipment(local) {
   const clubUse=clubInteraction();
   if(clubUse)prompt.textContent='E  ·  '+clubUse;
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
+  if(local.ride){
+    prompt.textContent=local.ride.kind==='bike' ? 'Bicycle · W pedal · S brake · A/D steer · E dismount' : 'Skateboard · W push · S brake · A/D carve · Space ollie · E step off';
+    byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike';byId('space-action').textContent='Ollie';canvas.classList.remove('armed');
+  }
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   if(touch.active){
     const role=vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
@@ -845,7 +849,7 @@ function updateEquipment(local) {
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
-      canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
+      canAim:canAim(),sighted:camera.sighted,jump:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
   }
@@ -956,7 +960,7 @@ function frame(time) {
     const t = accumulator / step;
     const free=vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
-    const display=free ? stepPlayer(self,{...motion,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
+    const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
     const local = { ...display,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};

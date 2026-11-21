@@ -1,3 +1,6 @@
+import {shopBicycles} from './public/shop-bicycle-sites.js';
+import {storefrontFaces} from './public/frontage-glass.js';
+import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {createBank} from './bank-claim.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
@@ -80,6 +83,10 @@ let match;
 function freshWorld(){
   const w=newExpedition();
   w.traffic=newCityTraffic();
+  if(CITY){
+    w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
+    for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
+  }
   if(CITY && !mode){
     const trading=harborTrade(w,(p,tick,message,seq)=>{
       if(p.ws.readyState===WebSocket.OPEN)p.ws.send(JSON.stringify({type:'wallet',wallet:walletView(p,tick),message,seq}));
@@ -367,6 +374,7 @@ sockets.on('connection', ws => {
   ws.on('close', () => {
     const player=players.get(id);
     match?.release(player);
+    parkRide(world,player,!player.state.grounded);
     bank?.leave(player,ticks);
     world.wanted?.set(player,false);
     if(drivenRoad(world,id)?.model)leaveTraffic(world,player);
@@ -464,6 +472,7 @@ function tick() {
     const input = player.inputs.shift();
     if((world.heli.gunner!==player.id && world.yacht?.gunner!==player.id) || input?.interact || input?.seat)player.chainFireUntil=0;
     if (input) player.ack = input.seq;
+    if(player.state.ride && (player.unstuck || !player.life.hp || player.life.fall))parkRide(world,player,!player.state.grounded);
     if (player.unstuck) {
       player.unstuck = false;
       if (player.life.hp) {
@@ -522,7 +531,11 @@ function tick() {
         // Revalidate its action before applying an E that names that target.
         if(use && (input.useTarget===undefined || (input.useTarget===use.target && input.useRole===use.role))){
           const target=use.target,boat=world.boats.find(b=>b.id===target);
-          if(target==='tank'){
+          const ride=world.rides?.find(r=>r.id===target);
+          if(ride){
+            if(use.role==='exit')parkRide(world,player);
+            else takeRide(ride,player);
+          }else if(target==='tank'){
             if(use.role==='exit')leaveTank(world,player);
             else {world.tank.driver=player.id;match?.release(player);}
           }else if(target==='jet'){
@@ -607,6 +620,16 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
+    if(falling.ride){
+      const item=world.rides.find(r=>r.id===falling.ride.id);
+      if(!player.state.ride)parkRide(world,player,true);
+      else {
+        const {x,y,z,ride}=player.state;
+        Object.assign(item,{x,y,z,yaw:ride.yaw});player.yaw=ride.yaw;
+      }
+      player.moving=player.sprint=false;
+      continue;
+    }
     if(player.state.climb || falling.climb){
       player.yaw=(player.state.climb || falling.climb).yaw;
       player.moving=player.sprint=false;

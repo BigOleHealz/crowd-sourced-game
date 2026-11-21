@@ -1,3 +1,4 @@
+import {streetRideView,riderPose} from './street-ride-view.js';
 import {districtFireEffects} from './fire-effects.js';
 import {eveningAtlas,eveningReady,eveningGLSL} from './evening-sky.js';
 import {marketStockView} from './market-stock-view.js';
@@ -947,6 +948,7 @@ function pose(avatar,state,dt,seated,station,doors) {
   if(state.fall?.joints) {poseRagdoll(avatar,state,dt);return;}
   releaseRagdoll(avatar);
   poseRig(avatar,state,dt,seated,station,doors);
+  riderPose(avatar,state);
   updateSwimRipples(avatar,state);
 }
 
@@ -1142,7 +1144,9 @@ export function createScene(canvas,onFootfall) {
     return {yaw: Math.atan2(dx, -dz), pitch: Math.atan2(to.y-muzzleY, Math.hypot(dx,dz))};
   }
   let sprintGate,drawMarket;
+  const drawStreetRides=streetRideView(scene,Batch);
   function render(local,remotes,view,dt,world) {
+    if(local && world.rides)drawStreetRides(world.rides,local,remotes,dt);
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
     if(CITY && !world.match){
       sprintGate??=createSprintGate(scene,Batch);
