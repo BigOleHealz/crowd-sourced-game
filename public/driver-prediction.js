@@ -1,3 +1,4 @@
+import {stepTank} from './tank.js';
 import {stepJet} from './jet.js';
 import {driveRover,drivenRoad} from './rover.js';
 import {fly,restoreFlightState} from './airframe.js';
@@ -8,11 +9,11 @@ import {stepYacht} from './superyacht.js';
 // never alter network snapshots, HUD events, or the other players' history.
 export function driverPrediction(snapshot,id) {
   const road=drivenRoad(snapshot,id), boat=crewBoat(snapshot,id);
-  const kind=road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.jet?.pilot===id ? 'jet' :
+  const kind=snapshot.tank?.driver===id?'tank':road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.jet?.pilot===id ? 'jet' :
     snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null;
   if(!kind)return null;
-  const {jet,heli,rover,supercar,yacht,boats,doors,hp}=snapshot;
-  const world=structuredClone({jet,heli,rover,supercar,yacht,boats,doors,hp});
+  const {jet,heli,rover,supercar,tank,yacht,boats,doors,hp}=snapshot;
+  const world=structuredClone({jet,heli,rover,supercar,tank,yacht,boats,doors,hp});
   const vehicle=kind==='boat'?crewBoat(world,id):world[kind];
   if(kind==='heli')restoreFlightState(vehicle);
   const occupants=new Map();
@@ -22,7 +23,8 @@ export function driverPrediction(snapshot,id) {
     step(cmd,dt){
       if(vehicle.wrecked || (vehicle.pilot??vehicle.driver)!==id)return;
       previous={...vehicle};
-      if(kind==='heli')fly(world,cmd,dt,occupants);
+      if(kind==='tank')stepTank(world,cmd,dt);
+      else if(kind==='heli')fly(world,cmd,dt,occupants);
       else if(kind==='jet')stepJet(world,cmd,dt,occupants);
       else if(kind==='boat')stepBoat(world,vehicle,cmd,dt,occupants);
       else if(kind==='yacht')stepYacht(world,cmd,dt,occupants);
@@ -32,6 +34,11 @@ export function driverPrediction(snapshot,id) {
       const result={};
       for(const key of ['x','y','z','pitch','roll']){
         if(Number.isFinite(vehicle[key]))result[key]=previous[key]+(vehicle[key]-previous[key])*t;
+      }
+      if(kind==='tank'){
+        const turn=vehicle.turretYaw-previous.turretYaw;
+        result.turretYaw=previous.turretYaw+Math.atan2(Math.sin(turn),Math.cos(turn))*t;
+        result.turretPitch=previous.turretPitch+(vehicle.turretPitch-previous.turretPitch)*t;
       }
       const turn=vehicle.yaw-previous.yaw;
       result.yaw=previous.yaw+Math.atan2(Math.sin(turn),Math.cos(turn))*t;

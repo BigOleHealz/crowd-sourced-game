@@ -13,6 +13,7 @@ const helicopter = [
 const pickup = [[.85,-1.73,1.75,.05,1.01],[.67,-.62,.46,1.01,1.66]];
 const jeep = [[.85,-1.55,1.62,.05,.99],[.66,-.60,.38,.99,1.60]];
 const sport=[[supercarLayout.halfWidth,-2.32,2.32,.10,.73],[.71,-.74,1.11,.73,supercarLayout.roof]];
+const tracks=[[1.18,-2.09,2.09,.05,1.20],[.77,-.85,.95,1.20,1.91]];
 const boatHull=[[.57,-2.65,-1.87,-.60,.43],[1.04,-1.87,2.15,-.62,.50],[.86,2.15,2.65,-.50,.45]];
 const radius=.32;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -24,12 +25,12 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
   if(y>=yachtTop-.31)result.floor=yachtTop;
   result.ceiling=yachtCeilingAt(world.yacht,x,y,z)-height;
   const boats=world.boats??[];
-  for(let index=0;index<3+boats.length;index++) {
-    const kind=index===0?'heli':index===1?'rover':index===2?'supercar':'boat';
-    const vehicle=kind==='boat'?boats[index-3]:world[kind];
+  for(let index=0;index<4+boats.length;index++) {
+    const kind=index===0?'heli':index===1?'rover':index===2?'supercar':index===3?'tank':'boat';
+    const vehicle=kind==='boat'?boats[index-4]:world[kind];
     if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='boat' ? boatHull : kind==='heli' ? helicopter : kind==='supercar' ? sport : city ? pickup : jeep;
+    const shapes=kind==='tank'?tracks:kind==='boat' ? boatHull : kind==='heli' ? helicopter : kind==='supercar' ? sport : city ? pickup : jeep;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;

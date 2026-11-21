@@ -1,3 +1,4 @@
+import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
 import {raisedRoadAt} from './bridge-driving.js';
@@ -10,7 +11,7 @@ import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
 
 // Round the corners of each chassis. Flat faces stay at the modeled extents.
 const pickup={halfWidth:.82,halfLength:CITY?1.69:1.55,corner:.16};
-const shapeFor=vehicle=>vehicle?.kind==='supercar'?supercarLayout:pickup;
+const shapeFor=vehicle=>vehicle?.kind==='tank'?tankHull:vehicle?.kind==='supercar'?supercarLayout:pickup;
 const props=[...MAP.rocks,...MAP.trees,...BREAKABLES];
 const bridgeRails=MAP.bridge?[-1,1].map(side=>({
   x:MAP.bridge.x+side*MAP.bridge.width/2,z:MAP.bridge.z,w:.10,d:9.6,h:1,
@@ -84,8 +85,10 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const heli=world.heli;
   const roof=vehicle?.kind==='supercar' ? supercarLayout.roof : 1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
-  const parked=vehicle?.kind==='supercar'?world.rover:world.supercar;
-  if(parked && parked!==vehicle && parked.y<base+roof && parked.y+(parked.kind==='supercar'?supercarLayout.roof:1.66)>base)consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
+  for(const parked of [world.rover,world.supercar,world.tank]){
+    if(parked && parked!==vehicle && parked.y<base+roof && parked.y+(parked.kind==='supercar'?supercarLayout.roof:shapeFor(parked).height??1.66)>base)
+      consider(boxContact(x,z,s,c,parked,shape,shapeFor(parked)));
+  }
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
