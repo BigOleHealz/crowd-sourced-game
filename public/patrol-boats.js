@@ -148,6 +148,6 @@ export function stepBoat(world,b,input,dt,players){
   const wave=Math.sin(t*1.65+b.z*.18+b.x*.08);
   b.y=MAP.waterY+.034*wave;
   b.pitch+=((.013*wave+.035*Math.max(0,b.speed)/12.5)-b.pitch)*Math.min(1,dt*6);
-  b.roll+=((.018*Math.sin(t*1.22+b.x*.17)-b.yawRate*Math.abs(b.speed)*.012)-b.roll)*Math.min(1,dt*5);
+  b.roll+=((.018*Math.sin(t*1.22+b.x*.17)-b.yawRate*Math.abs(b.speed)*.012+(b.wakeRoll??0))-b.roll)*Math.min(1,dt*5);
 }
 export function helmFeet(b){return mountPosition(b,helmOffset);}
