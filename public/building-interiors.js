@@ -1,5 +1,6 @@
 // A floor is generated once for simulation. The renderer only needs the floor
 // the camera occupies. Door bits are the only persistent per-room network data.
+import {outpostOpenings} from './outpost-openings.js';
 import {breachedFloor} from './tower-damage.js';
 import {towerStories} from './tower-glass.js';
 import {furnishingSupported} from './estate-damage.js';
@@ -75,21 +76,18 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     }else{
       const front=b.z+b.d/2;
       p.ramp={front,length:2.3,outer:terrain(b.x,front+2.3),inner:b.base};
-      const half=b.w/2,gap=1.66,wall=.15;
-      for(const sign of [-1,1]){
-        p.shell.push(box(b.x+sign*(half-wall/2),b.z,wall,b.d,b.base,b.eave,'wall'));
-        p.shell.push(box(b.x+sign*(half+gap/2)/2,front-wall/2,half-gap/2,wall,b.base,b.eave,'wall'));
-      }
-      p.shell.push(box(b.x,b.z-b.d/2+wall/2,b.w,wall,b.base,b.eave,'wall'));
-      p.shell.push(box(b.x,front-wall/2,gap,wall,b.base+2.24,b.eave-2.24,'lintel'));
-      p.shell.push(box(b.x-b.w*.30,b.z-b.d*.26,1.44,.68,b.base,.83,'desk'));
-      door(p,b.x,b.base,front+.025,'x',gap,p.name,true);
+      door(p,b.x,b.base,front+.025,'x',1.66,p.name,true);
+      outpostOpenings(b,p,terrain);
     }
   }
   if(!city){
     const c=plan(4,{x:0,z:-63.2,w:10.3,d:20.6},'existing','Meadow Church');
     door(c,0,10.48,-52.96,'x',2.99,'Nave doors');
     door(c,0,10.48,-66.0,'x',4.85,'Steeple doors');
+    for(const p of interiorPlans)for(const s of p.shutters??[]){
+      const gate=door(p,s.x,s.y,s.z,'x',s.width,'Garage shutter',false);
+      gate.shutter=true;gate.height=s.height;
+    }
     return;
   }
   for(const s of stations){
@@ -165,8 +163,8 @@ export function roomDoorTop(x,z,pad,probe,doors){
   for(const p of near(x,z)){
     if(!intact(p,doors,x,probe,z))continue;
     for(const d of p.entrances){
-      if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+2.19)continue;
-      if(intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+2.18);
+      if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
+      if(intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+(d.height??2.18));
     }
   }
   return top;
@@ -219,7 +217,7 @@ export function roomAtFeet(feet,doors){
 export function approachRamp(x,z){
   for(const p of near(x,z)){
     const r=p.ramp;
-    if(!r || Math.abs(x-p.x)>1.07 || z<r.front || z>r.front+r.length)continue;
+    if(!r || Math.abs(x-p.x)>(p.b.garage?p.w/2-.14:1.07) || z<r.front || z>r.front+r.length)continue;
     return r.inner+(r.outer-r.inner)*(z-r.front)/r.length;
   }
   return -Infinity;

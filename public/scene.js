@@ -1030,7 +1030,7 @@ export function createScene(canvas,onFootfall) {
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
-  let updateCreek, stacks, updateDoors,churchPanes,updateChurch;
+  let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
     stacks=buildStacks(scene,renderer,Batch);
@@ -1048,7 +1048,7 @@ export function createScene(canvas,onFootfall) {
     addDetails(scene,features,rng,posts);
     updateDoors=posts.finish();
     updateCreek=addOutpostCreek(scene,panorama,riverbed);
-    stacks=buildOutpost(scene,renderer,Batch);
+    ({stacks,updateGlass:updateRuralGlass}=buildOutpost(scene,renderer,Batch));
     meadow(scene,renderer,rng,trailDistance);
   }
   landingMarks(features);const featureMesh=features.mesh(scene,material);
@@ -1201,6 +1201,7 @@ export function createScene(canvas,onFootfall) {
     updateInteriors(local,world.doors,dt);
     const bankVisual=CITY?bankPresentation(world.bank,world.simTick??0,reducedMotion?.matches):null;
     updateDoors?.(world.doors,dt,local,remotes,world.simTick,bankVisual);
+    updateRuralGlass?.(world.doors?.brokenPanes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);

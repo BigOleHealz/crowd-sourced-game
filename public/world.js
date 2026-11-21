@@ -1,6 +1,6 @@
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
-import {initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
+import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
@@ -180,6 +180,7 @@ for(const b of MAP.buildings) {
   b.base=Math.max(...corners)+.13;
 }
 initializeBuildingInteriors(MAP.buildings,CITY,terrainHeight);
+if(!CITY)for(const p of interiorPlans)if(p.glazing)MAP.barriers.push(...p.glazing);
 MAP.rocks=MAP.rocks.filter(r=>!onBuildingLot(r.x,r.z,r.radius*.65));
 
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
