@@ -1,3 +1,4 @@
+import {lightBaySurface} from './biscayne-water.js';
 import {balconyBase,balconyPodium} from './balcony-surfaces.js';
 import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
@@ -50,9 +51,11 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     }
     const mesh=batch.mesh(scene,material(name,options),false);
     mesh.userData.impactSurface=name==='asphalt'?'asphalt':'solid';plane.dispose();
+    return mesh;
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.28});
+  const bay=ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.30});
+  lightBaySurface(bay.material,panorama);
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.map(r=>patch(r,.70))],5);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
