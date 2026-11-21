@@ -24,3 +24,10 @@ export function roadSurfaceAt(x,z){
   if(Math.abs(x-bridge.x)<=bridge.width/2 && Math.abs(z-bridge.z)<=bridge.length/2)return 'deck';
   return trailDistance(x,z)<2.1?'gravel':'grass';
 }
+
+// Coefficients scale the vehicle's own power, brakes and cornering grip.
+// A smooth deck preserves the familiar paved-road handling for bridge jumps.
+const paved={traction:1,pace:1};
+const surfaces={asphalt:paved,deck:paved,gravel:{traction:.9,pace:.96},
+  grass:{traction:.76,pace:.86},sand:{traction:.62,pace:.73}};
+export const roadGrip=(x,z)=>surfaces[roadSurfaceAt(x,z)];

@@ -1,4 +1,5 @@
 import {passingOffset,bendGap,signalLamps} from './traffic-signals.js';
+import {roadGrip} from './road-surface.js';
 import {flatMobility} from './road-wheel-layout.js';
 import {bridges} from './brickell-map.js';
 import {bridgeMiddle,trafficStopLine} from './drawbridges.js';
@@ -193,13 +194,13 @@ export function stepCityTraffic(world,players,npcs,dt){
     const gap=Math.min(gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
     if(gap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
-    const mobility=flatMobility(car);
+    const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);
     route.offset=passingOffset(world,car,route,actors,dt);
     signalLamps(car,route,dt);
     const cruising=(route.cruise??profile.cruise)*(route.offset>.1?.67:1);
-    const target=route.wait?0:Math.min(cruising*mobility,Math.sqrt(2*brake*gap));
-    const acceleration=profile.driveForce/profile.mass*.68*mobility;
-    const change=clamp(target-car.speed,-brake*dt,acceleration*dt);
+    const target=route.wait?0:Math.min(cruising*mobility*surface.pace,Math.sqrt(2*brake*surface.traction*gap));
+    const acceleration=profile.driveForce/profile.mass*.68*mobility*surface.traction;
+    const change=clamp(target-car.speed,-brake*surface.traction*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
     route.distance=(route.distance+car.speed*dt)%route.track.length;
