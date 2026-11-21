@@ -108,7 +108,10 @@ export function recoverRover(world,dt,kind='rover') {
   const r=world[kind];
   if (!r?.wrecked) return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
-  if (r.recoverySeconds < .0001) world[kind]=kind==='supercar'?parkedSupercar():parkedRover();
+  if(r.recoverySeconds>=.0001)return;
+  const replacement=kind==='supercar'?parkedSupercar():parkedRover();
+  if(r.crushed && roadContact(world,replacement.x,replacement.z,replacement.yaw,replacement.x,replacement.z,r))return;
+  world[kind]=replacement;
 }
 
 const bumperContacts=new WeakMap();

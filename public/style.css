@@ -131,3 +131,6 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #marina-card summary {cursor:pointer; color:#a9f4df;}
 #marina-card ol {padding-left:22px;max-height:20vh;overflow:auto;}
 @media(max-width:700px){#marina-card{top:70px;right:10px;width:160px;}}
+
+#destination {display:block;width:100%;pointer-events:auto;font:inherit;font-size:11px;padding:3px 4px;color:#e2f9f5;background:#263935;border:0;}
+#nav-cue {padding:4px 6px;font:600 11px system-ui;color:#aef0fb;}

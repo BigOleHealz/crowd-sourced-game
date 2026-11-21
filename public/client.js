@@ -1,3 +1,5 @@
+import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
+import {roadFraming} from './road-chase.js';
 import {nearestTraffic} from './city-traffic.js';
 import {nearTank} from './tank.js';
 import {nearJet} from './jet.js';
@@ -32,6 +34,7 @@ import { drivenRoad, nearestVehicle } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, travelBounds, BREAKABLES, BOARD_RANGE, stepPlayer } from './world.js';
 
+import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
@@ -42,6 +45,13 @@ const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
 window.addEventListener('pagehide',()=>audio.reset());
+const destinationsMenu=byId('destination');
+for(const name of destinations.keys())destinationsMenu.add(new Option(name,name));
+let navigate,route;
+destinationsMenu.onchange=()=>{
+  navigate=landmarkGuide(destinationsMenu.value);route=null;
+  byId('nav-cue').hidden=!navigate;canvas.focus({preventScroll:true});
+};
 const selector=byId('map-choice');
 const chosen=new URLSearchParams(location.search).get('mode');
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
@@ -546,17 +556,22 @@ function remoteFrame(time) {
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
-function drivingView(rover, dt) {
+function drivingView(rover, dt, wheeled) {
   if (!roverView) {
     roverView = { yaw: camera.yaw, pitch: camera.pitch, heading: rover.yaw };
     camera.yaw = rover.yaw;
   }
   const turn = Math.atan2(Math.sin(rover.yaw-roverView.heading), Math.cos(rover.yaw-roverView.heading));
   roverView.heading = rover.yaw;
+  // Apply the driver's mouse orbit immediately. Filter only the change in
+  // chassis heading, including prediction corrections around tight corners.
+  const mouseTurn=wheeled && roverView.lastAimYaw!=null ? camera.yaw-roverView.lastAimYaw : 0;
   camera.yaw += turn;
+  roverView.lastAimYaw=camera.yaw;
   const blend = 1 - Math.exp(-16 * dt);
-  roverView.yaw = angleMix(roverView.yaw + turn, camera.yaw, blend);
+  roverView.yaw = angleMix(roverView.yaw + (wheeled ? mouseTurn : turn), camera.yaw, blend);
   roverView.pitch = mix(roverView.pitch, camera.pitch, blend);
+  roverView.road=wheeled ? roadFraming(roverView.road,rover,dt) : null;
   roverView.distance = camera.distance;
   return roverView;
 }
@@ -603,7 +618,11 @@ function updateEquipment(local) {
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
   const helmPrompt=yachtPrompt(world,local,id);
-  if (local.climb) prompt.textContent = 'Pulling up…';
+  const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
+  if(garage && !vitals.dead){
+    const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
+    prompt.textContent=garage.name+' · '+label;
+  }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire · E exit';
@@ -688,6 +707,11 @@ function drawMap(player, remotes, yaw) {
     if (world.hp[piece.id] === 0) continue;
     ctx.fillStyle = '#acdbcf'; ctx.fillRect(sx(piece.x)-2,sy(piece.z)-2,4,4);
   }
+  if(route){
+    ctx.save();ctx.lineJoin='round';ctx.lineWidth=3;ctx.strokeStyle='#7fe9fc';
+    ctx.beginPath();route.line.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
+    ctx.fillStyle='#b7f6ff';ctx.beginPath();ctx.arc(sx(route.goal[0]),sy(route.goal[1]),4,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
   const heli = world.heli;
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
@@ -699,6 +723,8 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle=b.wrecked?'#7b8181':'#eff3df';ctx.fillText('B',sx(b.x),sy(b.z));
   }
   if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
+  ctx.fillStyle='#f4cc70';ctx.font='bold 10px sans-serif';
+  for(const g of roadGarages)ctx.fillText('⚒',sx(g.x)-3,sy(g.z)-3);
   if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
   else drawSupplyMap(ctx,sx,sy,world,player,id);
   for (const remote of remotes) {
@@ -759,8 +785,9 @@ function frame(time) {
     if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
-    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt) : camera;
+    const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
     audio.trafficEngines(local,view.yaw,cars);
+    audio.roadTires(local,view.yaw,[rover,supercar,...cars]);
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
@@ -780,6 +807,10 @@ function frame(time) {
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id);
+      if(navigate){
+        route=navigate(local.x,local.z,isDriving()?local.yaw:view.yaw);
+        byId('nav-cue').textContent=route.cue+(route.cue==='Arrived' || !route.meters?'':' · '+route.meters+' m');
+      }
       drawMap(local, remotes, view.yaw);
     }
   }

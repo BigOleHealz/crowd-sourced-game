@@ -64,7 +64,7 @@ export function estateDamageView(scene,meshes,solids){
   scene.add(stones);
   const transform=new THREE.Object3D(),color=new THREE.Color(),debris=[];
   let previous='',initialized=false,seen=new Set(),time=0,animateUntil=0;
-  function scatter(r,animate){
+  function scatter(r,animate,event){
     let seed=7919;
     for(const c of r.id)seed=Math.imul(seed,33)+c.charCodeAt(0);
     const random=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);
@@ -79,8 +79,8 @@ export function estateDamageView(scene,meshes,solids){
       const high=Math.min(r.high,.8+p.h),low=Math.max(r.low,.8+(p.bottom??0));
       const origin=low+random()*(high-low);
       const w=.19+random()*(r.collapse?.98:.43),d=.15+random()*.40,h=.06+random()*.11;
-      const born=animate?time+random()*.18:time-3;
-      debris.push({x,z,origin,w,h,d,born,dx:random()-.5,dz:random()-.5,turn:random()*6.28,tilt:(random()-.5)*.25});
+      const born=event?time-event.age/30+.32+random()*.18:animate?time+random()*.18:time-3;
+      debris.push({x,z,origin,w,h,d,born,base:r.collapse?r.low:1.09,dx:random()-.5,dz:random()-.5,turn:random()*6.28,tilt:(random()-.5)*.25});
       stones.setColorAt(debris.length-1,color.setHex([0xcbbda4,0x938674,0xb2a68f,0x8a7965][i%4]));
     }
     if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
@@ -94,14 +94,14 @@ export function estateDamageView(scene,meshes,solids){
       if(!condition.count || [...seen].some(id=>!condition.cuts.some(c=>c.id===id))){
         debris.length=0;seen=new Set();initialized=false;
       }
-      for(const cut of condition.cuts)if(!seen.has(cut.id)){scatter(cut,initialized);seen.add(cut.id);}
+      for(const cut of condition.cuts)if(!seen.has(cut.id)){scatter(cut,initialized,doors?.structureFalls?.find(e=>e.key==='estate-'+cut.id));seen.add(cut.id);}
       stones.count=debris.length;animateUntil=time+2.6;
     }
     initialized=true;
     if(!stones.count || time>animateUntil)return;
     for(const [i,p] of debris.entries()){
       const t=Math.max(0,time-p.born),fall=Math.min(1,t*1.2);
-      transform.position.set(p.x+p.dx*fall,Math.max(1.09+p.h/2,p.origin-8.8*t*t),p.z+p.dz*fall);
+      transform.position.set(p.x+p.dx*fall,Math.max(p.base+p.h/2,p.origin-8.8*t*t),p.z+p.dz*fall);
       transform.scale.set(p.w,p.h,p.d);transform.rotation.set(p.tilt*fall,p.turn+fall,p.tilt);
       transform.updateMatrix();stones.setMatrixAt(i,transform.matrix);
     }

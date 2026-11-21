@@ -1,6 +1,10 @@
+import {expireShots} from './public/shot-events.js';
+import {serviceRoadCar} from './public/road-garages.js';
+import {stepHydrants} from './public/hydrants.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
+import {stepStructuralFalls} from './public/structural-collapse.js';
 import {nearTank,leaveTank,stepTank} from './public/tank.js';
 import {nearJet,stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
@@ -26,7 +30,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
-import { CITY, MAP, groundHeight, spawn, stepPlayer } from './public/world.js';
+import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
@@ -484,7 +488,7 @@ function tick() {
       } else if (input.seat && !player.state.climb) selectSeat(world,player,input.seatKind,input.seat);
     }
     if(world.tank?.driver===player.id){
-      stepTank(world,input,step);
+      stepTank(world,input,step,players);
       if(input?.fire)fireTank(world,player,ticks);
       const t=world.tank;
       player.state={x:t.x,y:t.y,z:t.z,grounded:true,vy:0};
@@ -623,10 +627,13 @@ function tick() {
       for(const {ws} of players.values())if(ws.readyState===WebSocket.OPEN)ws.send(result);
     }
   }
+  stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
+  stepStructuralFalls(world.doors,MAP.buildings,players,ticks,damageActor,stanceBodyHeight);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
+  for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
@@ -634,7 +641,7 @@ function tick() {
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
   for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
-  while (world.shots.length && ticks - world.shots[0].tick > 7) world.shots.shift();
+  expireShots(world.shots,ticks);
   if (++ticks % 2 === 0) publish();
 }
 

@@ -1,19 +1,21 @@
+import {createRoadGarages} from './road-garage-view.js';
+import {streetHydrants} from './hydrant-view.js';
 import {tankView} from './tank-view.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
-import {serviceTracks} from './traffic-routes.js';
+import {trailDistance} from './road-surface.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
-import {churchPath,churchRoom} from './ridge-church.js';
+import {churchRoom} from './ridge-church.js';
 import {buildRidgeChurch} from './ridge-church-view.js';
 import {casaRoomAt} from './casa-luma.js';
 import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
-import {routeDistance,ridgeBench} from './north-ridge.js';
+import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
 import {civilianLooks} from './civilian-style.js';
 import {dressCivilian} from './civilian-view.js';
@@ -135,14 +137,6 @@ class Batch {
 }
 
 const up = new THREE.Vector3(0,1,0);
-function trailDistance(x, z) {
-  let distance=Math.min(routeDistance(MAP.trail,x,z),routeDistance(MAP.northTrail??[],x,z),CITY ? Infinity : routeDistance(churchPath,x,z));
-  if(!CITY && x>=-25 && x<=22 && z>=-20 && z<=24){
-    for(const track of serviceTracks)distance=Math.min(distance,routeDistance(track,x,z));
-  }
-  return distance;
-}
-
 function addGround(scene,renderer) {
   const size = 164;
   const extra=-MAP.northBound-MAP.bounds;
@@ -1115,6 +1109,7 @@ export function createScene(canvas) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   let glints, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1151,6 +1146,7 @@ export function createScene(canvas) {
   const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
   const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
+  const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
   const updateJet=jetView(scene,Batch);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1263,6 +1259,7 @@ export function createScene(canvas) {
     displayedPlayers = remotes;
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
+    updateHydrants(world.doors?.hydrants,dt);
     updateDoors?.(world.doors,dt,local,remotes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt);
@@ -1277,6 +1274,7 @@ export function createScene(canvas) {
     const inTank=world.tank?.driver===local.id;
     updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
+    updateGarages([world.rover,world.supercar,...cars]);
     updateTraffic(cars,dt,local);
     const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
     const driving=road.driver===local.id;
@@ -1284,7 +1282,7 @@ export function createScene(canvas) {
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover);heliTurret(heli);
     roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
-    roverLabel.sprite.visible=local.id!==rover.driver && local.id!==rover.gunner;
+    roverLabel.sprite.visible=!rover.crushed && local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const stack of stacks) {
       const {prop,mesh}=stack;
@@ -1367,7 +1365,12 @@ export function createScene(canvas) {
     }
     else if(yachtHelm)desired.set(world.yacht.x,world.yacht.y+6.8,world.yacht.z);
     else if(boat)desired.set(boat.x,boat.y+1.05,boat.z);
-    else if(driving) desired.set(road.x,road.y+(inTank?2.25:1.03),road.z);
+    else if(driving){
+      const frame=view.road;
+      desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
+        road.y+(inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.z-Math.cos(road.yaw)*(frame?.lead??0));
+    }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
     else {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
@@ -1399,7 +1402,7 @@ export function createScene(canvas) {
       target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7 : Math.min(6,separation*.5));
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? .53 : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,indoors,cameraYacht);

@@ -1,3 +1,4 @@
+import {structuralCollapseView} from './structural-collapse-view.js';
 import {towerDamageView} from './tower-damage-view.js';
 import {estateDamageView} from './estate-damage-view.js';
 import {addLanternBuildings} from './lantern-point-buildings.js';
@@ -186,12 +187,13 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
+  const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   for(const geometry of [box,...faces])geometry.dispose();
   const updatePosts=posts.finish();
   const updateLamps=streetLampView(scene,Batch);
   return (doors,dt,local,remotes)=>{
-    updateDamage(doors,dt);updateTowers(doors,dt);
+    updateDamage(doors,dt);updateTowers(doors,dt);updateFalls(doors,dt);
     updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);

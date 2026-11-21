@@ -31,7 +31,7 @@ export function damageJet(world,amount,players){
 // Sweep the moving airframe too: another driver's parked car gets no road
 // movement tick that could otherwise prevent the pilot from taxiing through it.
 function clearFlightFraction(world,from,to){
-  const cars=[world.rover,world.supercar,world.tank,...(world.traffic??[])].filter(car=>car &&
+  const cars=[world.rover,world.supercar,world.tank,...(world.traffic??[])].filter(car=>car && !car.crushed &&
     car.x>=Math.min(from.x,to.x)-8 && car.x<=Math.max(from.x,to.x)+8 &&
     car.z>=Math.min(from.z,to.z)-8 && car.z<=Math.max(from.z,to.z)+8 &&
     car.y>=Math.min(from.y,to.y)-6 && car.y<=Math.max(from.y,to.y)+6);

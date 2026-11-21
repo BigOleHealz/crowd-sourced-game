@@ -1,3 +1,4 @@
+import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
 import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
@@ -197,6 +198,7 @@ function model(Batch,type,materials){
   box(body,0x222b30,0,.592,nose-.065,.316,.111,.017);
   box(body,0xc9c9bc,0,.592,nose-.076,.283,.083,.006);
   box(body,0x293138,0,.615,tail+.049,.314,.12,.021);
+  const signals=[];
   box(body,0xd2cfb8,0,.615,tail+.064,.28,.083,.010);
   for(const side of [-1,1]){
     const x=side*(w-.10);
@@ -227,6 +229,11 @@ function model(Batch,type,materials){
     const rearZ=tail-.19,q=[side*(width(rearZ)-.012),level(rearZ)-.068,rearZ],r=[side*width(rearZ),level(rearZ)-.14,rearZ];
     pane(body,0x72282b,rearA,rearB,rearC,rearD);pane(body,0x802d30,rearD,rearC,q,r);
     run(body,0xc05a50,[rearB,rearC,q],.019);
+    const indicator=new Batch();
+    run(indicator,0xffa415,[[mid,lampY+.025,frontZ(mid)-.015],[corner,lampY+.024,nose-.022],c],.045);
+    run(indicator,0xffa415,[[rx,rearY+.049,tail+.070],[outerX,rearY+.048,tail+.021],q],.045);
+    const mesh=indicator.mesh(chassis,materials.lights,false);
+    mesh.name=side<0?'Left turn signal':'Right turn signal';mesh.visible=false;signals.push(mesh);
     run(lamps,0xff554d,[rearA,rearD,r],.032);
     body.beam(0x41494d,[side*(w-.20),.41,tail-.024],[side*(w-.34),.405,tail+.032],.046,.063);
   }
@@ -304,7 +311,7 @@ function model(Batch,type,materials){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,wheels,tire};
+  return {root,chassis,door,brake,signals,wheels,tire,wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
@@ -348,9 +355,10 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
         view.root.name='Traffic '+car.id;scene.add(view.root);
       }
       const {root,chassis,wheels,door,brake}=view;
-      root.visible=true;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
-      chassis.rotation.set(car.suspension?.pitch??0,0,car.suspension?.roll??0);
-      chassis.position.y=car.suspension?.heave??0;
+      root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
+      const sag=view.wreckFinish(car);
+      chassis.rotation.set((car.suspension?.pitch??0)-.10*sag,0,(car.suspension?.roll??0)-.12*sag);
+      chassis.position.y=(car.suspension?.heave??0)-.17*sag;
       for(const [i,{wheel,patch}] of wheels.entries()){
         const drop=isFlat(car,i)?flatWheelDrop:0;
         wheel.rotation.x-=car.speed*dt/view.tire;
@@ -359,6 +367,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const t=car.takeover?.progress??0;
       door.rotation.y=-1.05*smooth(t,0,.24)*(1-smooth(t,.75,1));
+      view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && car.blink && car.turnSignal===(i?1:-1);});
       brake.visible=!!car.takeover || (car.npcDriver!=null && Math.abs(car.speed)<1);
     }
   };
