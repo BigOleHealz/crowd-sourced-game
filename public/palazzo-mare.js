@@ -85,6 +85,8 @@ function furnishing(kind,x,z,w,d,level,height,reverse=false){
   const bottom=tiers[level].bottom||.07;
   mareFurniture.push({...rect(x,z,w,d,bottom,bottom+height),kind,reverse});
 }
+furnishing('planter',11.32,-445.85,.61,.61,0,.68);
+furnishing('planter',29.30,-447.43,.54,.54,2,.67);
 furnishing('sofa',13.25,-444.75,3.05,.94,0,.91);
 furnishing('coffee',13.25,-443.45,1.65,.72,0,.40);
 furnishing('console',19.6,-438.0,3,.52,0,.88);

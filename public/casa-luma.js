@@ -96,6 +96,7 @@ function furnish(kind,x,z,w,d,bottom,height,facing=-1){
   part(casaFurniture,{kind,x,z,w,d,bottom,h:bottom+height,facing});
 }
 for(const [kind,x,z,w,d,height,facing] of [
+  ['planter',-36.75,-408.23,.57,.57,.66],['planter',-15.54,-385.24,.53,.53,.62],
   ['bed',-37.95,-388.8,2.12,2.55,1.18],['nightstand',-39.32,-389.65,.52,.57,.64],
   ['nightstand',-36.54,-389.65,.52,.57,.64],['wardrobe',-38.98,-395.4,1.34,3.1,2.23],
   ['desk',-39.14,-398.83,.76,2.57,.80],['chair',-38.17,-399.14,.66,.67,.94],

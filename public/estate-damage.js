@@ -1,8 +1,8 @@
 import {damageDirection} from './collapse-direction.js';
 // A missile opens one storey-high wall bay. Losing two distinct supports in a
 // structural bay brings down its slabs, roof and fittings above the lost level.
-import {casaWalls} from './casa-luma.js';
-import {mareParts} from './palazzo-mare.js';
+import {casaWalls,casaFurniture} from './casa-luma.js';
+import {mareParts,mareFurniture} from './palazzo-mare.js';
 const quay=.80, span=3.6;
 export const estates=[
   {x:-41.5,z:-410.45,width:33,depth:28,levels:[1.07,4.77],heads:[4.23,8.00]},
@@ -37,6 +37,13 @@ export function estateCondition(doors){
   condition={key:list.join('|'),count:list.length,cuts:[...cuts,...falls],falls};
   stateCache.set(list,condition);
   return condition;
+}
+const collectedKinds=new Set(['sofa','chair','bed','table','dining','coffee','lowTable','island','nightstand','planter']);
+export const collectionPiece=kind=>collectedKinds.has(kind);
+const collectedFurniture=new Set([...casaFurniture,...mareFurniture].filter(p=>collectionPiece(p.kind)));
+export function furnishingSupported(home,x,y,z,doors,cuts=estateCondition(doors).falls){
+  if(doors?.houseRuins?.[home])return false;
+  return !cuts.some(r=>y>=r.low-.015 && y<=r.high && covers(x,z,r));
 }
 export function breachEstate(doors,point){
   if(!doors || !point)return false;
@@ -95,17 +102,20 @@ function subtract(p,r){
   return parts;
 }
 export function estateSolids(original,doors){
-  if(!doors?.estateBreaches?.length)return original;
+  const ruins=doors?.houseRuins;
+  if(!doors?.estateBreaches?.length && !ruins?.casa && !ruins?.mare)return original;
   const condition=estateCondition(doors),last=sourceCache.get(original);
-  if(last?.key===condition.key)return last.parts;
+  const key=condition.key+(ruins?.casa?'C':'')+(ruins?.mare?'M':'');
+  if(last?.key===key)return last.parts;
   const parts=[];
   for(const p of original){
     const index=houseAt(p.x,p.z);
     if(index<0){parts.push(p);continue;}
+    if(collectedFurniture.has(p) && !furnishingSupported(index?'mare':'casa',p.x,quay+p.bottom,p.z,doors,condition.falls))continue;
     let pieces=[p];
     for(const r of condition.cuts)if(r.index===index)pieces=pieces.flatMap(piece=>subtract(piece,r));
     parts.push(...pieces);
   }
-  sourceCache.set(original,{key:condition.key,parts});
+  sourceCache.set(original,{key,parts});
   return parts;
 }
