@@ -1,3 +1,4 @@
+import {frontWheelAngle} from './road-steering.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -287,7 +288,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
       const hubY=spec.tire+(pose?.wheels[i]??(flat?-flatWheelDrop:0));
       placeGTWheel(w.hub.position,w.x,w.z,hubY,body,suspensionAxis);
       w.patch.value.set(flat?flatWheelDrop:0,Math.cos(spin),Math.sin(spin));
-      w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-(car.steer??0)*.42:0;
+      w.rotation.rotation.x=spin;w.hub.rotation.y=w.front?-frontWheelAngle(car):0;
     }
     const burst=car.driver!=null && !car.wrecked ? clamp((car.exhaust??0)/.30,0,1) : 0;
     for(const [i,flame] of jets.entries()){

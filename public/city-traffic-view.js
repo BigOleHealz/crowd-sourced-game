@@ -1,3 +1,4 @@
+import {frontWheelAngle} from './road-steering.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
 import * as THREE from 'three';
@@ -307,7 +308,7 @@ function model(Batch,type,materials){
   for(const [x,z] of wheelsFor({model:type})){
     const finish=materials.wheel.clone(),patch=tireContactPatch(finish,tire);
     const wheel=new THREE.Mesh(wheelGeometry,finish);
-    wheel.position.set(x,tire,z);
+    wheel.position.set(x,tire,z);wheel.rotation.order='YXZ';
     wheel.scale.x=Math.sign(x);root.add(wheel);wheels.push({wheel,patch});
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
@@ -363,6 +364,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       for(const [i,{wheel,patch}] of wheels.entries()){
         const drop=isFlat(car,i)?flatWheelDrop:0;
         wheel.rotation.x-=car.speed*dt/view.tire;
+        wheel.rotation.y=wheel.position.z<0?-frontWheelAngle(car):0;
         wheel.position.y=view.tire+(car.suspension?.wheels[i]??-drop);
         patch.value.set(drop,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
       }
