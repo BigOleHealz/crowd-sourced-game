@@ -12,7 +12,7 @@ for(const p of people){
   const [x,z]=p.route.points[0],others=people.filter(q=>q!==p).map(q=>Math.hypot(x-q.route.points[0][0],z-q.route.points[0][1]));
   assert(Math.min(...others)>12,p.name+' starts away from other residents');
   const visited=new Set();
-  for(let t=0;t<2600;t++){
+  for(let t=0;t<(p.route.crossing?5400:2600);t++){
     visited.add(p.next);updateRival(p,t,1/30,world.hp,world);
     assert(p.state.grounded && !p.state.swimming && groundHeight(p.state.x,p.state.z)>MAP.waterY);
     // A blocked or unreachable waypoint cannot produce a full loop.
