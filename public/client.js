@@ -1,3 +1,4 @@
+import {createTouchControls,touchLayout} from './touch-controls.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
@@ -144,7 +145,33 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
+let touchSprint=false;
+function touchBlocked(){return !byId('guide').hidden || !!document.querySelector('dialog[open], [aria-modal="true"]:not(dialog):not([hidden])');}
+const touch=createTouchControls(canvas,{
+  blocked:touchBlocked,
+  wake(){lookPaused=false;canvas.classList.remove('look-paused');stopLook();canvas.focus({preventScroll:true});},
+  menuOpened:releaseLook,
+  look(dx,dy){
+    if(jetPilot()){
+      const radius=Math.max(40,Math.min(innerWidth,innerHeight)*.20);
+      stickX=clamp(stickX+dx/radius,-1,1);stickY=clamp(stickY-dy/radius,-1,1);
+      byId('flight-cursor').style.transform='translate('+stickX*radius+'px,'+-stickY*radius+'px)';
+    }else{
+      camera.yaw+=dx*.0052;camera.pitch=viewPitch(camera.pitch-dy*.0041);
+    }
+  },
+  endLook(){if(jetPilot()){stickX=stickY=0;byId('flight-cursor').style.transform='';}},
+  action(code){
+    if(code==='aim'){if(canAim())showSight(!camera.sighted);return;}
+    if(code==='run'){touchSprint=!touchSprint;return;}
+    if(code==='tool')code='Digit'+(weapon%4+1);
+    if(code==='KeyT'){startMarinaSprint();return;}
+    pressAction(code);
+  },
+});
+const down=code=>held.has(code)||touch.down(code);
 function clearInput() {
+  touch.reset();touchSprint=false;
   queuedHorn=queuedBomb=queuedMissile=false;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
@@ -217,48 +244,53 @@ window.addEventListener('keydown', e => {
     if (!e.repeat) audio.toggleMute();
     return;
   }
-  if(e.code==='KeyT' && CITY && !mode && byId('guide').hidden && !e.repeat && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN){
-    socket.send(JSON.stringify({type:'marinaSprint'}));return;
-  }
+  if(touchBlocked() && byId('guide').hidden)return;
+  if(e.code==='KeyT' && !e.repeat){startMarinaSprint();return;}
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') {setGuide(false);releaseLook();return;}
   if (!byId('guide').hidden || !controls.has(e.code) || e.target.closest?.('button, select')) return;
   if(e.code==='KeyV' && !drivenRoad(world,id))return;
   e.preventDefault();
-  if(e.code==='KeyE' && !e.repeat){
-    const person=speaker();
-    if(person){talk.open(person);return;}
-  }
   held.add(e.code);
-  if (e.repeat) return;
-  if (e.code === 'Space') queuedDeploy = true;
-  if (e.code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
-  if ((e.code === 'KeyC' || e.code === 'KeyZ') && canChangeStance(self)) {
-    const target = e.code === 'KeyC' ? 'crouch' : 'prone';
+  if(!e.repeat)pressAction(e.code);
+});
+function startMarinaSprint(){
+  if(CITY && !mode && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
+    socket.send(JSON.stringify({type:'marinaSprint'}));
+}
+function pressAction(code){
+  if (code === 'Space') queuedDeploy = true;
+  if (code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
+  if ((code === 'KeyC' || code === 'KeyZ') && canChangeStance(self)) {
+    const target = code === 'KeyC' ? 'crouch' : 'prone';
     requestedStance = (requestedStance ?? self.stance) === target ? 'stand' : target;
   }
-  if(e.code==='KeyG' && mode)handleCase=true;
-  if (e.code === 'KeyE') queuedInteract = vitals.use;
-  if (e.code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
-  if (e.code === 'KeyF') queuedFire = true;
-  if (e.code === 'KeyB' && jetPilot()) queuedBomb=true;
-  if (e.code === 'KeyR' && jetPilot()) queuedMissile=true;
-  if (e.code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4'].includes(e.code)) {
-    const number=Number(e.code.at(-1));
+  if(code==='KeyG' && mode)handleCase=true;
+  if(code==='KeyE'){
+    const person=speaker();
+    if(person)talk.open(person);
+    else queuedInteract=vitals.use;
+  }
+  if (code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
+  if (code === 'KeyF') queuedFire = true;
+  if (code === 'KeyB' && jetPilot()) queuedBomb=true;
+  if (code === 'KeyR' && jetPilot()) queuedMissile=true;
+  if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
+  if (!jetPilot() && !unarmedRoad() && !inTank() && ['Digit1','Digit2','Digit3','Digit4'].includes(code)) {
+    const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
     if(kind) {
       if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
     } else {weapon=number;if(camera.sighted)showSight(true);}
   }
-});
+}
 window.addEventListener('keyup', e => held.delete(e.code));
 // A visible embedded document can receive pointer events before it has keyboard focus.
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseControls();});
-function releasePointer() { stopLook(); mouseFire = false; }
+function releasePointer(e) { if(e.pointerType!=='touch'){stopLook();mouseFire=false;} }
 canvas.addEventListener('pointerleave', releasePointer);
 canvas.addEventListener('pointercancel', releasePointer);
 canvas.addEventListener('contextmenu', e => e.preventDefault());
@@ -300,7 +332,8 @@ function edgeRate(position, extent) {
 }
 
 canvas.addEventListener('pointermove', e => {
-  if (lookPaused || e.pointerType === 'touch' || windowBlurred || document.hidden || !byId('guide').hidden) {
+  if(e.pointerType==='touch')return;
+  if (lookPaused || windowBlurred || document.hidden || !byId('guide').hidden) {
     stopLook();
     return;
   }
@@ -466,15 +499,15 @@ function movementInput() {
   const right = held.has('KeyD') || held.has('ArrowRight');
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
-  const down = held.has('KeyS') || held.has('ArrowDown');
-  const lateral = Number(right) - Number(left);
-  const forward = Number(up) - Number(down);
+  const backward = held.has('KeyS') || held.has('ArrowDown');
+  const lateral=clamp(Number(right)-Number(left)+touch.axes.x,-1,1);
+  const forward=clamp(Number(up)-Number(backward)+touch.axes.y,-1,1);
   const length = Math.max(1, Math.hypot(lateral, forward));
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   const moving = Boolean(lateral || forward);
   const effectiveStance = requestedStance ?? self.stance;
-  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (held.has('ShiftLeft') || held.has('ShiftRight'));
+  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (touchSprint || down('ShiftLeft') || down('ShiftRight'));
   return {x,z,lateral,forward,moving,sprint};
 }
 
@@ -485,7 +518,7 @@ function tick() {
   moving=motion.moving;sprint=motion.sprint;
   const pilot = isPilot();
   const driving = isDriving();
-  const fire = !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || held.has('KeyF'));
+  const fire = !unarmedRoad() && !self.swimming && !self.climb && !vitals.dead && !vitals.fall && (queuedFire || mouseFire || down('KeyF'));
   const gunner=gunnerRole();
   const aim=(inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -493,15 +526,15 @@ function tick() {
   if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
-  const descending = held.has('ShiftLeft') || held.has('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && held.has('KeyK'), releaseHook:world.heli.pilot===id && held.has('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const descending = down('ShiftLeft') || down('ShiftRight');
+  const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: canChangeStance(self) ? requestedStance : undefined,
     sprint: sprint && !pilot, weapon, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
-    missile:jetPilot() && (queuedMissile || held.has('KeyR')),
+    missile:jetPilot() && (queuedMissile || down('KeyR')),
     throttle: driving || jetPilot() ? forward : 0, steer:jetPilot()?stickOutput(stickX):driving?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
-    lift: pilot && !jetPilot() ? Number(held.has('Space')) - Number(descending) : 0,
+    lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
@@ -629,7 +662,7 @@ function drivingView(rover, dt, wheeled) {
   roverView.distance = camera.distance;
   // The rearward angle lives only in the rendered view. Steering and the
   // driver's saved mouse orbit continue in their normal coordinate frame.
-  const rear=wheeled && held.has('KeyV');
+  const rear=wheeled && down('KeyV');
   roverView.rearAngle=mix(roverView.rearAngle??0,rear?Math.PI:0,-Math.expm1(-dt*10));
   return roverView.rearAngle>.0001 ? {...roverView,yaw:roverView.yaw+roverView.rearAngle} : roverView;
 }
@@ -672,6 +705,7 @@ function updateEquipment(local) {
   const tracking=byId('launcher-status'),lock=vitals.launcherLock;
   tracking.hidden=weapon!==4 || !canAim() || !!kind;
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
+    touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = unarmedRoad() || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
   const prompt = byId('field-prompt');
@@ -705,6 +739,17 @@ function updateEquipment(local) {
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
+  if(touch.active){
+    const role=jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
+    const useLabel=person?'Talk to '+conversations[person].name:use?.label;
+    const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
+      ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
+    touch.render(touchLayout({role,active,use:useLabel,stance:canChangeStance(local)?(local.stance??'stand'):null,
+      canAim:canAim(),sighted:camera.sighted,jump:local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
+      sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
+    if(!talk.current && active && !garage)prompt.textContent=useLabel || (local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':local.swimming?'Swimming':'');
+  }
 }
 
 function drawMap(player, remotes, yaw) {
