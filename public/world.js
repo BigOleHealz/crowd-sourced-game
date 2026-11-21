@@ -294,6 +294,14 @@ export function blocked(x, y, z, hp, doors, height=1.7) {
   return solidTopAt(x, z, hp, PLAYER_RADIUS, y+height, doors) > Math.max(y, floor) + 0.001;
 }
 
+// Weight only grounded characters in the shallows. Falling, climbing and
+// deck occupants keep their own movement until the buoyancy model takes over.
+export function waterBlend(state){
+  if(state.swimming)return 1;
+  if(!state.grounded || state.onYacht || state.climb || state.parachute)return 0;
+  return smoothstep(.08,.72,MAP.waterY-state.y);
+}
+
 export function stanceBodyHeight(stance) {
   return stance === 'prone' ? .54 : stance === 'crouch' ? 1.28 : 1.8;
 }
@@ -313,7 +321,9 @@ export function stepPlayer(state, input, dt, hp, world) {
   const requested = input.stance ?? state.stance;
   const stance = state.grounded && !input.jump && !parachute && !state.swimming &&
     (requested === 'crouch' || requested === 'prone') ? requested : undefined;
-  const speed = stance === 'prone' ? 1.05 : stance === 'crouch' ? 2.25 : state.swimming ? 3.05 : parachute === 'open' ? 3.6 : parachute ? 2.3 : input.sprint ? 7.4 : 4.6;
+  const drySpeed=stance==='prone'?1.05:stance==='crouch'?2.25:parachute==='open'?3.6:parachute?2.3:input.sprint?7.4:4.6;
+  const wade=waterBlend(state);
+  const speed=state.swimming?3.05:drySpeed+(Math.min(3.05,drySpeed)-drySpeed)*wade;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));

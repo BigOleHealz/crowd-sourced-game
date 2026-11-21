@@ -48,7 +48,7 @@ import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, waterBlend, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -1013,7 +1013,7 @@ function makeParachute(root, material) {
 }
 
 function updateSwimRipples(avatar,state) {
-  if(state.swimming && !state.fall && !state.dead) {
+  if((state.swimming || state.moving && waterBlend(state)>.15) && !state.fall && !state.dead) {
     const stroke=avatar.stroke??0;
     if(!avatar.ripples) {
       const rings=Array.from({length:2},()=>{
@@ -1108,7 +1108,7 @@ export function createScene(canvas) {
     Object.assign(sun.shadow.camera,{left:-72,right:72,top:61,bottom:-61});
   }
   if(CITY)scene.add(sun.target);
-  let lanternShadows=false;
+  let lanternShadows=false,shoreCamera=0;
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const panorama=addSky(scene);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
@@ -1373,8 +1373,9 @@ export function createScene(canvas) {
       const shoulder=local.parachute ? 0 : mix(.66,.38,roomBlend);
       const x=local.x+shoulder*Math.cos(view.yaw),z=local.z+shoulder*Math.sin(view.yaw);
       const shoulderHeight=1.46-stanceDrop(local);
+      shoreCamera+=clamp(waterBlend(local)-shoreCamera,-dt*3.8,dt*3.8);
       const clear=!yachtSolidAt(nearbyYacht,x,local.y+shoulderHeight,z,.16) && buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
-      desired.set(clear ? x : local.x,local.y+(local.swimming ? 1.00 : local.parachute==='open' ? 2.1 : shoulderHeight),clear ? z : local.z);
+      desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : mix(shoulderHeight,1.00,shoreCamera)),clear ? z : local.z);
     }
     // Give the jumper and the drifting aircraft room in the same shot.
     const watchCrash = local.parachute && (heli.abandonedFor != null || heli.wrecked);
