@@ -6,7 +6,7 @@ import {cabinTop,lowerStair} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
 import {alpineGlass} from './landscape.js';
-import {yachtSections,yachtHalfBeam,yachtStairs,yachtPlatform,yachtLadder,yachtGangway,yachtPad,yachtDeckY,yachtRailRuns,yachtRailTop} from './yacht-layout.js';
+import {yachtKeelY,yachtSections,yachtHalfBeam,yachtStairs,yachtPlatform,yachtLadder,yachtGangway,yachtPad,yachtDeckY,yachtRailRuns,yachtRailTop} from './yacht-layout.js';
 
 const ivory=0xe7e5dc,cream=0xf6f1df,navy=0x17323f,steel=0x9eacac,teak=0xa57953;
 const box=new THREE.BoxGeometry(),ball=new THREE.SphereGeometry(1,16,10);
@@ -33,7 +33,7 @@ function teakMaterial(renderer){
 // bow flare and curved quarters. A split at each chine leaves a crisp edge.
 function hullShell(stations){
   const vertices=[],colors=[],indices=[];
-  const bands=[[-1.34,.12,0x243238],[-.85,.73,0x273d43],[-.13,.89,0x324c50],
+  const bands=[[yachtKeelY,.12,0x243238],[-.85,.73,0x273d43],[-.13,.89,0x324c50],
     [.04,.903,0xc8c9bc],[.13,.911,0x56635d],[.20,.919,navy],[1.72,1,navy],
     [1.79,1.003,0xa79f89],[1.85,1.004,ivory],[2.50,1.008,ivory]];
   for(const side of [-1,1])for(let r=1;r<bands.length;r++){

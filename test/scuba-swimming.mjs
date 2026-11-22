@@ -27,3 +27,16 @@ const buttons=touchLayout({role:'swimming',active:true,scuba:true}).quick;
 assert.deepEqual(buttons,[['KeyC','Dive'],['Space','Rise / climb'],['KeyG','Stow scuba']]);
 assert(!touchLayout({role:'swimming',active:true,submerged:true}).quick.some(([key])=>key==='KeyG'));
 console.log('PASS intentional descent/ascent, depth hold, floor clearance, steering, breath recovery, longer scuba dive and touch controls.');
+
+const {yachtWalkBlocked,yachtCeilingAt,yachtKeelY}=await import('../public/yacht-layout.js');
+const yacht={x:0,y:-.14,z:0,yaw:0};
+assert(yachtWalkBlocked(yacht,0,-1,0,1.12));
+assert(!yachtWalkBlocked(yacht,0,-3,0,1.12));
+const ceiling=yachtCeilingAt(yacht,0,-3,0)-1.12;
+const rising=swimColumn({...tank,swimDepth:2},{swimY:1},-2.86,-.14,-5,2,ceiling);
+assert(Math.abs(rising.y-(yacht.y+yachtKeelY-1.12))<.001,'ascent stops below the keel');
+const {createSharks}=await import('../public/shark-swim.js');
+const sharks=createSharks(), diver={id:7,state:{x:85,y:-3.15,z:-214,swimming:true,swimDepth:2.29},life:{hp:100}};
+let bites=0;
+for(let n=0;n<1600;n++)sharks.step(dt,new Map([[7,diver]]),n,()=>{bites++;return false;});
+assert.equal(bites,0,'surface patrols only bite a swimmer within vertical reach');

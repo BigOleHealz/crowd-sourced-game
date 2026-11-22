@@ -2,7 +2,7 @@
 export const breathSeconds = 25;
 export const tankSeconds = 150;
 
-export function swimColumn(state,input,y,surface,floor,dt) {
+export function swimColumn(state,input,y,surface,floor,dt,ceiling=Infinity) {
   const resting=surface-.72;
   const depth=state.swimDepth??0;
   const atAir=depth<=.06;
@@ -14,7 +14,8 @@ export function swimColumn(state,input,y,surface,floor,dt) {
   if(atAir && previousAir>=4 && input.swimY!==-1)surfacing=false;
   const swimY=state.swimming ? (surfacing ? 1 : input.swimY??0) : 0;
   const maxDepth=Math.max(0,resting-floor-.10);
-  let nextDepth=Math.max(0,Math.min(maxDepth,depth-swimY*2.25*dt));
+  const minDepth=Math.max(0,resting-ceiling);
+  let nextDepth=Math.min(maxDepth,Math.max(minDepth,depth-swimY*2.25*dt));
   if(nextDepth<.001)nextDepth=0;
   const air=nextDepth>.06 ? Math.max(0,previousAir-dt) : Math.min(capacity,previousAir+5*dt);
   if(air===0)surfacing=true;

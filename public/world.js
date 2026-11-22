@@ -439,7 +439,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy = ride?.kind==='board' ? OLLIE_SPEED : ride ? 4.7 : JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
-  const height=stanceBodyHeight(stance);
+  const height=state.swimming?1.12:stanceBodyHeight(stance);
   const doors=world?.doors;
   if (vx) {
     if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height)) vx=0;
@@ -478,7 +478,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
     return {x,z,vx,vy:0,vz,grounded:false,swimming:true,
-      ...swimColumn(state,input,y,floatY+draft,floor,dt),
+      ...swimColumn(state,input,y,floatY+draft,floor,dt,contact.ceiling),
       ...(grab?.left>dt && {grab:{y:grab.y,left:grab.left-dt}})};
   }
   if(state.swimming && !deep && floor<=y+.31) {
