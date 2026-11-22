@@ -1,4 +1,5 @@
 import {atrium,grandStoryY,resortLevels,grandFurniture} from './grand-resort-layout.js';
+import {createGrandAtrium} from './grand-atrium-view.js';
 import * as THREE from 'three';
 import {resortFloor,resortChandeliers,resortFurniture,resortLounges,resortMachines} from './resort-floor-layout.js';
 
@@ -289,6 +290,7 @@ function interiorFinish(polished) {
 }
 
 export function resortFloorView(scene,Batch) {
+  const updateAtrium=createGrandAtrium(scene,Batch);
   const room = new THREE.Group();
   room.name = 'Lantern Club gaming floor';
   scene.add(room);
@@ -607,6 +609,8 @@ export function resortFloorView(scene,Batch) {
   let t = 0;
   return (dt,local) => {
     room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42 && local.y<20;
+    updateAtrium(dt,local);
+    room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42;
     for (const {x,lobby} of lobbies) {
       lobby.visible = Math.abs(local.x-x)<24 && Math.abs(local.z-69)<23;
     }
