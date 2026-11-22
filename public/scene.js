@@ -27,6 +27,7 @@ import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {dogView} from './dog-view.js';
 import {gullView} from './gull-view.js';
+import {reefFishView} from './reef-fish-view.js';
 import {dolphinView} from './dolphin-view.js';
 import {sharkDogSpray} from './shark-dog-spray.js';
 import {sharkView} from './shark-view.js';
@@ -1124,6 +1125,7 @@ export function createScene(canvas) {
   const updateDogs=CITY?dogView(scene,Batch):null;
   const updateReef=CITY?reefChannelView(scene,Batch):null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
+  const updateFish=CITY ? reefFishView(scene,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
   let framedBite=null,biteSide=1;
@@ -1680,6 +1682,7 @@ export function createScene(canvas) {
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDogSpray?.(world.sharks,local,world.dogs,attackTick);
+    updateFish?.(camera.position,attackTick);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
