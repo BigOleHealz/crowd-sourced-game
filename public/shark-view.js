@@ -84,10 +84,13 @@ export function sharkView(scene,waterline){
     }
     const root=new THREE.Group(),body=new THREE.Mesh(bodyShape,material),tail=new THREE.Mesh(tailShape,material);
     const jaw=new THREE.Mesh(jawShape,material);jaw.name='Lower jaw';jaw.position.set(0,-.068,-1.02);
-    root.add(jaw);
+    // Pitch the shark around the jaw that is holding the swimmer.
+    const grip=new THREE.Group(),hull=new THREE.Group();
+    grip.position.z=-1.45;hull.position.z=1.45;
+    grip.add(hull);root.add(grip);hull.add(jaw);
     root.name='Offshore shark';root.scale.setScalar(sharkSizes[index]);
-    root.renderOrder=1;root.add(body,tail);tail.position.z=1.02;scene.add(root);
-    return {root,tail,jaw};
+    root.renderOrder=1;hull.add(body,tail);tail.position.z=1.02;scene.add(root);
+    return {root,tail,jaw,grip};
   }
   return (states,local,tick,dt)=>{
     impacts(states,local,dt);clock.value=(tick??0)/30;
@@ -97,12 +100,14 @@ export function sharkView(scene,waterline){
         if(models[i])models[i].root.visible=false;
         continue;
       }
-      const {root,tail,jaw}=models[i]??=model(i);
+      const {root,tail,jaw,grip}=models[i]??=model(i);
       if(!root.visible || root.position.distanceToSquared(s)>36){
         root.position.set(s.x,s.y,s.z);root.rotation.y=-s.yaw;
       }
       root.visible=true;
       const mix=-Math.expm1(-17*dt);
+      const diveAngle=s.phase==='feeding' ? Math.max(-.58,Math.min(.22,(s.y-root.position.y)*4)) : 0;
+      grip.rotation.x+=(diveAngle-grip.rotation.x)*mix;
       root.position.x+=(s.x-root.position.x)*mix;
       root.position.y+=(s.y-root.position.y)*mix;
       root.position.z+=(s.z-root.position.z)*mix;

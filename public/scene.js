@@ -1044,6 +1044,8 @@ export function createScene(canvas,onFootfall) {
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const lighting=roadLighting(scene,ambient,sun);
   const panorama=addSky(scene);
+  let diveBackdrop;
+  const underwaterFog=new THREE.FogExp2(0x21606a,.115);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
@@ -1542,9 +1544,10 @@ export function createScene(canvas,onFootfall) {
       const side=Math.cos(view.yaw-localDefeat.yaw)>=0 ? 1 : -1;
       // Frame the crossing shark broadside and keep the struggle visible even
       // when the defeated swimmer was sighting straight up or down.
-      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65,victim.z+foreX*3.7*side-foreZ*.85);
+      const dive=THREE.MathUtils.smoothstep(age,1.25,2.35);
+      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65-2.66*dive,victim.z+foreX*3.7*side-foreZ*.85);
       camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.25));
-      camera.lookAt(victim.x,Math.max(MAP.waterY-.35,victim.y+.74),victim.z);
+      camera.lookAt(victim.x,victim.y+.74,victim.z);
       avatars.get(local.id).root.visible=true;
     }
     if(world.casino?.player===local.id && !local.dead){
@@ -1558,7 +1561,30 @@ export function createScene(canvas,onFootfall) {
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
-    renderer.render(scene,camera);
+    if(localDefeat && camera.position.y<MAP.waterY){
+      if(!diveBackdrop){
+        diveBackdrop=new THREE.Mesh(new THREE.SphereGeometry(12,24,12),new THREE.ShaderMaterial({
+          side:THREE.BackSide,depthWrite:false,uniforms:{time:{value:0}},
+          vertexShader:`varying vec3 dir;void main(){dir=position;
+            gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
+          fragmentShader:`varying vec3 dir;uniform float time;
+            void main(){vec3 d=normalize(dir);float light=smoothstep(-.72,.82,d.y);
+              float wave=sin(d.x*19.+d.y*7.+time)*sin(d.z*16.-time*.76);
+              vec3 tint=mix(vec3(.007,.030,.043),vec3(.055,.24,.25),light);
+              tint+=vec3(.009,.035,.027)*wave*smoothstep(.12,.85,d.y);
+              gl_FragColor=vec4(tint,1.);
+              #include <colorspace_fragment>
+            }`
+        }));
+        diveBackdrop.renderOrder=-20;scene.add(diveBackdrop);
+      }
+      const airFog=scene.fog,far=camera.far;
+      scene.fog=underwaterFog;camera.far=16;camera.updateProjectionMatrix();
+      diveBackdrop.material.uniforms.time.value=clock;
+      diveBackdrop.position.copy(camera.position);diveBackdrop.visible=true;
+      renderer.render(scene,camera);
+      scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
+    }else renderer.render(scene,camera);
   }
   function showShots(shots) {
     for(const shot of shots){
