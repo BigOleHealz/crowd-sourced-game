@@ -28,6 +28,14 @@ export function addHarborPromenade(solids,box,ground,harbor,streetPlan,palms) {
       }
     }
   }
+  // Continue the avenue walks around the corner to the market entrances.
+  for(const [west,east] of [[streetPlan.westStreet+4.5,-10.4],[10.4,streetPlan.eastStreet-4.5]]){
+    const x=(west+east)/2,width=east-west,z=harbor.crossing-5.93;
+    paving.push([x,.816,z,width,2.86]);
+    tile(0x689c98,x,harbor.crossing-4.77,width,.15);
+    tile(0xe8c3a2,x,harbor.crossing-4.99,width,.10);
+    for(let seam=west+2;seam<east;seam+=3.4)tile(0xb6aa96,seam,z-.23,.024,2.31);
+  }
   ground('pavers',paving,2.6);
   const ring=new THREE.RingGeometry(.39,.69,16).rotateX(-Math.PI/2);
   for(const p of palms){
