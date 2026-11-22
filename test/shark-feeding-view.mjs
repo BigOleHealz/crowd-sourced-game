@@ -4,7 +4,7 @@ import {sharkSizes} from '../public/shark-swim.js';
 import {sharkView} from '../public/shark-view.js';
 
 const water=-.14,dt=1/30,local={x:100,y:1,z:-220};
-const states=sharkSizes.map((size,i)=>({x:local.x+4*i,y:water-.35,z:local.z,yaw:0,stroke:0,
+const states=sharkSizes.map((size,i)=>({x:local.x+2*i,y:water-.35,z:local.z,yaw:0,stroke:0,
   size,hp:100,phase:'scavenging',scavenge:{biteTick:0}}));
 const scene=new THREE.Scene(),update=sharkView(scene,water);
 update(states,local,0,dt);
