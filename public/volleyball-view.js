@@ -100,6 +100,14 @@ function makeMarker(scene){
   return marker;
 }
 
+export function volleyballLandingScale(flight,tick){
+  const {from,to,lift,duration}=flight;
+  const apex=lift>0?clamp(.5+(to[1]-from[1])/(8*lift),0,1):0;
+  const progress=(tick-flight.tick)/duration;
+  const descent=THREE.MathUtils.smoothstep(progress,apex,1);
+  return mix(1.72,.67,descent);
+}
+
 export function volleyballView(scene){
   const views=courts.map((court,index)=>({
     ball:makeBall(scene),marker:makeMarker(scene),board:makeBoard(scene,court,index),
@@ -120,6 +128,7 @@ export function volleyballView(scene){
         if(member?.index===index && member.side!==slotSide(shot.slot)){
           const [x,,z]=shot.to;
           marker.visible=true;
+          marker.scale.setScalar(volleyballLandingScale(shot,tick));
           marker.position.set(x,sandHeight(x,z)+.041,z);
         }
       }else if(game.phase==='serve'){
@@ -131,6 +140,7 @@ export function volleyballView(scene){
         ball.position.set(actor.x+.095,actor.y+1.24,actor.z-direction*.40);
         if(member?.index===index && member.slot===server){
           marker.visible=true;
+          marker.scale.setScalar(1);
           marker.position.set(spot.x,sandHeight(spot.x,spot.z)+.041,spot.z);
         }
       }else if(game.drop){
