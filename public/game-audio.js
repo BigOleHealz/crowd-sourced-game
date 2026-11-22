@@ -244,14 +244,17 @@ export function createGameAudio(button,slider,level,caption) {
     const place=placement(listener,yaw,point);
     if(place.gain<.006)return;
     const v=voice(name,false,eventId%3);
-    v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
+    v.source.playbackRate.value=name==='bank-robbery'?1:.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
     if(segment)v.source.start(0,segment.start,segment.duration);
     else v.source.start();
+    return true;
   }
+  let bankSerial=0,pendingBankClip=false,bankVoiceUntil=0;
   let previousRides;
   let previousDogs;
   const courtSounds=courtContactAudio();
   function reset(world) {
+    bankSerial=world?.bank?.serial??0;pendingBankClip=false;bankVoiceUntil=0;
     courtSounds.reset(world?.basketball);
     previousRides=world?.rides;
     previousDogs=world?.dogs;
@@ -262,6 +265,20 @@ export function createGameAudio(button,slider,level,caption) {
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;
+    const bank=world.bank;
+    if(bank){
+      const near=Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<30;
+      if(bank.serial!==bankSerial){
+        bankSerial=bank.serial;
+        pendingBankClip=bank.phase==='alarm' && near && audible();
+      }
+      if(bank.phase!=='alarm' || !near || !audible())pendingBankClip=false;
+      if(near && audible())loadMusic('bank-robbery','bank-robbery.mp3');
+      if(pendingBankClip && buffers.has('bank-robbery') && burst('bank-robbery',bankDesk,listener,yaw,1,bank.serial)){
+        bankVoiceUntil=context.currentTime+buffers.get('bank-robbery').duration;
+        pendingBankClip=false;
+      }
+    }
     listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -341,7 +358,7 @@ export function createGameAudio(button,slider,level,caption) {
       motor('scoopin-dung',clubSpeaker,inEarshot && songReady,1,.56,listener,yaw,'club-speakers');
       const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
       const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
-      motor('branch-alarm',bankDesk,nearBank,1,.84,listener,yaw);
+      motor('branch-alarm',bankDesk,nearBank,1,context.currentTime<bankVoiceUntil?.24:.84,listener,yaw);
       const local=new Set();
       for(const layer of [bed,water]){
         if(!layer || layer.gain<.009)continue;
