@@ -132,30 +132,39 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
 
 // All common contact probes have a radius of two metres or less. Index
 // expanded bounds once, then run the original exact tests on local solids.
+const cellWidth = 12, maxIndexedPadding = 2, emptyCell = [];
+function indexFootprints(parts, circles = false) {
+  const columns = new Map();
+  for (const part of parts) {
+    const dx = (circles ? part.radius : part.w/2) + maxIndexedPadding;
+    const dz = (circles ? part.radius : part.d/2) + maxIndexedPadding;
+    for (let i = Math.floor((part.x-dx)/cellWidth); i <= Math.floor((part.x+dx)/cellWidth); i++) {
+      let rows = columns.get(i);
+      if (!rows) columns.set(i, rows = new Map());
+      for (let j = Math.floor((part.z-dz)/cellWidth); j <= Math.floor((part.z+dz)/cellWidth); j++) {
+        let cell = rows.get(j);
+        if (!cell) rows.set(j, cell = []);
+        cell.push(part);
+      }
+    }
+  }
+  return columns;
+}
+function candidates(index,parts,x,z,padding) {
+  if(padding>maxIndexedPadding)return parts;
+  return index.get(Math.floor(x/cellWidth))?.get(Math.floor(z/cellWidth)) ?? emptyCell;
+}
+const buildingCells = indexFootprints(MAP.buildings);
 const barrierCells = new WeakMap();
-const cellWidth = 12, maxIndexedPadding = 2, noBarriers = [];
 function nearbyBarriers(x, z, padding, doors) {
   const parts = estateSolids(MAP.barriers, doors);
   if (padding > maxIndexedPadding) return parts;
   let index = barrierCells.get(parts);
   if (!index || index.count !== parts.length || index.last !== parts.at(-1)) {
-    const columns = new Map();
-    for (const b of parts) {
-      const dx = b.w / 2 + maxIndexedPadding, dz = b.d / 2 + maxIndexedPadding;
-      for (let i = Math.floor((b.x-dx)/cellWidth); i <= Math.floor((b.x+dx)/cellWidth); i++) {
-        let rows = columns.get(i);
-        if (!rows) columns.set(i, rows = new Map());
-        for (let j = Math.floor((b.z-dz)/cellWidth); j <= Math.floor((b.z+dz)/cellWidth); j++) {
-          let cell = rows.get(j);
-          if (!cell) rows.set(j, cell = []);
-          cell.push(b);
-        }
-      }
-    }
-    index = {columns, count:parts.length, last:parts.at(-1)};
+    index = {columns:indexFootprints(parts), count:parts.length, last:parts.at(-1)};
     barrierCells.set(parts, index);
   }
-  return index.columns.get(Math.floor(x/cellWidth))?.get(Math.floor(z/cellWidth)) ?? noBarriers;
+  return candidates(index.columns,parts,x,z,padding);
 }
 
 const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
@@ -170,7 +179,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false
     const hit=spiralSolid(stair,x,z,padding,Math.min(maxBottom,cap));
     if(hit<=cap)top=Math.max(top,hit);
   }
-  for(const b of MAP.buildings) {
+  for(const b of candidates(buildingCells,MAP.buildings,x,z,padding)) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
     const roof=b.base+b.eave+b.rise*(1-2*dz/b.d);
@@ -311,6 +320,8 @@ const obstacles = [...MAP.rocks, ...MAP.trees, ...BREAKABLES].map(prop => ({
   ...prop, top: terrainHeight(prop.x, prop.z) + prop.height,
 }));
 
+const obstacleCells = indexFootprints(obstacles, true);
+
 function overlaps(x, z, obstacle, padding) {
   const dx = x - obstacle.x;
   const dz = z - obstacle.z;
@@ -320,7 +331,7 @@ function overlaps(x, z, obstacle, padding) {
 
 export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,round=false) {
   let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round));
-  for (const obstacle of obstacles) {
+  for (const obstacle of candidates(obstacleCells,obstacles,x,z,padding)) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
   }
@@ -413,8 +424,14 @@ export function stepPlayer(state, input, dt, hp, world) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=stanceBodyHeight(stance);
   const doors=world?.doors;
-  if (!yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) && !blocked(x+vx*dt,y,z,hp,doors,height)) x+=vx*dt; else vx=0;
-  if (!yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) && !blocked(x,y,z+vz*dt,hp,doors,height)) z+=vz*dt; else vz=0;
+  if (vx) {
+    if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height)) vx=0;
+    else x+=vx*dt;
+  }
+  if (vz) {
+    if (yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) || blocked(x,y,z+vz*dt,hp,doors,height)) vz=0;
+    else z+=vz*dt;
+  }
   // Bailouts inherit the flight area. After landing outside the walking map,
   // allow the crew to move back in without snapping them across the chart.
   const limits=parachute?flightBounds:travelBounds;
