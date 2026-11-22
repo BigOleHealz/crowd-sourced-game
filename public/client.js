@@ -1,3 +1,4 @@
+import {activeCast,fishingDetail,fishingLabel,fishingSpot} from './pier-fishing.js';
 import {equipmentKeys,meleeItems,nextEquipment} from './arcade-melee.js';
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
@@ -20,6 +21,7 @@ import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
 import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
+import {breathSeconds} from './scuba.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
 import {inSkatePark} from './skate-park.js';
 import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
@@ -120,7 +122,7 @@ let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
 let manualHolster=false,holsterSeq=0;
 const canHandleGear = () => self && !atTable() && !self.liftTravel && !atYachtHelm() && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' && !self.dive && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !vitals.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
-const canAim=()=>!manualHolster && canHandleGear();
+const canAim=()=>!activeCast(vitals.fishing) && !manualHolster && canHandleGear();
 function setHolster(value){
   manualHolster=value;
   holsterSeq=seq+1;
@@ -257,6 +259,7 @@ function setGuide(open) {
   stopLook();
   if (!open) canvas.focus({ preventScroll: true });
 }
+let queuedScuba=false;
 let touchSprint=false,handingMouseToTouch=false;
 function touchBlocked(){return !byId('guide').hidden || !!document.querySelector('dialog[open], [aria-modal="true"]:not(dialog):not([hidden])');}
 const touch=createTouchControls(canvas,{
@@ -286,7 +289,7 @@ const touch=createTouchControls(canvas,{
 });
 const down=code=>held.has(code)||touch.down(code);
 function clearInput() {
-  touch.reset();touchSprint=false;
+  touch.reset();touchSprint=false;queuedScuba=false;
   queuedHorn=queuedBomb=queuedMissile=false;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
@@ -425,8 +428,21 @@ function dogInteraction(){
   const dog=nearDog(world,{id,state:self});
   return dog?{dog,held:false}:null;
 }
+function pierAt(feet){
+  return CITY && !mode && !atTable() && !inVolleyball() && canChangeStance(feet) && fishingSpot(feet);
+}
 function pressAction(code){
+  if(code==='KeyG' && pierAt(self)){
+    const f=vitals.fishing;
+    const action=!activeCast(f)?'cast':f.phase==='bite'?'hook':f.phase==='reel'?'reel':null;
+    if(action && socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'fishing',action}));
+    return;
+  }
   if(vitals.clubSince!=null && code!=='KeyE')return;
+  if(self?.swimming && (code==='KeyG' || code==='KeyC')){
+    if(code==='KeyG' && !self.swimDepth)queuedScuba=true;
+    return;
+  }
   if(inVolleyball()){
     if(code==='Space')volleyballAction('strike');
     else if(code==='KeyE')volleyballAction('leave');
@@ -790,7 +806,7 @@ function tick() {
   const driving = isDriving();
   const basketball=playingHoops(),trigger=queuedFire || mouseFire || down('KeyF');
   const mounted=pilot || driving || gunnerRole() || atYachtHelm();
-  const holstered=!mounted && (self.swimming || vitals.swimming || manualHolster);
+  const holstered=!mounted && (activeCast(vitals.fishing) || self.swimming || vitals.swimming || manualHolster);
   if(holstered){
     releaseSwimTrigger=!!trigger;pressedAim=null;
     if(camera.sighted)showSight(false);
@@ -806,12 +822,14 @@ function tick() {
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
-  if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
+  if(activeCast(vitals.fishing))facing=Math.atan2(vitals.fishing.x-self.x,self.z-vitals.fishing.z);
+  else if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
   else if (fire || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
-  const cmd = { skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const swimY=self.swimming?Number(down('Space'))-Number(down('KeyC')):0;
+  const cmd = { ...(swimY && {swimY}), ...(queuedScuba && {toggleScuba:true}), skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     ...(holsterSeq && canHandleGear()?{holster:manualHolster}:{}),
     ...(!mounted && trigger && (holstered || releaseSwimTrigger)?{handheldHeld:true}:{}),
@@ -823,7 +841,7 @@ function tick() {
     lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
     tracking,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
-  queuedReplay = queuedDeploy = false;
+  queuedReplay = queuedDeploy = queuedScuba = false;
   queuedSkateTrick=undefined;
   queuedFlip = queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
@@ -1003,7 +1021,7 @@ function updateEquipment(local) {
   const gunner=gunnerRole(),basketball=playingHoops();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?'Swimming · Gear holstered':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?(local.scuba?'Scuba':'Swimming')+' · Air '+Math.ceil(local.swimAir??breathSeconds)+'s · '+(local.swimDepth??0).toFixed(1)+' m':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
@@ -1015,7 +1033,7 @@ function updateEquipment(local) {
   byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : unarmedRoad() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = basketball || isDriving() || jetPilot() || !!gunner;
   byId('shift-action').parentElement.hidden = basketball || local.swimming || isDriving() || jetPilot() || !!gunner;
-  byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
+  byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Rise / climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
   const gearAvailable=!!canHandleGear();
@@ -1078,7 +1096,7 @@ function updateEquipment(local) {
   else if(pilot)prompt.textContent=heli.grounded?'Space to lift off':heli.hook?.load?'Cargo attached · L to release':'Space / Shift altitude · Hold K to lower cargo hook';
   else if(helmPrompt==='occupied' || helmPrompt==='gunOccupied')prompt.textContent='Yacht station occupied';
   else if(sharkNearby)prompt.textContent='Shark approaching · swim to shallow water';
-  else if(local.swimming)prompt.textContent='Swim toward a bank or dock · Space to climb out';
+  else if(local.swimming)prompt.textContent=local.outOfAir?'Out of air · Surfacing':local.swimDepth?'C to descend · Space to surface':'C to dive · Space to climb ashore · G to '+(local.scuba?'stow':'equip')+' scuba';
   else if(local.parachute==='packed')prompt.textContent='Free fall · Press Space to deploy parachute';
   else if(local.parachute==='open')prompt.textContent='Parachute open · WASD / arrows to steer';
   else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
@@ -1136,20 +1154,28 @@ function updateEquipment(local) {
   const dogTarget=dogInteraction();
   const dogInfo=dogTarget && (dogTarget.dog.name+' · '+dogTarget.dog.hp+'/'+dogTarget.dog.maxHp+' HP');
   if(dogTarget)prompt.textContent=dogInfo+(dogTarget.held?' · X  Throw':' · E  Steal dog   X  Kick');
+  const pier=pierAt(local),fish=vitals.fishing;
   if(touch.active){
-    const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
+    const role=board || diving?'diving':local.swimming?'swimming':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,jamBoard,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
     if(dogInfo)prompt.textContent=dogInfo;
   }
+  if(pier){
+    const label=fishingLabel(fish),action=touch.active?'Tap '+label:'G · '+label;
+    prompt.textContent=pier.name+' fishing · '+fishingDetail(fish,world.simTick)+
+      (fish?.phase==='waiting'?'':'   '+action);
+    if(activeCast(fish))byId('kit').textContent='Fishing rod';
+  }
+  if(local.swimming && local.outOfAir)prompt.textContent='Out of air · Surfacing';
   if(climbingLadder){
     prompt.textContent=local.climb.down?'Descending ladder…':'Climbing ladder…';
   }else if(ladderLabel){
@@ -1296,7 +1322,7 @@ function frame(time) {
     const t = accumulator / step;
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
-    const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
+    const display=free ? stepPlayer(self,{...motion,swimY:self.swimming?Number(down('Space'))-Number(down('KeyC')):0,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
     const local = { ...display,burning:vitals.burning,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
@@ -1323,7 +1349,7 @@ function frame(time) {
     const tank=world.tank?.driver===traffic.tank?.driver ? traffic.tank : world.tank;
     const cars=traffic.traffic??[];
     const road=inTank()?tank:myRoad()?.model ? cars.find(c=>c.driver===id)??myRoad() : inGT() ? supercar : rover;
-    local.weapon = weapon;local.holstered=manualHolster;
+    local.weapon = weapon;local.fishing=vitals.fishing;local.holstered=manualHolster || !!activeCast(vitals.fishing);
     local.meleeSwing=vitals.meleeSwing;
     if (isPilot()) Object.assign(local, { x: aircraft.x, y: aircraft.y, z: aircraft.z, yaw: aircraft.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});

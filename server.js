@@ -1,3 +1,4 @@
+import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
 import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
 import {compactAmbientView} from './ambient-snapshot.js';
 import {resortArrivals} from './public/palma-site.js';
@@ -108,6 +109,10 @@ function canPlayVolleyball(world,player){
     player.clubSince==null && !drivenRoad(world,id) && !crewBoat(world,id) && !gunnerVehicle(world,id) &&
     world.tank?.driver!==id && world.jet.pilot!==id && world.heli.pilot!==id &&
     world.yacht?.driver!==id && !world.basketball?.players.includes(id);
+}
+function canFish(player){
+  return CITY && !mode && canPlayVolleyball(world,player) && !player.state.ride &&
+    !player.state.dive && !player.state.liftTravel && !world.volleyballActivity?.member(player.id);
 }
 function freshWorld(){
   const w=newExpedition({civilianMarina:!mode});
@@ -278,7 +283,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -304,6 +309,7 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(input?.type==='fishing'){fishingAction(player,input.action,ticks,canFish(player));return;}
   if(input?.type==='dog'){
     if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
       player.state.liftTravel || world.casino?.player===player.id || world.volleyballActivity?.member(player.id))return;
@@ -395,6 +401,7 @@ function acceptInput(player, data, binary) {
     skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     holster:typeof input.holster==='boolean'?input.holster:undefined,handheldHeld:input.handheldHeld===true,
+    swimY:input.swimY===1 || input.swimY===-1 ? input.swimY : 0, toggleScuba:input.toggleScuba===true,
     fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: validEquipment(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
@@ -582,6 +589,10 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(player.fishing){
+      stepFishing(player,ticks,canFish(player));
+      if(input && activeCast(player.fishing))input.fire=input.tracking=false;
+    }
     if(player.meleeSwing && (ticks>=player.meleeSwing.endTick || input?.interact || input?.seat ||
       player.life.fall || !player.life.hp))delete player.meleeSwing;
     if(player.beachPose || player.beachOrder)updateBeachVisit(player,input,ticks);

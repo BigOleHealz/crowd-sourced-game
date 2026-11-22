@@ -2,6 +2,7 @@ import {footStickPace} from './foot-stick.js';
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 const gestures={
+  swimming:{name:'Swimming',axis:'Swim',look:'Drag to look',tip:'Hold Dive to descend. Hold Rise to surface or climb ashore.',help:'Equip scuba at the surface for a longer dive. Air refills at the surface.'},
   diving:{name:'Diving',axis:'Steer',look:'Drag to look',tip:'Choose a straight dive or a front flip. Tap Open for entry in the gold zone.',help:'Use the movement stick for a small course correction in the air.'},
   basketball:{name:'Basketball',axis:'Move',look:'Drag to aim',tip:'Face the hoop and hold Shoot. Release in the gold band.',help:'Walk off the court or tap Leave basketball to return to free roam.'},
   foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Nudge the stick to run. Push forward to its edge to sprint. Swipe right of the stick to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to change stance or switch weapons.'},
@@ -202,14 +203,21 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,jamBoard,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,scuba,submerged,jamBoard,fishAction,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
+  if(role==='swimming'){
+    quick.push(['KeyC','Dive'],['Space','Rise / climb']);
+    if(!submerged)quick.push(['KeyG',scuba?'Stow scuba':'Equip scuba']);
+    if(use)quick.push(['KeyE',use]);
+    return {active,role,axis:gestures.swimming.axis,quick,tools:[]};
+  }
   if(role==='diving'){
     if(onBoard)quick.push(['Space','Straight dive'],['KeyC','Front flip']);
     else if(canOpen)quick.push(['Space','Open for entry']);
     return {active,role,axis:gestures.diving.axis,quick,tools:[]};
   }
+  if(fishAction)quick.push(['KeyG',fishAction,fishAction==='Watch the float']);
   if(use)quick.push(['KeyE',use]);
   if(foot && holsterLabel)quick.push(['Digit0',holsterLabel]);
   if(foot && dogAction)quick.push(['KeyX',dogAction]);

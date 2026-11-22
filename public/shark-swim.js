@@ -281,7 +281,8 @@ export function createSharks(){
         }else{
           goal=prey.state;speed=6.6;
           const nose=atBearing(s,s.yaw,1.48*s.size);
-          if(time>=mind.pass && distance(nose,goal)<.84 && clearCourse(s,goal)){
+          const withinBiteHeight=Math.abs(s.y-(goal.y+.72))<.68*s.size;
+          if(time>=mind.pass && withinBiteHeight && distance(nose,goal)<.84 && clearCourse(s,goal)){
             const {x,y,z}=prey.state;
             const previousHp=prey.life.hp;
             if(hurt(prey,34,tick,{x:Math.sin(s.yaw),z:-Math.cos(s.yaw)})){

@@ -1,6 +1,7 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
+import {swimColumn,carryScuba} from './scuba.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
@@ -379,21 +380,23 @@ export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
-  if(CITY && (state.climb?.kind==='platformLadder' || input.jump)){
+  const submerged=(state.swimDepth??0)>.18;
+  if(CITY && !submerged && (state.climb?.kind==='platformLadder' || input.jump)){
     const ladder=stepPlatformLadder(state,input,dt);
-    if(ladder)return ladder;
+    if(ladder)return carryScuba(state,ladder,dt);
   }
   const parkBoard=CITY && state.ride?.kind==='board' && inSkatePark(state.x,state.z);
   if(parkBoard && state.grounded && isBoardTrick(input.skateTrick))input={...input,jump:true};
   if(CITY && (state.dive || input.jump || input.flipDive)){
     const dive=stepDive(state,input,dt);
-    if(dive)return dive;
+    if(dive)return carryScuba(state,dive,dt);
   }
-  const grabAllowed=!state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
-  const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
+  const grabAllowed=!submerged && !state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
+  const risingToBank=state.swimming && !submerged && input.swimY===1 && (state.swimDepth || input.x || input.z);
+  const grab=grabAllowed && ((input.jump || risingToBank) && (state.grounded || state.swimming)
     ? {y:state.y,left:.25} : state.grab);
-  const climb=state.climb || (!state.ride && (input.jump || grab) && findLedge(state,input,hp,world,grab));
-  if(climb) return stepClimb(state,climb,dt,hp,world);
+  const climb=state.climb || (!submerged && !state.ride && (input.jump || grab) && findLedge(state,input,hp,world,grab));
+  if(climb)return carryScuba(state,stepClimb(state,climb,dt,hp,world),dt);
   const parachute = state.parachute === 'packed' && input.deploy && !input.interact ? 'open' : state.parachute;
   const requested = state.ride ? undefined : input.stance ?? state.stance;
   const stance = state.grounded && !input.jump && !parachute && !state.swimming &&
@@ -437,7 +440,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vy = ride?.kind==='board' ? OLLIE_SPEED : ride ? 4.7 : JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
-  const height=stanceBodyHeight(stance);
+  const height=state.swimming?1.12:stanceBodyHeight(stance);
   const doors=world?.doors;
   if (vx) {
     if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height)) vx=0;
@@ -475,10 +478,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
-    // Damp the last part of a fall on entry, then converge to surface height.
-    const blend=-Math.expm1(-9*dt);
-    const nextY=Math.max(floatY-.16,y+(floatY-y)*blend);
-    return {x,y:nextY,z,vx,vy:0,vz,grounded:false,swimming:true,
+    return {x,z,vx,vy:0,vz,grounded:false,swimming:true,
+      ...swimColumn(state,input,y,floatY+draft,floor,dt,contact.ceiling),
       ...(grab?.left>dt && {grab:{y:grab.y,left:grab.left-dt}})};
   }
   if(state.swimming && !deep && floor<=y+.31) {
@@ -521,5 +522,5 @@ export function stepPlayer(state, input, dt, hp, world) {
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;
   if (grounded && stance) next.stance = stance;
   if (parachute && !grounded) next.parachute = parachute;
-  return next;
+  return carryScuba(state,next,dt);
 }

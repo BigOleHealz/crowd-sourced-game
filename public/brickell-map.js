@@ -1,3 +1,4 @@
+import {seabedHeight,reefAnchorTop} from './reef-channel.js';
 import {shorePads,resortGround,onDrive} from './palma-site.js';
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
 import {resortBarriers} from './casino-layout.js';
@@ -42,6 +43,10 @@ const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,fe
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
+function islandOrSeabed(x,z) {
+  const shore=keyGround(x,z);
+  return shore===-2.8 ? seabedHeight(x,z) : shore;
+}
 export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
   const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
@@ -49,14 +54,14 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(bridge){
     const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
     const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
-    return Number.isFinite(road) && maxBottom>=soffit ? road : -2.8;
+    return Number.isFinite(road) && maxBottom>=soffit ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
   }
   if(z<=lanternBridge.north){
     const marina=dockHeight(x,z);if(marina!==undefined)return marina;
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
   }
-  return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
+  return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? islandOrSeabed(x,z) : roadway(x,z) ? .70 : .80;
 }
 
 export function parapetTop(x,z,padding,maxBottom,doors) {

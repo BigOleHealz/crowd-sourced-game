@@ -2,14 +2,19 @@ import * as THREE from 'three';
 
 // Long axis is +Y, with the nose at Y=0 (the replicated leading point).
 export function flightRounds(scene) {
-  const profile=[[0,-1],[.70,-1],[1,-.81],[.95,-.45],[.58,-.19],[0,0]];
+  const profile=[[0,-1],[.76,-1],[1,-.81],[.94,-.45],[.52,-.19],[0,0]];
   const geometry=new THREE.LatheGeometry(profile.map(([r,y])=>new THREE.Vector2(r,y)),8);
   const normals=geometry.attributes.normal, positions=geometry.attributes.position;
   const tint=new THREE.Color(), colors=[];
   for(let i=0;i<positions.count;i++){
     const y=positions.getY(i);
-    // A warm heel stays readable viewed end-on. The graphite flanks silhouette against pale paving.
-    tint.setHex(y<-.89 ? 0xe4ba84 : y<-.57 ? 0x66564a : y<-.25 ? 0x998067 : 0xd2bc95);
+    // The bright heel reads from behind; the dark shoulder separates it from sky and concrete.
+    if(y<-.89){
+      const radius=Math.hypot(positions.getX(i),positions.getZ(i));
+      tint.setHex(radius<.1?0xfff5d5:0xf3b36a);
+    }else{
+      tint.setHex(y<-.57?0x4c3830:y<-.25?0xb78558:0xefcc94);
+    }
     tint.multiplyScalar(.94+.22*normals.getX(i));
     colors.push(tint.r,tint.g,tint.b);
   }
@@ -40,8 +45,8 @@ export function flightRounds(scene) {
         if(offset){offset.frame=frame;pose.position.addScaledVector(offset,1-age/4);}
       }
       pose.quaternion.setFromUnitVectors(up,direction);
-      const length=r.weapon==='turret'?.235:r.weapon===2?.145:.185;
-      const radius=r.weapon==='turret'?.025:.020;
+      const length=r.weapon==='turret'?.26:r.weapon===2?.16:.202;
+      const radius=r.weapon==='turret'?.031:.025;
       pose.scale.set(radius,length,radius);pose.updateMatrix();mesh.setMatrixAt(i,pose.matrix);
     }
     for(const [id,offset] of offsets)if(offset.frame!==frame)offsets.delete(id);

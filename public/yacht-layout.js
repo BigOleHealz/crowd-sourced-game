@@ -4,6 +4,7 @@ import {inGuestSuite,inLowerHatch,lowerSole,mainSole,cabinTop,cabinSupport,cabin
 export const yachtBerth={x:75.4,z:-364,yaw:Math.PI};
 export const yachtSections=[[-20,.35],[-18,2.45],[-14,4.6],[-9,6.0],[-3,6.4],[12,6.4],[15,6.15],[18,5.45],[19,4.9]];
 export const yachtDeckY=mainSole;
+export const yachtKeelY=-1.34;
 export const yachtCabin={west:-4.2,east:4.2,fore:-12,aft:1,bottom:yachtDeckY,top:cabinTop};
 export const yachtPad={x:0,z:9.3,y:yachtDeckY,halfWidth:5.75,fore:2.5,aft:15};
 export const yachtHelm={x:0,y:yachtDeckY,z:-14.1};
@@ -59,6 +60,7 @@ export function yachtFloorAt(yacht,x,y,z){
   return Math.max(cut ? -Infinity : deck,yacht.y+cabinSupport(p.x,h,p.z,0,yacht.brokenGlass));
 }
 export function yachtCeilingAt(yacht,x,y,z){
+  if(yacht && y<yacht.y+yachtKeelY && Number.isFinite(yachtDeckHeight(yacht,x,z)))return yacht.y+yachtKeelY;
   if(!nearCabin(yacht,x,z))return Infinity;
   const p=yachtLocal(yacht,x,z);
   return yacht.y+cabinCeiling(p.x,y-yacht.y,p.z,yacht.brokenGlass);
@@ -144,6 +146,7 @@ export function yachtDoorAction(yacht,feet){
 export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   if(!yacht || yacht.wrecked || Math.abs(x-yacht.x)>25 || Math.abs(z-yacht.z)>25)return false;
   const feet=y-yacht.y,p=yachtLocal(yacht,x,z);
+  if(feet+bodyHeight<=yachtKeelY+.001)return false;
   if(closedCabinContact(yacht.closedCabins,p.x,feet+.30,p.z,feet+bodyHeight-.01,.26))return true;
   if(yachtDeckHeight(yacht,x,z)>y+.30 && (!inGuestSuite(p.x,p.z) || feet<lowerSole-.31))return true;
   if(p.z>=-12.4 && p.z<=1.4 && Math.abs(p.x)<4.6 &&

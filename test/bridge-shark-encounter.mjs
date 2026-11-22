@@ -1,3 +1,4 @@
+import {seabedHeight} from '../public/reef-channel.js';
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {bridges,cityGround,brickellMap}=await import('../public/brickell-map.js');
@@ -44,7 +45,7 @@ function play(bridge,position,yaw,{underDeck=false,shore=false,pitch=0,warm=0,re
       }
       if(underDeck){
         assert(cityGround(dog.x,dog.z)>waterEntry.y+3);
-        assert.equal(cityGround(dog.x,dog.z,Infinity,world.doors),-2.8,'toss passes through the raised leaves');
+        assert.equal(cityGround(dog.x,dog.z,Infinity,world.doors),seabedHeight(dog.x,dog.z),'toss passes through the raised leaves');
       }
     }
     if(underDeck && waterEntry)world.doors.bridgeLifts[bridge.north]=Math.max(0,world.doors.bridgeLifts[bridge.north]-maxLift*dt/5);
