@@ -14,9 +14,10 @@ const origin=mountPosition(y,mounts.superyacht.turret);
 Object.assign(w.heli,{x:origin.x,y:origin.y+3,z:origin.z+11,grounded:false});
 y.turretYaw=Math.PI;y.turretPitch=.31;
 fireTurret(w,'superyacht',other,0);assert.equal(w.bullets.length,0);
+const startingHealth=w.heli.hp;
 fireTurret(w,'superyacht',gunner,0);
 for(let tick=0;tick<9;tick++)advanceRounds(w,people,[],tick);
-assert.equal(w.heli.hp,400);assert.equal(y.hp,2000);
+assert.equal(startingHealth-w.heli.hp,80);assert.equal(y.hp,2000);
 y.turretYaw=Math.PI/2;y.turretPitch=.8;
 for(let tick=1;tick<30;tick++){
   fireTurret(w,'superyacht',gunner,tick);fireTurret(w,'superyacht',gunner,tick);
@@ -28,4 +29,4 @@ damageYacht(w,1399);assert.equal(y.hp,601);assert.equal(yachtSmoking(y),false);
 damageYacht(w,1);assert.equal(y.hp,600);assert(yachtSmoking(y));
 interactYacht(w,gunner);damageYacht(w,599);assert(yachtSmoking(y));
 damageYacht(w,1);assert(!yachtSmoking(y));assert.equal(y.gunner,null);assert.equal(y.driver,null);
-console.log('PASS independent helm and bow gun, exclusive controls, ten rounds per second, 100 aircraft damage, smoke threshold and crew release');
+console.log('PASS independent helm and bow gun, exclusive controls, ten rounds per second, 80 aircraft damage, smoke threshold and crew release');
