@@ -1,9 +1,11 @@
+import {addSkatePark} from './skate-park-view.js';
 import {beachSigns} from './scenery-layout.js';
 import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, courts, sandHeight } from './beach-layout.js';
 export function addBeach(scene,Batch) {
+  addSkatePark(scene,Batch);
   const geometry=new THREE.PlaneGeometry(beach.east-beach.west,beach.south-beach.north,24,64);
   geometry.rotateX(-Math.PI/2);geometry.translate((beach.east+beach.west)/2,0,(beach.south+beach.north)/2);
   const p=geometry.attributes.position, colors=[],c=new THREE.Color();

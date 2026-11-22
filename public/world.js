@@ -5,6 +5,7 @@ import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
+import {inSkatePark,rideParkRail} from './skate-park.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
@@ -421,7 +422,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx=oldX+(vx-oldX)*blend;vz=oldZ+(vz-oldZ)*blend;
   }
   let { x, y, z, vy = 0, grounded = false } = state;
-  if (input.jump && grounded && ride?.kind!=='bike') {
+  if (input.jump && grounded && (ride?.kind!=='bike' || CITY && inSkatePark(x,z))) {
     grounded = false;
     vy = ride ? 4.7 : JUMP_SPEED;
   }
@@ -500,6 +501,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if(ride)next.ride={...ride,speed:Math.hypot(vx,vz)};
+  if(CITY && ride && (ride.grind || inSkatePark(x,z)))rideParkRail(state,next,input);
   if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;

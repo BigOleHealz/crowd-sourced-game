@@ -20,6 +20,7 @@ import {marketPanel} from './market-panel.js';
 import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
+import {inSkatePark} from './skate-park.js';
 import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
 import {basketballHud} from './basketball-hud.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
@@ -1042,7 +1043,10 @@ function updateEquipment(local) {
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
   if(local.ride){
     prompt.textContent=local.ride.kind==='bike' ? 'Bicycle · W pedal · S brake · A/D steer · E dismount' : 'Skateboard · W push · S brake · A/D carve · Space ollie · E step off';
-    byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike';byId('space-action').textContent='Ollie';canvas.classList.remove('armed');
+    const bikeHop=local.ride.kind==='bike' && inSkatePark(local.x,local.z);
+    if(bikeHop)prompt.textContent='Bicycle · W pedal · A/D steer · Space hop · Align with a rail to grind';
+    if(local.ride.grind)prompt.textContent='Grinding · Space hop off';
+    byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike' && !bikeHop;byId('space-action').textContent=bikeHop?'Bunny hop':'Ollie';canvas.classList.remove('armed');
   }
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
@@ -1076,7 +1080,7 @@ function updateEquipment(local) {
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
-      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
+      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
     if(dogInfo)prompt.textContent=dogInfo;

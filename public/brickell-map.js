@@ -16,6 +16,7 @@ import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBa
 import {keyGround} from './offshore-keys.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
+import {skateParkFloor} from './skate-park.js';
 import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
@@ -62,7 +63,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
   }
-  return onBeach(x,z) ? (beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
+  return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
 }
 
 export function parapetTop(x,z,padding,maxBottom,doors) {

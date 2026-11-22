@@ -6,10 +6,12 @@ import {avenues,streets,harbor,streetPlan} from './brickell-map.js';
 import {MAP,CITY} from './world.js';
 import {roadGarages} from './road-garages.js';
 import {churchPath} from './ridge-church.js';
+import {skatePark} from './skate-park.js';
 import {basketballCourt} from './basketball-layout.js';
 
 export const destinations=CITY?new Map([
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[-71,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  [skatePark.name,[39.35,-156.35]],
   [casinoName,[arrivalDoor.x,arrivalDoor.z+2.0]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
@@ -38,6 +40,7 @@ if(CITY){
   for(const z of [harbor.crossing,streetPlan.northStreet])path((z===harbor.crossing?[...outer,19.1].sort((a,b)=>a-b):[...outer,fuelStop.x].sort((a,b)=>a-b)).map(x=>[x,z]));
   for(const x of outer)path([[x,harbor.crossing],[x,streetPlan.northStreet]]);
   path([[streetPlan.eastStreet,streetPlan.northStreet],[37,streetPlan.northStreet],[39,basketballCourt.z+2.7],destinations.get(basketballCourt.name)]);
+  path([[streetPlan.eastStreet,harbor.crossing],[38.25,-199],[38.25,-156.35],destinations.get(skatePark.name)]);
   path([[streetPlan.eastStreet,harbor.crossing],[38.8,-201.5],destinations.get('Harbor Key Beach Club')]);
   path([[0,-60],[0,harbor.crossing]]);path([[0,streetPlan.northStreet],[0,-370]]);
   for(const z of [-466,-419,-370])path([-49,0,49].map(x=>[x,z]));

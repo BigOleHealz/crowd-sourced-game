@@ -5,6 +5,7 @@ import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
+import {parkRides} from './public/skate-park.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
@@ -107,7 +108,7 @@ function freshWorld(){
   const w=newExpedition({civilianMarina:!mode});
   w.traffic=newCityTraffic({resort:!mode});w.traffic.push(fireEngine());
   if(CITY){
-    w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
+    w.rides=[...(mode?[]:[...boardRacks(groundHeight),...parkRides(groundHeight)]),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
