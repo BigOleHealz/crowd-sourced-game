@@ -31,7 +31,7 @@ function choose(sharks,dogs){
     taken.add(d.id);
   }
 }
-function approach(s,d,e,dt,sharks){
+function approach(s,d,e,dt,sharks,tick){
   const tossed=!!e.tossKey,bridge=tossed && dogTossBridge(d);
   if(e.contactAt!=null){
     d.x=e.x;d.z=e.z;d.speed=0;
@@ -61,6 +61,7 @@ function approach(s,d,e,dt,sharks){
     const end={x:d.x+forwardX*1.45,z:d.z+forwardZ*1.45};
     s.phase='dog-strike';
     Object.assign(e,{t:0,x:d.x,z:d.z,yaw:s.yaw,run:!helpers.length && clearSharkCourse(d,end,bridge)?1.45:0,size:d.size});
+    if(Number.isFinite(tick))d.sharkBite={tick,x:snap(d.x),y:snap(d.y),z:snap(d.z),yaw:s.yaw};
   }
 }
 function strike(s,d,e,dt,removeDog){
@@ -77,7 +78,7 @@ function strike(s,d,e,dt,removeDog){
 }
 // Called after the normal dog and shark simulations. A carried or ashore dog
 // immediately leaves the encounter; one shark controls the dog during contact.
-export function stepSharkDogEncounters(world,dt,removeDog){
+export function stepSharkDogEncounters(world,dt,removeDog,tick){
   const dogs=world.dogs,sharks=world.sharks;
   if(!dogs?.length || !sharks?.length)return;
   const remaining=(searches.get(world)??0)-dt;
@@ -88,6 +89,6 @@ export function stepSharkDogEncounters(world,dt,removeDog){
     if(!s.hp || !d || (d.mode!=='swimming' && !(d.mode==='removed' && s.phase==='dog-strike' && e.t>=removeAt))){finish(s);continue;}
     e.t=snap(e.t+dt);
     if(s.phase==='dog-strike')strike(s,d,e,dt,removeDog);
-    else approach(s,d,e,dt,sharks);
+    else approach(s,d,e,dt,sharks,tick);
   }
 }

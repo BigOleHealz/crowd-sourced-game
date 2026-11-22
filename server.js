@@ -819,7 +819,7 @@ function tick() {
   world.stepSharks?.(step,players,ticks,damageActor);
   if(players.size && world.dogs){
     stepDogs(world,npcs,players,step,ticks);
-    stepSharkDogEncounters(world,step,world.removeEncounterDog);
+    stepSharkDogEncounters(world,step,world.removeEncounterDog,ticks);
   }
   if(players.size)stepSharkScavenging(world,players,npcs,ticks,step);
   if(players.size) {

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // A horizontal film sits on the waves. It marks the individual lunges while the
 // existing suspended pigment and air bubbles follow the swimmer down the column.
-export function strikeWaterFilm(scene,waterline,capacity,foamOnly=false){
+export function strikeWaterFilm(scene,waterline,capacity,foamOnly=false,name=foamOnly?'Feeding shark foam':'Shark surface strike rings'){
   const geo=new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2);
   const state=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3);
   state.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('strikeState',state);
@@ -41,7 +41,7 @@ export function strikeWaterFilm(scene,waterline,capacity,foamOnly=false){
       }`,
   });
   const film=new THREE.InstancedMesh(geo,mat,capacity);
-  film.name=foamOnly?'Feeding shark foam':'Shark surface strike rings';
+  film.name=name;
   film.frustumCulled=false;film.renderOrder=foamOnly?6:5;
   film.instanceMatrix.setUsage(THREE.DynamicDrawUsage);film.count=0;scene.add(film);
   const pose=new THREE.Object3D();

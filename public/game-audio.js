@@ -3,6 +3,7 @@ import {hoop} from './basketball-layout.js';
 import {wheelContactSounds,wheelLandingBuffer} from './skate-touchdown.js';
 import {beachDJ} from './beach-club.js';
 import {dogWhimper,dogWhimpers} from './dog-whimper.js';
+import {sharkBiteVoiceGain} from './shark-dog-feedback.js';
 import {projectorRoar} from './projector-roar.js';
 import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
 import {marineBlastCalls,marineImpactSound} from './marine-float.js';
@@ -300,7 +301,10 @@ export function createGameAudio(button,slider,level,caption) {
         pendingBankClip=false;
       }
     }
-    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
+    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick,contact)=>{
+      const gain=contact?sharkBiteVoiceGain(contact,listener):1;
+      if(gain>0)burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',contact??dog,listener,yaw,.89*gain,tick);
+    });
     previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
     courtSounds.step(world.basketball,cue=>{
