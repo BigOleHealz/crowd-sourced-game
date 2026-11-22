@@ -4,11 +4,12 @@ import {sharkDefeatPose} from './shark-defeat.js';
 
 // Each group marks where the struggle was at that moment. Its pigment diffuses
 // with the current after the shark and swimmer have moved on.
-const times=[0,.17,.39,.74,1.06,1.48,1.88,2.32],clouds=4,bubbles=6,maxEvents=5,life=8;
+const times=[0,.17,.39,.74,1.06,1.24,1.48,1.70,1.94,2.20,2.44],clouds=4,bubbles=6,maxEvents=5,life=8;
+const foamColor=new THREE.Color(0xd9eae3),bloodColor=new THREE.Color(0x8d1722);
 const maxArrivals=4,maxPulses=times.length+2*maxArrivals;
 function sprayBatch(scene){
   const geo=new THREE.SphereGeometry(1,7,5);
-  const mat=new THREE.MeshBasicMaterial({color:0xd9eae3,transparent:true,opacity:.71,depthWrite:false});
+  const mat=new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.71,depthWrite:false});
   const spray=new THREE.InstancedMesh(geo,mat,maxEvents*maxPulses*bubbles);
   spray.name='Shark struggle spray';spray.renderOrder=5;spray.count=0;spray.frustumCulled=false;
   spray.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(spray);return spray;
@@ -20,7 +21,7 @@ function eventPulses(event,waterline,emissions=times,seed=0){
     const p=sharkDefeatPose(event,start),y=Math.min(waterline-.10,p.y+.75);
     return {start,x:p.x,y,z:p.z,
       plumes:Array.from({length:clouds},()=>({angle:rand()*6.283,spread:.16+.4*rand(),scale:.67+.69*rand(),phase:rand()*31})),
-      foam:Array.from({length:bubbles},()=>({angle:rand()*6.283,spread:.16+.36*rand(),rise:.48+.45*rand(),
+      foam:Array.from({length:bubbles},(_,j)=>({bloody:j%3===0,angle:rand()*6.283,spread:.16+.36*rand(),rise:.48+.45*rand(),
         height:(i<3?.61:.24)*(.45+.75*rand()),radius:.016+.031*rand()}))};
   });
 }
@@ -75,15 +76,16 @@ export function createSharkDefeatView(scene,waterline){
           if(air>.65)continue;
           const horizontal=p.spread*Math.min(1,t*1.8),x=pulse.x+Math.cos(p.angle)*horizontal,z=pulse.z+Math.sin(p.angle)*horizontal;
           const y=air<0 ? pulse.y+p.rise*t : waterline+4*p.height*(air/.65)*(1-air/.65);
-          const r=p.radius*e.size*(air<0?.77:1-THREE.MathUtils.smoothstep(air,.40,.65));
-          pose.position.set(x,y,z);pose.scale.set(r,r*(air<0?1.15:1.8),r);pose.updateMatrix();spray.setMatrixAt(k++,pose.matrix);
+          const r=p.radius*e.size*(p.bloody?1.5:1)*(air<0?.77:1-THREE.MathUtils.smoothstep(air,.40,.65));
+          pose.position.set(x,y,z);pose.scale.set(r,r*(p.bloody?2.8:air<0?1.15:1.8),r);pose.updateMatrix();
+          spray.setColorAt(k,p.bloody?bloodColor:foamColor);spray.setMatrixAt(k++,pose.matrix);
         }
       }
     }
     if(batch){
       batch.mist.visible=n>0;batch.mist.count=n;
       if(n){batch.mist.instanceMatrix.needsUpdate=true;batch.density.needsUpdate=true;}
-      spray.visible=k>0;spray.count=k;if(k)spray.instanceMatrix.needsUpdate=true;
+      spray.visible=k>0;spray.count=k;if(k){spray.instanceMatrix.needsUpdate=true;spray.instanceColor.needsUpdate=true;}
     }
   };
 }

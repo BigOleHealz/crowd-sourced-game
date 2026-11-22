@@ -1,19 +1,20 @@
 // The swimmer, shark and water effects use the same three-second contact path.
 const smooth=(a,b,t)=>{const u=Math.max(0,Math.min(1,(t-a)/(b-a)));return u*u*(3-2*u);};
 export function sharkDefeatPose(event,age){
-  const grab=smooth(0,.30,age),tow=smooth(.26,1.85,age),sink=smooth(.58,2.30,age);
+  const grab=smooth(0,.30,age),tow=smooth(.26,1.85,age),sink=smooth(1.18,2.48,age);
+  const lastBreath=smooth(.84,1.08,age)*(1-smooth(1.12,1.50,age));
   const tension=grab*(1-smooth(1.50,2.35,age));
   const forward=.45*grab+2.40*tow,side=.27*Math.sin(9.6*age)*tension;
   const towYaw=event.towYaw??event.yaw,c=Math.cos(towYaw),s=Math.sin(towYaw);
-  return {x:event.x+s*forward+c*side,y:event.y+.16*Math.sin(Math.PI*grab)-.90*sink,
+  return {x:event.x+s*forward+c*side,y:event.y+.16*Math.sin(Math.PI*grab)+.28*lastBreath-1.65*sink,
     z:event.z-c*forward+s*side,yaw:event.yaw+.34*Math.sin(6.7*age)*tension,
-    pitch:-.54-.79*grab+.12*Math.sin(12*age)*tension,
+    pitch:-.54-.79*grab+.34*lastBreath+.12*Math.sin(12*age)*tension,
     roll:.18*grab+1.12*Math.sin(10.5*age)*tension+.33*sink};
 }
 
 export function poseBittenSwimmer(a,event,age){
   const p=sharkDefeatPose(event,age);
-  const fight=(1-smooth(.46,1.30,age)),pull=smooth(0,.25,age);
+  const fight=(1-smooth(1.12,1.68,age)),pull=smooth(0,.25,age);
   a.gait=null;
   a.root.position.set(p.x,p.y,p.z);
   a.root.rotation.set(0,-p.yaw,0,'YXZ');a.root.scale.setScalar(1);

@@ -258,7 +258,7 @@ varying vec3 skyDir;uniform sampler2D panorama;uniform vec3 horizonTint;uniform 
         #include <colorspace_fragment>
       }`
   }));
-  sky.frustumCulled=false;
+  sky.name='World sky';sky.frustumCulled=false;
   sky.onBeforeRender=(_r,_s,camera)=>{
     sky.matrixWorld.setPosition(camera.position);
     sky.modelViewMatrix.multiplyMatrices(camera.matrixWorldInverse,sky.matrixWorld);
@@ -1044,6 +1044,8 @@ export function createScene(canvas,onFootfall) {
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const lighting=roadLighting(scene,ambient,sun);
   const panorama=addSky(scene);
+  const worldSky=scene.getObjectByName('World sky');
+  const underwaterFog=new THREE.FogExp2(0x21606a,.115);
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
@@ -1542,9 +1544,10 @@ export function createScene(canvas,onFootfall) {
       const side=Math.cos(view.yaw-localDefeat.yaw)>=0 ? 1 : -1;
       // Frame the crossing shark broadside and keep the struggle visible even
       // when the defeated swimmer was sighting straight up or down.
-      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65,victim.z+foreX*3.7*side-foreZ*.85);
+      const dive=THREE.MathUtils.smoothstep(age,1.25,2.35);
+      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65-2.66*dive,victim.z+foreX*3.7*side-foreZ*.85);
       camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.25));
-      camera.lookAt(victim.x,Math.max(MAP.waterY-.35,victim.y+.74),victim.z);
+      camera.lookAt(victim.x,victim.y+.74,victim.z);
       avatars.get(local.id).root.visible=true;
     }
     if(world.casino?.player===local.id && !local.dead){
@@ -1558,7 +1561,12 @@ export function createScene(canvas,onFootfall) {
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
-    renderer.render(scene,camera);
+    if(localDefeat && camera.position.y<MAP.waterY){
+      const airFog=scene.fog,background=scene.background;
+      scene.fog=underwaterFog;scene.background=underwaterFog.color;worldSky.visible=false;
+      renderer.render(scene,camera);
+      scene.fog=airFog;scene.background=background;worldSky.visible=true;
+    }else renderer.render(scene,camera);
   }
   function showShots(shots) {
     for(const shot of shots){

@@ -16,5 +16,7 @@ for(let i=0;i<90;i++){
  assert(rig.tools.every(t=>!t.visible));
  previous=p;
 }
-assert(previous.x>event.x+2.8 && previous.y<event.y-.85);
+assert(previous.x>event.x+2.8 && previous.y<event.y-1.6);
+const breath=sharkDefeatPose(event,1.10),dive=sharkDefeatPose(event,2.40);
+assert(breath.y>event.y+.24 && dive.y<breath.y-1.8,'Last surface breath gives way to a sustained pull underwater');
 console.log('Swimmer turns around the contact point and travels continuously through the drag and submersion.');

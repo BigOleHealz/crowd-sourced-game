@@ -159,21 +159,21 @@ export function createSharks(){
     }
     const contact=sharkDefeatPose(event,age);
     const side=i%2?1:-1;
-    const joined=s.phase==='feeding';
+    const joined=s.phase==='feeding',releaseAt=2.47;
     let desiredYaw,motion,depth;
     if(!joined){
       const lookAhead=sharkDefeatPose(event,Math.min(1.95,age+.16));
       desiredYaw=Math.atan2(lookAhead.x-s.x,s.z-lookAhead.z);
       motion=4.4;depth=contact.y+.72;
     }else{
-      desiredYaw=mind.biteYaw+side*(age<1.86 ? .12*Math.sin(age*5) : .12+(age-1.86)*2.05);
-      motion=age<1.86?0:2.55;
-      depth=contact.y+.72-Math.max(0,age-1.86)*.28;
+      desiredYaw=mind.biteYaw+side*(age<releaseAt ? .12*Math.sin(age*5) : .12+(age-releaseAt)*2.05);
+      motion=age<releaseAt?0:2.55;
+      depth=contact.y+.72-Math.max(0,age-releaseAt)*.28;
     }
     const turn=Math.atan2(Math.sin(desiredYaw-s.yaw),Math.cos(desiredYaw-s.yaw));
     const yaw=s.yaw+clamp(turn,-dt*2.4,dt*2.4);
     const next=atBearing(s,yaw,motion*dt);
-    if(joined && age<1.86){
+    if(joined && age<releaseAt){
       const grip=atBearing(contact,yaw,-1.45*s.size);
       const d=distance(s,grip),k=Math.min(1-Math.exp(-18*dt),5.5*dt/Math.max(.001,d));
       next.x=s.x+(grip.x-s.x)*k;next.z=s.z+(grip.z-s.z)*k;
