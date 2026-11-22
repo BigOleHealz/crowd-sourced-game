@@ -6,6 +6,7 @@ The sound effects listed below use edited mono Opus files. Their source recordin
 
 | Game sound | Recording and artist | Edit |
 | --- | --- | --- |
+| Basketball net | [Outdoor Basketball Shot.wav by fattirewhitey](https://freesound.org/people/fattirewhitey/sounds/381410/) | Isolated the opening nylon-net swish before the first bounce, rolled off road rumble, and faded the tail. |
 | Plate glass | [Glass.ogg by egomassive](https://freesound.org/people/egomassive/sounds/536763/), based on Craig Smith’s CC0 recording “G26-07 Windows Breaking” | Trimmed the onset, retained the falling shards, and normalized the level. |
 | Helicopter | [Helicopter Rotor Loop.flac by qubodup](https://freesound.org/people/qubodup/sounds/187681/) | Mixed to mono, selected a stable blade cadence, and crossfaded the loop. |
 | Falling and settling masonry | [Concrete Breaks Several Denoised by loganzsound](https://freesound.org/people/loganzsound/sounds/843339/) | Selected two separate impacts, removed the quiet lead-ins, and trimmed their tails. |

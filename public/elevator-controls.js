@@ -7,7 +7,8 @@ export function elevatorControls(dialog,depart,enter,leave){
     show(s){
       station=s;enter();
       heading.textContent=s.p.name+' · Elevator';
-      options.replaceChildren(...s.p.panels.map(p=>{
+      const stops=s.p.hotelTower?[...s.p.panels.slice(0,1),...s.p.panels.slice(21),...s.p.panels.slice(1,21)]:s.p.panels;
+      options.replaceChildren(...stops.map(p=>{
         const button=document.createElement('button');
         button.type='button';button.textContent=p.label??(p.index?'Floor '+(p.index+1):'Ground lobby');
         button.disabled=p.index===s.index;

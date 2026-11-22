@@ -1,7 +1,6 @@
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
-import {casinoHall,casinoSeat} from './casino-layout.js';
-import {resortFloorView} from './resort-floor-view.js';
+import {casinoSeat} from './casino-layout.js';
 import {resortExterior} from './resort-exterior.js';
 import {fitParadeBreeches} from './parade-costume.js';
 import {streetRideView,riderPose} from './street-ride-view.js';
@@ -18,8 +17,8 @@ import {buildingInteriorView} from './building-interior-view.js';
 import {roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
-import {beachClubCast,poseBeachClub} from './beach-club-cast.js';
-import {castForAudience,poseCabaret} from './club-lucero-view.js';
+import {poseBeachClub} from './beach-club-cast.js';
+import {poseCabaret} from './club-lucero.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
@@ -1105,7 +1104,7 @@ export function createScene(canvas) {
     Object.assign(sun.shadow.camera,{left:-72,right:72,top:61,bottom:-61});
   }
   if(CITY)scene.add(sun.target);
-  let lanternShadows=false,shoreCamera=0;
+  let lanternShadows=false,casinoShadowBand=-1,shoreCamera=0;
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const lighting=roadLighting(scene,ambient,sun);
   const panorama=addSky(scene);
@@ -1127,8 +1126,7 @@ export function createScene(canvas) {
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   const updateCasino=CITY?casinoView(scene,Batch):null;
-  const updateResortExterior=CITY?resortExterior(scene,Batch):null;
-  let updateResortFloor;
+  const updateResortExterior=CITY?resortExterior(scene,Batch,panorama):null;
   const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1298,13 +1296,17 @@ export function createScene(canvas) {
     scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
     const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
-    if(lanternShadows!==insideLantern){
+    const nearResort=CITY && Math.hypot(local.x+69,local.z-60)<70;
+    const shadowBand=nearResort?Math.floor(Math.max(0,local.y)/25):-1;
+    if(lanternShadows!==insideLantern || casinoShadowBand!==shadowBand){
+      casinoShadowBand=shadowBand;
       lanternShadows=insideLantern;
-      const distance=lanternShadows?2.2:1,centerZ=lanternShadows?-416:0;
-      sun.target.position.set(0,0,centerZ);
-      sun.position.set(-36*distance,32*distance,centerZ-21*distance);
-      const extent=lanternShadows?92:45;
-      Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,far:lanternShadows?240:130});
+      const distance=lanternShadows?2.2:nearResort?1.8:1,centerZ=lanternShadows?-416:nearResort?61:0;
+      const centerX=nearResort?-68:0,centerY=nearResort?shadowBand*25+5:0;
+      sun.target.position.set(centerX,centerY,centerZ);
+      sun.position.set(centerX-36*distance,centerY+(nearResort?45:32)*distance,centerZ-21*distance);
+      const extent=lanternShadows?92:nearResort?52:45;
+      Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,far:lanternShadows||nearResort?240:130});
       sun.shadow.camera.updateProjectionMatrix();renderer.shadowMap.needsUpdate=true;
     }
     dt=clamp(dt||.016,0,.10);clock+=dt;
@@ -1372,15 +1374,14 @@ export function createScene(canvas) {
       basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
-    updateResortExterior?.(dt,local);
-    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58 && local.y<20)
-      updateResortFloor=resortFloorView(scene,Batch);
-    updateResortFloor?.(dt,local);
+    updateResortExterior?.(dt,local,world.doors);
     const attackTick=world.frameTick??world.simTick;
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...(CITY?beachClubCast(local,[local,...remotes],attackTick,skyDarkness.value>0):[]),...athletes,...hoopPlayers]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
+      if(state.venue && Math.hypot(state.x-local.x,state.z-local.z)>(state.venue==='beach'?48:22))continue;
+      if(state.burning)effects.fireView.burningActor(state,local);
       live.add(state.id);
       let a=avatars.get(state.id);
       if(state.dead && state.deathKind==='blast'){
@@ -1404,7 +1405,7 @@ export function createScene(canvas) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.beachRole && !state.volleyball && !state.performer && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.venue && !state.volleyball && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1414,7 +1415,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (state.beachRole || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1445,15 +1446,16 @@ export function createScene(canvas) {
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
-        if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
+        if(volley && !state.sidelined && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
-        if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick);
+        if(a.shaker)a.shaker.visible=!!state.pouring;
+        if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick,skyDarkness.value>0);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(typeof state.id==='string' && !state.dead && !state.fall &&
-          (state.casinoDealer || state.bankRole || state.performer || state.volleyball || basketballLooks[state.id])){
+          (state.casinoDealer || state.bankRole)){
           const alarm=gunfireAlarm(world.panicCues,state,world.simTick);
-          poseBystanderCover(a,state,alarm,dt,clock,!!(state.volleyball || basketballLooks[state.id]));
+          poseBystanderCover(a,state,alarm,dt,clock,false);
         }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
@@ -1468,6 +1470,7 @@ export function createScene(canvas) {
     }
     updateDogs?.(world.dogs,avatars,local,dt,clock,attackTick);
     contacts.end(world,local);
+    effects.fireView.finishActors();
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);

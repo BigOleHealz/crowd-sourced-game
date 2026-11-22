@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {paneBatch} from './pane-damage-view.js';
+import {glassSupportKey} from './glass-support.js';
 import {beachHut, harborHouses, harborUpperWindows} from './harbor-key-structures.js';
 import {sandHeight} from './beach-layout.js';
 import {decoResidence} from './harbor-deco-view.js';
@@ -73,7 +74,8 @@ function addResidences(houses, panes, box, podiumTop) {
 
     decoResidence(houses,box,house,top);
 
-    for(const {id,tint,axis,side,across,y,width,h:height,withShutters} of windows){
+    for(const pane of windows){
+      const {id,tint,axis,side,across,y,width,h:height,withShutters}=pane;
       const line=side*(axis==='x' ? w/2 : d/2);
       const face=(color,u,v,span,tall,depth=.05,offset=.028)=>{
         if(axis==='x')piece(color,line+side*offset,v,u,depth,tall,span);
@@ -83,7 +85,7 @@ function addResidences(houses, panes, box, podiumTop) {
         face(trim,across+edge*(width/2+.041),y,.082,height+.17);
         face(trim,across,y+edge*(height/2+.041),width,.082);
       }
-      panes.add(id,()=>face(tint,across,y,width,height,.037,.071));
+      panes.add(id,()=>face(tint,across,y,width,height,.037,.071),{...pane,owner:house});
       face(trim,across,y,.036,height,.033,.095);
       face(trim,across,y,width,.034,.031,.095);
       face(trim,across,y-height/2-.08,width+.24,.070,.19,.09);
@@ -189,5 +191,12 @@ export function addHarborKeyStructures(scene,Batch,podiumTop) {
   timber.mesh(scene,material).userData.impactSurface='wood';
   metal.mesh(scene,material).userData.impactSurface='metal';
   box.dispose();
-  return panes.bind(mesh);
+  const updatePanes=panes.bind(mesh);
+  let previous;
+  return doors=>{
+    const key=(doors?.glassSeq??0)+'|'+glassSupportKey(doors);
+    if(key===previous)return;
+    previous=key;
+    updatePanes(doors?.brokenPanes,doors);
+  };
 }

@@ -1,11 +1,7 @@
-import {palaceQuays,arrivalGround,arrivalSolids} from './palace-arrival.js';
-import {casinoQuay,wingSolids} from './waterfront-wing.js';
-import {salonFurniture} from './waterfront-salon-layout.js';
-import {atriumFixtures} from './grand-atrium.js';
+import {shorePads,resortGround,onDrive} from './palma-site.js';
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
-import {resortFurniture} from './resort-floor-layout.js';
 import {resortBarriers} from './casino-layout.js';
-import {bankSite} from './bank-site.js';
+import {bankSite,bankParcelTowerId} from './bank-site.js';
 import {stationBarriers} from './fire-sites.js';
 import {club,clubSolids} from './club-lucero.js';
 import {marketHalls} from './harbor-market.js';
@@ -35,23 +31,20 @@ export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-2
 export const causeway=causewayArch(-6,6,harbor.south,coast.north);
 export const within=contains;
 export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
-// The new cabaret occupies the northern tip of the turning apron. Its lobby
-// replaces the old short curb here; both drawing and walking use this plan.
-streetPlan.curbs=streetPlan.curbs.filter(c=>Math.abs(c.x-club.x)>club.w/2 || Math.abs(c.z-club.z)>club.d/2);
+// Keep the western turning apron open beside the resort.
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-71.5 && e.z===61));
-// Keep the avenue curb open for pedestrians crossing onto the salon terrace.
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(c.x< -71.5 && c.x> -72 && Math.abs(c.z-61)<4.5));
 export const bridges=[causeway,lanternBridge];
 // Open the former avenue turning head into the resort drive.
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
-const oldShores=[...palaceQuays,coast,causeway,harbor,casinoQuay],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
+const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
 export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
-  const arrival=arrivalGround(x,z);if(arrival!==undefined)return arrival;
+  const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
   const bridge=bridges.find(r=>within(r,x,z));
   if(bridge){
     const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
@@ -83,27 +76,36 @@ const towers = [
   [-16,-53,17,8,23,0],[17,-54,12,7,31,1],[-56,69,13,7,28,1],
   [-18,69,15,7,22,3],[17,69,16,7,27,0],
 ];
-const resortWings=new Map([[2,'Lantern Club Hotel'],[11,'Lantern Club Hotel & Suites'],[12,'Lantern Club Oasis Tower']]);
+const replacedTowers=new Set([2,11,12]);
 const buildings=towers.map(([x,z,w,d,eave,facade],towerId)=>({
-  towerId,resortWing:resortWings.get(towerId),
+  towerId,
   x,z,w,d,eave,facade,rise:0,
   // Raised housing on the roof. Barrier heights are relative to the ground.
   housing:{x:x+w*.13,z,w:w*.45,d:d*.46,bottom:eave+.06,h:eave+1.24},
 }));
-const palms=[];
+const cityPlots=[...buildings,...harborHouses,...marketHalls,bankSite];
+const plotIds=new WeakMap(cityPlots.map((b,id)=>[b,id]));
+export const citySiteId=b=>plotIds.get(b);
+// Substitute the bank in the old tower slot so surviving shops retain their tenant indices.
+const activePlots=cityPlots.filter(b=>b!==bankSite && !replacedTowers.has(b.towerId))
+  .map(b=>b.towerId===bankParcelTowerId?bankSite:b);
+const retainedTowers=activePlots.filter(b=>b.housing);
+const palms=[[-69.2,34.1,7.9],[-68.2,51.8,7.6],[-45.4,39.7,7.9],[-46.3,48.4,6.8],
+  [-74.43,92.8,8.6],[-73.7,97.1,7.7],[-63.15,96.4,6.8],[-44.4,96.4,7.4],[-34.35,94.7,7.1],
+  [-27.8,78.8,6.7],[-10.4,78.8,6.55]].map(([x,z,height])=>({x,z,height,radius:.19}));
 for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
-  if(x===-45 && z===53)continue; // The fountain occupies this former planting bed.
+  if(onDrive(x,z) || x===-45 && z>=32)continue; // The fountain occupies this former planting bed.
   palms.push({x,z,height:6.4+1.1*Math.abs(Math.sin(x+z)), radius:.22});
 }
 for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-253,-267])
   palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
-  bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...arrivalSolids,...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  bounds: 109, westBound:-245, southBound:118, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
+  barriers:[...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({
       x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,postId:'beach-'+i,woodId:'sign-'+i,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:[...palms,...lanternPalms].filter(p=>!roadway(p.x,p.z)),
-  buildings:[...buildings,...harborHouses,...marketHalls,bankSite],
+  buildings:activePlots,
 };

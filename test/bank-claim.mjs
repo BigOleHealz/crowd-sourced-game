@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {bankSite,bankRoadZ,bankFront}=await import('../public/bank-site.js');
 const {MAP}=await import('../public/world.js');
+const {destinations,landmarkGuide}=await import('../public/landmark-navigation.js');
+const {storefrontFaces}=await import('../public/frontage-glass.js');
 const {breachTower,towerStride}=await import('../public/tower-damage.js');
 const {createBank}=await import('../bank-claim.js');
 const {harborTrade,newWallet}=await import('../harbor-trade.js');
@@ -29,6 +31,15 @@ function branch(){
 }
 {
   const {world,bank,join,act,step,receipts}=branch(),p=join(1),other=join(2);
+  assert.equal(MAP.buildings.filter(b=>b===bankSite).length,1);
+  assert(!MAP.buildings.some(b=>b.towerId===5),'retired tower shell and storefronts');
+  assert(!MAP.barriers.some(b=>Math.abs(b.x+19)<8 && Math.abs(b.z-43)<9.5 && b.bottom>40),'retired tower roof housing');
+  assert(!MAP.buildings.some(b=>Math.abs(b.x-18)<b.w/2 && Math.abs(b.z-1.4)<b.d/2),'old building footprint is clear');
+  assert(!storefrontFaces.some(f=>f.building===bankSite),'retired shop fronts do not cover the bank');
+  assert(storefrontFaces.some(f=>f.name==='Vela' && f.building.towerId===7),'neighboring shops retain their identities');
+  assert.deepEqual(destinations.get(bankSite.name),[-19,27]);
+  assert.equal(landmarkGuide(bankSite.name)(bankSite.x,bankRoadZ,0).cue,'Arrived');
+  assert(!inBankLobby({x:18,y:.824,z:.7}),'former helipad branch is vacant');
   assert(!inBankLobby({x:-20,y:.824,z:-35.7}),'former gallery has no bank encounter');
   assert(MAP.buildings.every(b=>b===bankSite || Math.abs(b.x-bankSite.x)>(b.w+bankSite.w)/2+2 ||
     Math.abs(b.z-bankSite.z)>(b.d+bankSite.d)/2+2),'separate parcel with walking clearance');

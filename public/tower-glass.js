@@ -1,6 +1,7 @@
 import {officeWindows} from './office-windows.js';
 import {harborUpperWindows} from './harbor-key-structures.js';
 import {paneKey} from './pane-damage.js';
+import {paneSupportLost} from './glass-support.js';
 export const hasApartmentBalconies=facade=>facade===0 || facade===3;
 export const guardHeight=1.07;
 export function chamferedOutline(x,z,cut){
@@ -71,7 +72,7 @@ export function towerGlassIndex(buildings){
   }
   return towers;
 }
-export function visitTowerGlass(towers,from,d,broken,box,visit){
+export function visitTowerGlass(towers,from,d,doors,box,visit){
   const lo=Math.min(from.y,from.y+d.y),hi=Math.max(from.y,from.y+d.y);
   if(hi<4.7)return;
   for(const {b,start,story,levels} of towers){
@@ -80,7 +81,7 @@ export function visitTowerGlass(towers,from,d,broken,box,visit){
     const last=Math.min(levels.length-1,Math.floor((hi-start)/story));
     for(let i=Math.max(0,Math.floor((lo-start)/story));i<=last;i++){
       for(const p of levels[i]){
-        if(broken?.[p.id] || hi<p.bottom || lo>p.top)continue;
+        if(doors?.brokenPanes?.[p.id] || hi<p.bottom || lo>p.top || paneSupportLost(p,doors,b))continue;
         const t=box(from,d,p.at,p.width,p.top-p.bottom,.035,-p.yaw);
         if(t!==Infinity)visit(t,p);
       }

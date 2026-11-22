@@ -1,4 +1,6 @@
-import {civilianLooks} from './civilian-style.js';
+import {poseBeachClub} from './beach-club-cast.js';
+import {poseCabaret} from './club-lucero.js';
+import {civilianLooks,beachStaffLooks,cabaretLooks} from './civilian-style.js';
 import {crewBoat} from './patrol-boats.js';
 import {Vector3} from 'three';
 import {createRangerRig,poseRig} from './ranger-pose.js';
@@ -26,18 +28,23 @@ export function readJoints(rig,out) {
 
 // Sample the same hierarchy, IK, planted feet and gait used by the visible avatar.
 // Keep its last two actual poses so a released wrist and a planted boot inherit different velocities.
-export function sampleRanger(actor,dt,world) {
+export function sampleRanger(actor,dt,world,tick=0) {
   if(!actor.life.hp || actor.life.fall)return;
   let state=frame.get(actor.life);
   if(!state) {
     state={rig:createRangerRig(),now:pointSet(),last:pointSet(),initialized:false};
     if(actor.evacLook)state.rig.civilian=civilianLooks[actor.evacLook];
+    if(actor.venue)state.rig.civilian=civilianLooks[actor.lookId]??beachStaffLooks[actor.lookId]??cabaretLooks[actor.id];
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;
   const vehicle=crewBoat(world,actor.id)??world?.rover;
   poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt,
     vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null,world?.doors);
+  if(actor.onDuty && !actor.reaction){
+    if(actor.program.performer)poseCabaret(state.rig,actor.program,tick/30);
+    else poseBeachClub(state.rig,actor.program,tick);
+  }
   readJoints(state.rig,state.now);
   const hit=actor.hitPose??={indices:J,origin:{}};
   hit.joints=state.now;

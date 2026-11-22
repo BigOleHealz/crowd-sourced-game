@@ -1,4 +1,5 @@
 import {paneCenter,paneShattered} from './frontage-glass.js';
+import {glassSupportKey,paneSupportLost} from './glass-support.js';
 import * as THREE from 'three';
 
 // Each facade still draws one glass mesh and one frame mesh. Only change their
@@ -65,6 +66,7 @@ export function breakableWindows(scene,Batch,debris){
 
   function update(doors){
     if(!doors)return;
+    const support=glassSupportKey(doors);
     for(const panel of panels){
       const mask=doors.broken?.[panel.face.id]??0;
       const leaf=panel.moving;
@@ -79,7 +81,7 @@ export function breakableWindows(scene,Batch,debris){
           leaf.last=fraction;
         }
       }
-      if(mask===panel.mask && panel.partial===doors.brokenPanes)continue;
+      if(mask===panel.mask && panel.partial===doors.brokenPanes && panel.support===support)continue;
       for(const range of panel.ranges){
         const bit=1<<range.all.index, hideBay=Boolean(mask&bit);
         if((mask^panel.mask)&bit){
@@ -87,19 +89,21 @@ export function breakableWindows(scene,Batch,debris){
           debris.setBroken(range.all,hideBay,initialized);
         }
         for(const part of range.panes){
-          const hidden=hideBay || paneShattered(part.pane,doors);
+          const unsupported=paneSupportLost(part.pane,doors);
+          const hidden=hideBay || unsupported || paneShattered(part.pane,doors);
           if(part.hidden!==hidden){
             reindex(panel.indices[0],panel.saved[0],part.start,part.end,hidden);
             part.hidden=hidden;
           }
           if(part.pane===range.all)continue;
-          const shattered=!hideBay && paneShattered(part.pane,doors);
+          const shattered=!hideBay && !unsupported && paneShattered(part.pane,doors);
           if(shattered && part.pane.slide)part.debris.z=doors.brokenPanes[part.pane.id]?.z??paneCenter(part.pane,doors);
           debris.setBroken(part.debris,shattered,initialized);
         }
       }
       panel.mask=mask;
       panel.partial=doors.brokenPanes;
+      panel.support=support;
     }
     initialized=true;
   }

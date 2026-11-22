@@ -117,7 +117,7 @@ export function uniformDealer(rig,Batch,material){
   accents.mesh(rig.upper,material,false);cube.dispose();knot.dispose();
 }
 export function casinoView(scene,Batch){
-  const group=new THREE.Group();group.name='Lantern Club Casino';group.position.set(x,y,z);scene.add(group);
+  const group=new THREE.Group();group.name='Palma de Sal';group.position.set(x,y,z);scene.add(group);
   const batch=new Batch(),cube=new THREE.BoxGeometry(),drum=new THREE.CylinderGeometry(.5,.5,1,28);
   const box=(c,u,h,v,w,hh,d,ry=0)=>batch.add(cube,c,u,h,v,w,hh,d,0,ry);
   const cyl=(c,u,h,v,w,hh,d=w)=>batch.add(drum,c,u,h,v,w,hh,d);

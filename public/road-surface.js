@@ -1,4 +1,4 @@
-import {onArrivalQuay} from './palace-arrival.js';
+import {onDrive} from './palma-site.js';
 import {garageAt} from './road-garages.js';
 import {CITY,MAP} from './world.js';
 import {bridges,roadway,within} from './brickell-map.js';
@@ -19,7 +19,7 @@ export function roadSurfaceAt(x,z){
   if(garageAt({x,z}))return 'asphalt';
   if(CITY){
     if(bridges.some(b=>within(b,x,z)))return 'deck';
-    if(onArrivalQuay(x,z) || roadway(x,z))return 'asphalt';
+    if(onDrive(x,z) || roadway(x,z))return 'asphalt';
     if(onBeach(x,z))return 'sand';
     return 'grass';
   }

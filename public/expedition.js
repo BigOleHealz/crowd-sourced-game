@@ -249,7 +249,18 @@ export function fire(world, player, input, tick, players, npcs) {
     const actors=targets(world,player.id,players,npcs);
     const hit=segmentContact(world,{...from,shooter:player.id},d,actors,new Map(),actorIntersection);
     const t=Math.min(1,hit.t),to={x:from.x+d.x*t,y:from.y+d.y*t,z:from.z+d.z*t};
-    if(Number.isFinite(hit.t))hitFireSite(world.doors,burnableContact(hit,to),to,tick,true,player.team);
+    if(hit.hitKind==='player' || hit.hitKind==='npc'){
+      const actor=hit.target;
+      if(!actor.state.swimming && tick>=actor.life.immuneUntil && !(player.team && player.team===actor.team)){
+        const burn=actor.life.burn??={next:tick};
+        burn.until=tick+90;
+        burn.shooter=player.id;
+        tagShot(world,burn,player);
+        alertWalkersDogs(world,actor.id,player.id,players,tick);
+      }
+    }else if(Number.isFinite(hit.t)){
+      hitFireSite(world.doors,burnableContact(hit,to),to,tick,true,player.team);
+    }
     world.shots.push({id:nextShotId++,shooter:player.id,weapon:'ember',from,to,tick});
     return;
   }
@@ -476,6 +487,29 @@ function traceBomb(world,actors,bomb){
     return {to:{x:bomb.x+direction.x*distance,y:MAP.waterY,z:bomb.z+direction.z*distance},blocked:true};
   }
   return hit;
+}
+
+// Keep the damage clock on the server so extra hits refresh the duration
+// without stacking timers, and everyone observes the same health and flames.
+export function stepBurningActors(world,players,npcs,tick){
+  function step(actor){
+    const life=actor.life,burn=life.burn;
+    if(!burn)return;
+    if(!life.hp || actor.state.swimming || tick>=burn.until || tick<life.immuneUntil){
+      delete life.burn;
+      return;
+    }
+    if(tick<burn.next)return;
+    burn.next=tick+15;
+    if(damageActor(actor,8,tick)){
+      const score=scoreAtLaunch.get(burn);
+      if(score)score.kills++;
+      world.wanted?.record(world.wanted.owner(burn),actor.officer?'officer':'defeat',tick);
+      delete life.burn;
+    }
+  }
+  for(const p of players.values())step(p);
+  for(const n of npcs)step(n);
 }
 
 export function advanceThrowables(world,players,npcs,tick){

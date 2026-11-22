@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {stepPlayer,groundHeight,buildingTopAt}=await import('../public/world.js');
 const {galleryPlans,galleryLobbies,galleryPanes,galleryFloor,galleryRoomAt,galleryVehicleRects}=await import('../public/gallery-lobbies.js');
-assert.equal(galleryPlans.length,21);assert.equal(galleryLobbies.length,34);assert.equal(galleryPanes.length,82);
-assert.equal(new Set(galleryPanes.map(p=>p.id)).size,82);
+assert.equal(galleryPlans.length,17);assert.equal(galleryLobbies.length,29);assert.equal(galleryPanes.length,66);
+assert.equal(new Set(galleryPanes.map(p=>p.id)).size,66);
 const {stepHotelDoors}=await import('../public/maravela-hotel.js');
 let entrances=0,windows=0;
 function walk(x,z,heading,distance,doors={}) {

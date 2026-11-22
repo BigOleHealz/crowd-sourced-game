@@ -163,7 +163,7 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net','shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
         if(!res.ok)return;
@@ -244,14 +244,17 @@ export function createGameAudio(button,slider,level,caption) {
     const place=placement(listener,yaw,point);
     if(place.gain<.006)return;
     const v=voice(name,false,eventId%3);
-    v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
+    v.source.playbackRate.value=name==='bank-robbery'?1:.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
     if(segment)v.source.start(0,segment.start,segment.duration);
     else v.source.start();
+    return true;
   }
+  let bankSerial=0,pendingBankClip=false,bankVoiceUntil=0;
   let previousRides;
   let previousDogs;
   const courtSounds=courtContactAudio();
   function reset(world) {
+    bankSerial=world?.bank?.serial??0;pendingBankClip=false;bankVoiceUntil=0;
     courtSounds.reset(world?.basketball);
     previousRides=world?.rides;
     previousDogs=world?.dogs;
@@ -262,6 +265,7 @@ export function createGameAudio(button,slider,level,caption) {
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;
+
     listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -269,14 +273,33 @@ export function createGameAudio(button,slider,level,caption) {
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles={};
     sprayLines.clear();
-    civilianVoices.reset(world?.npcs);
+    civilianVoices.reset(audibleResidents(world));
     if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
+  }
+  function audibleResidents(world){
+    if(!world?.volleyball)return world?.npcs;
+    return [...world.npcs,...world.basketball.npcs.filter((_,i)=>world.basketball.players[i]==null),
+      ...world.volleyball.flatMap(game=>game.phase==='closed'?[]:game.athletes.filter((_,i)=>game.players[i]==null))];
   }
   function roadAndAirVehicles(world){
     return [['rover',world.rover],['heli',world.heli],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
+    const bank=world.bank;
+    if(bank){
+      const near=Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<30;
+      if(bank.serial!==bankSerial){
+        bankSerial=bank.serial;
+        pendingBankClip=bank.phase==='alarm' && near && audible();
+      }
+      if(bank.phase!=='alarm' || !near || !audible())pendingBankClip=false;
+      if(near && audible())loadMusic('bank-robbery','bank-robbery.mp3');
+      if(pendingBankClip && buffers.has('bank-robbery') && burst('bank-robbery',bankDesk,listener,yaw,1,bank.serial)){
+        bankVoiceUntil=context.currentTime+buffers.get('bank-robbery').duration;
+        pendingBankClip=false;
+      }
+    }
     dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
     previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
@@ -289,7 +312,8 @@ export function createGameAudio(button,slider,level,caption) {
         burst('park-wheel/'+kind,event,listener,yaw,.25+.48*event.impact,event.tick);
     });
     previousRides=world.rides;
-    for(const npc of world.npcs??[]){
+    const residents=audibleResidents(world);
+    for(const npc of residents??[]){
       const time=npc.drenchedAt;
       if(time==null || time===sprayLines.get(npc.id) || world.simTick-time>18 || npc.dead)continue;
       sprayLines.set(npc.id,time);
@@ -341,7 +365,7 @@ export function createGameAudio(button,slider,level,caption) {
       motor('scoopin-dung',clubSpeaker,inEarshot && songReady,1,.56,listener,yaw,'club-speakers');
       const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
       const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
-      motor('branch-alarm',bankDesk,nearBank,1,.84,listener,yaw);
+      motor('branch-alarm',bankDesk,nearBank,1,context.currentTime<bankVoiceUntil?.24:.84,listener,yaw);
       const local=new Set();
       for(const layer of [bed,water]){
         if(!layer || layer.gain<.009)continue;
@@ -379,7 +403,7 @@ export function createGameAudio(button,slider,level,caption) {
       if(distance<range){nearest=f;range=distance;}
     }
     motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
-    civilianVoices.step(world.npcs,world.simTick,listener,(cue,mouth,gain,id)=>{
+    civilianVoices.step(residents,world.simTick,listener,(cue,mouth,gain,id)=>{
       if(buffers.has('crowd-reactions'))burst('crowd-reactions',mouth,listener,yaw,gain,id,cue);
     });
     const impacts=[];
@@ -441,7 +465,12 @@ export function createGameAudio(button,slider,level,caption) {
       stopMotor(key);track=null;
     }
     if(!track) {
-      track=voice(name,true);track.gain.gain.value=0;track.source.start();loops.set(key,track);
+      track=voice(name,true);
+      track.gain.gain.value=0;
+      const clubMusic=key==='beach-dj' || key==='club-speakers';
+      const offset=clubMusic ? Math.random()*track.source.buffer.duration : 0;
+      track.source.start(0,offset);
+      loops.set(key,track);
     }
     const now=context.currentTime,place=placement(listener,yaw,v);
     track.source.playbackRate.setTargetAtTime(rate,now,.13);

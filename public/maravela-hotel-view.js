@@ -1,10 +1,11 @@
 import {frontageGlassMaterial} from './frontage-glass-material.js';
 import * as THREE from 'three';
 import {hotel,hotelPanels,hotelGlass} from './maravela-hotel.js';
+import {paneSupportLost} from './glass-support.js';
 
 // Both marquees, the reception joinery and the bell cart share one static
 // architectural mesh. Only the two pairs of glazed leaves move.
-export function maravelaHotelView(scene,Batch,doorWidth,floor,debris,panorama){
+export function maravelaHotelView(scene,Batch,doorWidth,floor,debris,panorama,building){
   const batch=new Batch(),cube=new THREE.BoxGeometry(),column=new THREE.CylinderGeometry(1,1,1,18);
   const orb=new THREE.SphereGeometry(1,16,10),rim=new THREE.TorusGeometry(1,.075,8,32);
   const emerald=0x24473e,walnut=0x72513b,flute=0x987455,brass=0xbd975e;
@@ -151,7 +152,9 @@ export function maravelaHotelView(scene,Batch,doorWidth,floor,debris,panorama){
         f.pair.forEach((part,i)=>{part.group.position.x=panels[i].x;});
       }
       for(const {group,pane,shard} of f.pair){
-        const broken=doors.brokenPanes?.[shard.id];
+        const unsupported=paneSupportLost(shard,doors,building);
+        const broken=!unsupported && doors.brokenPanes?.[shard.id];
+        group.visible=!unsupported;
         pane.visible=!broken;
         if(broken)shard.x=broken.x??group.position.x;
         debris.setBroken(shard,Boolean(broken),synced);

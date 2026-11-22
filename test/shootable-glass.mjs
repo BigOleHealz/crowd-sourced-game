@@ -25,7 +25,19 @@ function fireAcross(world,pane,side=1,height=2.24,range=1.75) {
   return fireAt(world,{x:aim.x+(isX?0:side*range),y:height,z:aim.z+(isX?side*range:0)},aim);
 }
 
-const showcase=storefrontFaces[9];
+const {resortLevels}=await import('../public/grand-resort-layout.js');
+const {blocked}=await import('../public/world.js');
+for(const n of [0,7,21]){
+  const scene=newExpedition(),p=resortLevels[n].parts.find(p=>p.kind==='glass' && (n?p.x===-88.5:p.x===-69) && p.d>1.25);
+  const pane={x:p.x,z:p.z,widthAxis:'z'};
+  const y=p.base+Math.min(.9,p.h/2);
+  const side=n?-1:1;
+  assert.equal(fireAcross(scene,pane,side,y,1.3).hitKind,'glass');
+  assert(scene.doors.brokenPanes[p.paneId]);
+  assert.equal(Object.keys(scene.doors.brokenPanes).length,1,'neighboring panes survive');
+  assert(!blocked(p.x,p.base+.015,p.z,scene.hp,scene.doors,Math.min(1.7,p.h-.05)),'opening clears once the pane disappears');
+}
+const showcase=storefrontFaces.find(f=>f.showcase);
 for(const i of [0,5,6]){
   const scene=newExpedition(), pane=showcase.glass.bays[i].all;
   assert.equal(fireAcross(scene,pane).hitKind,'glass');

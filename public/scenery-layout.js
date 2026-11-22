@@ -10,4 +10,4 @@ export const trailMarkers = [
 ].map((p,i)=>({...p,postId:'trail-'+i}));
 export const harborSigns = [[8.3,-40,'↑  HARBOR KEY'],[8.3,-157,'HARBOR KEY'],[7.8,-52,'↑  LANTERN MARINA']];
 export const beachSigns = [[8,-198,0,'BEACH ACCESS  →'],[33,-198,-Math.PI/2,'HARBOR KEY BEACH  ↑']];
-export const signalPost = (x,z) => ({postId:'signal-'+x+'-'+z,x:x-6.2,z:z-5.8,w:.16,d:.16,h:4.45});
+export const signalPost = (x,z) => ({postId:'signal-'+x+'-'+z,x:x+(x===-38 && z===61?6.2:-6.2),z:z-5.8,w:.16,d:.16,h:4.45});

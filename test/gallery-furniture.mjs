@@ -13,8 +13,8 @@ for(const plan of galleryPlans)for(const entry of plan.ends){
   }
   assert.equal(entry.shelf.piece,undefined);
 }
-assert.equal(count,123);
-for(const index of [3,4,5])for(const side of [-1,1])for(const target of ['table','console']){
+assert.equal(count,99);
+for(const index of [2,3,5])for(const side of [-1,1])for(const target of ['table','console']){
   const p=galleryPlans[index],e=p.ends.find(f=>f.side===side),world=newExpedition(),r=world.rover;
   Object.assign(r,{driver:1,x:e[target].x,y:.8,z:e.z+side*4,yaw:side<0?Math.PI:0,speed:8});
   for(let n=0;n<80;n++){driveRover(world,{throttle:1},1/30);stepFurniture(world.doors,1/30);}
@@ -28,4 +28,4 @@ for(const index of [3,4,5])for(const side of [-1,1])for(const target of ['table'
   const x=piece.x+f.dx*(f.shift+piece.height/2),z=piece.z+f.dz*(f.shift+piece.height/2);
   assert(galleryTopAt(p.b,x,z,0,2.0,22,world.doors)>=fallenTop(piece,f,x,z,0));
 }
-console.log('PASS 123 movable gallery pieces, 12 pickup drives through actual glass, opposing sides, retained masonry and shelving, persistent floor bounds');
+console.log('PASS 99 movable gallery pieces, 12 pickup drives through actual glass, opposing sides, retained masonry and shelving, persistent floor bounds');

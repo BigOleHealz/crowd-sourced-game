@@ -1,3 +1,4 @@
+import {randomInt} from 'node:crypto';
 import {buildingAction,doorIsOpen,doorWouldHit,setDoorOpen,landingValid} from './public/building-interiors.js';
 import {yachtDoorAction,yachtLocal} from './public/yacht-layout.js';
 import {yachtDoorHit} from './public/yacht-room-doors.js';
@@ -11,6 +12,19 @@ export function requestInterior(world,players,player,input,tick){
   player.interiorSeq=input.seq;
   if(player.trip || !canUseInventory(world,player) || frozenPhase(world.match?.phase) || world.match?.phase==='setup')return;
   const use=yachtDoorAction(world.yacht,player.state)??buildingAction(player.state,world.doors);
+  if(use?.kind==='slot' && input.slot===use.slot && tick>=(player.slotReady??0)){
+    player.slotReady=tick+42;
+    const reel=()=>['Palm','Shell','Pearl','Sun','Fan'][randomInt(5)];
+    player.slotResult={slot:use.slot,reels:[reel(),reel(),reel()]};
+    return;
+  }
+  if(use?.kind==='concierge' && input.checkIn===true){
+    if(player.resortStay)return;
+    const occupied=new Set([...players.values()].map(p=>p.resortStay?.key));
+    const key=Array.from({length:32},(_,i)=>i).find(i=>!occupied.has(i));
+    if(key!==undefined)player.resortStay={key,floor:5+Math.floor(key/2)};
+    return;
+  }
   if(use?.kind==='yachtDoor' && input.cabin===use.d.id && typeof input.open==='boolean'){
     const y=world.yacht;
     if(!input.open)for(const other of players.values()){
@@ -30,6 +44,7 @@ export function requestInterior(world,players,player,input,tick){
   if(use?.kind!=='lift' || input.building!==use.s.p.id || !Number.isInteger(input.floor))return;
   const dest=use.s.p.panels[input.floor];
   if(!dest || dest===use.s || !landingValid(dest,world.doors))return;
+  if(use.s.p.shaft && [...players.values()].some(p=>p.trip?.from.p===use.s.p))return;
   const time=26+Math.ceil(Math.abs(dest.y-use.s.y)*4);
   player.trip={from:use.s,to:dest,start:tick,time};
   player.state={x:use.s.exitX,y:use.s.y,z:use.s.exitZ,vy:0,grounded:false,liftTravel:dest.index+1};

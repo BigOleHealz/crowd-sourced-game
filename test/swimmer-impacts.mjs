@@ -7,14 +7,14 @@ const {newDogs}=await import('../public/dog-walkers.js');
 const {liveShots}=await import('../public/shot-events.js');
 const {immersedSurface}=await import('../public/water-impact.js');
 const {aquaticImpactView}=await import('../public/aquatic-impact-view.js');
-const world=newExpedition(),bay={x:86,y:-.86,z:-214,swimming:true},pool={x:-25,y:.06,z:-392.6,swimming:true},roof={x:-55.9,y:68.38,z:66.35,swimming:true};
+const world=newExpedition(),bay={x:86,y:-.86,z:-214,swimming:true},pool={x:-25,y:.06,z:-392.6,swimming:true},roof={x:-69.15,y:95.58,z:34.5,swimming:true};
 const swimmer={id:42,state:{...bay},life:newLife(0,false),yaw:0},people=new Map([[42,swimmer]]);
 const cues=()=>world.shots.filter(s=>s.weapon==='waterHit');
 const shoot=(p,height,npcs=[],x=p.x)=>{
   world.bullets=[{id:906,weapon:1,shooter:7,x,y:p.y+height,z:p.z+1.15,vx:0,vy:0,vz:-56,left:20,age:0}];
   advanceRounds(world,people,npcs,500);
 };
-for(const [location,line] of [[bay,-.14],[pool,.78],[roof,69.1]]){
+for(const [location,line] of [[bay,-.14],[pool,.78],[roof,96.3]]){
   swimmer.state={...location};shoot(swimmer.state,1.04);
   assert(Math.abs(cues().at(-1).waterline-line)<.001);
   assert.equal(cues().at(-1).dead,false);
@@ -37,11 +37,11 @@ advanceMissiles(world,people,[ped],502);
 assert(cues().some(c=>c.dead && c.blast));
 const fresh=liveShots(world.shots);assert.equal(fresh(world.shots).length,0,'join baseline');
 const scene=new THREE.Scene(),view=aquaticImpactView(scene,-.14,[]);
-for(let i=0;i<50;i++)view.event({...first,id:i,to:roof,waterline:69.1,blast:true,dead:true},first.tick);
+for(let i=0;i<50;i++)view.event({...first,id:i,to:roof,waterline:96.3,blast:true,dead:true},first.tick);
 view.frame(roof,.1);
 const mist=scene.getObjectByName('Suspended blood'),debris=scene.getObjectByName('Floating tissue and fragments');
 assert.equal(mist.count,12*9);assert.equal(debris.count,12*12);
-assert(Math.abs(mist.geometry.attributes.cloudState.getZ(0)-69.1)<.001);
-assert(Math.abs(debris.geometry.attributes.fragmentSurface.getX(0)-69.1)<.001);
+assert(Math.abs(mist.geometry.attributes.cloudState.getZ(0)-96.3)<.001);
+assert(Math.abs(debris.geometry.attributes.fragmentSurface.getX(0)-96.3)<.001);
 view.frame(roof,20);assert(!mist.visible && !debris.visible);
 console.log('PASS projectile & blast water effects across players, civilians and dogs, bay/estate/penthouse level, shield/miss/deck/dry suppression, join baseline and bounded mesh counts');

@@ -19,7 +19,8 @@ export function volleyballHud(world,feet,id,available){
   }
   const {court,side,slot}=member;
   const result={...courtInfo,member:true,use:'Leave volleyball',detail:'Your team · '+volleyballTeams[side].name};
-  if(game.phase==='game')result.detail=volleyballTeams[game.winner].name+' wins the game';
+  if(game.phase==='interrupted')result.detail='Waiting for players to return';
+  else if(game.phase==='game')result.detail=volleyballTeams[game.winner].name+' wins the game';
   else if(game.phase==='point')result.detail=game.reason+' · Point '+volleyballTeams[game.winner].name;
   else if(game.phase==='serve'){
     if(game.server!==slot)result.detail=slotSide(game.server)===side?'Teammate serving':'Other team serving';

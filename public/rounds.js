@@ -1,3 +1,4 @@
+import {visitResortSolids} from './grand-resort-layout.js';
 import {hasSwimmingWildlife,marineContact} from './marine-contacts.js';
 import {roomDoorTop} from './building-interiors.js';
 import {ruinedHouseAt} from './residential-sites.js';
@@ -49,9 +50,16 @@ function glassContact(from,delta,pane,doors){
 // The chase camera's stepped depth probe can skip a thin leaf at a shallow
 // angle. Use the same swept pane geometry as rounds within the visible span.
 function visitIntactTowerGlass(world,from,d,accept) {
-  visitTowerGlass(towerGlass,from,d,world.doors?.brokenPanes,box,(t,p)=>{
-    if ((ruinedHouseAt(world.doors,from.x+t*d.x,from.z+t*d.z) || inTowerBreach(MAP.buildings,world.doors,from.x+t*d.x,from.y+t*d.y,from.z+t*d.z))) return;
-    accept(t,p);
+  visitTowerGlass(towerGlass,from,d,world.doors,box,accept);
+}
+function visitResortHits(world,from,d,glassOnly,accept){
+  if(!CITY)return;
+  visitResortSolids(from,d,world.doors?.brokenPanes,p=>{
+    if(glassOnly && !p.paneId)return;
+    const hit=box(from,d,{x:p.x,y:p.base,z:p.z},p.w,p.h,p.d);
+    if(hit===Infinity)return;
+    const pane=p.paneId?{id:p.paneId,x:p.x,z:p.z,bottom:p.base,top:p.base+p.h}:null;
+    accept(hit,pane,pane?'glass':'scenery');
   });
 }
 export function firstPaneHit(world,from,delta){
@@ -67,6 +75,7 @@ export function firstPaneHit(world,from,delta){
     if(world.doors?.brokenPanes?.[p.paneId] || Math.abs(p.z-from.z)>Math.abs(delta.z)+p.d/2 || Math.abs(p.x-from.x)>Math.abs(delta.x)+p.w/2)continue;
     consider(box(from,delta,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h});
   }
+  visitResortHits(world,from,delta,true,consider);
   visitIntactTowerGlass(world,from,delta,consider);
   return {t,target};
 }
@@ -194,7 +203,7 @@ function roundCandidates(parts,from,d,extent){
   // Keeping map order preserves which collider wins when two contacts tie.
   return [...partsInSweep].sort((a,b)=>index.order.get(a)-index.order.get(b));
 }
-const roundSolids=parts=>parts.map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
+const roundSolids=parts=>parts.filter(p=>!p.resortShell).map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // The board, lights and brackets all share the HP of their supporting posts.
 const barriers=roundSolids(MAP.barriers);
 const roundCache=new WeakMap();
@@ -251,6 +260,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const lot of world.match?.lots??[]){
     if(lot.hp && lot.carrier==null)accept(box(round,d,lot,lotWidth,lotHeight,lotWidth),lot,'insured');
   }
+  visitResortHits(world,round,d,false,accept);
   visitIntactTowerGlass(world,round,d,(hit,p)=>accept(hit,p,'glass'));
   for(const p of roundCandidates(trunks,round,d,columnExtent))accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);

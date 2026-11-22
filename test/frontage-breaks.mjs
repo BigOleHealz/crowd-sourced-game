@@ -4,7 +4,7 @@ const {newExpedition}=await import('../public/expedition.js');
 const {driveRover}=await import('../public/rover.js');
 const {storefrontFaces,breakFrontage,brokenSpan}=await import('../public/frontage-glass.js');
 const dt=1/30;
-assert.equal(storefrontFaces.length,40);
+assert.equal(storefrontFaces.length,32);
 for(const f of storefrontFaces){
   const i=Math.floor(f.spans.length/2);
   const z=f.spans[i][0],world=newExpedition(),r=world.rover;
@@ -22,4 +22,4 @@ for(const z of [11.45,12.12]){
   assert(r.hp>0&&r.hp<250);
   assert.equal(newExpedition().doors.broken,undefined);
 }
-console.log('PASS 40 frontage masks, adjacent panes at mullion, actual vehicle entry, collision and reset.');
+console.log('PASS 32 frontage masks, adjacent panes at mullion, actual vehicle entry, collision and reset.');

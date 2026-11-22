@@ -5,6 +5,7 @@ import {collectionMap} from './estate-collection.js';
 import {maravelaHotelView} from './maravela-hotel-view.js';
 import {furnitureRanges} from './shop-furniture-view.js';
 import {frontageGlassMaterial} from './frontage-glass-material.js';
+import {glassSupportKey,paneSupportLost} from './glass-support.js';
 import * as THREE from 'three';
 import {galleryPlans,galleryPanes,galleryDoorPanes,galleryFloor as floor,galleryCeiling as ceiling,galleryDoorWidth,galleryDoorHead,galleryStile} from './gallery-lobbies.js';
 
@@ -12,7 +13,7 @@ import {galleryPlans,galleryPanes,galleryDoorPanes,galleryFloor as floor,gallery
 // tilted lamps, display tables and overlapping lounge cushions provide parallax.
 export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   const updateBank=bankFrontage(scene,Batch);
-  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris,panorama);
+  const moveHotelDoors=maravelaHotelView(scene,Batch,galleryDoorWidth,floor,debris,panorama,galleryPlans.find(p=>p.hotel)?.b);
   const loader=new THREE.TextureLoader();
   function surface(name){
     const tex=loader.load('./'+name+'.webp',()=>{renderer.shadowMap.needsUpdate=true;});
@@ -281,16 +282,18 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
   const windows=new THREE.InstancedMesh(new THREE.PlaneGeometry(),glass,panes.length);
   windows.userData.impactSurface='glass';scene.add(windows);
   const dummy=new THREE.Object3D(), visible=new Array(panes.length);
-  let prior,received=false;
+  let prior,priorSupport,received=false;
   function update(doors,bankVisual){
     moveHotelDoors(doors);
     if(bankVisual)updateBank(doors,bankVisual);
-    const broken=doors?.brokenPanes;
-    if(prior===broken && visible[0]!==undefined){if(doors)received=true;return;}
-    prior=broken;let changed=false;
+    const broken=doors?.brokenPanes,support=glassSupportKey(doors);
+    if(prior===broken && priorSupport===support && visible[0]!==undefined){if(doors)received=true;return;}
+    prior=broken;priorSupport=support;let changed=false;
     panes.forEach((p,i)=>{
-      const show=!broken?.[p.id];if(visible[i]===show)return;
-      debris.setBroken(p,!show,received);
+      const unsupported=paneSupportLost(p,doors),shattered=!unsupported && !!broken?.[p.id];
+      const show=!unsupported && !shattered;
+      debris.setBroken(p,shattered,received);
+      if(visible[i]===show)return;
       const height=p.top-p.bottom;
       visible[i]=show;dummy.position.set(p.x,p.bottom+height/2,p.z);
       dummy.rotation.y=p.widthAxis==='x'?0:Math.PI/2;

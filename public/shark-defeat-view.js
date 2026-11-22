@@ -64,7 +64,7 @@ export function createSharkDefeatView(scene,waterline){
         const t=age-pulse.start;if(t<0)continue;
         if(pulse.crest && t<6.4 && distance<44){
           const fade=THREE.MathUtils.smoothstep(t,0,.11)*(1-THREE.MathUtils.smoothstep(t,2.1,6.4))*(1-THREE.MathUtils.smoothstep(distance,35,44));
-          film.mark(m++,pulse,t,fade,e.size,e.yaw);
+          film.mark(m++,pulse.x,pulse.z,pulse.plumes[0].phase,t,fade,e.size,e.yaw-.23*pulse.start);
         }
         const appear=.48+.52*(1-Math.exp(-9*t)),disperse=1-Math.exp(-.84*t);
         for(const p of pulse.plumes){

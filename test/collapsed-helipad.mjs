@@ -5,7 +5,7 @@ const {flightState,recoverHelicopter,fly}=await import('../public/airframe.js');
 const {MAP,solidTopAt}=await import('../public/world.js');
 const {breachTower,baysPerFloor,towerCellBounds,towerStride}=await import('../public/tower-damage.js');
 for(const pilot of [null,1]){
- const world=newExpedition(),h=world.heli,b=MAP.buildings.find(v=>v.towerId===2);
+ const world=newExpedition(),h=world.heli,b=MAP.buildings.find(v=>v.towerId===3);
  Object.assign(h,{x:b.x-4,z:b.z-2,pilot});
  h.y=solidTopAt(h.x,h.z,{},0,Infinity,world.doors);
  const before=h.y,idle={x:0,z:0,lift:0,aimYaw:0};

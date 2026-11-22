@@ -1,5 +1,6 @@
 import {frontageGlassMaterial} from './frontage-glass-material.js';
 import {faceAt,paneCenter,paneShattered} from './frontage-glass.js';
+import {paneSupportLost} from './glass-support.js';
 import * as THREE from 'three';
 import {storefrontDoors,doorX,storefrontFloor,facadePiers} from './storefront-layout.js';
 import {buildStorefrontRooms} from './storefront-rooms.js';
@@ -142,13 +143,13 @@ export function avenueFrontage(scene, renderer, Batch, masonry, metals, box, sky
   return function updateDoors(state,dt) {
     if(!state)return;
     for(const {pane,sheet} of transoms){
-      const broken=paneShattered(pane,state);
-      sheet.visible=!broken;
+      const unsupported=paneSupportLost(pane,state),broken=!unsupported && paneShattered(pane,state);
+      sheet.visible=!unsupported && !broken;
       debris.setBroken(pane,broken,!firstFrame);
     }
     for(const part of movingLeaves){
       const {pane,leaf,sheet}=part;
-      const wholeBay=Boolean(state.broken?.[showcase.id]&(1<<pane.index));
+      const wholeBay=Boolean(state.broken?.[showcase.id]&(1<<pane.index)) || paneSupportLost(pane,state);
       const glassGone=!wholeBay && paneShattered(pane,state);
       leaf.visible=!wholeBay;sheet.visible=!glassGone;
       const z=paneCenter(pane,state);

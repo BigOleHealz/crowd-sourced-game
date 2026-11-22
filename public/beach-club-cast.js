@@ -1,8 +1,8 @@
 import {barMenu,beachDJ,beachTempo,clubDeck,loungeSeats,pourTicks} from './beach-club.js';
 
 const lineup=[
-  ['bar','Marisol','beach-marisol',42.70,-204.55,Math.PI/2],
-  ['dj','DJ Sol','rafi',beachDJ.x,beachDJ.z,Math.PI/2],
+  ['bar','Marisol','beach-marisol',42.48,-204.55,Math.PI/2],
+  ['dj','DJ Sol','rafi',beachDJ.x-.79,beachDJ.z,Math.PI/2],
   ['dance','Gia','maia',49.55,-204.27,1.12],
   ['dance','Theo','leo',51.15,-204.71,-1.37],
   ['dance','Luisa','elena',53.12,-205.68,2.32],
@@ -10,8 +10,7 @@ const lineup=[
   ['guest','Paz','mei',52.31,-203.21,-1.80],
   ['guest','Emil','wes',53.68,-203.18,-1.10],
 ];
-export function beachClubCast(local,visitors,tick,evening=false){
-  if(Math.hypot(local.x-clubDeck.x,local.z-clubDeck.z)>48)return [];
+export function beachClubCast(visitors,tick){
   const order=visitors.map(p=>p.beachOrder).find(o=>o && tick>=o.tick && tick-o.tick<pourTicks);
   return lineup.map(([role,name,look,x,z,yaw],i)=>{
     let moving=false,pouring=false;
@@ -23,20 +22,18 @@ export function beachClubCast(local,visitors,tick,evening=false){
       // Offset arrivals: guests stop short of the two player service positions.
       const time=(tick/30+(i-6)*29)%68;
       const travel=Math.max(0,Math.min(1,(time-27)/7,(51-time)/7));
-      if(!evening){
-        x-=.55;z-=3.77;
-      }
       x+=(45.75-x)*travel;z+=((-202.9-(i-6)*.82)-z)*travel;
       moving=(time>27 && time<34)||(time>44 && time<51);
       if(moving)yaw=time<34?-Math.PI/2:Math.PI/2;
-      role=moving?'walking':travel>.99 || !evening?'chat':'dance';
+      role=moving?'walking':travel>.99?'chat':'social';
     }
-    return {id:'beach-club-'+i,name,lookId:role==='bar'?look:'rival-'+look,x,y:clubDeck.y,z,yaw,grounded:true,hp:100,
+    return {id:'beach-club-'+i,name,lookId:role==='bar'?look:'rival-'+look,x,y:clubDeck.y,z,yaw,grounded:true,
       beachRole:role,partyOffset:i*1.67,moving,pouring};
   });
 }
-export function poseBeachClub(actor,state,tick){
-  const role=state.beachPose??state.beachRole;
+export function poseBeachClub(actor,state,tick,evening=false){
+  // Lighting is selectable per viewer. Guests share one position and keep their evening dance.
+  const role=state.beachPose??(state.beachRole==='social'?(evening?'dance':'chat'):state.beachRole);
   if(!role || role==='walking' || state.dead || state.fall)return;
   for(const tool of actor.tools)tool.visible=false;
   const beat=tick/30*beachTempo/60*Math.PI*2+(state.partyOffset??state.id*.8);

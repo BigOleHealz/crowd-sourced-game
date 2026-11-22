@@ -1,4 +1,5 @@
 import {damageActor} from './rivals.js';
+import {bridgeDogSplash} from './bridge-shark-water.js';
 import {drivenRoad} from './rover.js';
 import {CITY,blocked,groundHeight,insideTravelArea,waterSurfaceAt} from './world.js';
 
@@ -49,6 +50,8 @@ export function nearDog(world,player){
 
 export function takeDog(world,player,dog=nearDog(world,player)){
   if(carriedDog(world,player?.id) || !canReach(player,dog) || !world.dogs?.includes(dog))return false;
+  delete dog.tossSplashTick;
+  delete dog.tossBridge;
   dog.mode='carried';dog.carrier=player.id;dog.speed=0;
   carry(dog,player);return true;
 }
@@ -61,7 +64,7 @@ function carry(dog,player){
 
 function launch(dog,yaw,speed,vertical,mode){
   dog.mode=mode;dog.carrier=null;dog.yaw=yaw;dog.speed=speed;
-  Object.assign(motion.get(dog),{time:0,vx:speed*Math.sin(yaw),vz:-speed*Math.cos(yaw),vy:vertical});
+  Object.assign(motion.get(dog),{time:0,playerToss:false,vx:speed*Math.sin(yaw),vz:-speed*Math.cos(yaw),vy:vertical});
 }
 
 export function kickDog(world,player,dog=nearDog(world,player),tick=0){
@@ -78,7 +81,8 @@ export function throwDog(world,player,aim={}){
   if(!dog || !player.life.hp || player.life.fall)return false;
   const pitch=clamp(Number.isFinite(aim.pitch)?aim.pitch:0,-1.1,1.25);
   const yaw=Number.isFinite(aim.yaw)?aim.yaw:player.yaw??0;
-  carry(dog,player);launch(dog,yaw,6.1*Math.cos(pitch),2.8+4*Math.sin(pitch),'thrown');return true;
+  carry(dog,player);launch(dog,yaw,6.1*Math.cos(pitch),2.8+4*Math.sin(pitch),'thrown');
+  motion.get(dog).playerToss=true;return true;
 }
 
 export function returnDogToWalker(world,dog,owner,thief,tick){
@@ -164,6 +168,9 @@ export function aboardDogCarrier(world,p){
 
 function stepDog(dog,owner,world,players,dt,tick){
   const m=motion.get(dog);m.time+=dt;
+  if(dog.tossSplashTick!=null && (dog.mode!=='swimming' || tick-dog.tossSplashTick>600)){
+    delete dog.tossSplashTick;delete dog.tossBridge;
+  }
   if(dog.mode==='down'){
     move(dog,m.vx*dt,m.vz*dt,world);
     const floor=surface(dog,world);
@@ -186,6 +193,11 @@ function stepDog(dog,owner,world,players,dt,tick){
     move(dog,m.vx*dt,m.vz*dt,world);m.vy-=13*dt;dog.y+=m.vy*dt;
     const floor=surface(dog,world);
     if(m.vy<=0 && dog.y<=floor.y){
+      if(dog.mode==='thrown' && m.playerToss && floor.swimming){
+        dog.tossSplashTick=tick;
+        const bridge=bridgeDogSplash(dog);
+        if(bridge)dog.tossBridge=bridge.north;
+      }
       dog.y=floor.y;dog.mode=floor.swimming?'swimming':'loose';dog.speed=0;m.time=0;
     }
     return;
@@ -203,7 +215,9 @@ function stepDog(dog,owner,world,players,dt,tick){
   const goal=enemy?enemy.state:heel(owner);
   const beforeX=dog.x,beforeZ=dog.z,dx=goal.x-dog.x,dz=goal.z-dog.z,d=Math.hypot(dx,dz);
   if(dog.mode==='leashed' && d>18){dog.mode='loose';m.time=0;}
-  const follow=!!enemy || dog.mode==='leashed' || dog.mode==='swimming' || m.time>2;
+  // Keep an actual bridge splash where nearby patrols can reach it. Taking
+  // the dog again or falling onto dry ground cancels the encounter normally.
+  const follow=dog.tossBridge==null && (!!enemy || dog.mode==='leashed' || dog.mode==='swimming' || m.time>2);
   if(follow && d>(enemy ? .65 : .12)){
     const speed=dog.mode==='swimming'?1.2:enemy?5.3:Math.min(4.5,.2+d*2.7);
     const step=Math.min(d,speed*dt);

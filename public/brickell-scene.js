@@ -1,5 +1,3 @@
-import {addWaterfrontWing} from './waterfront-wing-view.js';
-import {addWaterfrontSalon} from './waterfront-salon-view.js';
 import {estatePoolHoles} from './swimming-pools.js';
 import {spiralForHouse,outsideWell} from './residential-spirals.js';
 import {addResidentialSpirals} from './residential-spiral-view.js';
@@ -82,8 +80,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addQuayMasonry(scene,solids,renderer);
-  addWaterfrontWing(scene,Batch);
-  addWaterfrontSalon(scene,Batch);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
@@ -215,12 +211,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   return (doors,dt,local,remotes,tick,bankVisual)=>{
     updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
-    updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
+    updateHarborWindows(doors);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);updatePosts(doors,dt);updateJunctions(doors,tick);
     breakables.update(doors);
-    offices.update(doors?.brokenPanes);
+    offices.update(doors);
     updateGallery(doors,bankVisual);
     debris.update(dt);
     updateCourts(doors,dt,local,remotes);

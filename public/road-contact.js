@@ -1,5 +1,5 @@
-import {onArrivalQuay} from './palace-arrival.js';
-import {inWaterfrontSalon,wingFloor} from './waterfront-wing.js';
+import {shorePads} from './palma-site.js';
+const onArrivalQuay=(x,z)=>shorePads.some(r=>x>=r.west && x<=r.east && z>=r.north && z<=r.south);
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -61,7 +61,7 @@ function roundContact(x,z,s,c,prop,radius,shape){
 export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const shape=roadHullFor(vehicle);
   const s=Math.sin(yaw),c=Math.cos(yaw);
-  const interior=CITY && (onEstate(x,z) || inWaterfrontSalon(x,wingFloor,z));
+  const interior=CITY && onEstate(x,z);
   const floorProbe=interior ? (vehicle.y??.8)+.32 : Infinity;
   const base=groundHeight(x,z,floorProbe,world.doors);
   let result;

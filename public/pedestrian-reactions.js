@@ -1,7 +1,8 @@
+import {inClub} from './club-lucero.js';
 import {jetPassage} from './water-monitor.js';
 import {roadway} from './brickell-map.js';
 import {hydrants,repairTicks} from './hydrants.js';
-import {CITY,MAP,blocked,groundHeight,insideTravelArea,stepPlayer} from './world.js';
+import {CITY,MAP,blocked,groundHeight,insideTravelArea,solidTopAt,stepPlayer} from './world.js';
 import {vehicleContact} from './vehicle-contact.js';
 
 const cues={
@@ -13,9 +14,19 @@ const cues={
 };
 const seenFalls=new WeakSet();
 
+function retreatFloor(world,x,z,startY){
+  let floor=groundHeight(x,z,startY+.5,world.doors);
+  // A performer can retreat along the low Lucero stage before stepping down.
+  if(inClub({x,y:startY,z})){
+    const top=solidTopAt(x,z,world.hp,.32,startY+.05,world.doors);
+    if(top>=floor && top<=startY+.05)floor=top;
+  }
+  return floor;
+}
+
 function safe(world,x,z,startY,avoidRoad){
   if(!insideTravelArea(x,z,.4) || (avoidRoad && roadway(x,z)))return false;
-  const floor=groundHeight(x,z,startY+.5,world.doors);
+  const floor=retreatFloor(world,x,z,startY);
   return floor>MAP.waterY+.12 && Math.abs(floor-startY)<.36 && !blocked(x,floor,z,world.hp,world.doors) &&
     !vehicleContact(x,floor,z,world,CITY,1.80).depth;
 }
@@ -29,7 +40,7 @@ function retreatPoint(world,s,yaw,distance){
       const x=s.x+dx*d,z=s.z+dz*d;
       if(!safe(world,x,z,lastY,avoidRoad))break;
       if(CITY && !roadway(x,z))avoidRoad=true;
-      lastY=groundHeight(x,z,lastY+.5,world.doors);
+      lastY=retreatFloor(world,x,z,lastY);
       const merit=d*(1-.35*Math.abs(offset))+(avoidRoad?.7:0);
       if(merit>score){best={x,z};score=merit;}
     }
@@ -110,8 +121,8 @@ function panicStep(n,tick,dt,world){
   if(tick>=r.nextLeg || r.x==null || (!r.cornered && Math.hypot(r.x-s.x,r.z-s.z)<.34)){
     const away=Math.atan2(s.x-r.threat.x,r.threat.z-s.z);
     const last=r.trail.at(-1);
-    if(!last || Math.hypot(s.x-last.x,s.z-last.z)>1.5){
-      if(r.trail.length>=40)r.trail.splice(1,1);
+    if(!last || Math.hypot(s.x-last.x,s.z-last.z)>(n.venue ? .30 : 1.5)){
+      if(r.trail.length>=(n.venue ? 160 : 40))r.trail.splice(1,1);
       r.trail.push({x:s.x,z:s.z});
     }
     const goal=retreatPoint(world,s,away+r.turnBias,5.8);
@@ -136,7 +147,13 @@ function returnFromCover(n,dt,world){
   const dx=next.x-s.x,dz=next.z-s.z,d=Math.hypot(dx,dz);
   if(d<.32){trail.pop();if(!trail.length)delete n.escapeTrail;return true;}
   const vx=dx/d*.45,vz=dz/d*.45;
-  const moved=stepPlayer(s,{x:vx,z:vz},dt,world.hp,world);
+  // On the return walk, step back onto the low cabaret stage at its lip.
+  let feet=s;
+  if(n.venue==='lucero' && inClub(s)){
+    const top=solidTopAt(s.x+vx*4.6*dt,s.z+vz*4.6*dt,world.hp,.32,s.y+.3,world.doors);
+    if(top>s.y && top<=s.y+.3)feet={...s,y:top};
+  }
+  const moved=stepPlayer(feet,{x:vx,z:vz},dt,world.hp,world);
   if(Math.hypot(s.x-moved.x,s.z-moved.z)<.001){
     n.moving=false;return false;
   }

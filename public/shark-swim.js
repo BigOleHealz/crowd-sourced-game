@@ -1,5 +1,7 @@
 import {floatingBody} from './marine-float.js';
-import {brickellMap,cityGround} from './brickell-map.js';
+import {brickellMap,bridges,cityGround} from './brickell-map.js';
+import {bridgeMiddle} from './drawbridges.js';
+import {bridgeDogSplash,bridgeDogWater} from './bridge-shark-water.js';
 import {inDivingLane} from './marina-platform.js';
 import {sharkDefeatPose} from './shark-defeat.js';
 
@@ -12,28 +14,53 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
 // Patrols cover the bay, Harbor Key, Lantern Point and the west channel.
 const huntingHomes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
-// These four ambient sharks patrol continuously. Only the original five hunt swimmers.
-const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292]];
-export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98];
+// Ambient sharks feed on wildlife. Only the original five hunt swimmers.
+const channelHomes=bridges.flatMap(b=>[[b.west-5,bridgeMiddle(b)-3],[b.east+5,bridgeMiddle(b)+3]]);
+const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292],...channelHomes];
+export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98,...bridges.flatMap(()=>[.94,1.06])];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
+
+// Sample at fin height so an overhead bridge leaves the channel navigable,
+// while low approaches and shallow shoreline still block the shark.
+export const sharkSeabed=(x,z)=>cityGround(x,z,water+.55);
 
 function openWater(x,z,padding,edgePadding=padding){
   if(inDivingLane(x,z))return false;
   if(x-edgePadding<brickellMap.westBound || x+edgePadding>brickellMap.bounds ||
      z-edgePadding<brickellMap.northBound || z+edgePadding>brickellMap.bounds)return false;
-  return water-cityGround(x,z)>=deep && water-cityGround(x-padding,z)>=deep &&
-    water-cityGround(x+padding,z)>=deep && water-cityGround(x,z-padding)>=deep &&
-    water-cityGround(x,z+padding)>=deep;
+  return water-sharkSeabed(x,z)>=deep && water-sharkSeabed(x-padding,z)>=deep &&
+    water-sharkSeabed(x+padding,z)>=deep && water-sharkSeabed(x,z-padding)>=deep &&
+    water-sharkSeabed(x,z+padding)>=deep;
 }
-function clearCourse(a,b){
-  const steps=Math.ceil(distance(a,b)/1.6);
+function clearCourse(a,b,bridge){
+  const steps=Math.max(1,Math.ceil(distance(a,b)/1.6));
   for(let k=1;k<=steps;k++){
     const t=k/steps;
-    if(!openWater(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,1.5,0))return false;
+    const x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;
+    if(!openWater(x,z,1.5,0) && !(bridge && bridgeDogWater(bridge,x,z)))return false;
   }
   return true;
 }
 export {clearCourse as clearSharkCourse};
+const bridgeReturns=new WeakMap();
+
+export function returnToSharkPatrol(shark){
+  if(!shark.hp || openWater(shark.x,shark.z,1.5,0))return;
+  const bridge=bridgeDogSplash(shark);
+  if(bridge)bridgeReturns.set(shark,bridge);
+}
+const bridgeLane=(bridge,x)=>x<(bridge.east+bridge.west)/2?bridge.west-4:bridge.east+4;
+
+export function bridgeSharkWaypoint(from,to,bridge){
+  if(clearCourse(from,to,bridge))return to;
+  if(!bridge)return;
+  const z=bridgeMiddle(bridge),entry={x:bridgeLane(bridge,from.x),z},exit={x:bridgeLane(bridge,to.x),z};
+  // A shark on the opposite side can cross beneath the high center rather
+  // than trying to cut straight through the solid bridge approaches.
+  if(!clearCourse(exit,to,bridge))return;
+  if(clearCourse(from,exit,bridge))return exit;
+  if(clearCourse(from,entry,bridge) && clearCourse(entry,exit,bridge))return entry;
+}
 function atBearing(start,bearing,range){
   return {x:start.x+Math.sin(bearing)*range,z:start.z-Math.cos(bearing)*range};
 }
@@ -238,9 +265,15 @@ export function createSharks(){
       if(s.dogEncounter || s.scavenge)continue;
       if(mind.feeding && stepFeeding(s,i,dt,tick,players))continue;
       const prey=swimmers.get(s.target);
+      let returnBridge=bridgeReturns.get(s);
+      if(returnBridge && openWater(s.x,s.z,1.5,0)){bridgeReturns.delete(s);returnBridge=null;}
       const ang=time*.115+i*1.23;
       let goal={x:mind.home.x+4.2*Math.sin(ang),z:mind.home.z+6.5*Math.cos(ang)};
       let speed=1.18,depth=.85+.23*Math.sin(ang*.81);
+      if(returnBridge){
+        const exit={x:bridgeLane(returnBridge,s.x),z:clamp(s.z,returnBridge.north+2,returnBridge.south-2)};
+        goal=bridgeSharkWaypoint(s,exit,returnBridge)??goal;speed=3.4;depth=.64;
+      }
       if(prey){
         depth=.41+.04*Math.sin(time*2);
         if(s.phase==='retreat' && time>=mind.pass)s.phase='approach';
@@ -282,11 +315,13 @@ export function createSharks(){
       // Ease off when the swimmer crosses inside the turning circle: a shark
       // must be able to line up another pass instead of orbiting forever.
       if(s.phase==='approach')speed*=clamp(.38+.62*Math.cos(diff),.38,1);
+      if(returnBridge)speed*=clamp(Math.cos(diff),.12,1);
       const yaw=s.yaw+clamp(diff,-dt*1.7,dt*1.7);
       const next=atBearing(s,yaw,speed*dt);
-      if(openWater(next.x,next.z,1.5,0)){
-        s.x=round(next.x);s.z=round(next.z);s.yaw=round(Math.atan2(Math.sin(yaw),Math.cos(yaw)));
-      }else if(prey && (s.phase==='retreat' || clearCourse(s,prey.state))){
+      next.x=round(next.x);next.z=round(next.z);
+      if(openWater(next.x,next.z,1.5,0) || returnBridge && bridgeDogWater(returnBridge,next.x,next.z)){
+        s.x=next.x;s.z=next.z;s.yaw=round(Math.atan2(Math.sin(yaw),Math.cos(yaw)));
+      }else if(returnBridge || prey && (s.phase==='retreat' || clearCourse(s,prey.state))){
         // Keep steering even when the next step would leave the water.
         s.yaw=yaw;
       }else{

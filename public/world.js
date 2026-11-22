@@ -1,5 +1,4 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
-import {wingSurface} from './waterfront-wing.js';
 import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
@@ -21,7 +20,7 @@ import {mareFloor,mareCeiling} from './palazzo-mare.js';
 import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
-import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
+import {faceAt,frontageOpenToRound,frontageSupportOpening,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
 import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
 import {postDown} from './street-lamps.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
@@ -72,7 +71,7 @@ export const MAP = CITY ? brickellMap : {
 // The western skyline is closer than the eastern bay. All water users share
 // this chart, including swimmers and dismounted or falling crew.
 export const travelBounds={west:MAP.westBound ?? -MAP.bounds,east:MAP.bounds,
-  north:MAP.northBound ?? -MAP.bounds,south:MAP.bounds};
+  north:MAP.northBound ?? -MAP.bounds,south:MAP.southBound??MAP.bounds};
 const flightMargin=CITY?220:120;
 export const flightBounds={
   west:travelBounds.west-flightMargin,east:travelBounds.east+flightMargin,
@@ -129,7 +128,8 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   const face=faceAt(b,x);
   if(!face)return roof;
   if(!face.showcase)return retailSurface(face,x,z,pad,probe,roof,doors,round);
-  const gap=round ? frontageOpenToRound(face,z,probe,doors) : brokenSpan(face,doors?.broken?.[face.id]??0,z,pad);
+  const gap=round ? frontageOpenToRound(face,z,probe,doors) : brokenSpan(face,doors?.broken?.[face.id]??0,z,pad) ||
+    frontageSupportOpening(face,z,probe,pad,doors);
   return storefrontTopAt(x,z,pad,probe,roof,doors,gap);
 }
 
@@ -174,7 +174,7 @@ const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
-  let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
+  let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom,doors),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
   if(CITY)for(const stair of residenceSpirals){
     if(!spiralWell(stair,x,z,padding) || doors?.houseRuins?.[stair.home])continue;
@@ -191,6 +191,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false
   }
   for(const b of nearbyBarriers(x,z,padding,doors)){
     // Expanding a walkable slab lip would add an invisible curb at its edge.
+    if(b.resortShell)continue;
     const pad=b.flushEdge ? 0 : padding;
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
@@ -275,8 +276,6 @@ export function sceneryHeight(x,z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
-    const salon=wingSurface(x,z,maxBottom);
-    if(salon!==undefined)return salon;
     const ruin=ruinedHouseAt(doors,x,z);
     if(ruin)return houseRubbleHeight(ruin,x,z,doors.houseRuins[ruin.id]);
     const pile=collapsedLot(MAP.buildings,doors,x,z);

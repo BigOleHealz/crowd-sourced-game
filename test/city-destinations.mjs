@@ -13,7 +13,7 @@ assert.notEqual(visitors[0].destination,visitors[1].destination);
 const stops=new Map([
   ['Lantern Point Marina',[49,-381]],['Harbor Key Market',[19.1,-205]],
   ['Hotel Maravela',[-16,-45]],['Lantern Point Estates',[-49,-434]],
-  ['Biscayne Mutual Bank',[18,-9]],
+  ['Biscayne Mutual Bank',[-19,27]],
 ]);
 const visited=visitors.map(()=>[]),dwell=visitors.map(()=>0);
 let tick=0;

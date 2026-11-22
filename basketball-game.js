@@ -3,6 +3,7 @@ import {
   basketballChargeRate as chargeRate,hoop,hoopHeading,longShotDistance,onBasketballCourt,shotWindow,inDunkRange,
 } from './public/basketball-layout.js';
 
+import {courtRoster} from './court-residents.js';
 import {dunkFrame,dunkRelease} from './public/basketball-dunk.js';
 
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
@@ -18,6 +19,7 @@ export function createBasketball(world,players) {
     id:team.npc,name:team.player,x:court.x+(side?2.7:-2.7),y:court.y,
     z:court.z+(side?3.8:.70),yaw:0,moving:false,grounded:true,hp:100,
   }));
+  const roster=courtRoster(npcs);
   const ball={x:court.x,y:court.y+radius,z:court.z,spin:0,serial:0};
   const state={players:[null,null],scores:[0,0],turn:0,phase:'held',charge:0,npcs,ball,shot:null,result:null,contactId:0};
   let elapsed=0,attempt=0,holding=false,inputAge=0,inputDown=false,resolved=false,reachReady=1.15;
@@ -38,14 +40,14 @@ export function createBasketball(world,players) {
   function interact(player,role) {
     const side=state.players.indexOf(player.id);
     if(role==='leave' && side>=0){
-      state.players[side]=null;
+      state.players[side]=null;roster.setActive(side,true);
       if(state.phase==='held' && state.turn===side)possession(side);
       return;
     }
     if(role!=='join' || side>=0 || !basketballUse(world,player.state,player.id) ||
       !player.life.hp || player.life.fall || player.clubSince!=null)return;
     const slot=state.players.indexOf(null),first=state.players.every(id=>id==null);
-    state.players[slot]=player.id;
+    state.players[slot]=player.id;roster.setActive(slot,false);
     // Incoming shots finish before switching to the walk-up player's turn.
     if(state.phase==='held' && (first || state.turn===slot))possession(slot);
   }
@@ -165,7 +167,7 @@ export function createBasketball(world,players) {
 
   function checkSteal(dt,holder){
     const side=1-state.turn,guard=npcs[side];
-    if(state.players[side]!=null || !holder || state.phase!=='held'){
+    if(state.players[side]!=null || guard.sidelined || !holder || state.phase!=='held'){
       delete state.reach;return;
     }
     const gap=Math.hypot(ball.x-guard.x,ball.z-guard.z);
@@ -190,14 +192,19 @@ export function createBasketball(world,players) {
       const player=players.get(id),feet=player?.state;
       if(!player?.life.hp || player.life.fall || player.clubSince!=null ||
         feet.parachute || feet.swimming || !onBasketballCourt(feet,2) || Math.abs(feet.y-court.y)>1.7){
-        state.players[side]=null;
+        state.players[side]=null;roster.setActive(side,true);
         if(state.phase==='held' && state.turn===side)possession(side);
       }
     }
     elapsed+=dt;inputAge+=dt;
-    const positioned=state.players.map((id,side)=>id==null && moveNpc(side,dt));
+    const positioned=state.players.map((id,side)=>id==null && !npcs[side].sidelined && moveNpc(side,dt));
     if(state.phase==='flight'){delete state.reach;stepBall(dt);return;}
     const player=active(state.turn),feet=actor(state.turn);
+    if(!player && feet.sidelined){
+      if(active(1-state.turn) || !npcs[1-state.turn].sidelined)possession(1-state.turn);
+      else {state.charge=0;delete state.reach;ball.y=court.y+radius;}
+      return;
+    }
     ballInHand(ball,feet,player?player.yaw:feet.yaw);
     if(!player){
       delete state.reach;
@@ -219,5 +226,5 @@ export function createBasketball(world,players) {
     }else if(elapsed>15){possession(1-state.turn);return;}
     checkSteal(dt,player);
   }
-  return {state,input,interact,step};
+  return {state,input,interact,step,roster};
 }

@@ -6,7 +6,8 @@ import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
 import {casinoPanel} from './casino-panel.js';
-import {nearBlackjack,casinoHall} from './casino-layout.js';
+import {fanDecks,arcadeDecks,supperDeck,shorePads,valet,resortArrivals} from './palma-site.js';
+import {nearBlackjack} from './casino-layout.js';
 import {safeInReach} from './estate-safes.js';
 import {nearbySidearm} from './market-goods.js';
 import {yachtDoorAction} from './yacht-layout.js';
@@ -92,6 +93,7 @@ destinationsMenu.onchange=()=>{
   byId('nav-cue').hidden=!navigate;canvas.focus({preventScroll:true});
 };
 const selector=byId('map-choice');
+const arrival=new URLSearchParams(location.search).get('arrival');
 const chosen=new URLSearchParams(location.search).get('mode');
 const racing=CITY && chosen===marinaMode;
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
@@ -168,7 +170,16 @@ function counter(){
 }
 let interiorSeq=0;
 function interiorAction(){
-  return canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? yachtDoorAction(world?.yacht,self)??buildingAction(self,world?.doors) : null;
+  const action=canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? yachtDoorAction(world?.yacht,self)??buildingAction(self,world?.doors) : null;
+  if(action?.kind==='slot' && vitals.slotResult?.slot===action.slot){
+    const reels=vitals.slotResult.reels;
+    return {...action,label:reels.join(' · ')+(new Set(reels).size===1?' — Jackpot!':'')+' · Spin again'};
+  }
+  if(action?.kind==='concierge' && vitals.resortStay){
+    const {floor,key}=vitals.resortStay;
+    return {...action,label:'Guest key · Suite '+((floor+1)*100+key%2+1)};
+  }
+  return action;
 }
 function sendInterior(action){if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'interior',seq:++interiorSeq,...action}));}
 const elevator=elevatorControls(byId('elevator-dialog'),(s,floor)=>sendInterior({building:s.p.id,floor}),releaseLook,()=>canvas.focus({preventScroll:true}));
@@ -372,7 +383,9 @@ function startMarinaSprint(){
 }
 function beachUse(){
   if(!CITY || mode || !canChangeStance(self) || inVolleyball() || atTable())return null;
-  return beachClubAction(self);
+  const action=beachClubAction(self);
+  if(barMenu.some(drink=>drink.id===action) && !world.npcs.some(n=>n.id==='beach-club-0' && n.beachRole==='bar'))return null;
+  return action;
 }
 function beachHint(action){
   const drink=barMenu.find(d=>d.id===action);
@@ -393,7 +406,7 @@ function beachHint(action){
 function clubInteraction(){
   if(!CITY || mode || !self || vitals.dead || vitals.fall)return '';
   if(vitals.clubSince!=null)return 'Leave dance';
-  if(!canChangeStance(self) || !inBoothAisle(self))return '';
+  if(!canChangeStance(self) || !inBoothAisle(self) || !world.npcs.some(n=>n.id==='lucero-daniel' && n.performer))return '';
   return 'Sit for a private dance';
 }
 function dogInteraction(){
@@ -464,6 +477,8 @@ function pressAction(code){
     const clubUse=clubInteraction();
     if(clubUse){socket?.send(JSON.stringify({type:'clubSeat',action:vitals.clubSince!=null?'leave':'join'}));return;}
     const building=interiorAction();
+    if(building?.kind==='slot'){sendInterior({slot:building.slot});return;}
+    if(building?.kind==='concierge'){sendInterior({checkIn:true});return;}
     if(building?.kind==='lift'){elevator.show(building.s);return;}
     if(building?.kind==='yachtDoor'){sendInterior({cabin:building.d.id,open:!!(world.yacht.closedCabins&(1<<building.d.id))});return;}
     if(building?.kind==='door'){sendInterior({door:building.d.id,open:!doorIsOpen(building.d,world.doors)});return;}
@@ -579,7 +594,7 @@ const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpos
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(racing?'&mode='+marinaMode:mode?'&mode='+mode:'') : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(racing?'&mode='+marinaMode:mode?'&mode='+mode:resortArrivals.has(arrival)?'&arrival='+arrival:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -629,6 +644,7 @@ function connect() {
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = m.state; facing = m.state.yaw;
+      if(CITY && !mode && resortArrivals.has(arrival))camera.yaw=facing;
       damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;
@@ -1135,7 +1151,7 @@ function drawMap(player, remotes, yaw) {
     }
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
-    for(const r of [...lanternLand,ferrySlip,...marketPiers,...marinaDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
+    for(const r of [...shorePads,...lanternLand,ferrySlip,...marketPiers,...marinaDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
@@ -1151,7 +1167,7 @@ function drawMap(player, remotes, yaw) {
       ctx.fillStyle='#6affdc';ctx.beginPath();ctx.arc(sx(next.x),sy(next.z),4,0,Math.PI*2);ctx.fill();
     }
     ctx.fillStyle='#3b4b4c';
-    for(const b of [...MAP.buildings,...lanternBuildings,casinoHall]) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
+    for(const b of [...MAP.buildings,...lanternBuildings,...fanDecks,...arcadeDecks,supperDeck]) ctx.fillRect(sx(b.x-b.w/2),sy(b.z-b.d/2),b.w*scale,b.d*scale);
     if(world.volleyball){
       for(const [i,{x,z}] of courts.entries()){
         ctx.strokeStyle=world.volleyball[i].phase==='closed'?'#776758':'#237286';
@@ -1246,7 +1262,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,burning:vitals.burning,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -1303,7 +1319,7 @@ function frame(time) {
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
       const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : atBeachClub(local) ? 'Harbor Key Beach Club' : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY && Math.hypot(local.x-valet.x,local.z-valet.z)<6?'Palma de Sal · Valet' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : atBeachClub(local) ? 'Harbor Key Beach Club' : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);

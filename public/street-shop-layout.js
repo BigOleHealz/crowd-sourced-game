@@ -6,7 +6,6 @@ import {furnitureId} from './shop-furniture.js';
 export const tenants = [
   [['Río Papel','Books & independent press','books'],['Bromelia','Flowers & stems','florist']],
   [['Azul Discos','Records · listening room','records'],['Forma Sur','Contemporary ceramics','pottery']],
-  [['Lantern Florals','Flowers by the concierge','florist'],['Lantern Club Atelier','Evening wear','apparel']],
   [['Dársena','Contemporary art','gallery'],['Cadencia','Bicycles & repair','cycles']],
   [['Casa Lino','Linen & cotton','apparel'],null],
   [['Tinta y Mar','Bookshop','books'],['Sombra','Botanical studio','florist']],
@@ -15,8 +14,6 @@ export const tenants = [
   [['Marea Baja','Board workshop','surf'],['Terracota','Wheel-thrown stoneware','pottery']],
   [['Ojiva','Print gallery','gallery'],['Rueda Libre','City bicycles','cycles']],
   [['Tallo','Cut flower market','florist'],['Alba','Resort wear','apparel']],
-  [['The Listening Room','Lantern Club · Jazz on vinyl','records'],['Casino Boutique','Lantern Club · Resort wear','apparel']],
-  [['Oasis Editions','Lantern Club · Fine art','gallery'],['The Oasis Library','Art & design books','books']],
   [['Pórtico','Linen atelier','apparel'],['Garza','Fine art editions','gallery']],
   [['Tidal Supply','Paddleboard supply','surf'],['Harbor Wheel','Marine district cycles','cycles']],
   [['Muelle','Canvas & cotton','apparel'],['Channel Press','Charts & books','books']],

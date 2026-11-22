@@ -1,4 +1,6 @@
+import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
 import {compactAmbientView} from './ambient-snapshot.js';
+import {resortArrivals} from './public/palma-site.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
@@ -18,6 +20,7 @@ import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
+import {stepCourtResident} from './court-residents.js';
 import {createBasketball} from './basketball-game.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {useBeachClub,updateBeachVisit} from './public/beach-club.js';
@@ -65,7 +68,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -159,6 +162,9 @@ function freshResidents(){
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
   if(CITY && !mode)world.dogs=newDogs(residents);
+  if(CITY)addClubResidents(world,residents);
+  world.hoops?.roster.attach(residents);
+  for(const roster of world.volleyballActivity?.rosters??[])roster.attach(residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -170,7 +176,11 @@ function worldView() {
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
-  return { ...world, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
+  const sports=world.hoops?{
+    basketball:{...world.basketball,npcs:world.hoops.roster.view(ticks)},
+    volleyball:world.volleyball.map((game,i)=>({...game,athletes:world.volleyballActivity.rosters[i].view(ticks)})),
+  }:{};
+  return { ...world,...sports, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.filter(actor=>!actor.courtPose).map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -237,24 +247,26 @@ const sockets = new WebSocketServer({
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
+const arrivalRoutes=new Map([...resortArrivals].map(([key,pose])=>['/world?map=brickell&arrival='+key,pose]));
 const cityRoutes=new Map([['/world?map=brickell',''],...[marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
-  sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
+  sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws,request));
 }
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
   const validOrigin = !origin || origin === 'http://' + request.headers.host ||
     origin === 'https://' + request.headers.host;
-  const district = cityRoutes.get(request.url);
+  const roomPath=arrivalRoutes.has(request.url)?'/world?map=brickell':request.url;
+  const district = cityRoutes.get(roomPath);
   if ((request.url!=='/world' && district===undefined) || !validOrigin) {
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     return;
   }
   if(request.url === '/world') return accept(request,socket,head);
-  let cityWorker=cityWorkers.get(request.url);
+  let cityWorker=cityWorkers.get(roomPath);
   if(!cityWorker?.connected) {
     cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell',PINEWATCH_MODE:district}});
-    cityWorkers.set(request.url,cityWorker);
+    cityWorkers.set(roomPath,cityWorker);
     cityWorker.on('error',err=>console.error('City session:',err.message));
   }
   socket.pause();
@@ -265,7 +277,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -308,13 +320,13 @@ function acceptInput(player, data, binary) {
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='beachClub'){
     if(CITY && !mode && canPlayVolleyball(world,player) && !world.volleyballActivity?.member(player.id) &&
-      world.casino?.player!==player.id)useBeachClub(player,input.action,ticks,players);
+      world.casino?.player!==player.id && canServeDrink(world,input.action))useBeachClub(player,input.action,ticks,players);
     return;
   }
   if(input?.type==='clubSeat'){
     if(!CITY || mode)return;
     if(input.action==='leave' && player.clubSince!=null)leaveClubSeat(player);
-    else if(input.action==='join' && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
+    else if(input.action==='join' && staffAtWork(world,'lucero-daniel') && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
       !gunnerVehicle(world,player.id) && world.heli.pilot!==player.id && world.jet.pilot!==player.id &&
       world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
     return;
@@ -428,7 +440,7 @@ function updateRoom() {
   }
 }
 
-sockets.on('connection', ws => {
+sockets.on('connection', (ws,request) => {
   ws.on('error', () => ws.terminate());
   if (players.size >= capacity) {
     ws.send(JSON.stringify({ type: 'full' }));
@@ -442,6 +454,11 @@ sockets.on('connection', ws => {
     id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
+  const arrival=arrivalRoutes.get(request.url);
+  if(CITY && !match && arrival){
+    player.state={x:arrival.x,y:arrival.y,z:arrival.z+(id%3)*.55,grounded:true,vy:0};
+    player.yaw=arrival.yaw;
+  }
   if(match){
     Object.assign(player,assignTeam(players));
     delete player.trip;
@@ -554,8 +571,10 @@ function tick() {
     stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
     stepPartyEvacuation(world,npcs,ticks,step);
+    stepClubResidents(world,players,ticks,step);
     for(const npc of npcs){
-      if(npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
+      if(npc.courtPose){stepCourtResident(npc,ticks,step,world);continue;}
+      if(npc.venue || npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
       if(!stepDogPursuit(world,npc,players,ticks,step))updateRival(npc,ticks,step,world.hp,world);
     }
   }
@@ -805,7 +824,7 @@ function tick() {
   if(players.size)stepSharkScavenging(world,players,npcs,ticks,step);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
-    for(const npc of npcs)sampleRanger(npc,step,world);
+    for(const npc of npcs)sampleRanger(npc,step,world,ticks);
   }
   world.hoops?.step(step);
   if(marina){
@@ -821,6 +840,7 @@ function tick() {
   }
   stepHydrants(world);
   advanceRounds(world,players,npcs,ticks);
+  stepBurningActors(world,players,npcs,ticks);
   advanceThrowables(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
   stepDistrictFires(world.doors,ticks,world.rules);

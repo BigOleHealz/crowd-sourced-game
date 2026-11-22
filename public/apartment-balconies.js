@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import {chamferedOutline,guardHeight,hasApartmentBalconies,railGeometry,towerBays,towerStories} from './tower-glass.js';
 import {paneBatch} from './pane-damage-view.js';
+import {glassSupportKey} from './glass-support.js';
 import {paneKey} from './pane-damage.js';
 export {hasApartmentBalconies};
 
@@ -80,7 +81,8 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
   const picketMaterial = new THREE.MeshLambertMaterial({color: 0x3e4b4a});
 
   const updates=[];
-  buildings.forEach(({x, z, w, d, eave, facade}, tower) => {
+  buildings.forEach((building, tower) => {
+    const {x,z,w,d,eave,facade}=building;
     if (!hasApartmentBalconies(facade)) return;
     const wrap = facade === 0, type = wrap ? 0 : 1;
     const height = eave - podium;
@@ -97,7 +99,9 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
 
     const infill = wrap
       ? (px, y, pz, yaw, span) => {
-        guards.add(paneKey(px,y,pz),()=>panels.add(guardPane, 0xffffff, px,y,pz,span-.039,guardHeight-.12,1,0,yaw));
+        const width=span-.039,height=guardHeight-.12;
+        guards.add(paneKey(px,y,pz),()=>panels.add(guardPane,0xffffff,px,y,pz,width,height,1,0,yaw),
+          {owner:building,x:px,z:pz,width,bottom:y-height/2,top:y+height/2,yaw});
       }
       : (px, y, pz, yaw, span) => {
         const subdivisions = Math.ceil(span / .155);
@@ -153,7 +157,7 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
           // PlaneGeometry vertices run upper left/right, then lower left/right.
           for(const v of [1,0])for(const u of [0,1])roomCoords.push(u,v,roomSeed,opening/panelHeight);
           sheets.add(paneKey(gx,y,gz),()=>glazing.add(windows[type][glassPattern],glassTint,
-            gx,y,gz,opening,panelHeight,1,0,yaw));
+            gx,y,gz,opening,panelHeight,1,0,yaw),{owner:building,x:gx,z:gz,width:opening,bottom:sill,top:head,yaw});
 
           for (const edge of [-.5, 0, .5]) {
             solid(frame, center + edge * (opening - .065), (head + sill) / 2, -.34,
@@ -201,9 +205,9 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
   for (const geometry of [cube, leaves, guardPane, ...windows.flat()]) geometry.dispose();
   let lastRevision;
   return doors=>{
-    const revision=doors?.glassSeq??0;
+    const revision=(doors?.glassSeq??0)+'|'+glassSupportKey(doors);
     if(revision===lastRevision)return;
     lastRevision=revision;
-    for(const update of updates)update(doors?.brokenPanes);
+    for(const update of updates)update(doors?.brokenPanes,doors);
   };
 }

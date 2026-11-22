@@ -5,7 +5,8 @@ import {bankSite} from './bank-site.js';
 import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
 import {fallenTop} from './shop-furniture.js';
 import {tenants,retailDepths,retailFixtures,shopFloor,shopCeiling} from './street-shop-layout.js';
-import {brickellMap} from './brickell-map.js';
+import {brickellMap,citySiteId} from './brickell-map.js';
+import {paneSupportLost} from './glass-support.js';
 import {doorX,hasStorefrontRooms,panelCenter,storefrontDoors,storefrontFloor,storefrontFurniture,storefrontLeafId} from './storefront-layout.js';
 
 const roomGrid=new Map();
@@ -45,7 +46,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const bays=Math.max(3,Math.round(b.d/2.8)),bay=(b.d-.44)/bays;
       spans=Array.from({length:bays},(_,i)=>[b.z-b.d/2+.22+i*bay,b.z-b.d/2+.22+(i+1)*bay]);
     }
-    const face={id:index*2+(side+1)/2,buildingIndex:index,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
+    const face={id:(citySiteId(b))*2+(side+1)/2,buildingIndex:index,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
     if(!showcase){
       const bayIndex=side===1?spans.length-1:0,[lo,hi]=spans[bayIndex];
       face.name=tenants[index][side===1?1:0][0];
@@ -121,8 +122,9 @@ export function paneShattered(pane,doors) {
   return Boolean((pane.id && doors?.brokenPanes?.[pane.id]) ||
     (pane.face && pane.index!==null && (doors?.broken?.[pane.face.id] & (1<<pane.index))));
 }
+export const paneUnavailable=(pane,doors,building)=>paneShattered(pane,doors) || paneSupportLost(pane,doors,building);
 export function shatterPane(doors,pane) {
-  if(!doors||paneShattered(pane,doors))return false;
+  if(!doors||paneUnavailable(pane,doors))return false;
   noteGlass(doors,{x:pane.x,y:(pane.bottom+pane.top)/2,z:paneCenter(pane,doors)});
   if(pane.id){
     (doors.brokenPanes??={})[pane.id]=pane.slide ? {z:paneCenter(pane,doors)} : pane.hotelSlider ? {x:pane.x} : true;
@@ -139,24 +141,30 @@ export function frontageOpenToRound(face,z,y,doors) {
     if(Math.abs(z-all.z)>all.width/2 || y<low || y>all.top)continue;
     const start=all.z-all.width/2;
     const sill=face.spans[all.index][2] || face.entry?.bayIndex===all.index ? false : Math.abs(y-all.bottom)<.025;
-    return paneShattered(all,doors) || (z>start+.028 && !sill);
+    return paneUnavailable(all,doors) || (z>start+.028 && !sill);
   }
   return face.glass.extra.some(p=>!p.slide && Math.abs(z-p.z)<=p.width/2 && y>=p.bottom && y<=p.top);
+}
+
+export function frontageSupportOpening(face,z,y,pad,doors){
+  if(!doors?.towerBreaches?.length)return false;
+  const open=p=>Math.abs(z-paneCenter(p,doors))+pad<=p.width/2 && y>=p.bottom && y<=p.top && paneSupportLost(p,doors);
+  return face.glass.bays.some(({panes})=>panes.some(open)) || face.glass.extra.some(open);
 }
 
 export function visitRoundGlass(building,doors,visit) {
   const faces=buildings.get(building.x+','+building.z);
   if(!faces && building!==bankSite)return;
   for(const face of faces??[]){
-    for(const {panes} of face.glass.bays)for(const pane of panes)if(!paneShattered(pane,doors))visit(pane);
-    for(const pane of face.glass.extra)if(!paneShattered(pane,doors))visit(pane);
+    for(const {panes} of face.glass.bays)for(const pane of panes)if(!paneUnavailable(pane,doors))visit(pane);
+    for(const pane of face.glass.extra)if(!paneUnavailable(pane,doors))visit(pane);
   }
   const plan=faces?galleryPlans[faces[0].buildingIndex]:galleryPlans.find(p=>p.b===bankSite);
-  for(const pane of plan.panes)if(!paneShattered(pane,doors))visit(pane);
-  for(const pane of plan.doorPanes)if(!paneShattered(pane,doors))visit(pane);
+  for(const pane of plan.panes)if(!paneUnavailable(pane,doors))visit(pane);
+  for(const pane of plan.doorPanes)if(!paneUnavailable(pane,doors))visit(pane);
   if(plan.hotel)for(const front of hotel.fronts){
     for(const pane of hotelGlass(front,doors?.hotel?.[front.id]??0,galleryDoorWidth,galleryFloor)){
-      if(!paneShattered(pane,doors))visit(pane);
+      if(!paneUnavailable(pane,doors,building))visit(pane);
     }
   }
 }
@@ -209,15 +217,15 @@ export function retailSurface(face,x,z,pad,probe,roof,doors,round=false){
   if(reach<.17+pad){
     if(round){
       if(!frontageOpenToRound(face,z,probe,doors))return roof;
-    }else if(!brokenSpan(face,mask,z,pad)){
+    }else if(!brokenSpan(face,mask,z,pad) && !frontageSupportOpening(face,z,probe,pad,doors)){
       const entry=face.entry,opening=doors?.retail?.[face.id]??0;
       const leafZ=entry.z+entry.travel*opening;
       const individual=face.glass.bays[entry.bayIndex].panes;
       const leaf=individual.find(p=>p.slide);
-      const wideEnough=individual.some(p=>!p.slide && paneShattered(p,doors) &&
+      const wideEnough=individual.some(p=>!p.slide && paneUnavailable(p,doors) &&
         p.bottom<shopFloor+.12 && probe<=p.top && Math.abs(z-p.z)+pad<=p.width/2);
       if(!wideEnough && (probe>entry.head || Math.abs(z-entry.z)>entry.width/2-pad ||
-          (!paneShattered(leaf,doors) && Math.abs(z-leafZ)<entry.width/2+pad+.018)))return roof;
+          (!paneUnavailable(leaf,doors) && Math.abs(z-leafZ)<entry.width/2+pad+.018)))return roof;
     }
   }
   let top=-Infinity;
@@ -266,14 +274,14 @@ export function visitRoadPodium(b,x,z,doors,visit){
     if(mask&(1<<pane.index))continue;
     if(face.entry?.bayIndex===pane.index){
       const [left,right,,glassLeaf]=face.glass.bays[pane.index].panes;
-      if(!paneShattered(left,doors))visit(face.entry.fixed[0]);
-      if(!paneShattered(right,doors))visit(face.entry.fixed[1]);
+      if(!paneUnavailable(left,doors))visit(face.entry.fixed[0]);
+      if(!paneUnavailable(right,doors))visit(face.entry.fixed[1]);
       const leaf=face.entry.leaf;
-      if(!paneShattered(glassLeaf,doors)){
+      if(!paneUnavailable(glassLeaf,doors)){
         leaf.z=face.entry.z+face.entry.travel*(doors?.retail?.[face.id]??0);
         visit(leaf);
       }
-    }else if(!(pane.door && doors?.[pane.door]>.98))visit(pane);
+    }else if(!(pane.door && doors?.[pane.door]>.98) && !paneSupportLost(face.glass.bays[pane.index].all,doors))visit(pane);
   }
 }
 export function breakFrontage(doors,hit,rover,onBreak){

@@ -2,6 +2,7 @@ import {floatingBody} from './marine-float.js';
 import * as THREE from 'three';
 import {manateeMaterial} from './manatee-model.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
+import {sharkFeedingSpray} from './shark-feeding-spray.js';
 import {sharkSizes} from './shark-swim.js';
 
 // The pointed rostrum, swept pectorals and longer upper tail lobe remain visible
@@ -31,15 +32,16 @@ function sharkGeometry(part){
     for(let i=0;i<base.length;i++)ix.push(peak,base[i],base[(i+1)%base.length]);
   }
   if(part==='jaw'){
-    // The hinge sits under the gills. The darker inner jaw and pale tooth
-    // line become visible as the lower jaw swings down during the bite.
-    loft([[-.59,.009,.009,0],[-.49,.119,.032,-.019],[-.29,.192,.052,-.034],
-      [-.10,.217,.057,-.020],[.03,.178,.062,.013]],14,[0,0,0],belly);
+    // The upper lip meets the snout at rest. The thick rear of the jaw extends
+    // behind the pivot into the cheek and stays embedded through the bite.
+    loft([[-.612,0,0,.060],[-.54,.099,.031,.040],[-.40,.156,.047,.019],
+      [-.24,.199,.060,-.010],[-.09,.224,.077,.006],[.08,.247,.100,.029],
+      [.22,.216,.089,.060],[.29,0,0,.069]],16,[0,0,0],belly);
     const gum=new THREE.Color(0x613f42),tooth=new THREE.Color(0xdccfb7);
-    loft([[-.565,.01,.005,.002],[-.44,.115,.014,-.002],[-.23,.157,.019,-.001],
-      [-.085,.169,.017,.026],[.002,.124,.015,.045]],14,[0,0,0],gum);
+    loft([[-.578,.008,.004,.059],[-.46,.106,.011,.051],[-.27,.156,.013,.049],
+      [-.10,.171,.016,.069],[.075,.151,.018,.095]],16,[0,0,0],gum);
     for(const side of [-1,1])for(let i=0;i<5;i++){
-      const z=-.42+i*.078,x=side*(.119+.047*Math.sin((i+.6)*.45)),y=.014+i*.007;
+      const z=-.45+i*.072,x=side*(.101+i*.015),y=.057+Math.max(0,i-2)*.006;
       fin([[x,y,z],[x,y+.042,z+.026],[x,y,z+.052]],[x-side*.009,y+.007,z+.02],tooth);
     }
   }else if(part==='body'){
@@ -69,7 +71,7 @@ function sharkGeometry(part){
       }
     }
   }else{
-    loft([[-.03,.145,.132,.01],[.23,.118,.094,0],[.45,.074,.064,.006],
+    loft([[-.17,.131,.114,.01],[-.03,.145,.132,.01],[.23,.118,.094,0],[.45,.074,.064,.006],
       [.55,.058,.076,.017],[.66,.024,.076,.026]],14);
     fin([[-.042,0,.42],[0,.22,.52],[0,.61,.83],[0,.72,.96],[.018,.34,.86],
       [.044,.030,.68],[0,-.19,.75],[0,-.33,.79],[0,-.27,.65]],[-.068,.08,.59]);
@@ -83,6 +85,7 @@ function sharkGeometry(part){
 }
 export function sharkView(scene,waterline){
   const impacts=aquaticImpactView(scene,waterline,sharkSizes);
+  const spray=sharkFeedingSpray(scene,waterline,sharkSizes.length);
   const models=[],clock={value:0};
   let bodyShape,tailShape,jawShape,material;
   function model(index){
@@ -99,7 +102,7 @@ export function sharkView(scene,waterline){
     grip.add(hull);root.add(grip);hull.add(jaw);
     root.name='Offshore shark';root.scale.setScalar(sharkSizes[index]);
     root.renderOrder=1;hull.add(body,tail);tail.position.z=1.02;scene.add(root);
-    return {root,tail,jaw,grip};
+    return {root,hull,tail,jaw,grip};
   }
   return (states,local,tick,dt,defeats)=>{
     impacts(states,local,dt);clock.value=(tick??0)/30;
@@ -109,7 +112,7 @@ export function sharkView(scene,waterline){
         if(models[i])models[i].root.visible=false;
         continue;
       }
-      const {root,tail,jaw,grip}=models[i]??=model(i);
+      const {root,hull,tail,jaw,grip}=models[i]??=model(i);
       if(!root.visible || root.position.distanceToSquared(s)>36){
         root.position.set(s.x,s.y,s.z);root.rotation.y=-s.yaw;
       }
@@ -119,20 +122,30 @@ export function sharkView(scene,waterline){
       const contact=event && (event.sharkIndex===i ? event.tick : event.arrivals.find(p=>p.sharkIndex===i).tick);
       const elapsed=event ? Math.max(0,(tick-contact)/30) : 0;
       const chewing=s.phase==='scavenging' && s.scavenge;
-      const chew=chewing?Math.sin((tick-s.scavenge.biteTick)*.19):0;
-      const recoil=chewing?.09*chew:event ? Math.sin(elapsed*9.7)*(.14+.28*Math.exp(-elapsed*1.8)) : 0;
+      const thrashing=chewing || event;
+      const age=chewing ? Math.max(0,(tick-s.scavenge.biteTick)/30) : elapsed;
+      const rate=chewing?5.7:9.7,beat=age*rate;
+      const sway=Math.sin(beat+.40+i*.59),recoil=thrashing ? sway*(chewing?.37:.23+.20*Math.exp(-age*1.8)) : 0;
       grip.rotation.z+=(recoil-grip.rotation.z)*mix;
       const dogStrike=s.phase==='dog-strike';
       const diveAngle=s.phase==='feeding' || dogStrike ? Math.max(-.58,Math.min(.22,(s.y-root.position.y)*4)) : 0;
-      grip.rotation.x+=(diveAngle-grip.rotation.x)*mix;
+      const lunge=thrashing?.13*Math.cos(beat):0;
+      grip.rotation.x+=(diveAngle+lunge-grip.rotation.x)*mix;
       root.position.x+=(s.x-root.position.x)*mix;
       root.position.y+=(s.y-root.position.y)*mix;
       root.position.z+=(s.z-root.position.z)*mix;
       root.rotation.y+=Math.atan2(Math.sin(-s.yaw-root.rotation.y),Math.cos(-s.yaw-root.rotation.y))*mix;
       root.rotation.z=s.hp ? .055*Math.sin(s.stroke):floatingBody(s.deathY,waterline,s.size,s.ageSinceHit).roll;
-      const bite=chewing?.32+.24*chew:dogStrike ? .58*Math.sin(Math.min(1,s.dogEncounter.t/.72)*Math.PI) : s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
+      const bite=chewing?.32+.24*Math.sin(beat):dogStrike ? .58*Math.sin(Math.min(1,s.dogEncounter.t/.72)*Math.PI) : s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
       jaw.rotation.x=-bite;
-      tail.rotation.y=s.hp ? .26*Math.sin(s.stroke):0;
+      const kick=beat-.82+i*.45;
+      tail.rotation.x+=((thrashing?.23*Math.cos(kick):0)-tail.rotation.x)*mix;
+      tail.rotation.y+=((thrashing?.69*Math.sin(kick):s.hp?.26*Math.sin(s.stroke):0)-tail.rotation.y)*mix;
+      tail.rotation.z+=((thrashing?.27*Math.sin(kick+.40):0)-tail.rotation.z)*mix;
+      if(thrashing && tick>=(chewing?s.scavenge.biteTick:contact)){
+        spray.mark(i,age,Math.PI*2/rate,tick,hull,tail,s.yaw,s.size);
+      }
     }
+    spray.finish(tick??0,local);
   };
 }

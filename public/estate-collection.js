@@ -63,7 +63,7 @@ function tropicalLeaf(){
   g.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));return g;
 }
 
-export function estateCollection(scene,Batch,refreshShadows){
+export function estateCollection(scene,Batch,refreshShadows,staticGroup){
   const box=new THREE.BoxGeometry(),pillow=cushionGeometry(),stone=stoneSlab(),leaf=tropicalLeaf();
   const drum=new THREE.CylinderGeometry(.5,.5,1,16),pin=new THREE.CylinderGeometry(.5,.5,1,7),orb=new THREE.SphereGeometry(.5,12,7);
   const lathe=points=>new THREE.LatheGeometry(points.map(([a,b])=>new THREE.Vector2(a,b)),16);
@@ -81,7 +81,7 @@ export function estateCollection(scene,Batch,refreshShadows){
     shape.setAttribute('batchUv',attrs.get(tile));return shape;
   }
 
-  const groups=Object.fromEntries(['casa','mare','lido'].map(home=>[home,{batch:new Batch(true),ranges:[],rugShadows:[]}]));
+  const groups=Object.fromEntries((staticGroup?[staticGroup]:['casa','mare','lido']).map(home=>[home,{batch:new Batch(true),ranges:[],rugShadows:[]}]));
   function item(home,x,y,z,build,wall=false){
     const {batch,ranges,rugShadows}=groups[home],start=batch.indices.length;
     const put=(shape,tile,color,u,v,t,w,h,d,rx=0,ry=0,rz=0)=>
@@ -338,6 +338,12 @@ export function estateCollection(scene,Batch,refreshShadows){
         diffuseColor.rgb*=texel;
       `);
     };
+    if(staticGroup){
+      const mesh=groups[staticGroup].batch.mesh(scene,material);
+      mesh.name=staticGroup+' furnishings';
+      for(const shape of shapes)shape.dispose();
+      return mesh;
+    }
     for(const [home,g] of Object.entries(groups)){
       // Furniture lives in its own estate's culling bounds. Beyond a block the
       // exterior glazing and walls supply the silhouette; room details subtend pixels.
