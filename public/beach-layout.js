@@ -14,7 +14,7 @@ export function canopyHeight(number,dx) {
   return ay+(by-ay)*(dx-ax)/(bx-ax);
 }
 export const shadeSpots=[
-  {x:49,z:-164,color:0xdd675a}, {x:52,z:-201,color:0x249b99},
+  {x:49,z:-164,color:0xdd675a}, {x:52,z:-198,color:0x249b99},
   {x:53,z:-235,color:0xdf9272}, {x:48,z:-272,color:0x248da1},
 ];
 export const onBeach=(x,z)=>x>=beach.west && x<=beach.east && z>=beach.north && z<=beach.south;

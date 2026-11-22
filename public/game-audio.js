@@ -1,3 +1,5 @@
+import {beachDJ} from './beach-club.js';
+import {beachClubLoop} from './beach-club-music.js';
 import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
 import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
@@ -29,6 +31,7 @@ const shapes={
 };
 function synth(context,name) {
   if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
+  if(name==='beach-club')return beachClubLoop(context);
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
   if(name==='shark-strike-water')return sharkStrikeWaterSound(context);
@@ -302,6 +305,8 @@ export function createGameAudio(button,slider,level,caption) {
     if(context && context.currentTime>=nextEnvironment){
       nextEnvironment=context.currentTime+.2;
       const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
+      const beachRange=world.map==='brickell'?Math.hypot(listener.x-beachDJ.x,listener.y-beachDJ.y,listener.z-beachDJ.z):Infinity;
+      motor('beach-club',beachDJ,beachRange<32,1,.72*Math.max(0,1-beachRange/32),listener,yaw);
       const inEarshot=world.map==='brickell' && Math.hypot(listener.x-clubSpeaker.x,listener.z-clubSpeaker.z)<19;
       let party=null,partyRange=36;
       for(const b of world.boats??[]){

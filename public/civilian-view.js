@@ -215,12 +215,24 @@ export function dressPerson(rig,p,Batch,material,textiles) {
         b.add(oval,0xe4c080,0,1.415,-.112,.015,.022,.011);
       }
     }
+    if(p.bartender){
+      b.add(oval,0x255854,0,1.09,-.116,.152,.24,.032);
+      for(const side of [-1,1])b.beam(0xc9b993,[side*.084,1.48,-.074],[side*.085,1.24,-.139],.018,.009);
+      b.add(box,0xd3c09b,0,1.13,-.151,.124,.014,.009);
+    }
     if(p.extra==='staff'){
       for(const side of [-1,1])b.beam(0x327c78,[side*.065,1.49,-.069],[.01,1.26,-.146],.017,.008);
       b.add(box,0xe5e1cb,.01,1.228,-.150,.080,.067,.010);
       b.add(box,0x426967,.01,1.251,-.157,.076,.012,.003);
     }
   });
+  if(p.bartender){
+    const shaker=new Batch(),tin=new THREE.CylinderGeometry(.047,.034,.152,12);
+    shaker.add(tin,0xcdd3cc,.012,-.254,-.04,1,1,1,-.46);
+    shaker.add(oval,0x849796,.012,-.187,-.071,.043,.032,.043);
+    rig.shaker=shaker.mesh(rig.limbs[1].forearm,material,false);
+    rig.shaker.visible=false;tin.dispose();
+  }
   if(p.evening && !eveningFabrics.has(p.top))
     eveningFabrics.set(p.top,new THREE.MeshPhongMaterial({color:p.top,shininess:22,specular:0x34303a}));
   const shirt=new THREE.Mesh(shirtGeometry(p),p.evening?eveningFabrics.get(p.top):textiles.shirts);

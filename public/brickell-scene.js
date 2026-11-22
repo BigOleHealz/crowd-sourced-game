@@ -35,6 +35,7 @@ import { streetShops } from './street-shops.js';
 import { avenueFrontage } from './avenue-frontage.js';
 import {addCauseway} from './causeway-view.js';
 import { addApartmentBalconies } from './apartment-balconies.js';
+import {addBeachClub} from './beach-club-view.js';
 import { addBeach } from './beach-view.js';
 import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import * as THREE from 'three';
@@ -44,6 +45,7 @@ import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './br
 import {breakablePostView} from './breakable-post-view.js';
 export function cityStreets(scene,renderer,Batch,panorama) {
   clubInterior(scene,Batch);
+  const updateBeachClub=addBeachClub(scene,Batch);
   const posts=breakablePostView(scene,Batch);
   const updateCourts=addBeach(scene,Batch);
   const loader=new THREE.TextureLoader(), box=new THREE.BoxGeometry();
@@ -222,5 +224,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     updateGallery(doors,bankVisual);
     debris.update(dt);
     updateCourts(doors,dt,local,remotes);
+    updateBeachClub(local,remotes,tick);
   };
 }

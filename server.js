@@ -17,6 +17,7 @@ import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
 import {createBasketball} from './basketball-game.js';
 import {stepDistrictFires} from './public/district-fire.js';
+import {useBeachClub,updateBeachVisit} from './public/beach-club.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
 import {expireShots} from './public/shot-events.js';
@@ -260,7 +261,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -300,6 +301,11 @@ function acceptInput(player, data, binary) {
   if(input?.type==='volleyball'){world.volleyballActivity?.request(world,player,input.action,ticks);return;}
   if(input?.type==='bank'){bank?.request(world,player,input,ticks);return;}
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
+  if(input?.type==='beachClub'){
+    if(CITY && !mode && canPlayVolleyball(world,player) && !world.volleyballActivity?.member(player.id) &&
+      world.casino?.player!==player.id)useBeachClub(player,input.action,ticks,players);
+    return;
+  }
   if(input?.type==='clubSeat'){
     if(!CITY || mode)return;
     if(input.action==='leave' && player.clubSince!=null)leaveClubSeat(player);
@@ -547,6 +553,7 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(player.beachPose || player.beachOrder)updateBeachVisit(player,input,ticks);
     if(input && world.volleyballActivity?.member(player.id)){
       input.fire=input.tracking=input.interact=input.jump=input.deploy=false;
       input.seat=null;input.stance='stand';
