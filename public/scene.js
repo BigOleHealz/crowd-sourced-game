@@ -1,3 +1,4 @@
+import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
 import {casinoHall,casinoSeat} from './casino-layout.js';
 import {resortFloorView} from './resort-floor-view.js';
@@ -1089,6 +1090,7 @@ export function createScene(canvas) {
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
   let framedBite=null,biteSide=1;
   const updateDogSpray=CITY?sharkDogSpray(scene,MAP.waterY):null;
+  const swimmerImpacts=aquaticImpactView(scene,MAP.waterY,[]);
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1607,6 +1609,7 @@ export function createScene(canvas) {
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDogSpray?.(world.sharks,local);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
+    swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
     updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
@@ -1637,8 +1640,9 @@ export function createScene(canvas) {
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
   }
-  function showShots(shots) {
+  function showShots(shots,tick) {
     for(const shot of shots){
+      if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
       if(shot.weapon==='ember'){
         const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
         if(tool){
@@ -1653,7 +1657,7 @@ export function createScene(canvas) {
       effects.shot(shot,shot.source);
     }
   }
-  return {resetSurfaceMarks:marks.reset,setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {resetSurfaceMarks(){marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

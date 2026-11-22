@@ -666,7 +666,7 @@ function connect() {
       const shots=readShots(world.shots);
       for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
       lastGlass=world.doors?.glassSeq??0;
-      scene.showShots(shots);
+      scene.showShots(shots,m.simTick);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
