@@ -16,7 +16,7 @@ export function addOfficeWindows(scene,Batch,buildings,panorama){
   }
   stone.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   const glass=frontageGlassMaterial(panorama);
-  glass.fragmentShader=glass.fragmentShader.replace('.105+.49*edge*edge','gl_FrontFacing ? .88+.11*edge : .12+.25*edge');
+  glass.fragmentShader=glass.fragmentShader.replace('.105+.49*edge*edge','gl_FrontFacing ? .21+.41*edge*edge : .12+.25*edge');
   const mesh=windows.mesh(scene,glass,false);
   mesh.userData.impactSurface='glass';cube.dispose();plane.dispose();
   const updatePanes=panes.bind(mesh);

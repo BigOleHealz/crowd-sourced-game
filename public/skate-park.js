@@ -1,4 +1,5 @@
 import {sandHeight} from './beach-layout.js';
+import {rideTravelYaw} from './street-rides.js';
 
 export const skatePark={name:'South Beach Skate Park',west:38.9,east:47.1,north:-180.5,south:-154.5,y:1.03};
 const p=skatePark;
@@ -44,14 +45,16 @@ export function rideParkRail(previous,next,input){
   const locked=parkRails.find(rail=>rail.id===old.grind);
   const rail=locked??parkRails.find(b=>Math.abs(next.x-b.x)<(r.kind==='bike'?.24:.29) &&
     next.z>=b.north && next.z<=b.south && previous.y>=b.y-.12 && next.y<=b.y+.14 && previous.vy<=.12 &&
-    r.speed>1.45 && Math.abs(Math.cos(r.yaw))>.88);
+    r.speed>1.45 && Math.abs(Math.cos(r.yaw))>.88 && (r.kind==='bike' || Math.abs(next.vz)>.88*r.speed));
   if(!rail)return;
-  const sign=locked?Math.sign(Math.cos(old.yaw)):Math.sign(Math.cos(r.yaw));
+  const sign=locked?Math.sign(Math.cos(rideTravelYaw(old))):r.kind==='board'?Math.sign(-next.vz):Math.sign(Math.cos(r.yaw));
   if(locked && (input.jump || next.z<rail.north || next.z>rail.south || r.speed<.55)){
     delete r.grind;
     next.grounded=false;next.y=Math.max(next.y,rail.y);
     return;
   }
-  r.grind=rail.id;r.yaw=sign>0?0:Math.PI;
+  if(r.kind==='board' && sign*Math.cos(r.yaw)<0)r.reverse=true;
+  else delete r.reverse;
+  r.grind=rail.id;r.yaw=(r.reverse?-sign:sign)>0?0:Math.PI;
   next.x=rail.x;next.y=rail.y;next.vx=0;next.vy=0;next.vz=-sign*r.speed;next.grounded=true;
 }

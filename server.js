@@ -68,7 +68,7 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -76,7 +76,7 @@ import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
-import { advanceFall } from './public/falls.js';
+import { advanceFall, startFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -277,7 +277,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -393,7 +393,7 @@ function acceptInput(player, data, binary) {
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
-    tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
+    fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
@@ -644,7 +644,6 @@ function tick() {
     const wasPlayingHoops=world.basketball?.players.includes(player.id);
     if (input) {
       if (!match && input.replaySupply) replaySupplyRun(world);
-      if (input.weapon) player.weapon = input.weapon;
       if (input.interact && !player.state.climb) {
         const use=nextUse(world,player.state,player.id,input.useTarget);
         // A nearby seat can change hands between the prompt and the keypress.
@@ -742,6 +741,7 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
+    const handheld=updateHandheldGear(player,input,falling.swimming);
     if(player.state.entryMark){
       player.lastDive={...player.state.entryMark,tick:ticks};
       delete player.state.entryMark;
@@ -749,9 +749,16 @@ function tick() {
     if(player.state.dive){player.yaw=player.state.dive.kind==='platform'?0:-Math.PI/2;player.sprint=player.moving=false;continue;}
     if(falling.ride){
       const item=world.rides.find(r=>r.id===falling.ride.id);
-      if(!player.state.ride)parkRide(world,player,true);
+      const {x,y,z,ride,skateBail}=player.state;
+      if(skateBail){
+        delete player.state.skateBail;
+        Object.assign(item,{x,y,z,yaw:skateBail.yaw});
+        parkRide(world,player);
+        player.yaw=skateBail.yaw;
+        startFall(player,ticks,{x:0,y:1,z:0},'skateboard');
+        damageActor(player,skateBail.damage,ticks);
+      }else if(!ride)parkRide(world,player,true);
       else {
-        const {x,y,z,ride}=player.state;
         Object.assign(item,{x,y,z,yaw:ride.yaw});recordWheelContact(item,player.state,ticks);player.yaw=ride.yaw;
       }
       player.moving=player.sprint=false;
@@ -769,12 +776,12 @@ function tick() {
     player.moving = Boolean(input && Math.hypot(input.x, input.z) > 0.01);
     player.sprint = player.moving && !player.state.swimming && !player.state.stance && input.sprint;
     if (input) {
-      player.yaw = input.fire ? input.aimYaw : input.yaw;
+      player.yaw = input.fire && handheld ? input.aimYaw : input.yaw;
       if(world.basketball?.players.includes(player.id)){
         player.yaw=input.hoopShot || world.basketball.charge>0 ? input.aimYaw : input.yaw;
         player.launcherLock=null;
         world.hoops.input(player,input);
-      }else if(!wasPlayingHoops){
+      }else if(!wasPlayingHoops && handheld){
         if(player.weapon===4 || player.launcherLock)trackLauncher(world,player,input,ticks,players,npcs);
         if (input.fire) fire(world, player, input, ticks, players, npcs);
       }

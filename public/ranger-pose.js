@@ -157,7 +157,6 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   const breathe=Math.sin(avatar.cycle+=dt*2.0);
   const airborne=state.grounded===false;
   const swimming=!!state.swimming && !seated && !station && !fall && !state.dead;
-  const armedSwimmer=swimming && state.swimArmed;
   const eligibleWater=!seated && !station && !prone && !crouch && !fall && !climb && !state.dead && !state.parachute;
   const targetWater=eligibleWater?waterBlend(state):0,previousWater=avatar.waterMix??targetWater;
   const water=avatar.waterMix=eligibleWater?previousWater+clamp(targetWater-previousWater,-dt*3.8,dt*3.8):0;
@@ -222,7 +221,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   }
   if(water>0) avatar.stroke=(avatar.stroke ?? 0)+dt*(state.moving ? 5.4 : 2.9);
   const stroke=avatar.stroke ?? 0;
-  const swimPitch=armedSwimmer ? -.12 : state.moving ? -1.06 : -.48;
+  const swimPitch=state.moving ? -1.06 : -.48;
   avatar.body.rotation.x=water*swimPitch;
   if(prone) {
     // Face down around the hips. The head and hands counter-rotate to look along the ground.
@@ -235,7 +234,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.head.position.set(-grip.x,1.525+.143-grip.y,-.008-grip.z-.045*weight);
   }
   if(water>0) {
-    avatar.body.position.y=THREE.MathUtils.lerp(avatar.body.position.y, (armedSwimmer?1.22:.79)-1.34*Math.cos(swimPitch)+.03*Math.sin(stroke),water);
+    avatar.body.position.y=THREE.MathUtils.lerp(avatar.body.position.y, .79-1.34*Math.cos(swimPitch)+.03*Math.sin(stroke),water);
     avatar.body.position.z=-Math.sin(swimPitch)*1.12*water;
     avatar.spine.rotation.x=THREE.MathUtils.lerp(avatar.spine.rotation.x,.17,water);
   }
@@ -275,7 +274,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.spine.rotation.set(-.04,0,0);
   }
   const toolIndex=(state.weapon ?? 1)-1;
-  const carrying=!state.dive && !climb && !fall && (!swimming || armedSwimmer) && !state.dead && !seated && !station;
+  const carrying=!state.dive && !climb && !fall && !swimming && !state.dead && !seated && !station;
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0);});
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
@@ -370,7 +369,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const reach=Math.sin(avatar.throwSwing*Math.PI*.70);
       arm.rotation.set(side===1?1.03+reach*1.44:.28,side*.05,side*(.11+.09*reach));
       forearm.rotation.x=side===1?.24+.37*(1-reach):.67;
-    } else if(!seated && !state.parachute && !state.dead && (!swimming || armedSwimmer)) {
+    } else if(!seated && !state.parachute && !state.dead && !swimming) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position,fit=carryFits[toolIndex];
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
@@ -410,7 +409,6 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const wave=stroke+(side===1?Math.PI:0),mix=THREE.MathUtils.lerp;
       leg.rotation.x=mix(leg.rotation.x,-.16+.25*Math.sin(wave),water);
       knee.rotation.x=mix(knee.rotation.x,-.21-.19*Math.sin(wave+.9),water);
-      if(armedSwimmer)continue;
       arm.rotation.set(mix(arm.rotation.x,.45+1.07*Math.cos(wave),water),mix(arm.rotation.y,side*.23,water),
         mix(arm.rotation.z,side*(.76+.48*Math.sin(wave)),water));
       forearm.rotation.x=mix(forearm.rotation.x,.5+.36*Math.sin(wave),water);

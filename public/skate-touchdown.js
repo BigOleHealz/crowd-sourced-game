@@ -25,7 +25,7 @@ export function wheelContactPose(state){
   const nose=(1-progress)**2*(land?.impact??0)*.14;
   const bend=land?land.impact*Math.sin(Math.PI*Math.sqrt(progress)):0;
   const y=(front+back)/2+half*Math.sin(nose)+(bike?.007:.014);
-  return {y,pitch:pitch+nose,bend};
+  return {y,pitch:pitch+(r.reverse?-nose:nose),bend};
 }
 export function recordWheelContact(item,state,tick){
   const landing=state.ride?.landing;

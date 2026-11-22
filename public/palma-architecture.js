@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {arrivalSections,arrivalPoint,arrivalWalls,pool,poolTerrace,levelY} from './palma-site.js';
+import {displayBays,arrivalSections,arrivalPoint,arrivalWalls,pool,poolTerrace,levelY} from './palma-site.js';
 
 // Architectural surfaces are static and share the resort's three material batches.
 export function dressPalmaArchitecture({stone,metal,glow,box,disc,ball,blade}){
@@ -19,6 +19,11 @@ export function dressPalmaArchitecture({stone,metal,glow,box,disc,ball,blade}){
       blade(stone,[0x416341,0x627d46,0x888c4a,0x395844][j%4],[x,y+.49*r,z],
         [x+radius*Math.cos(a),y+r*(.87+.54*(j%3)),z+radius*Math.sin(a)],r*.36,[0,1,0]);
     }
+  }
+  // Flush brass inlays mark the two display spaces on the stone forecourt.
+  for(const {x,z} of displayBays){
+    for(const side of [-1,1])box(metal,champagne,x,.819,z+side*1.48,5.4,.012,.055);
+    box(metal,champagne,x-2.69,.819,z,.055,.012,2.96);
   }
   // Wall-to-ground cheeks close both exposed road edges, even at the curb cuts.
   for(let i=1;i<arrivalSections.length;i++){

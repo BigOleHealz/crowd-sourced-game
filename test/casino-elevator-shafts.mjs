@@ -5,7 +5,7 @@ const {interiorPlans,buildingAction,ridingHotelShaft}=await import('../public/bu
 const {advanceElevator,requestInterior}=await import('../interior-actions.js');
 const {newExpedition}=await import('../public/expedition.js');
 const world=newExpedition(),resorts=interiorPlans.filter(p=>p.shaft);
-assert.equal(resorts.length,4);
+assert.deepEqual(resorts.map(p=>p.id),[25,141,143]);
 const player={id:1,lastSeq:0,inputs:[],life:{hp:100}},players=new Map([[1,player]]);
 let seq=0,tick=1,travel=0;
 for(const resort of resorts){

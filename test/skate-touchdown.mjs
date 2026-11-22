@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
+import {Scene} from 'three';
 process.env.PINEWATCH_MAP='brickell';
 const {stepPlayer,groundHeight}=await import('../public/world.js');
 const {parkRides,parkRails}=await import('../public/skate-park.js');
 const {takeRide}=await import('../public/street-rides.js');
 const {wheelContactPose,recordWheelContact,wheelContactSounds,wheelLandingBuffer}=await import('../public/skate-touchdown.js');
 const {createRangerRig}=await import('../public/ranger-pose.js');
-const {riderPose}=await import('../public/street-ride-view.js');
+const {riderPose,streetRideView}=await import('../public/street-ride-view.js');
 const dt=1/30;
 for(const kind of ['board','bike']){
   const world={rides:parkRides(groundHeight)},item=world.rides.find(r=>r.kind===kind),p={id:1,state:{grounded:true}};
@@ -30,6 +31,23 @@ for(const kind of ['board','bike']){
   assert.equal(hits.length,1);assert(impactPitch>settledPitch+.08);assert(maxBend>.3);
   const floor=groundHeight(p.state.x,p.state.z),pose=wheelContactPose(p.state);
   assert(Math.abs(pose.y-floor)<.02,'wheels come to rest on the surface');
+}
+
+{
+  const world={rides:parkRides(groundHeight)},item=world.rides[0],player={id:2,state:{grounded:true}};
+  takeRide(item,player);player.state.ride.speed=3;
+  const scene=new Scene(),show=streetRideView(scene),avatar=createRangerRig();
+  for(let i=0;i<14;i++){
+    player.state=stepPlayer(player.state,{jump:i===0,steer:1},dt,{},world);
+    const remote={...player.state,id:player.id};
+    show([item],{id:1},[remote],dt);riderPose(avatar,remote);
+    assert(Math.abs(scene.children[0].rotation.y+remote.ride.yaw)<.001);
+    assert(Math.abs(avatar.root.rotation.y+remote.ride.yaw-1.30)<.001);
+  }
+  assert(player.state.grounded && player.state.ride.reverse);
+  const pose=wheelContactPose(player.state);
+  const forward=wheelContactPose({...player.state,ride:{...player.state.ride,reverse:false}});
+  assert(pose.pitch<forward.pitch-.16 && pose.y===forward.y);
 }
 // Enter a second, elevated rail by popping an ollie on the flat of the funbox.
 let caught=false;

@@ -1,6 +1,5 @@
 import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
-import {swimWeapon} from './shark-swim.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
 import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
 import {burnableContact,hitFireSite} from './district-fire.js';
@@ -228,16 +227,30 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   return { target, hitKind, to, blocked, headshot, hitPart, injuryPoint };
 }
 
+// A queued command may cross the shoreline between receipt and simulation.
+// Keep the last land selection and require a release after a held swim input.
+export function updateHandheldGear(player,input,wasSwimming){
+  if(wasSwimming || player.state.swimming || input?.fromSwimming){
+    player.launcherLock=null;
+    if(input)player.releaseSwimTrigger=input.fire || input.tracking;
+    return false;
+  }
+  if(input){
+    if(!input.fire && !input.tracking)player.releaseSwimTrigger=false;
+    if(input.weapon && !player.releaseSwimTrigger)player.weapon=input.weapon;
+  }
+  return !player.releaseSwimTrigger;
+}
+
 export function trackLauncher(world,player,input,tick,players,npcs){
   const p=player.state;
   updateLock(world,player,{...input,from:{x:p.x,y:p.y+stanceMuzzleHeight(p),z:p.z}},tick,(w,from,dir,range)=>tracePulse(w,targets(w,player.id,players,npcs),from,dir,range,false,'handLauncher'));
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if ((player.state.swimming && (!world.sharks || !swimWeapon(player.weapon))) || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
   const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
   player.fireReady=tick+spec.cooldown;
-  if(player.state.swimming)player.swimArmedUntil=tick+18;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   if(player.weapon===6){
     throwCapsule(world,nextShotId++,player,from,input,tick);

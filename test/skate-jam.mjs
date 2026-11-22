@@ -10,8 +10,9 @@ function riding(kind,x=44,z=-157){
   takeRide(item,p);return p.state;
 }
 const sim=(s,input={})=>stepPlayer(s,input,dt,{},world);
-const touch=touchLayout({role:'foot',active:true,jamBoard:true,jump:'Ollie'}).quick;
-assert(touch.some(([k,v])=>k==='KeyF' && v==='Kickflip')&&touch.some(([k,v])=>k==='KeyX' && v==='Shove-it'));
+const touch=touchLayout({role:'skateboard',active:true,jamBoard:true,jump:'Ollie'});
+assert.equal(touch.axis,'Steer');
+assert.deepEqual(touch.quick,[['KeyF','Kickflip'],['KeyX','Shove-it'],['Space','Ollie']]);
 let rider=riding('board');
 for(const [kind,points] of [['kickflip',110],['shove',85],['ollie',35]]){
   const old=rider.ride.run?.score??0;

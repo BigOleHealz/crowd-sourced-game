@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {requestInterior,advanceElevator}=await import('../interior-actions.js');
-const {buildingAction}=await import('../public/building-interiors.js');
+const {buildingAction,interiorPlans}=await import('../public/building-interiors.js');
 const w=newExpedition(),players=new Map();
 function guest(id){
   const p={id,life:{hp:100},inputs:[],lastSeq:0,state:{x:-83.1,y:1.8,z:50.05,grounded:true}};
@@ -48,3 +48,19 @@ for(let i=0;i<parts.length;i+=23){
   }
 }
 console.log('PASS indexed resort surfaces against all floors, including broken glazing and slab edges.');
+
+const {lifts}=await import('../public/grand-resort-layout.js');
+assert.deepEqual(lifts.filter(l=>l.tower).map(l=>l.id),[25,141]);
+assert(!interiorPlans.some(p=>p.id===142));
+assert.match(interiorPlans.find(p=>p.id===143).panels[0].label,/Blackjack court/);
+for(const floor of resortLevels){
+  assert(floor.decks.some(d=>Math.abs(-76.1-d.x)<d.w/2 && Math.abs(59.35-d.z)<d.d/2),'former service shaft is floored');
+}
+advanceElevator(w,a,a.trip.time);
+for(const lift of lifts.filter(l=>l.tower)){
+  const panel=interiorPlans.find(p=>p.id===lift.id).panels[0];
+  const rider=guest(10+lift.id);
+  rider.state={x:panel.exitX,y:panel.y,z:panel.exitZ,grounded:true};
+  use(rider,{building:lift.id,floor:23});
+  assert(rider.trip,'guest lift reaches penthouse');advanceElevator(w,rider,rider.trip.time);
+}

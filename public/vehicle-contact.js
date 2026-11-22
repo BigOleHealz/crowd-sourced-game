@@ -1,3 +1,4 @@
+import {jetWalkContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {yachtFloorAt,yachtCeilingAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
@@ -30,6 +31,7 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
   const yachtTop=yachtFloorAt(world.yacht,x,y,z);
   if(y>=yachtTop-.31)result.floor=yachtTop;
   result.ceiling=yachtCeilingAt(world.yacht,x,y,z)-height;
+  jetWalkContact(result,world.jet,x,y,z,radius,height);
   const boats=world.boats??[];
   const traffic=world.traffic??[],patrol=world.patrolCars??[],firstCar=4+boats.length;
   for(let index=0;index<firstCar+traffic.length+patrol.length;index++) {

@@ -43,7 +43,7 @@ function sculptedForm(stations){
 }
 
 function centaur(group,Batch){
-  const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=.28;
+  const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=.28+Math.PI/2; // Face the inland approach across the fountain.
   const ball=new THREE.SphereGeometry(1,14,12),horse=new THREE.Group();
   // Build all of the bronze into one static batch. The forelegs paw the air
   // while the back hooves actually bear on the plinth.
@@ -103,6 +103,13 @@ function centaur(group,Batch){
     oval(dark,[s*.057,3.012,.831],[.029,.009,.011]);
     oval(litBronze,[s*.055,3.032,.836],[.049,.016,.021]);
     oval(litBronze,[s*.128,2.987,.70],[.029,.045,.021],-.11);
+  }
+  // A gilded laurel frames the face against the darker horse and plinth.
+  for(const side of [-1,1]){
+    for(let leaf=0;leaf<4;leaf++){
+      const a=.23+leaf*.39;
+      oval(gold,[side*.134*Math.sin(a),3.089+leaf*.013,.70+.132*Math.cos(a)],[.023,.043,.013],-.48);
+    }
   }
   oval(0x765b41,[0,2.919,.843],[.047,.010,.010]);
   oval(litBronze,[0,2.897,.837],[.045,.018,.014]);

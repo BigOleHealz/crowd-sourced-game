@@ -3,11 +3,13 @@ import {outsideWell} from './residential-spirals.js';
 import * as THREE from 'three';
 import {interiorPlans,doorIsOpen,landingValid,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {furnishingSupported} from './estate-damage.js';
+import {windowRoomView} from './window-room-view.js';
 import {residentialFurnishingView} from './residential-furnishing-view.js';
 
 // Reuse two bounded instance buffers: nearby entrances and a single furnished floor.
 export function buildingInteriorView(scene,Batch){
   const furnish=residentialFurnishingView(scene,Batch);
+  const windowRooms=windowRoomView(scene,Batch,interiorPlans);
   const geometry=new THREE.BoxGeometry(),material=new THREE.MeshLambertMaterial();
   const buffer=new THREE.InstancedMesh(geometry,material,980);
   buffer.userData.interiorFixtures=true;buffer.frustumCulled=false;buffer.count=0;scene.add(buffer);
@@ -129,6 +131,7 @@ export function buildingInteriorView(scene,Batch){
   let hadVisibleRider=false;
   return (feet,doors,dt,remotes)=>{
     const room=roomAtFeet(feet,doors),l=room?.l;
+    windowRooms(l,doors);
     const model=feet.liftTravel?null:l?.residential??room?.p.residential;
     if(model)furnish(model,{x:room.p.x,y:l?.y??room.p.b.base,z:room.p.z});
     else furnish(null);
@@ -154,7 +157,7 @@ export function buildingInteriorView(scene,Batch){
       for(const r of outsideWell({x:b.x,z:b.z,w:1.77,d:b.d-.85},p.stair??p.shaft))part(0x577074,r.x,l.y+.009,r.z,r.w,.016,r.d);
       for(const q of l.parts)part(q.color,q.x,q.bottom+q.h/2,q.z,q.w,q.h,q.d);
       if(!model)for(const r of l.rooms){
-        part(0xb39773,r.x,l.y+.011,r.z,r.w*.73,.017,r.d*.69);
+        part(0xb39773,r.x,l.y+(b.facade===0?.045:0)+.011,r.z,r.w*.73,.017,r.d*.69);
         part(0xf2deb1,r.x,l.y+l.height-.17,r.z,.55,.035,.3);
       }
       for(const d of l.doors)leaf(d,doors,dt);

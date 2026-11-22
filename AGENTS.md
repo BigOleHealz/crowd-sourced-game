@@ -18,3 +18,9 @@ unavailable, explicitly use `rtk <command>` when supported (for example,
 Use raw commands or `rtk bypass <command>` when exact, complete output is
 needed for correctness, machine parsing, or debugging; follow any recovery
 path in condensed output. See `~/.codex/RTK.md` for details.
+
+## Tracking game requests
+
+- Track new player requests in GitHub Issues. Check for an existing issue first and add new reproduction details or corrections there.
+- Give independently deliverable requests separate tickets. Record explicitly deferred ideas in the backlog.
+- Link the implementing PR to its issues. When reporting a fix, distinguish local test results, a merge to main, and the version verified on the public game.
