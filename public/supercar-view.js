@@ -25,24 +25,6 @@ function bonnetHeight(x,z){
   }
   return shoulder-.04;
 }
-function lacquer(panorama){
-  const material=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:86,specular:0xb5aba2});
-  if(panorama)material.onBeforeCompile=shader=>{
-    shader.uniforms.bodySky={value:panorama};
-    shader.fragmentShader='uniform sampler2D bodySky;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
-      vec3 eye=normalize(vViewPosition);
-      vec3 ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
-      vec2 suv=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
-      vec3 sky=texture2D(bodySky,suv).rgb;
-      float fresnel=pow(1.-clamp(dot(normal,eye),0.,1.),3.);
-      float horizon=exp(-pow((ray.y-.065)*5.6,2.));
-      float clearcoat=.050+.24*fresnel+.13*horizon;
-      vec3 reflected=mix(vec3(.055,.063,.067),sky,smoothstep(-.36,.08,ray.y));
-      outgoingLight=mix(outgoingLight,reflected,clearcoat)+vec3(.12,.105,.09)*horizon*fresnel;
-      #include <opaque_fragment>`);
-  };
-  return material;
-}
 function surface(positions,indices){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();return g;
@@ -214,7 +196,7 @@ export function createSupercarView(scene,Batch,shadowMap,panorama){
     trim.add(disc,0xaeb6b7,x,y,z,.11,.11,.146,Math.PI/2);
     trim.add(disc,0x1d2225,x,y,z+.066,.082,.003,.102,Math.PI/2);
   }
-  const coat=lacquer(panorama);
+  const coat=new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:36,specular:0x383532});
   const skin=paint.mesh(body,coat,false);
   const fittings=trim.mesh(body,new THREE.MeshPhongMaterial({vertexColors:true,side:THREE.DoubleSide,shininess:55,specular:0x797878}),false);
   for(const m of [skin,fittings])Object.assign(m.userData,{vehicle:'supercar',impactSurface:'metal'});

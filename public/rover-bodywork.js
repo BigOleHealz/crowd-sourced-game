@@ -105,29 +105,3 @@ export function shapedBodywork(chassis,pickup,paint,dark,cube){
     }
   }
 }
-
-export function paintedFinish(material,panorama,pickup){
-  if(pickup){
-    // Powder-coated utility paint keeps its dirt map and diffuse daylight shading.
-    material.specular.setHex(0x000000);
-    return;
-  }
-  if(!panorama)return;
-  const original=material.onBeforeCompile;
-  material.specular.setHex(0x545b50);
-  material.shininess=30;
-  material.onBeforeCompile=shader=>{
-    original.call(material,shader);
-    shader.uniforms.roadPanorama={value:panorama};
-    shader.fragmentShader='uniform sampler2D roadPanorama;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
-      vec3 eye=normalize(vViewPosition);
-      vec3 ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
-      vec2 paintUV=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
-      vec3 reflection=texture2D(roadPanorama,paintUV).rgb;
-      float grazing=pow(1.-clamp(dot(normal,eye),0.,1.),2.);
-      float horizon=exp(-pow((ray.y-.06)*6.,2.));
-      float lacquer=.016+.073*grazing+.027*horizon;
-      outgoingLight=mix(outgoingLight,reflection,lacquer);
-      #include <opaque_fragment>`);
-  };
-}
