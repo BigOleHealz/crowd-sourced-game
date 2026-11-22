@@ -1,5 +1,5 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
-import {garageSurface} from './resort-parking.js';
+import {wingSurface} from './waterfront-wing.js';
 import {towerFloor,towerRail} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
@@ -263,8 +263,8 @@ export function sceneryHeight(x,z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
-    const parking=garageSurface(x,z,maxBottom);
-    if(parking!==undefined)return parking;
+    const salon=wingSurface(x,z,maxBottom);
+    if(salon!==undefined)return salon;
     const ruin=ruinedHouseAt(doors,x,z);
     if(ruin)return houseRubbleHeight(ruin,x,z,doors.houseRuins[ruin.id]);
     const pile=collapsedLot(MAP.buildings,doors,x,z);

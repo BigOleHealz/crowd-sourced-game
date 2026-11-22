@@ -1,4 +1,5 @@
-import {addResortParking} from './resort-parking-view.js';
+import {addWaterfrontWing} from './waterfront-wing-view.js';
+import {addWaterfrontSalon} from './waterfront-salon-view.js';
 import {estatePoolHoles} from './swimming-pools.js';
 import {spiralForHouse,outsideWell} from './residential-spirals.js';
 import {addResidentialSpirals} from './residential-spiral-view.js';
@@ -78,7 +79,8 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addQuayMasonry(scene,solids,renderer);
-  addResortParking(scene,Batch);
+  addWaterfrontWing(scene,Batch);
+  addWaterfrontSalon(scene,Batch);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);
