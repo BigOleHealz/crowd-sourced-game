@@ -1,5 +1,6 @@
+import {outsideWell} from './residential-spirals.js';
 import * as THREE from 'three';
-import {GRAND_STEP,grandTop,grandShells,grandFurniture,grandStoryY,resortLevels,atrium,penthousePool,poolDepthAt,upperNorth,hallBounds,hotelPiers} from './grand-resort-layout.js';
+import {GRAND_STEP,grandShaft,skyRooms,grandTop,grandShells,grandFurniture,grandStoryY,resortLevels,atrium,penthousePool,poolDepthAt,upperNorth,hallBounds,hotelPiers} from './grand-resort-layout.js';
 
 const cream=0xd4bd99,brass=0xb39359,gold=0xffd99b,amber=0xffb657,jade=0x51e3c9,coral=0xff8195;
 const deep=0x213a42,twilight=0x3b5056;
@@ -37,7 +38,7 @@ export function grandResortTower(scene,Batch,parts,cube,materials){
     roughness:.31,metalness:.28,depthWrite:false,side:THREE.DoubleSide});
   for(const level of resortLevels.slice(1)){
     const {n,y}=level;
-    for(const b of level.decks){
+    for(const b of level.decks.flatMap(deck=>outsideWell(deck,grandShaft))){
       if(n===19 && b.z>55)continue;
       slab(n<5?0xa67a61:0xccb393,b.x,y-.115,b.z,b.w,.23,b.d);
       trim(n<5?brass:0x765a46,b.x,y-.16,b.z,b.w+.09,.090,b.d+.09);
@@ -156,7 +157,7 @@ export function grandRooms(scene,Batch){
     const lamp=(color,x,y,z,w,h,d)=>glow.add(cube,color,x,y,z,w,h,d);
     const circle=(batch,color,x,y,z,w,h,d=w)=>batch.add(drum,color,x,y,z,w,h,d);
     const y=level.y;
-    for(const b of level.decks){
+    for(const b of level.decks.flatMap(deck=>outsideWell(deck,grandShaft))){
       if(level.n===19 && b.z>55)continue;
       const color=level.n<5?0x5c334e:0x776356;
       box(color,b.x,y+.015,b.z,b.w-.18,.025,b.d-.16);
@@ -165,8 +166,24 @@ export function grandRooms(scene,Batch){
         box(brass,b.x,y+.032,b.z+side*(b.d/2-.31),b.w-.40,.015,.065);
       }
     }
+    if(level.n>=5 && level.n<17){
+      for(const suite of skyRooms(level.n)){
+        const {x,z,side}=suite;
+        // Fluted walnut bed wall with brass inlay and a pair of warm sconces.
+        if(!side)continue;
+        const head=z-3.54;
+        box(0x705042,x,y+1.27,head,4.56,2.48,.12);
+        for(let i=-7;i<=7;i++)box(i%3?0x94705a:brass,x+i*.285,y+1.23,head+.076,.032,2.32,.045);
+        for(const dir of [-1,1]){
+          box(brass,x+dir*1.85,y+1.69,head+.14,.14,.72,.13);
+          lamp(0xffdea2,x+dir*1.85,y+1.74,head+.22,.13,.37,.14);
+        }
+        box(brass,suite.doorX+side*.10,y+1.50,z+1.08,.046,.22,.38);
+      }
+    }
     for(const p of grandFurniture[level.n]){
       const {x,z,w,d,h,color,kind}=p, v=p.bottom;
+      if(kind==='headwall')continue;
       if(kind==='wall'){
         box(color,x,y+v+h/2,z,w,h,d);
         box(0x92785b,x,y+v+.23,z,w+.023,.44,d+.023);
@@ -180,11 +197,6 @@ export function grandRooms(scene,Batch){
         lamp(amber,x,y+.98,z,w,.036,d);
       }else if(kind==='slot' || kind==='stool'){
         continue; // These use the same illustrated slot cabinets as the ground floor.
-      }else if(kind==='nightstand'){
-        circle(parts,brass,x,y+.08,z,w*.82,.15);circle(parts,0x645449,x,y+h/2,z,w*.34,h*.83);
-        circle(parts,color,x,y+h-.07,z,w,.14,d);
-        circle(parts,brass,x,y+h+.17,z,.045,.33);
-        circle(glow,0xffe9c4,x,y+h+.48,z,.35,.32);
       }else if(kind==='chaise'){
         const frame=0x976b4e;
         for(const s of [-1,1]){
@@ -194,20 +206,11 @@ export function grandRooms(scene,Batch){
         box(0xf0e7ce,x,y+.32,z+.23,w,.13,d*.65);
         parts.add(cube,0xdeceb0,x,y+.49,z-.54,w,.13,.78,-.54);
         parts.add(cube,0xc0a78c,x,y+.66,z-.77,w*.83,.095,.16,-.54);
-      }else if(kind==='sofa'){
+      }else if(level.gallery && kind==='sofa'){
         box(0x644d42,x,y+.16,z,w-.13,.24,d-.10);
         box(color,x,y+.35,z,w,.22,d);
         box(color,x,y+h*.71,z-d*.40,w,h*.54,.17);
         for(const s of [-1,1])box(color,x+s*(w/2-.075),y+.46,z,.15,.28,d);
-      }else if(kind==='bed'){
-        box(0x805b49,x,y+.15,z,w,.29,d);
-        box(0xf1e3cd,x,y+.38,z,w,.24,d);
-        box(color,x,y+.53,z+d*.26,w+.04,.08,d*.48);
-        box(0xa07b5b,x,y+.74,z-d*.49,w+.18,1.39,.16);
-        for(const s of [-1,1])box(0xe8dfcf,x+s*w*.24,y+.60,z-d*.31,w*.41,.18,.42);
-      }else{
-        box(0x6f5040,x,y+h*.45,z,w*.56,h*.82,d*.60);
-        box(color,x,y+h-.05,z,w,.10,d);
       }
     }
     if(level.n===19){

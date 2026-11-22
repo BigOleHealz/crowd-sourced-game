@@ -1,3 +1,4 @@
+import {hotelShaft} from './hotel-lifts.js';
 // Dimensions in world metres. Changing a storey affects simulation, landmark and architecture together.
 export const GRAND_STORIES=20, GRAND_STEP=3.60, GRAND_BASE=.80;
 export const grandStoryY=n=>GRAND_BASE+n*GRAND_STEP;
@@ -6,7 +7,8 @@ const lobbyBounds={x:-59,z:47,w:26,d:16};
 export const upperNorth=40.58;
 export const hallBounds={x:-59,z:(upperNorth+55)/2,w:26,d:55-upperNorth};
 export const bridgeBounds={x:-56,z:63.65,w:12,d:17.30};
-export const grandLift={x:-59,z:40.83,exitX:-59,exitZ:41.65};
+export const grandShaft=hotelShaft(-59,41.56,0);
+export const grandLift={x:grandShaft.frontX,z:grandShaft.frontZ,exitX:grandShaft.exitX,exitZ:grandShaft.exitZ};
 export const atrium={west:-61.25,east:-49.10,north:46.45,south:55};
 export const grandLobbyOpening={x:-72,z:46.5,width:2.60};
 export const grandTop=grandStoryY(GRAND_STORIES);
@@ -102,6 +104,7 @@ export function piecesForResortLevel(level){
       add(-56,r.doorZ,2.60,.14,2.12,GRAND_STEP-2.24,'wall',0xc5b59d);
     }
     const x=r.x,z=r.z;
+    if(r.side)add(x,z-3.54,4.56,.155,0,2.51,'headwall',0x705042);
     add(x,z-2.25,2.03,2.23,0,.62,'bed',n%3?0x9cb4a1:0x9daebe);
     for(const side of [-1,1])add(x+side*1.41,z-2.84,.58,.62,0,.70,'nightstand',gold);
     add(x-1.3,z+2.8,2.4,.83,0,.94,'sofa',r.side===1?0x5a737c:0x935b54);

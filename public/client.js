@@ -11,7 +11,7 @@ import {safeInReach} from './estate-safes.js';
 import {nearbySidearm} from './market-goods.js';
 import {yachtDoorAction} from './yacht-layout.js';
 import {elevatorControls} from './elevator-controls.js';
-import {buildingAction,doorIsOpen,roomAtFeet} from './building-interiors.js';
+import {buildingAction,doorIsOpen,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {marinaDecks} from './marina-docks.js';
 import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
@@ -1006,6 +1006,7 @@ function updateEquipment(local) {
   const building=interiorAction();
   elevator.validate(building);
   byId('elevator-status').hidden=!local.liftTravel;
+  if(local.liftTravel)byId('elevator-status').classList.toggle('hotel-ride',Boolean(ridingHotelShaft(local)));
   if(local.liftTravel)byId('elevator-status').textContent='Elevator · '+(local.liftTravel===1?'Ground lobby':'Floor '+local.liftTravel);
   if(building && !bank && !shop)prompt.textContent='E  ·  '+building.label;
   const clubUse=clubInteraction();

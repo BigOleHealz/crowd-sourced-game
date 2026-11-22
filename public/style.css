@@ -292,6 +292,7 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #elevator-dialog button{padding:.55rem;color:#f6f2e6;background:#435951;border:1px solid #89958c;border-radius:.22rem;cursor:pointer}
 #elevator-dialog button:disabled{color:#343e37;background:#d6c698;cursor:default}
 #elevator-status:not([hidden]){position:fixed;z-index:12;inset:0;display:grid;place-items:center;pointer-events:none;color:#efd6a7;font-weight:bold;letter-spacing:.04em;background:linear-gradient(90deg,#334342 0%,#586361 48.8%,#293632 49.9%,#596360 50.3%,#344543 100%)}
+#elevator-status.hotel-ride:not([hidden]){inset:12% auto auto 50%;transform:translateX(-50%);border:1px solid #c8a66e;border-radius:.35rem;background:#272622df;padding:.55rem 1rem}
 #basketball-score { margin-top:7px; width:min(232px,64vw); padding:8px 10px; border:1px solid #bbd5ce63; border-radius:4px; background:#173337ed; font-size:12px; }
 .basketball-tally { display:flex; gap:14px; justify-content:space-between; font-weight:650; color:#81e5df; margin-bottom:4px; }
 .basketball-tally span+span { color:#ffbe7a; }

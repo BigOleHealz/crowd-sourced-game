@@ -44,9 +44,20 @@ export function advanceElevator(world,player,tick){
   }
   const n=Math.max(0,Math.min(1,(tick-t.start)/t.time)),ease=n*n*(3-2*n);
   const {from,to}=t;
-  player.state.x=from.exitX+ease*(to.exitX-from.exitX);
-  player.state.y=from.y+ease*(to.y-from.y);
-  player.state.z=from.exitZ+ease*(to.exitZ-from.exitZ);
+  const shaft=from.p.shaft;
+  if(shaft){
+    const boardTicks=9,travel=t.time-2*boardTicks,elapsed=Math.max(0,tick-t.start);
+    const position=Math.min(1,Math.max(0,(elapsed-boardTicks)/travel));
+    const smooth=position*position*(3-2*position);
+    const outside=Math.max(0,1-elapsed/boardTicks,Math.min(1,(elapsed-boardTicks-travel)/boardTicks));
+    player.state.x=shaft.x+(from.exitX-shaft.x)*outside;
+    player.state.y=from.y+smooth*(to.y-from.y);
+    player.state.z=shaft.z+(from.exitZ-shaft.z)*outside;
+  }else{
+    player.state.x=from.exitX+ease*(to.exitX-from.exitX);
+    player.state.y=from.y+ease*(to.y-from.y);
+    player.state.z=from.exitZ+ease*(to.exitZ-from.exitZ);
+  }
   if(n===1){
     Object.assign(player.state,{x:to.exitX,y:to.y,z:to.exitZ,grounded:true});
     delete player.trip;delete player.state.liftTravel;
