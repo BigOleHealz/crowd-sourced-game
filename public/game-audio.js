@@ -1,3 +1,4 @@
+import {projectorRoar} from './projector-roar.js';
 import {crowdPanicAudio} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
@@ -24,6 +25,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='projector-roar')return projectorRoar(context);
   if(name==='shark-defeat')return sharkDefeatSound(context);
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
@@ -154,6 +156,7 @@ export function createGameAudio(button,slider,level) {
       }catch{/* Keep synthesized playback available on browsers without Opus. */}
     }));
   }
+  const flameEmitters=new Map();
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
     action.textContent=settings.muted ? 'Unmute' : 'Mute';
@@ -226,7 +229,7 @@ export function createGameAudio(button,slider,level) {
     else v.source.start();
   }
   function reset(world) {
-    collapse.reset();
+    collapse.reset();flameEmitters.clear();
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
@@ -295,13 +298,20 @@ export function createGameAudio(button,slider,level) {
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);
       if(shot.weapon==='molotov')burst(shot.water?'water-pop':'ember-wash',shot.to,listener,yaw,.55,shot.id);
-      else if(shot.weapon==='ember')burst('ember-wash',shot.from,listener,yaw,.36,shot.id);
+      else if(shot.weapon==='ember'){
+        if(audible())flameEmitters.set(shot.shooter,{point:shot.from,until:context.currentTime+.32});
+      }
       else if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
       else if(shot.weapon==='muzzle' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
       else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
       if(shot.injury==='headPop')burst('headPop',shot.injuryPoint ?? shot.to,listener,yaw,.84,shot.id);
+    }
+    for(const [id,emitter] of flameEmitters){
+      const active=audible() && context.currentTime<emitter.until;
+      motor('projector-roar',emitter.point,active,1,.77,listener,yaw,'projector-'+id);
+      if(!active)flameEmitters.delete(id);
     }
     const nextVehicles={};
     for(const [kind,vehicle] of roadAndAirVehicles(world)) {
