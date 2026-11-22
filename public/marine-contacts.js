@@ -1,14 +1,16 @@
+import {gullContact,damageGull} from './gull-flight.js';
 import {manateeContact,damageManatee} from './manatee-swim.js';
-
 import {sharkContact,damageShark} from './shark-swim.js';
 
-const species=[
+const swimmers=[
   {kind:'shark',key:'sharks',contact:sharkContact,damage:damageShark},
   {kind:'manatee',key:'manatees',contact:manateeContact,damage:damageManatee},
 ];
 
-export function hasMarineWildlife(world){
-  return species.some(({key})=>world[key]?.length);
+const species=[...swimmers,{kind:'gull',key:'gulls',contact:gullContact,damage:damageGull}];
+
+export function hasSwimmingWildlife(world){
+  return swimmers.some(({key})=>world[key]?.length);
 }
 
 export function marineContact(world,start,end){
