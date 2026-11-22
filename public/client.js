@@ -1,3 +1,4 @@
+import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
 import {platformReport} from './platform-judges.js';
 import {marinaPlatform} from './marina-platform.js';
@@ -215,7 +216,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -370,6 +371,13 @@ function clubInteraction(){
   if(!canChangeStance(self) || !inBoothAisle(self))return '';
   return 'Sit for a private dance';
 }
+function dogInteraction(){
+  if(!world?.dogs || !canChangeStance(self) || self.dive || self.liftTravel || inVolleyball() || atTable())return null;
+  const carried=carriedDog(world,id);
+  if(carried)return {dog:carried,held:true};
+  const dog=nearDog(world,{id,state:self});
+  return dog?{dog,held:false}:null;
+}
 function pressAction(code){
   if(vitals.clubSince!=null && code!=='KeyE')return;
   if(inVolleyball()){
@@ -381,6 +389,14 @@ function pressAction(code){
     if(code==='KeyE')queuedInteract=vitals.use;
     if(code==='KeyF')queuedFire=true;
     return;
+  }
+  if(code==='KeyE' || code==='KeyX'){
+    const target=dogInteraction();
+    if(target && (code==='KeyX' || !target.held)){
+      const action=target.held?'toss':code==='KeyE'?'take':'kick';
+      if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'dog',action,target:target.dog.id,yaw:camera.yaw,pitch:camera.pitch}));
+      return;
+    }
   }
   if(CITY && !isPilot() && !isDriving() && !gunnerRole() && !vitals.dead && !vitals.fall && (self?.dive || takeoffBoard(self))){
     if(code==='KeyC' && !self.dive){queuedFlip=true;return;}
@@ -1017,6 +1033,9 @@ function updateEquipment(local) {
       byId('space-action').textContent=volleyball.action??'';
     }
   }
+  const dogTarget=dogInteraction();
+  const dogInfo=dogTarget && (dogTarget.dog.name+' · '+dogTarget.dog.hp+'/'+dogTarget.dog.maxHp+' HP');
+  if(dogTarget)prompt.textContent=dogInfo+(dogTarget.held?' · X  Throw':' · E  Steal dog   X  Kick');
   if(touch.active){
     const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
@@ -1025,10 +1044,11 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
+    if(dogInfo)prompt.textContent=dogInfo;
   }
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');

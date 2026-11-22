@@ -117,9 +117,34 @@ function returnFromCover(n,dt,world){
   n.state=moved;n.yaw=Math.atan2(dx,-dz);n.moving=true;return true;
 }
 
-export function localWorldReactions(world,npcs,tick){
+const witnessedTakeovers=new WeakSet();
+const witnessedDamage=new WeakMap();
+
+function panicAt(world,npcs,tick,point,radius,id){
+  const cues=world.panicCues;
+  if(cues.some(c=>tick-c.tick<10 && Math.hypot(point.x-c.x,point.y-c.y,point.z-c.z)<4 && c.radius>=radius))return;
+  if(cues.length>=28)cues.shift();
+  cues.push({id,tick,x:point.x,y:point.y,z:point.z,radius});
+  scatter(world,npcs,{x:point.x,y:point.y,z:point.z},tick,radius);
+}
+
+export function localWorldReactions(world,npcs,tick,players){
   const cues=world.panicCues??=[];
   while(cues.length && tick-cues[0].tick>110)cues.shift();
+  function witnessInjury(life,point,id){
+    const when=life.lastHurtTick;
+    if(when==null || when<tick-1 || witnessedDamage.get(life)===when)return;
+    witnessedDamage.set(life,when);
+    panicAt(world,npcs,tick,point,48,'hurt-'+id+'-'+when);
+  }
+  for(const npc of npcs)witnessInjury(npc.life,npc.state,npc.id);
+  if(players)for(const player of players.values())witnessInjury(player.life,player.state,player.id);
+  for(const dog of world.dogs??[])witnessInjury(dog,dog,dog.id);
+  for(const car of world.traffic??[]){
+    if(!car.takeover || witnessedTakeovers.has(car.takeover))continue;
+    witnessedTakeovers.add(car.takeover);
+    panicAt(world,npcs,tick,car,48,'takeover-'+car.id+'-'+tick);
+  }
   for(const shot of world.shots??[]){
     if(heardShots.has(shot))continue;
     heardShots.add(shot);
@@ -127,10 +152,7 @@ export function localWorldReactions(world,npcs,tick){
     const injury=shot.hit && (shot.hitKind==='npc' || shot.hitKind==='player');
     if(!muzzle && !injury)continue;
     const point=muzzle?shot.from:shot.to,radius=muzzle?37:25;
-    if(cues.some(c=>tick-c.tick<10 && Math.hypot(point.x-c.x,point.y-c.y,point.z-c.z)<4 && c.radius>=radius))continue;
-    if(cues.length>=28)cues.shift();
-    cues.push({id:shot.id,tick,x:point.x,y:point.y,z:point.z,radius});
-    scatter(world,npcs,point,tick,radius);
+    panicAt(world,npcs,tick,point,radius,shot.id);
   }
   for(const h of hydrants)if(world.doors?.hydrants?.[h.id]===repairTicks)signalPedestrians(world,npcs,'spray',h,tick);
   for(const f of world.doors?.structureFalls??[]){

@@ -1,10 +1,13 @@
+import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {newDogs,removeDog,stepDogs} from './public/dog-walkers.js';
 import {createGulls} from './public/gull-flight.js';
+import {stepSharkDogEncounters} from './public/shark-dog-encounter.js';
 import {createSharks} from './public/shark-swim.js';
 import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
@@ -105,6 +108,7 @@ function freshWorld(){
   }
   if(CITY && !mode){
     w.boats.push(...partyFleet());
+    Object.defineProperty(w,'removeEncounterDog',{value:dog=>removeDog(w,dog)});
     const table=blackjack();
     Object.defineProperty(w,'blackjack',{value:table});
     w.casino=table.state;
@@ -148,6 +152,7 @@ function freshResidents(){
   const residents=newRivals({resort:!mode});
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
+  if(CITY && !mode)world.dogs=newDogs(residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -276,6 +281,12 @@ function acceptInput(player, data, binary) {
   try {
     input = JSON.parse(data);
   } catch {
+    return;
+  }
+  if(input?.type==='dog'){
+    if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
+      player.state.liftTravel || world.casino?.player===player.id || world.volleyballActivity?.member(player.id))return;
+    requestDogAction(world,player,input,ticks);
     return;
   }
   if(input?.type==='blackjack'){
@@ -766,6 +777,10 @@ function tick() {
   }
   world.stepGulls?.(step);
   world.stepSharks?.(step,players,ticks,damageActor);
+  if(players.size && world.dogs){
+    stepDogs(world,npcs,players,step,ticks);
+    stepSharkDogEncounters(world,step,world.removeEncounterDog);
+  }
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);
@@ -792,7 +807,7 @@ function tick() {
   world.wanted?.step(npcs,ticks);
   bank?.step(world,players,ticks);
   world.volleyballActivity?.step(world,players,ticks,step);
-  localWorldReactions(world,npcs,ticks);
+  localWorldReactions(world,npcs,ticks,players);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);

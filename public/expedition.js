@@ -26,6 +26,7 @@ import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
+import {alertWalkersDogs,damageDog} from './dog-walkers.js';
 import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
@@ -291,6 +292,9 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0);
+    for(const dog of world.dogs??[]){
+      if(dog===target || (areaImpact && withinBurst(center,dog,.34*dog.size)))damageDog(dog,damage,tick);
+    }
     if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
     for (const crystal of BREAKABLES) {
       if ((hitKind==='crystal' && crystal.id===target.id) || (areaImpact && withinBurst(center, { ...crystal, y: groundHeight(crystal.x, crystal.z) }, crystal.height / 2))) {
@@ -304,6 +308,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
         if(actor.id!==shooter && actor.life.hp<priorHP){
           actor.life.lastShotTick=tick;
+          alertWalkersDogs(world,actor.id,shooter,players,tick);
           // One of eight incoming sectors is enough to shade the victim's HUD.
           // For splash damage use the blast centre rather than the launch path.
           const dx=areaImpact ? center.x-actor.state.x : -(direction?.x??0);

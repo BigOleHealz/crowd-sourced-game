@@ -120,14 +120,15 @@ export function sharkView(scene,waterline){
       const elapsed=event ? Math.max(0,(tick-contact)/30) : 0;
       const recoil=event ? Math.sin(elapsed*9.7)*(.14+.28*Math.exp(-elapsed*1.8)) : 0;
       grip.rotation.z+=(recoil-grip.rotation.z)*mix;
-      const diveAngle=s.phase==='feeding' ? Math.max(-.58,Math.min(.22,(s.y-root.position.y)*4)) : 0;
+      const dogStrike=s.phase==='dog-strike';
+      const diveAngle=s.phase==='feeding' || dogStrike ? Math.max(-.58,Math.min(.22,(s.y-root.position.y)*4)) : 0;
       grip.rotation.x+=(diveAngle-grip.rotation.x)*mix;
       root.position.x+=(s.x-root.position.x)*mix;
       root.position.y+=(s.y-root.position.y)*mix;
       root.position.z+=(s.z-root.position.z)*mix;
       root.rotation.y+=Math.atan2(Math.sin(-s.yaw-root.rotation.y),Math.cos(-s.yaw-root.rotation.y))*mix;
       root.rotation.z=s.hp ? .055*Math.sin(s.stroke):floatingBody(s.deathY,waterline,s.size,s.ageSinceHit).roll;
-      const bite=s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
+      const bite=dogStrike ? .58*Math.sin(Math.min(1,s.dogEncounter.t/.72)*Math.PI) : s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
       jaw.rotation.x=-bite;
       tail.rotation.y=s.hp ? .26*Math.sin(s.stroke):0;
     }
