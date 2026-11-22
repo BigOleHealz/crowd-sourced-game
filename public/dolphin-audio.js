@@ -34,7 +34,7 @@ export function dolphinCalls(previous,current,listener,play){
   if(!previous || !current)return;
   current.forEach((animal,index)=>{
     const last=previous[index];
-    if(!last || !(animal.callSeq>last.callSeq))return;
+    if(animal.hp===0 || !last || !(animal.callSeq>last.callSeq))return;
     if(animal.callKind!=='whistle' && animal.callKind!=='clicks')return;
     const distance=Math.hypot(animal.x-listener.x,animal.y-listener.y,animal.z-listener.z);
     const audibleRange=animal.callKind==='whistle'?32:21;

@@ -1,9 +1,11 @@
+import {damageSwimmingAnimal,swimmingAnimalContact} from './aquatic-health.js';
+import {floatingBody} from './marine-float.js';
 import {brickellMap,cityGround} from './brickell-map.js';
 import {hullSize} from './marina-fleet-layout.js';
 import {manateeHullClearance} from './manatee-swim.js';
 
 const homes=[[58,13],[62,16],[76,-211],[80,-206],[99,-430],[101,-436],[85,-365],[87,-357]];
-const sizes=[1,.83,.96,1.06,.88,1.02,.93,1.08];
+export const dolphinSizes=[1,.83,.96,1.06,.88,1.02,.93,1.08];
 const tau=Math.PI*2,clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const round=x=>Math.round(x*1000)/1000;
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -28,9 +30,20 @@ function bottom(x,z,size){
 function keel(hull,water,large){
   return (hull.y??water)+(large?-1.25:(hullSize(hull).keel??-.58));
 }
+const dolphinBody=[[0,0,-.23,.32,.32,.92],[0,-.06,-1.11,.20,.20,.43],
+  [0,-.04,.87,.17,.19,.68],[0,.03,1.51,.61,.062,.16],[0,.30,.04,.053,.27,.20]];
+const sizeOf=(i,s)=>s.size;
+export const dolphinContact=(states,start,end)=>swimmingAnimalContact(states,start,end,dolphinBody,sizeOf);
+export function damageDolphin(states,index,amount,kind,point){
+  if(!damageSwimmingAnimal(states,index,amount,kind,point))return false;
+  const animal=states[index];
+  if(!animal.hp){animal.bowId=null;animal.callKind=null;}
+  return true;
+}
 export function createDolphins(world,water){
   let time=0;
-  const state=homes.map(([x,z],i)=>({x,z,y:water-.85,yaw:0,pitch:0,roll:0,stroke:i,size:sizes[i],
+  const state=homes.map(([x,z],i)=>({x,z,y:water-.85,yaw:0,pitch:0,roll:0,stroke:i,size:dolphinSizes[i],
+    hp:Math.round(120*dolphinSizes[i]),maxHp:Math.round(120*dolphinSizes[i]),hitSeq:0,ageSinceHit:null,deathKind:null,
     bowId:null,air:-1,callSeq:0,callKind:null}));
   const minds=state.map((s,i)=>({x:s.x,z:s.z,y:s.y,yaw:s.yaw,stroke:i,speed:1,side:i%2?1:-1,
     nextCall:6+i*2,lastBow:null,release:0}));
@@ -58,7 +71,7 @@ export function createDolphins(world,water){
         const nearest=state.map((s,i)=>({s,i,d:distance(s,boat)}))
           .filter(({s,i,d})=>{
             const available=!s.bowId || (boat.driver!=null && cruises.has(s.bowId) && d<30);
-            return available && d<40 && !(minds[i].lastBow===boat.id && time<minds[i].release);
+            return s.hp>0 && available && d<40 && !(minds[i].lastBow===boat.id && time<minds[i].release);
           }).sort((a,b)=>a.d-b.d);
         for(const side of [-1,1]){
           if(taken.includes(side)||!nearest.length||!openPoint(boat,side))continue;
@@ -68,7 +81,18 @@ export function createDolphins(world,water){
     }
     function openPoint(b,side){const p=bowPoint(b,side,b===world.yacht,time,0);return open(p.x,p.z);}
     for(const [i,s] of state.entries()){
-      const m=minds[i],boat=underway.find(b=>b.id===s.bowId);
+      const m=minds[i];
+      if(s.ageSinceHit!=null)s.ageSinceHit=Math.min(150,s.ageSinceHit+dt);
+      if(!s.hp){
+        if(s.ageSinceHit<150){
+          const floating=floatingBody(s.deathY,water,s.size,s.ageSinceHit);
+          s.y=round(floating.y);s.roll=round(floating.roll);continue;
+        }
+        const [x,z]=homes[i];
+        Object.assign(m,{x,z,y:water-.85,yaw:0,speed:1,lastBow:null,release:time+2,nextCall:time+6+i});
+        Object.assign(s,{x,z,y:m.y,yaw:0,pitch:0,roll:0,hp:s.maxHp,ageSinceHit:null,deathY:null,deathKind:null,hitX:null,hitY:null,hitZ:null});
+      }
+      const boat=underway.find(b=>b.id===s.bowId);
       const a=time*.155+i,home=homes[i];
       const goal=boat?bowPoint(boat,m.side,boat===world.yacht,time,boat.speed*.37):
         {x:home[0]+2.8*Math.sin(a),z:home[1]+5.2*Math.cos(a)};

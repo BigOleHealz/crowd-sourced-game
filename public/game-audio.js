@@ -276,6 +276,7 @@ export function createGameAudio(button,slider,level) {
       for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
     }
     const impact=s=>burst('marine-impact',{x:s.hitX,y:s.hitY,z:s.hitZ},listener,yaw,.88,s.hitSeq);
+    marineBlastCalls(previousDolphins,world.dolphins,impact);
     marineBlastCalls(priorSharks,world.sharks,impact);
     marineBlastCalls(priorManatees,world.manatees,impact);
     priorSharks=world.sharks;priorManatees=world.manatees;
