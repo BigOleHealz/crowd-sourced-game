@@ -1,3 +1,4 @@
+import {finishPalaceAtrium} from './palace-arcade.js';
 import * as THREE from 'three';
 import {pools,waterfall,pokerFloor,pokerTables} from './grand-atrium.js';
 
@@ -80,6 +81,7 @@ export function createGrandAtrium(scene,Batch){
       for(let j=0;j<3;j++)stone.add(cylinder,[0xb03542,0xfae8bb,0x3e6595][j],x+1.19*c+.05*j,y+.93+j*.018,z+.57*s,.089,.024,.089);
     }
   }
+  const showMosaic=finishPalaceAtrium(group,{stone,brass,light,cube,cylinder});
   stone.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.48}),false);
   brass.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,metalness:.45,roughness:.28}),false);
   glass.mesh(group,new THREE.MeshPhongMaterial({vertexColors:true,specular:0xffffff,shininess:96,flatShading:true,emissive:0x303a3c}),false);
@@ -88,6 +90,6 @@ export function createGrandAtrium(scene,Batch){
   for(const g of [cube,sphere,cylinder,cut,ring])g.dispose();
   return (dt,feet)=>{
     group.visible=Math.abs(feet.x-cx)<43 && Math.abs(feet.z-cz)<49 && feet.y<33;
-    if(group.visible)curtain.material.uniforms.time.value=(curtain.material.uniforms.time.value+dt)%400;
+    if(group.visible){showMosaic();curtain.material.uniforms.time.value=(curtain.material.uniforms.time.value+dt)%400;}
   };
 }

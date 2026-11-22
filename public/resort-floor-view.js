@@ -409,7 +409,7 @@ export function resortFloorView(scene,Batch) {
     block(metal,deepBrass,0,0,.053,width+.07,backHeight+.024,.043);
     plate(textureMaterial(signArt(title,subtitle)),width,backHeight,...point(0,0,.078),yaw);
   }
-  wallSign(-55,39.54,0,6.66,'B L A C K J A C K','L A N T E R N   C L U B',3.27,1.31);
+  wallSign(-57.05,39.54,0,1.58,'B L A C K J A C K','',2.55,.48);
   wallSign(-61,39.30,0,3.45,'H O T E L','',4.23,.57);
   wallSign(-71.50,51.60,Math.PI/2,4.55,'C O C K T A I L S','L O U N G E',3.27,.99);
   wallSign(-55,54.69,Math.PI,3.90,'V A L E T','',4.23,.57);
