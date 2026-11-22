@@ -155,6 +155,45 @@ const towerGlass=CITY?towerGlassIndex(MAP.buildings):[];
 const cabinPanes=cabinPieces.filter(p=>p.paneId);
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
+const cellWidth=8,roundCells=new WeakMap(),emptyCell=[];
+const boxExtent=p=>[p.w/2,p.d/2];
+const columnExtent=p=>[p.radius,p.radius];
+function postExtent(p){
+  const c=Math.abs(Math.cos(p.yaw??0)),s=Math.abs(Math.sin(p.yaw??0));
+  return [(c*p.w+s*p.d)/2,(s*p.w+c*p.d)/2];
+}
+
+// A round travels at most a few metres per tick. Narrow-phase tests only need
+// the static geometry in the cells covered by its swept horizontal bounds.
+function roundCandidates(parts,from,d,extent){
+  const x0=Math.floor(Math.min(from.x,from.x+d.x)/cellWidth),x1=Math.floor(Math.max(from.x,from.x+d.x)/cellWidth);
+  const z0=Math.floor(Math.min(from.z,from.z+d.z)/cellWidth),z1=Math.floor(Math.max(from.z,from.z+d.z)/cellWidth);
+  if(x1-x0>1 || z1-z0>1) return parts;
+  let index=roundCells.get(parts);
+  if(!index || index.count!==parts.length || index.last!==parts.at(-1)){
+    const cells=new Map(),order=new Map();
+    for(const [i,p] of parts.entries()){
+      order.set(p,i);
+      const [w,l]=extent(p),pad=1e-8;
+      const west=Math.floor((p.x-w-pad)/cellWidth),east=Math.floor((p.x+w+pad)/cellWidth);
+      const north=Math.floor((p.z-l-pad)/cellWidth),south=Math.floor((p.z+l+pad)/cellWidth);
+      for(let x=west;x<=east;x++)for(let z=north;z<=south;z++){
+        const key=x+','+z;
+        if(!cells.has(key))cells.set(key,[]);
+        cells.get(key).push(p);
+      }
+    }
+    index={cells,order,count:parts.length,last:parts.at(-1)};
+    roundCells.set(parts,index);
+  }
+  if(x0===x1 && z0===z1)return index.cells.get(x0+','+z0)??emptyCell;
+  const partsInSweep=new Set();
+  for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+    for(const part of index.cells.get(x+','+z)??emptyCell)partsInSweep.add(part);
+  }
+  // Keeping map order preserves which collider wins when two contacts tie.
+  return [...partsInSweep].sort((a,b)=>index.order.get(a)-index.order.get(b));
+}
 const roundSolids=parts=>parts.map(p=>({...p,y:terrainHeight(p.x,p.z)+(p.bottom??0),h:p.h-(p.bottom??0)}));
 // The board, lights and brackets all share the HP of their supporting posts.
 const barriers=roundSolids(MAP.barriers);
@@ -183,7 +222,7 @@ if(CITY){
 }
 export function postContact(world,from,d){
   let t=Infinity,target=null;
-  for(const p of postParts){
+  for(const p of roundCandidates(postParts,from,d,postExtent)){
     if(postDown(world.doors,p) || world.doors?.beachWood?.[p.woodId])continue;
     const hit=box(from,d,p,p.w,p.h,p.d,p.yaw);
     if(hit<t){t=hit;target=p;}
@@ -201,6 +240,7 @@ export function blastPosts(world,center,radius,damage,team){
     if(postDown(world.doors,p))world.rules?.brokenPost(team,p);
   }
 }
+export const roundActorSweep=2.5;
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
@@ -212,17 +252,17 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(lot.hp && lot.carrier==null)accept(box(round,d,lot,lotWidth,lotHeight,lotWidth),lot,'insured');
   }
   visitIntactTowerGlass(world,round,d,(hit,p)=>accept(hit,p,'glass'));
-  for(const p of trunks)accept(column(round,d,p,p.radius,p.height),null,'scenery');
+  for(const p of roundCandidates(trunks,round,d,columnExtent))accept(column(round,d,p,p.radius,p.height),null,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
-  for(const p of roundBarriers(world.doors)){
+  for(const p of roundCandidates(roundBarriers(world.doors),round,d,boxExtent)){
     if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
     if(world.doors?.brokenSills?.[p.sillPaneId])continue;
     if(p.paneId){
       if(!world.doors?.brokenPanes?.[p.paneId])accept(box(round,d,p,p.w,p.h,p.d),{id:p.paneId,x:p.x,z:p.z,bottom:p.y,top:p.y+p.h},'glass');
     }else accept(box(round,d,p,p.w,p.h,p.d),p.fireSite || p.woodId ? p : null,'scenery');
   }
-  for(const b of MAP.buildings){
+  for(const b of roundCandidates(MAP.buildings,round,d,boxExtent)){
     const height=b.eave+b.rise;
     const base={x:b.x,y:b.base-2,z:b.z},span=[0,1];
     if(!slab(round.x-base.x,d.x,-b.w/2,b.w/2,span)||!slab(round.z-base.z,d.z,-b.d/2,b.d/2,span))continue;
@@ -280,7 +320,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const actor of actors){
     const now=actor.state, prev=previous.get(actor)??now;
     // Respawns are discontinuities; ordinary movers sweep relative to the bullet.
-    const start=Math.hypot(now.x-prev.x,now.y-prev.y,now.z-prev.z)<2.5?prev:now;
+    const start=Math.hypot(now.x-prev.x,now.y-prev.y,now.z-prev.z)<roundActorSweep?prev:now;
     const rel={x:d.x-(now.x-start.x),y:d.y-(now.y-start.y),z:d.z-(now.z-start.z)};
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);

@@ -792,7 +792,7 @@ function roundFrame(time) {
   return newest.bullets.map(r=>{
     const old=older.bullets?.find(v=>v.id===r.id);
     const back=Math.min(r.age/30,duration/1000);
-    return {...r,x:mix(old?.x ?? r.x-r.vx*back,r.x,blend),
+    return {...r,visualAge:mix(old?.age ?? r.age-back*30,r.age,blend),x:mix(old?.x ?? r.x-r.vx*back,r.x,blend),
       y:mix(old?.y ?? r.y-r.vy*back,r.y,blend),z:mix(old?.z ?? r.z-r.vz*back,r.z,blend)};
   });
 }

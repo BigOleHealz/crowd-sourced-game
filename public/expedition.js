@@ -22,7 +22,7 @@ import {newStorefrontDoors} from './storefront-layout.js';
 import {posedHit} from './hit-zones.js';
 import {patrolFleet,marinaFleet,damageBoat,crewBoat} from './patrol-boats.js';
 import {marinaHullContains} from './marina-fleet-layout.js';
-import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, segmentContact } from './rounds.js';
+import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, roundActorSweep, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
@@ -267,9 +267,10 @@ export function fire(world, player, input, tick, players, npcs) {
 
 }
 
-function targets(world,shooter,players,npcs,source=null,round) {
+function targets(world,shooter,players,npcs,source=null,round,swept) {
   return [...players.values(), ...npcs].filter(actor =>
-    actor.id !== shooter && (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
+    actor.life.hp>0 && actor.id!==shooter && (!swept || swept(actor.state)) &&
+    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner));
 }
 
 function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
@@ -563,15 +564,22 @@ function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,de
 }
 
 const lastPosition=new WeakMap();
+// Current feet may be up to one full actor sweep from the positions seen by a
+// round. The extra two metres contain the head, torso and rotated prone body.
+const roundActorPadding=roundActorSweep+2;
 export function advanceRounds(world,players,npcs,tick){
   const dt=1/30;
   world.bullets=world.bullets.filter(r=>{
-    const spec=firearmSpecs[r.weapon],actors=targets(world,r.shooter,players,npcs,r.source,r);
+    const spec=firearmSpecs[r.weapon];
     const elapsed=dt*(1-(r.delay ?? 0));
     if(r.delay)r.delay=0;
     const d={x:r.vx*elapsed,y:r.vy*elapsed,z:r.vz*elapsed};
     const step=Math.hypot(d.x,d.y,d.z),fraction=Math.min(1,r.left/step);
     d.x*=fraction;d.y*=fraction;d.z*=fraction;
+    const x=r.x+d.x/2,y=r.y+d.y/2,z=r.z+d.z/2;
+    const w=Math.abs(d.x)/2+roundActorPadding,h=Math.abs(d.y)/2+roundActorPadding,l=Math.abs(d.z)/2+roundActorPadding;
+    const actors=targets(world,r.shooter,players,npcs,r.source,r,feet=>
+      Math.abs(feet.x-x)<=w && Math.abs(feet.y-y)<=h && Math.abs(feet.z-z)<=l);
     const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
     const injuryPoint=hit.hitPart ? {x:r.x+d.x*hit.visualT,y:r.y+d.y*hit.visualT,z:r.z+d.z*hit.visualT} : undefined;
     const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);

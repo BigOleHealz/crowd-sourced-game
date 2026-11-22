@@ -701,7 +701,9 @@ function fieldEffects(scene) {
       particle(new THREE.Vector3(at.x,at.y,at.z),v,new THREE.Vector3(size,.012,size*1.7),i%3?0x85b5ba:0xe1f0ec,.36+.40*rng());
     }
   }
-  function shot(s,sourceVehicle) {
+  const chainMetal=new Set(['rover','supercar','tank','jet','lamp','superyacht']);
+  let lastChainChipTick=-Infinity;
+  function shot(s,sourceVehicle,world) {
     if(s.weapon==='bodyBlast'){
       const center=new THREE.Vector3().copy(s.to);
       const size=s.size;
@@ -735,6 +737,19 @@ function fieldEffects(scene) {
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
     if(s.hitKind==='dolphin' || s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
+    if(CITY && sourceVehicle==='heli' && s.weapon==='turret'){
+      // Rapid fire already supplies the contact point. Recasting every impact
+      // against Brickell's batched meshes can stall an entire snapshot.
+      if(b.y<=MAP.waterY || (s.tick>=lastChainChipTick && s.tick-lastChainChipTick<2))return;
+      const metal=chainMetal.has(s.hitKind) || world?.traffic?.some(v=>v.id===s.hitKind) ||
+        world?.patrolCars?.some(v=>v.id===s.hitKind) || world?.boats?.some(v=>v.id===s.hitKind);
+      if(metal || s.hitKind==='scenery' || s.hitKind==='rubble' || s.hitKind==='post'){
+        lastChainChipTick=s.tick;
+        const normal=a.sub(b).normalize();
+        chips({point:b,normal,surface:metal?'metal':'solid'});
+      }
+      return;
+    }
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
     if(s.weapon==='missile'){
@@ -1238,12 +1253,16 @@ export function createScene(canvas) {
     // At the pole there is no horizontal bearing to recover from atan2.
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
-    const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
-      .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
     const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
+    // When the helicopter's sight ray passes through the turret pivot,
+    // every point on that ray gives the same bearing from the muzzle.
+    if(station==='heli' && cursorRay.ray.distanceSqToPoint(muzzle)<1e-8)
+      return {yaw:Math.atan2(direction.x,-direction.z),pitch:Math.asin(clamp(direction.y,-1,1))};
+    const actors = [...displayedPlayers, ...displayedWorld.npcs]
+      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
+      .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
     let {to}=aimHit;
     if(CITY && to){
@@ -1340,7 +1359,7 @@ export function createScene(canvas) {
       }
     }
     updateMissiles(world.missiles ?? [],dt);
-    updateRounds(world.bullets);
+
     drawCapsules(world.throwables,world.simTick,dt,local.id,view.sighted);
     effects.fireView.update(world.doors,local,dt);
     effects.update(dt);
@@ -1642,6 +1661,13 @@ export function createScene(canvas) {
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
+    // Sample once the visible gun, avatar and camera all have their current-frame pose.
+    for(const flash of pendingMuzzles){
+      const from=visibleMuzzle(flash.shooter,flash.firedWeapon,muzzlePoint);
+      effects.shot(from ? {...flash,from} : flash,flash.source);
+    }
+    pendingMuzzles.length=0;
+    updateRounds(world.bullets,visibleMuzzle);
     if(localDefeat && camera.position.y<MAP.waterY){
       if(!diveBackdrop){
         diveBackdrop=new THREE.Mesh(new THREE.SphereGeometry(12,24,12),new THREE.ShaderMaterial({
@@ -1667,8 +1693,25 @@ export function createScene(canvas) {
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
   }
+  const pendingMuzzles=[];
+  const muzzlePoint=new THREE.Vector3();
+  const muzzleTips=[[0,.099,-.628],[0,.091,-.202],[0,.120,-.744]];
+  function visibleMuzzle(shooter,weapon,out){
+    const tip=muzzleTips[weapon-1];
+    if(!tip)return null;
+    const avatar=avatars.get(shooter), sight=sightModels[weapon-1];
+    if(shooter===localActorId && sight.visible){
+      if(weapon===3)return camera.localToWorld(out.set(0,-.065,-.7));
+      return sight.localToWorld(out.fromArray(tip));
+    }
+    const tool=avatar?.tools?.[weapon-1];
+    return avatar?.root.visible && tool?.visible ? tool.localToWorld(out.fromArray(tip)) : null;
+  }
   function showShots(shots,tick) {
     for(const shot of shots){
+      if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
+        pendingMuzzles.push(shot);continue;
+      }
       if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
       if(shot.weapon==='ember'){
         const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
@@ -1681,10 +1724,10 @@ export function createScene(canvas) {
           }
         }
       }
-      effects.shot(shot,shot.source);
+      effects.shot(shot,shot.source,displayedWorld);
     }
   }
-  return {resetSurfaceMarks(){marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {resetSurfaceMarks(){pendingMuzzles.length=0;marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

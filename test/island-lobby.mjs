@@ -21,7 +21,7 @@ try{
     const ws=new WebSocket(host+path),guest={ws};
     sockets.push(ws);ws.on('message',raw=>{
       const m=JSON.parse(raw);
-      if(m.type==='welcome')guest.me=m.state;
+      if(m.type==='welcome'){guest.me=m.state;guest.initialWorld=m.world;}
       if(m.type==='snapshot')guest.frame=m;
       if(m.type==='full')guest.full=true;
     });
@@ -66,7 +66,15 @@ try{
     assert.equal(other.frame.world.match.mode,key);assert.equal(other.frame.world.match.phase,'waiting');
     assert.equal(other.frame.players.length,1);
   }
-  assert.equal((await join('/world?map=brickell')).frame.world.match,undefined);
+  const district='/world?map=brickell',first=await join(district);
+  assert.equal(first.frame.world.match,undefined);
+  const initialPod=first.initialWorld.dolphins;
+  await until(()=>first.frame.world.dolphins[0].yaw!==initialPod[0].yaw);
+  const closed=once(first.ws,'close');first.ws.close();await closed;
+  await delay(450);
+  const rejoined=await join(district);
+  assert.deepEqual(rejoined.initialWorld.dolphins,initialPod,'Reset wildlife waits for the next guest');
+  await until(()=>rejoined.frame.world.dolphins[0].yaw!==initialPod[0].yaw);
   assert.equal((await join('/world')).frame.world.match,undefined);
   console.log('PASS Total Loss starts at 1v1, pauses on an empty team, resumes, accepts ten concurrent inputs, fills to 8v8, seventeenth refused, both sandboxes available.');
 }finally{

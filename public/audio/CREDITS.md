@@ -1,6 +1,8 @@
 # Recorded sound credits
 
-The game serves edited mono Opus files from this directory. The source recordings carry the [CC0 1.0 public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
+Club Lucero and the Harbor Key beach DJ play **Scoopin Dung (Poppin)** by Trash Thug Healz, supplied by the artist for Pinewatch.
+
+The sound effects listed below use edited mono Opus files. Their source recordings carry the [CC0 1.0 public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
 
 | Game sound | Recording and artist | Edit |
 | --- | --- | --- |

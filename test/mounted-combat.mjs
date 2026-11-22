@@ -74,4 +74,16 @@ fire(world,shooter,{aimYaw:0,aimPitch:pitch},30,players,[]);
 for(let tick=30;tick<40;tick++)advanceRounds(world,players,[],tick);
 assert.equal(target.life.hp,0);assert.equal(nearby.life.hp,100,'sidearm never damages a bystander');
 assert.deepEqual(world.shots.filter(s=>s.weapon==='muzzle').map(s=>s.firedWeapon),[1,2]);
+
+// The round and actor can cross during a tick even when the actor's final
+// position is clear of the bullet. A larger respawn jump should not sweep.
+for(const [z,hp] of [[1.3,75],[2.6,100]]){
+  const world=newExpedition(),actor={id:2,state:{x:.8,y:19,z:-1},life:newLife(0,false)};
+  const players=new Map([[actor.id,actor]]);
+  advanceRounds(world,players,[],0);
+  actor.state.z=z;
+  world.bullets.push({x:0,y:20,z:0,vx:56,vy:0,vz:0,left:144,age:0,weapon:1,shooter:1});
+  advanceRounds(world,players,[],1);
+  assert.equal(actor.life.hp,hp);
+}
 console.log('PASS: both forward missiles, independent turret direction, map-specific turret cadence, direct headshots and single-target sidearm impacts.');

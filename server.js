@@ -1,3 +1,4 @@
+import {compactAmbientView} from './ambient-snapshot.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
@@ -177,6 +178,7 @@ const types = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.ogg': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
@@ -267,7 +269,8 @@ function playerState(player) {
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: worldView() });
+  const view=worldView();
+  const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: CITY?compactAmbientView(view):view });
   let packed;
   for (const { ws, packedSnapshots } of players.values()) {
     if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) continue;
@@ -429,6 +432,7 @@ sockets.on('connection', ws => {
     ws.close(1013, 'World full');
     return;
   }
+  if(!players.size)wakeWorld();
   let id = 1;
   while (players.has(id)) id++;
   const player = {
@@ -468,6 +472,7 @@ sockets.on('connection', ws => {
       departedScores.set(player.scoreKey,player.score);
     }
     if (!players.size) {
+      sleepWorld();
       world = freshWorld();
       npcs = freshResidents();
     }
@@ -514,7 +519,7 @@ function resetRound(){
   updateRoom();
 }
 function tick() {
-  if(match && !players.size)return;
+  if(!players.size)return;
   if(match && frozenPhase(world.match.phase)){
     if(world.match.phase==='finished' && match.step(players))resetRound();
     if(++lobbyTicks%2===0)publish();
@@ -836,17 +841,29 @@ function tick() {
   if (++ticks % 2 === 0) publish();
 }
 
-let previous = performance.now();
-let accumulated = 0;
-setInterval(() => {
-  const now = performance.now();
-  accumulated += Math.min((now - previous) / 1000, step * 4);
-  previous = now;
-  while (accumulated >= step) {
-    tick();
-    accumulated -= step;
+let worldTimer,asleepSince=performance.now();
+function wakeWorld(){
+  let previous=performance.now(),accumulated=0;
+  if(!match){
+    // The bank cooldown survives an empty free-roam room. Advance its clock
+    // without replaying movement, wildlife or other discarded world ticks.
+    ticks+=Math.floor((previous-asleepSince)/1000/step);
+    bank?.step(world,players,ticks);
   }
-}, 8).unref();
+  worldTimer=setInterval(()=>{
+    const now=performance.now();
+    accumulated+=Math.min((now-previous)/1000,step*4);
+    previous=now;
+    while(accumulated>=step){
+      tick();
+      accumulated-=step;
+    }
+  },8).unref();
+}
+function sleepWorld(){
+  clearInterval(worldTimer);
+  asleepSince=performance.now();
+}
 
 setInterval(() => {
   for (const player of players.values()) {
