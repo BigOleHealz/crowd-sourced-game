@@ -37,3 +37,15 @@ export function seabedHeight(x,z) {
   return heights[c]+(1-dx)*(heights[c-1]-heights[c])+(1-dz)*(heights[c-columns]-heights[c]);
 }
 export const reefGridSpacing=spacing;
+
+// The anchor rests on its side. The diver can swim past its thin stock and over its flukes.
+export const reefAnchor={x:-4,z:-315,yaw:.55};
+export function reefAnchorTop(x,z){
+  const dx=x-reefAnchor.x,dz=z-reefAnchor.z;
+  if(Math.abs(dx)>2.8 || Math.abs(dz)>2.8)return -Infinity;
+  const a=reefAnchor.yaw, localX=dx*Math.cos(a)-dz*Math.sin(a), localZ=dx*Math.sin(a)+dz*Math.cos(a);
+  const shank=Math.abs(localX)<.17 && Math.abs(localZ)<1.85;
+  const stock=Math.abs(localZ-.75)<.14 && Math.abs(localX)<1.12;
+  const fluke=Math.abs(localX)<1.55 && Math.abs(localZ-(-1.46+Math.abs(localX)*.48))<.24;
+  return shank || stock || fluke ? seabedHeight(x,z)+.27 : -Infinity;
+}

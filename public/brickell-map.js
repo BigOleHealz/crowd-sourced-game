@@ -1,4 +1,4 @@
-import {seabedHeight} from './reef-channel.js';
+import {seabedHeight,reefAnchorTop} from './reef-channel.js';
 import {shorePads,resortGround,onDrive} from './palma-site.js';
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
 import {resortBarriers} from './casino-layout.js';
@@ -54,7 +54,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(bridge){
     const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
     const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
-    return Number.isFinite(road) && maxBottom>=soffit ? road : seabedHeight(x,z);
+    return Number.isFinite(road) && maxBottom>=soffit ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
   }
   if(z<=lanternBridge.north){
     const marina=dockHeight(x,z);if(marina!==undefined)return marina;
