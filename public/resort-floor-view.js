@@ -1,5 +1,6 @@
 import {atrium,grandStoryY,resortLevels,grandFurniture} from './grand-resort-layout.js';
 import {createGrandAtrium} from './grand-atrium-view.js';
+import {buildShowroomStage} from './lantern-stage.js';
 import * as THREE from 'three';
 import {resortFloor,resortChandeliers,resortFurniture,resortLounges,resortMachines} from './resort-floor-layout.js';
 
@@ -605,12 +606,13 @@ export function resortFloorView(scene,Batch) {
 
   for (const geometry of [box,drum,bead,leaf,globe,cushion]) geometry.dispose();
 
+  const stage=buildShowroomStage(scene,Batch);
   const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   let t = 0;
   return (dt,local) => {
     room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42 && local.y<20;
     updateAtrium(dt,local);
-    room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42;
+    stage.visible=Math.abs(local.x+65)<42 && Math.abs(local.z-51)<45 && local.y<23;
     for (const {x,lobby} of lobbies) {
       lobby.visible = Math.abs(local.x-x)<24 && Math.abs(local.z-69)<23;
     }
