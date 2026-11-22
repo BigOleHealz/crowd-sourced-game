@@ -73,6 +73,16 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
     })};
 }
 
+// Replay starts between server ticks. Restore the chassis' current attitude
+// before integrating the next input instead of reseating it on all four tyres.
+export function seedRoadSuspension(car){
+  const pose=car.suspension;
+  if(!pose || car.bridgeFlight)return;
+  const s=Math.sin(car.yaw),c=Math.cos(car.yaw),f=car.speed||0,side=car.lateralSpeed||0;
+  const heights=wheelsFor(car).map(([x,z])=>car.y+pose.heave-z*Math.tan(pose.pitch)+x*Math.tan(pose.roll));
+  springs.set(car,{vx:f*s+side*c,vz:-f*c+side*s,heights,rates:[0,0,0,0]});
+}
+
 export function interpolateSuspension(a,b,t) {
   if(!a || !b) return b;
   const mix=(x,y)=>x+(y-x)*t;

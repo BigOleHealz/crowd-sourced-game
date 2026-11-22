@@ -158,7 +158,14 @@ export function stepFireEngines(world,players,npcs,tick,dt){
     const step=Math.max(0,Math.min(pace*dt,Math.abs(limit-u.distance),gap));
     car.speed=reverse?-pace:pace;u.distance+=(reverse?-1:1)*step;car.x=lane.x+lane.dx*u.distance;car.z=lane.z+lane.dz*u.distance;
     car.y=groundHeight(car.x,car.z);car.engineLoad=step>0?.65:0;
-    if(Math.abs(u.distance-limit)<.008 || (burning && gap<.1)){
+    // A returning pumper and a civilian waiting behind it can yield to each
+    // other indefinitely on a one-lane approach. Release an offscreen crew
+    // once stopped; a player in sight of the apparatus always sees it stay.
+    const blocked=reverse && step<.001 && gap<.10;
+    u.stopped=blocked?(u.stopped??0)+dt:0;
+    const unseenQueue=u.stopped>3 && ![...players.values()].some(({state})=>
+      Math.hypot(state.x-car.x,state.z-car.z)<195);
+    if(Math.abs(u.distance-limit)<.008 || (burning && gap<.1) || unseenQueue){
       car.speed=0;
       if(burning){
         car.response='spraying';car.monitorYaw=Math.atan2(f.x-car.x,car.z-f.z);

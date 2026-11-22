@@ -25,7 +25,7 @@ import {stepRoadBoarding} from './public/road-cabin.js';
 import {stepPatrolCruisers} from './public/patrol-cruisers.js';
 import {createWanted} from './public/wanted.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
-import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
+import {marinaMode,createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
 import {stepStructuralFalls} from './public/structural-collapse.js';
 import {leaveTank,stepTank} from './public/tank.js';
@@ -34,14 +34,15 @@ import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
 import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
 import {bridges} from './public/brickell-map.js';
-import {raisedRoadAt} from './public/bridge-driving.js';
-import {stepDrawbridges,bridgeMiddle,leafGeometry,leafLength} from './public/drawbridges.js';
+import {raisedRoadAt,updateRoadPose} from './public/bridge-driving.js';
+import {stepDrawbridges} from './public/drawbridges.js';
 import {interactYacht,stepYacht} from './public/superyacht.js';
 import {stepFurniture} from './public/shop-furniture.js';
 import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
+import {stepPartyEvacuation} from './public/party-evacuation.js';
 import {partyFleet,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
@@ -59,7 +60,6 @@ import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fir
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
-import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
@@ -83,7 +83,7 @@ const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
 const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
 const bank=CITY && !mode ? createBank() : null;
-const marina=CITY && !mode ? createMarinaSprint() : null;
+const marina=CITY && process.env.PINEWATCH_MODE===marinaMode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
@@ -225,7 +225,7 @@ const sockets = new WebSocketServer({
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
-const cityRoutes=new Map([['/world?map=brickell',''],...Object.keys(modes).map(key=>['/world?map=brickell&mode='+key,key])]);
+const cityRoutes=new Map([['/world?map=brickell',''],...[marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
 }
@@ -253,7 +253,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -354,7 +354,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
-    hoopShot:input.hoopShot===true,
+    flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
@@ -525,7 +525,8 @@ function tick() {
     for(const car of world.traffic)stepRoadBoarding(car,step);
     stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
-    for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
+    stepPartyEvacuation(world,npcs,ticks,step);
+    for (const npc of npcs) if(!npc.officer && !npc.partyEvac && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
@@ -552,7 +553,7 @@ function tick() {
     if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
-      delete player.trip;delete player.state.liftTravel;
+      delete player.trip;delete player.state.liftTravel;delete player.state.dive;delete player.lastDive;
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
       if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
@@ -690,6 +691,11 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
+    if(player.state.entryMark){
+      player.lastDive={...player.state.entryMark,tick:ticks};
+      delete player.state.entryMark;
+    }
+    if(player.state.dive){player.yaw=player.state.dive.kind==='platform'?0:-Math.PI/2;player.sprint=player.moving=false;continue;}
     if(falling.ride){
       const item=world.rides.find(r=>r.id===falling.ride.id);
       if(!player.state.ride)parkRide(world,player,true);
@@ -738,28 +744,9 @@ function tick() {
     if(!road || road.sling)continue;
     const kind=road.kind??'rover';
     if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
-    const raised=raisedRoadAt(world,road.x,road.z);
-    if(raised && !road.bridgeFlight && !road.wrecked){
-      const floor=groundHeight(road.x,road.z,Infinity,world.doors);
-      if(floor>MAP.waterY)road.y=floor;
-      else road.bridgeFlight={vx:0,vz:0,vy:0};
-    }
-    if(road.bridgeFlight){
-      const f=road.bridgeFlight;
-      const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)));
-      road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
-    }else{
-      const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
-      // Driven civilian suspension already advanced with its driving input.
-      if(road.model && (road.driver!=null || !road.flatTires))continue;
-      stepSuspension(road,step,(x,z)=>{
-        const ground=groundHeight(x,z,road.y+1.65,world.doors);
-        // Until takeoff, an unsupported axle follows the end of its ramp.
-        if(leaf && ground<=MAP.waterY && Math.abs(z-bridgeMiddle(raised))<leafLength)
-          return leaf.base+leaf.vertical;
-        return ground;
-      });
-    }
+    // Driven and moving NPC traffic already updated their wheel contacts.
+    if(!road.model || (road.driver==null && (road.flatTires || road.bridgeFlight || raisedRoadAt(world,road.x,road.z))))
+      updateRoadPose(world,road,step);
 
   }
   for(const b of world.boats){

@@ -1,4 +1,4 @@
-import {artScreen,villaWings,casaSlabs,casaWalls,casaFurniture,casaRails,casaRoofGarden,casaStair,casaTreads} from './casa-luma.js';
+import {artScreen,villaWings,casaSlabs,casaWalls,casaFurniture,casaRails,casaRoofGarden} from './casa-luma.js';
 
 const teak=0xa87954,oak=0xc29b71,walnut=0x6e5040,linen=0xeae0cd,cream=0xe5ddc6;
 const sage=0x7b8d7f,olive=0x505e48,bronze=0x595647,clay=0xc28b6b;
@@ -41,21 +41,14 @@ export function addCasaLuma({collection,box,masonry,pane,cyl,beam,leaf,railing,s
     if(x< -15.08 || x> -12.40)box(teak,x,5.55,-400.79,.16,3.43,.44,0,-.36);
   }
   for(const p of casaRails)railing(p.x,p.bottom,p.z,Math.max(p.w,p.d),p.w>p.d);
-  for(const p of casaTreads){
-    box(walnut,p.x,(p.h+p.bottom)/2,p.z,p.w,p.h-p.bottom,p.d);
-    box(oak,p.x-.014,p.h-.025,p.z,p.w+.028,.05,p.d+.025);
-  }
-  const s=casaStair;
-  for(const side of [-1,1]){
-    const z=s.z+side*s.width/2;
-    for(const [i,p] of casaTreads.entries())if(i%3===0 || i===s.count-1)box(bronze,p.x,p.h+.44,z,.045,.88,.045);
-    beam(teak,[casaTreads[0].x,casaTreads[0].h+.88,z],[casaTreads.at(-1).x,s.upper+.88,z],.071);
-  }
   collection.carpet('casa',-37.25,.27,-389.15,4.4,4.1,0x719181,0xd5b98d);
   collection.carpet('casa',-13.75,.27,-388.40,3.6,3.5,0xb77c5e,0xe3c5a1);
   collection.carpet('casa',-31.6,.27,-404.17,4.8,3.38,0xb57859,0xe0bb8c);
   collection.carpet('casa',-34.1,3.97,-405.00,4.8,3.38,0x819485,0xe0c8a9);
   for(const p of casaFurniture){
+    if(p.kind==='console' && p.bottom<1)collection.objets('casa',p,'turntable');
+    if(p.kind==='desk')collection.objets('casa',p,'editions');
+    if(p.kind==='island')collection.objets('casa',p,'orchid');
     if(collection.furnish(p,'casa'))continue;
     if(p.kind==='console' || p.kind==='desk')collection.tabletop('casa',p);
     const {kind,x,z,w,d,bottom}=p,h=p.h-bottom;
@@ -112,8 +105,8 @@ export function addCasaLuma({collection,box,masonry,pane,cyl,beam,leaf,railing,s
   // Commissioned art hangs on the gallery spine and the suite end walls.
   box(walnut,artScreen.x,(artScreen.bottom+artScreen.h)/2,artScreen.z,artScreen.w,artScreen.h-artScreen.bottom,artScreen.d);
   collection.picture('casa',artScreen.x,5.8,artScreen.z-.09,2.45,1.47,-1,collection.abstract);
-  collection.picture('casa',-35.1,1.99,-408.82,2.18,1.66,1,collection.abstract);
+  collection.picture('casa',-35.1,1.99,-408.82,2.18,1.66,1,collection.botanical);
   for(const [i,b] of villaWings.slice(1).entries())
-    collection.picture('casa',b.x,2.17,-384.54,2.18,1.59,-1,i===0?collection.harbor:collection.abstract);
+    collection.picture('casa',b.x,2.17,-384.54,2.18,1.59,-1,i===0?collection.shell:collection.botanical);
   collection.brassMobile('casa',-13.75,3.82,-388.4,2.1);
 }

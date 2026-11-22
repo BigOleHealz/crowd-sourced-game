@@ -219,6 +219,10 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 .touch-play #market-panel button {min-height:44px}
 .touch-play #wallet{min-height:32px}
 
+#dive-meter,#dive-result {grid-column:1/-1}
+#dive-meter:not([hidden]),#dive-result:not([hidden]) {display:block;color:#f5dda1;font-weight:650}
+.dive-track {position:relative;margin:4px 0;height:7px;border-radius:4px;background:linear-gradient(to right,#43696c 69.5%,#edbd64 69.5% 82.5%,#43696c 82.5%)}
+.dive-track i {position:absolute;left:var(--progress);height:11px;top:-2px;width:3px;border-radius:2px;background:#fff}
 #bank-receipt:not([hidden]) { display:block;margin-top:3px;color:#d2e7af;font-weight:650; }
 #bank-event:not([hidden]) {display:block;max-width:28ch;border-left:3px solid #ffac65;padding:3px 7px;margin-top:4px;background:#392b29;color:#ffdfb7;font-weight:650}
 #bank-dialog {width:min(24rem,calc(100vw - 30px));box-sizing:border-box;max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - env(safe-area-inset-bottom));overflow:auto;padding:20px 22px;color:#f4ecd9;background:#203832;border:1px solid #aba582;border-top:4px solid #c5a570;border-radius:7px;box-shadow:0 10px 36px #0b181980}
@@ -317,3 +321,6 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #casino-dialog details {margin:.6rem 0;font-size:.78rem}
 #casino-dialog [data-action=leave] {background:transparent;color:#f3e5c8}
 @media(max-width:600px){#casino-dialog{margin:auto auto .4rem;width:96vw;max-height:54dvh;padding:.65rem .85rem}}
+
+#touch-pad.sprinting #touch-stick { box-shadow: 0 0 0 2px #c2efcf, 0 0 12px #5dd09c; }
+#dive-result {white-space:pre-line;font-variant-numeric:tabular-nums}

@@ -45,7 +45,7 @@ for(const e of streetPlan.ends) {
   assert(roadContact(world,cx,cz,yaw,x,z),'the front curb stops the pickup');
   assert.equal(cityGround(...point(1.1,0)),.80,'dry pedestrian buffer beyond curb');
 }
-assert.equal(streetPlan.ends.length,13);
+assert.equal(streetPlan.ends.length,12);
 const hp=newExpedition().hp;
 for(let x=39;x<=42.7;x+=.15)assert(!blocked(x,cityGround(x,22.3),22.3,hp),'pedestrian berth approach');
 for(const [area,roads] of [[coast,streetPlan.mainland],[harbor,streetPlan.island]]) {
@@ -60,4 +60,4 @@ Object.assign(world.rover,{x:2.5,z:coast.north+4,y:.70,driver:1});
 for(const [x,z] of [[2.5,-106],[2.5,-202],[2.5,-262],[-49,-262],[-49,-205],[32,-205],[32,-262],[0,-262],[0,-158]])drive(world,x,z);
 assert.equal(cityGround(0,-106),causeway.height(-106,'road'));
 assert(cityGround(0,-106,0)<0);
-console.log('PASS 13 mainland turning heads, all island junctions and dry loop, visible verges, collision curbs and navigable arched channel.');
+console.log('PASS 12 mainland turning heads, all island junctions and dry loop, visible verges, collision curbs and navigable arched channel.');

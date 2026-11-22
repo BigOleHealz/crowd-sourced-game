@@ -9,7 +9,7 @@ export function elevatorControls(dialog,depart,enter,leave){
       heading.textContent=s.p.name+' · Elevator';
       options.replaceChildren(...s.p.panels.map(p=>{
         const button=document.createElement('button');
-        button.type='button';button.textContent=p.index?'Floor '+(p.index+1):'Ground lobby';
+        button.type='button';button.textContent=p.label??(p.index?'Floor '+(p.index+1):'Ground lobby');
         button.disabled=p.index===s.index;
         button.onclick=()=>{if(station===s){depart(s,p.index);dialog.close();}};
         return button;

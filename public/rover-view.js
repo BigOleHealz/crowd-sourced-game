@@ -72,7 +72,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(darkGreen,0,.49,-1.47,1.29,.106,.14);
   const trimMap=new THREE.TextureLoader().load('./vehicle-trim.webp');
   trimMap.colorSpace=THREE.SRGBColorSpace;
-  const facingMaterial=new THREE.MeshPhongMaterial({map:trimMap,specular:0x555958,shininess:36,vertexColors:true});
+  const facingMaterial=new THREE.MeshPhongMaterial({map:trimMap,specular:pickup?0:0x555958,shininess:36,vertexColors:true});
   function trimFace(geometry,col,row){
     const uv=geometry.attributes.uv.clone();
     for(let i=0;i<uv.count;i++) uv.setXY(i,(col+.008+.984*uv.getX(i))/2,(row+.008+.984*uv.getY(i))/2);

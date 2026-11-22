@@ -1,3 +1,7 @@
+import {footStickPace} from './foot-stick.js';
+import {platformReport} from './platform-judges.js';
+import {marinaPlatform} from './marina-platform.js';
+import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
 import {casinoPanel} from './casino-panel.js';
@@ -61,7 +65,7 @@ import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
 import {volleyballHud} from './volleyball-hud.js';
-import {sprintStart,sprintGates} from './marina-sprint.js';
+import {marinaMode,sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
 const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
@@ -86,13 +90,14 @@ destinationsMenu.onchange=()=>{
 };
 const selector=byId('map-choice');
 const chosen=new URLSearchParams(location.search).get('mode');
+const racing=CITY && chosen===marinaMode;
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
 const modeGroup=document.createElement('optgroup');
 modeGroup.label='Brickell team games';
 for(const [key,rule] of Object.entries(modes))modeGroup.append(new Option(rule.name,key));
-selector.append(modeGroup);
-selector.value=mode ?? (CITY ? 'brickell' : 'outpost');
-selector.addEventListener('change',()=>{ const url=new URL(location.href);if(Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
+selector.append(new Option('Brickell · Marina Sprint',marinaMode),modeGroup);
+selector.value=racing?marinaMode:mode ?? (CITY ? 'brickell' : 'outpost');
+selector.addEventListener('change',()=>{ const url=new URL(location.href);if(selector.value===marinaMode || Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
 if(CITY) {
   document.title='Brickell · Pinewatch';
   document.querySelector('.map-title span').textContent='District map';
@@ -109,7 +114,7 @@ let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
 const canUseWeaponInWater=state=>!state?.swimming || (!!world.sharks && swimWeapon(weapon));
-const canAim = () => self && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && canUseWeaponInWater(self) && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
+const canAim = () => self && !self.dive && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && canUseWeaponInWater(self) && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -205,6 +210,7 @@ let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
 let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
+let queuedFlip=false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
@@ -265,7 +271,7 @@ function clearInput() {
   queuedSeat=queuedSeatKind=null;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
-  queuedJump = queuedInteract = queuedFire = mouseFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function releaseLook(){
@@ -355,7 +361,7 @@ window.addEventListener('keydown', e => {
   if(!e.repeat)pressAction(e.code);
 });
 function startMarinaSprint(){
-  if(CITY && !mode && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
+  if(racing && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
     socket.send(JSON.stringify({type:'marinaSprint'}));
 }
 function clubInteraction(){
@@ -375,6 +381,10 @@ function pressAction(code){
     if(code==='KeyE')queuedInteract=vitals.use;
     if(code==='KeyF')queuedFire=true;
     return;
+  }
+  if(CITY && !isPilot() && !isDriving() && !gunnerRole() && !vitals.dead && !vitals.fall && (self?.dive || takeoffBoard(self))){
+    if(code==='KeyC' && !self.dive){queuedFlip=true;return;}
+    if(code==='Space'){queuedJump=true;return;}
   }
   if (code === 'Space') queuedDeploy = true;
   if (code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
@@ -523,7 +533,7 @@ const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpos
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(mode?'&mode='+mode:'') : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(racing?'&mode='+marinaMode:mode?'&mode='+mode:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -678,14 +688,16 @@ function movementInput() {
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
   const backward = held.has('KeyS') || held.has('ArrowDown');
-  const lateral=clamp(Number(right)-Number(left)+touch.axes.x,-1,1);
-  const forward=clamp(Number(up)-Number(backward)+touch.axes.y,-1,1);
+  const foot=touch.active && canChangeStance(self) && !self.ride && !self.swimming && !self.parachute && !playingHoops();
+  const pace=foot ? footStickPace(touch.axes.x,touch.axes.y,touch.axes.sprint) : touch.axes;
+  const lateral=clamp(Number(right)-Number(left)+pace.x,-1,1);
+  const forward=clamp(Number(up)-Number(backward)+pace.y,-1,1);
   const length = Math.max(1, Math.hypot(lateral, forward));
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   const moving = Boolean(lateral || forward);
   const effectiveStance = requestedStance ?? self.stance;
-  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (touchSprint || down('ShiftLeft') || down('ShiftRight'));
+  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && ((foot && pace.sprint) || touchSprint || down('ShiftLeft') || down('ShiftRight'));
   return {x,z,lateral,forward,moving,sprint};
 }
 
@@ -699,7 +711,7 @@ function tick() {
   const basketball=playingHoops(),trigger=queuedFire || mouseFire || down('KeyF');
   const hoopShot=basketball && trigger;
   const playingVolleyball=!!inVolleyball();
-  const fire = !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && canUseWeaponInWater(self) && !self.climb && !vitals.dead && !vitals.fall && trigger;
+  const fire = !self.dive && !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && canUseWeaponInWater(self) && !self.climb && !vitals.dead && !vitals.fall && trigger;
   const gunner=gunnerRole();
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -709,7 +721,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     sprint: sprint && !pilot, weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -720,7 +732,7 @@ function tick() {
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
-  queuedJump = queuedInteract = queuedFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
@@ -760,7 +772,8 @@ function remoteFrame(time) {
       const fall=p.fall?.joints && q.fall?.started===p.fall.started ? {...p.fall,
         joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
       const climb = q.climb && p.climb ? {...p.climb,t:mix(q.climb.t,p.climb.t,t)} : p.climb;
-      return { ...p, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const dive=q.dive && p.dive ? {...p.dive,time:mix(q.dive.time,p.dive.time,t)} : p.dive;
+      return { ...p, dive, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
@@ -858,6 +871,31 @@ function drivingView(rover, dt, wheeled) {
 }
 
 function updateEquipment(local) {
+  const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
+  const diving=local.dive;
+  const gauge=byId('dive-meter'),report=byId('dive-result');
+  let mark=vitals.lastDive,spectator=false;
+  if(CITY && local.z< -385 && local.z> -490){
+    for(const athlete of samples.at(-1)?.players??[]){
+      const entry=athlete.lastDive;
+      if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<(entry.judging?32:14)){
+        mark=entry;spectator=true;
+      }
+    }
+  }
+  report.hidden=!mark || !!diving || (!!board && !spectator);
+  if(!report.hidden){
+    const text=mark.judging ? platformReport(mark) :
+      (mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
+    const label=(spectator?(mark.judging?'Marina · ':'Poolside · '):'')+text;
+    if(report.textContent!==label)report.textContent=label;
+  }
+  gauge.hidden=!diving;
+  if(diving){
+    const progress=diving.time/diving.duration;
+    gauge.style.setProperty('--progress',Math.min(100,(diving.release??diving.time)/diving.duration*100)+'%');
+    byId('dive-call').textContent=diving.release!=null?'Entry set':progress<entryBeat-.065?'Wait for the gold zone':progress<=entryBeat+.065?'Open now':'Open for entry';
+  }
   const volleyball=volleyballStatus();
   const heli = jetPilot()?world.jet:world.heli;
   const pilot = isPilot();
@@ -980,17 +1018,23 @@ function updateEquipment(local) {
     }
   }
   if(touch.active){
-    const role=basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
-      sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
+      sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
+  }
+  if(board || diving){
+    prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
+    if(board?.kind==='platform')prompt.textContent=(touch.active?'Choose your dive':'Space · Straight dive   C · Front flip')+'   101A straight ×1.6   /   103C tuck ×1.5';
+    byId('space-action').textContent=board?'Straight dive':'Open for entry';
+    byId('crouch-action').textContent=board?'Front flip':'Crouch';
   }
 }
 
@@ -1017,7 +1061,13 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
       ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
-    if(!mode){
+    if(Math.hypot(player.x-marinaPlatform.x,player.z-marinaPlatform.near)<102){
+      const px=sx(marinaPlatform.x),py=sy(marinaPlatform.near);
+      ctx.fillStyle='#e9c978';ctx.fillRect(px-1.5,py-3,3,9);
+      ctx.save();ctx.font='bold 9px sans-serif';ctx.textAlign='right';ctx.strokeStyle='#203e46';ctx.lineWidth=2;
+      ctx.strokeText('10m Dive',px-3,py);ctx.fillText('10m Dive',px-3,py);ctx.restore();
+    }
+    if(racing){
       const next=vitals.race?.phase==='racing'?sprintGates[vitals.race.next]:sprintStart;
       ctx.fillStyle='#6affdc';ctx.beginPath();ctx.arc(sx(next.x),sy(next.z),4,0,Math.PI*2);ctx.fill();
     }
@@ -1117,7 +1167,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -1153,7 +1203,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
-    view.touch=touch.active;view.basketball=playingHoops();
+    view.marinaSprint=racing;view.touch=touch.active;view.basketball=playingHoops();
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
     const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
     audio.patrolSiren(local,view.yaw,roadTraffic,dt);
@@ -1177,7 +1227,7 @@ function frame(time) {
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
-      if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
+      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id,touch.active);
@@ -1192,7 +1242,7 @@ function frame(time) {
 }
 
 try {
-  scene = createScene(canvas,audio.footfall);
+  scene = createScene(canvas);
   try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
   if(!lighting.value)lighting.value='day';
   scene.setLighting(lighting.value);

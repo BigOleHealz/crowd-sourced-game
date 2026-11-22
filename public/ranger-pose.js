@@ -1,3 +1,4 @@
+import {diveMotion} from './estate-diving.js';
 import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {boatHelm,helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
@@ -238,11 +239,29 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.body.position.y-=.12*tuck+Math.min(.68,Math.max(0,1.34-(climb.top-state.y)))*contact;
     avatar.spine.rotation.x=-.40*tuck;
   }
+  if(state.dive){
+    const {angle}=diveMotion(state.dive);
+    avatar.root.rotation.y=state.dive.kind==='platform'?0:Math.PI/2;
+    avatar.body.rotation.set(angle,0,0);
+    // Rotate around the hips so the athlete stays over the physical trajectory.
+    avatar.body.position.y+=.83*(1-Math.cos(angle));
+    avatar.body.position.z-=.83*Math.sin(angle);
+    avatar.spine.rotation.set(-.04,0,0);
+  }
   const toolIndex=(state.weapon ?? 1)-1;
-  const carrying=!climb && !fall && (!swimming || armedSwimmer) && !state.dead && !seated && !station;
+  const carrying=!state.dive && !climb && !fall && (!swimming || armedSwimmer) && !state.dead && !seated && !station;
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0);});
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
+    if(state.dive){
+      const {tuck}=diveMotion(state.dive);
+      leg.rotation.set(1.86*tuck,0,side*.025);
+      knee.rotation.set(-2.1*tuck,0,0);
+      ankle.rotation.set(.2,0,0);
+      arm.rotation.set(3.0-1.85*tuck,0,side*.065);
+      forearm.rotation.set(.15+.68*tuck,0,0);
+      continue;
+    }
     if(prone) {
       leg.rotation.set(.09+side*swing*.25*weight,side*.10,side*.06,'ZXY');
       knee.rotation.x=-.19-Math.max(0,side*swing)*.37*weight;

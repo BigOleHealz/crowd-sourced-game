@@ -18,7 +18,6 @@ import {roomAtFeet} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
-import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
@@ -93,7 +92,7 @@ import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, waterBlend, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, waterBlend, waterSurfaceAt, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -942,6 +941,36 @@ function makeParachute(root, material) {
   return canopy.mesh(root,material,false);
 }
 
+function diveSpray(avatar,mark,frameTick){
+  const age=mark?(frameTick-mark.tick)/30:Infinity;
+  let spray=avatar.diveSpray;
+  if(age<0 || age>=.9){
+    if(spray)spray.visible=false;
+    return;
+  }
+  if(!spray){
+    spray=new THREE.Group();
+    const material=new THREE.MeshBasicMaterial({color:0xe6faf7,transparent:true,depthWrite:false});
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.92,1,32).rotateX(-Math.PI/2),material);
+    const drops=new THREE.InstancedMesh(new THREE.SphereGeometry(1,5,4),material,15);
+    drops.frustumCulled=false;
+    spray.add(ring,drops);avatar.root.parent.add(spray);avatar.diveSpray=spray;
+    spray.userData.drop=new THREE.Object3D();
+  }
+  spray.visible=true;spray.position.set(mark.x,mark.water+.025,mark.z);
+  const [ring,drops]=spray.children,size=mark.splash,radius=.18+age*2.1*size;
+  ring.scale.set(radius,1,radius);ring.material.opacity=(1-age/.9)*.82;
+  const dummy=spray.userData.drop;
+  for(let i=0;i<drops.count;i++){
+    const angle=i*2.39996,height=Math.max(0,age*((3+i%4*.48)*size-6.6*age));
+    const travel=.10+age*(.55+i%5*.19)*size;
+    dummy.position.set(Math.sin(angle)*travel,height,Math.cos(angle)*travel);
+    const width=height>0?.044*size:0;
+    dummy.scale.set(width,width*(1.8+i%3*.5),width);dummy.updateMatrix();drops.setMatrixAt(i,dummy.matrix);
+  }
+  drops.instanceMatrix.needsUpdate=true;
+}
+
 function updateSwimRipples(avatar,state) {
   if((state.swimming || state.moving && waterBlend(state)>.15) && !state.fall && !state.dead) {
     const stroke=avatar.stroke??0;
@@ -961,7 +990,7 @@ function updateSwimRipples(avatar,state) {
     if(beat!==avatar.ripples.beat) {
       const ring=rings[beat%2];
       ring.userData.beat=beat;
-      ring.position.set(state.x,MAP.waterY+.019,state.z);
+      ring.position.set(state.x,waterSurfaceAt(state.x,state.z,state.y)+.019,state.z);
       avatar.ripples.beat=beat;
     }
     for(const ring of rings) {
@@ -1020,7 +1049,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 }
 
 import {createSprintGate} from './marina-sprint-view.js';
-export function createScene(canvas,onFootfall) {
+export function createScene(canvas) {
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
@@ -1143,9 +1172,9 @@ export function createScene(canvas,onFootfall) {
   }
   let nightlifeFaces;
   const volleyballShirts=new Map();
-  function resident(id,name,officer=false){
+  function resident(id,name,officer=false,lookId=id){
     const athlete=volleyballLooks[id];
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[id]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
@@ -1163,6 +1192,10 @@ export function createScene(canvas,onFootfall) {
   function removeAvatar(a) {
     clearLostParts(a);
     a.label.dispose();
+    if(a.diveSpray){
+      const [ring,drops]=a.diveSpray.children;
+      ring.geometry.dispose();drops.geometry.dispose();drops.dispose();ring.material.dispose();scene.remove(a.diveSpray);
+    }
     for(const ring of a.ripples?.rings ?? []) {
       scene.remove(ring);
       ring.geometry.dispose();ring.material.dispose();
@@ -1210,7 +1243,7 @@ export function createScene(canvas,onFootfall) {
     localActorId=local?.id;
     if(local && world.rides)drawStreetRides(world.rides,local,remotes,dt);
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
-    if(CITY && !world.match){
+    if(view.marinaSprint && local){
       sprintGate??=createSprintGate(scene,Batch);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
@@ -1298,7 +1331,7 @@ export function createScene(canvas,onFootfall) {
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
     updateResortExterior?.(dt,local);
-    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58)
+    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58 && local.y<20)
       updateResortFloor=resortFloorView(scene,Batch);
     updateResortFloor?.(dt,local);
     const attackTick=world.frameTick??world.simTick;
@@ -1309,6 +1342,13 @@ export function createScene(canvas,onFootfall) {
       let a=avatars.get(state.id);
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
       const inTraffic=state.cruiserId?world.patrolCars?.find(car=>car.id===state.cruiserId):cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
+      if(state.evacLook && Math.hypot(state.x-local.x,state.z-local.z)>115*detailScale){
+        if(a){
+          a.root.visible=a.shadow.visible=a.label.sprite.visible=false;
+          for(const ring of a.ripples?.rings??[])ring.visible=false;
+        }
+        continue;
+      }
       if(inTraffic?.npcDriver===state.id && Math.hypot(state.x-local.x,state.z-local.z)>55*detailScale){
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
@@ -1323,10 +1363,11 @@ export function createScene(canvas,onFootfall) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
+      if(state.lastDive || a.diveSpray)diveSpray(a,state.lastDive,attackTick);
       if(state.weapon===6){
         const flight=world.throwables?.find(c=>c.shooter===state.id && world.simTick-c.born<12);
         if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
@@ -1348,18 +1389,8 @@ export function createScene(canvas,onFootfall) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
-        if(!seated && !station && !entering && !skipper){
-          contacts.boots(a,state,local);
-          if(onFootfall && previousGait===a.gait && Math.hypot(state.x-local.x,state.y-local.y,state.z-local.z)<17){
-            const side=contactingFoot(previousPhase,a.gait,state);
-            if(side && !state.lostParts?.[side<0?'leftLeg':'rightLeg']){
-              const foot=a.limbs[side<0?0:1].foot;
-              onFootfall(state,{x:foot.wx,y:state.y+(foot.floor??0),z:foot.wz},local,view.yaw,world,side,a.gait.run);
-            }
-          }
-        }
+        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
@@ -1495,7 +1526,8 @@ export function createScene(canvas,onFootfall) {
     footBoom=onFoot ? Math.min(clearance,THREE.MathUtils.damp(footBoom??clearance,clearance,nearInterior?5.5:10,dt)) : null;
     const distance=roverBoom ?? footBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
-    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
+    const cameraWater=waterSurfaceAt(camera.position.x,camera.position.z,camera.position.y);
+    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<cameraWater)camera.position.y=Math.max(camera.position.y,cameraWater+.27);
     // At steep angles transition from the ground-limited chase boom to an
     // unobstructed vertical sightline directly above the person or station.
     const overhead=flyingJet?0:THREE.MathUtils.smoothstep(pitch,.79,zenith);

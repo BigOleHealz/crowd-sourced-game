@@ -1,4 +1,6 @@
+import {floatingBody} from './marine-float.js';
 import {brickellMap,cityGround} from './brickell-map.js';
+import {inDivingLane} from './marina-platform.js';
 import {sharkDefeatPose} from './shark-defeat.js';
 
 const water=brickellMap.waterY;
@@ -14,6 +16,7 @@ export const sharkSizes=[.88,1.16,1.03,.97,1.29];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
 
 function openWater(x,z,padding,edgePadding=padding){
+  if(inDivingLane(x,z))return false;
   if(x-edgePadding<brickellMap.westBound || x+edgePadding>brickellMap.bounds ||
      z-edgePadding<brickellMap.northBound || z+edgePadding>brickellMap.bounds)return false;
   return water-cityGround(x,z)>=deep && water-cityGround(x-padding,z)>=deep &&
@@ -45,7 +48,7 @@ function retreatGoal(s){
 function initial(i){
   const [x,z]=homes[i],maxHp=Math.round(120*sharkSizes[i]);
   return {x,y:water-.9,z,yaw:i,stroke:i,size:sharkSizes[i],hp:maxHp,maxHp,
-    target:null,phase:'patrol',hitSeq:0,ageSinceHit:null,deathKind:null};
+    target:null,phase:'patrol',deathY:null,hitSeq:0,ageSinceHit:null,deathKind:null};
 }
 
 export function damageShark(states,index,amount,kind,point){
@@ -54,7 +57,7 @@ export function damageShark(states,index,amount,kind,point){
   s.hp=Math.max(0,s.hp-Math.round(amount));
   s.hitSeq++;s.ageSinceHit=0;
   s.hitX=point?.x??s.x;s.hitY=point?.y??s.y;s.hitZ=point?.z??s.z;
-  if(!s.hp){s.phase='dead';s.deathKind=kind;s.target=null;}
+  if(!s.hp){s.phase='dead';s.deathKind=kind;s.deathY=s.y;s.target=null;}
   return true;
 }
 
@@ -222,6 +225,7 @@ export function createSharks(){
       if(s.ageSinceHit!=null)s.ageSinceHit=round(Math.min(60,s.ageSinceHit+dt));
       if(!s.hp){
         mind.down+=dt;
+        s.y=round(floatingBody(s.deathY,water,s.size,mind.down).y);
         if(mind.down>=recover){
           Object.assign(s,initial(i),{hitSeq:s.hitSeq});
           mind.down=0;mind.feeding=null;mind.home={x:s.x,z:s.z};

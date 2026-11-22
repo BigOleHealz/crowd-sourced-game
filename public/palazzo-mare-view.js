@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {mareUpper,mareParts,mareFurniture,mareFlights,mareGuards,treadHeight} from './palazzo-mare.js';
+import {mareUpper,mareParts,mareFurniture,mareGuards} from './palazzo-mare.js';
 
 const stone=0xd6c3a0,ivory=0xf1e5ca,walnut=0x80543d,teak=0xad805c,bronze=0x675240;
 const brass=0xbd955d,green=0x466e66,blue=0x50657b,linen=0xdfcfb3;
@@ -27,27 +27,10 @@ export function furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,pane,
     }
   }
   finishUpperFloors(scene);
-  collection.picture('mare',35.4,2.03,-444.985,2.95,1.93,1,collection.harbor);
+  collection.picture('mare',35.4,2.03,-444.985,2.95,1.93,1,collection.compass);
   collection.brassMobile('mare',33.4,3.86,-443.12,3.3);
-  collection.picture('mare',28.34,5.82,-448.35,1.76,1.04,1,collection.abstract,Math.PI/2);
+  collection.picture('mare',28.34,5.82,-448.35,1.76,1.04,1,collection.botanical,Math.PI/2);
   collection.picture('mare',18.37,9.40,-443.0,1.28,.88,1,collection.harbor,Math.PI/2);
-  // Two long, shallow flights turn around a shared landing. The rail posts are
-  // placed on the noses and the timber handrails follow their exact pitch.
-  for(const f of mareFlights){
-    const run=(f.end-f.start)/f.count,dir=Math.sign(run);
-    for(let i=0;i<f.count;i++){
-      const x=f.start+(i+.5)*run,y=treadHeight(f,i);
-      box(0xa58c70,x,y-.118,f.z,Math.abs(run)+.012,.22,f.width);
-      box(0xdcccb4,x,y-.018,f.z,Math.abs(run)+.016,.036,f.width+.038);
-      box(teak,x-dir*(Math.abs(run)/2-.025),y+.002,f.z,.045,.008,f.width+.042);
-      if(i%3===0 || i===f.count-1)for(const side of [-1,1])box(bronze,x,y+.42,f.z+side*(f.width/2-.045),.046,.84,.046);
-    }
-    for(const side of [-1,1]){
-      const z=f.z+side*(f.width/2-.045);
-      beam(walnut,[f.start+run*.5,treadHeight(f,0)-.17,z],[f.end-run*.5,f.high-.17,z],.15);
-      beam(walnut,[f.start+run*.5,treadHeight(f,0)+.85,z],[f.end-run*.5,f.high+.85,z],.084);
-    }
-  }
   for(const g of mareGuards){
     const across=g.w>g.d,span=Math.max(g.w,g.d),n=Math.ceil(span/.83);
     box(walnut,g.x,g.h,g.z,g.w+.035,.083,g.d+.035);
@@ -66,6 +49,9 @@ export function furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,pane,
     cyl(0xf2d4a0,x,y+.54,z,.40,.32);cyl(brass,x,y+.714,z,.09,.036);
   }
   for(const p of mareFurniture){
+    if(p.kind==='console' && p.bottom<1)collection.objets('mare',p,'turntable');
+    if(p.kind==='island')collection.objets('mare',p,'orchid');
+    if(p.kind==='desk')collection.objets('mare',p,'editions');
     if(collection.furnish(p,'mare'))continue;
     if(p.kind==='console' || p.kind==='desk')collection.tabletop('mare',p);
     const {x,z,w,d,bottom:y,kind}=p,H=p.h-y;

@@ -1,3 +1,4 @@
+import {floatingBody} from './marine-float.js';
 import * as THREE from 'three';
 import {manateeMaterial} from './manatee-model.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
@@ -96,7 +97,7 @@ export function sharkView(scene,waterline){
     impacts(states,local,dt);clock.value=(tick??0)/30;
     for(let i=0;i<sharkSizes.length;i++){
       const s=states?.[i];
-      if(!s || s.deathKind==='blast' || (!s.hp && s.ageSinceHit>12) || Math.hypot(local.x-s.x,local.z-s.z)>52){
+      if(!s || Math.hypot(local.x-s.x,local.z-s.z)>52){
         if(models[i])models[i].root.visible=false;
         continue;
       }
@@ -112,7 +113,7 @@ export function sharkView(scene,waterline){
       root.position.y+=(s.y-root.position.y)*mix;
       root.position.z+=(s.z-root.position.z)*mix;
       root.rotation.y+=Math.atan2(Math.sin(-s.yaw-root.rotation.y),Math.cos(-s.yaw-root.rotation.y))*mix;
-      root.rotation.z=s.hp ? .055*Math.sin(s.stroke):Math.min(1.45,s.ageSinceHit*.78);
+      root.rotation.z=s.hp ? .055*Math.sin(s.stroke):floatingBody(s.deathY,waterline,s.size,s.ageSinceHit).roll;
       const bite=s.phase==='feeding' ? .27+.23*Math.sin(clock.value*8.4+i) : 0;
       jaw.rotation.x=-bite;
       tail.rotation.y=s.hp ? .26*Math.sin(s.stroke):0;

@@ -1,3 +1,6 @@
+import {lidoHouse} from './lido-house.js';
+import {GRAND_STEP,grandLift,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
+import {spiralForHouse,outsideWell,spiralWell,spiralSupport} from './residential-spirals.js';
 import {casinoHall,casinoName,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
 // the camera occupies. Door bits are the only persistent per-room network data.
@@ -58,9 +61,18 @@ function floorPlan(p,y,height,n){
       add(line+side*1.0,z+span*.38,.8,.48,0,.76,'desk',0x8f7355);
     }
   }
-  if(residential)level.residential=furnishResidentialLevel(level);
+  if(p.stair)level.parts=level.parts.flatMap(part=>outsideWell(part,p.stair));
+  if(residential){
+    level.residential=furnishResidentialLevel(level);
+    if(p.stair)level.residential.furnishings=level.residential.furnishings.flatMap(item=>{
+      if(item.kind!=='floor' && item.kind!=='rug')return [item];
+      const turned=Math.abs(Math.sin(item.yaw))>.5;
+      const rect=turned?{...item,w:item.d,d:item.w}:item;
+      return outsideWell(rect,p.stair).map(piece=>turned?{...piece,w:piece.d,d:piece.w}:piece);
+    });
+  }
   p.levels.push(level);
-  panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
+  if(!p.stair)panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
 }
 export function initializeBuildingInteriors(buildings,city,terrain){
   if(interiorPlans.length)return;
@@ -74,8 +86,9 @@ export function initializeBuildingInteriors(buildings,city,terrain){
         for(const s of bankServiceDoors)door(p,s.x,.824,s.z,s.axis,s.width,s.label,false);
       }
       if(!b.housing && !b.finish)continue;
+      p.stair=spiralForHouse(b);
       const lobbyZ=b.z-b.d/2+Math.min(3.36,b.d*.48);
-      panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
+      if(!p.stair)panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
       const {floors,story}=b.finish?{floors:1,story:Math.max(2.50,b.base+b.eave-floorY)}:towerStories(b,3.9);
       for(let n=0;n<floors;n++)floorPlan(p,floorY+n*story,story,n);
     }else{
@@ -103,26 +116,37 @@ export function initializeBuildingInteriors(buildings,city,terrain){
   }
   const c=plan(21,{x:-70.75,z:-54.4,w:8.8,d:9.8},'existing','Club Lucero');
   door(c,c.x,.8,-49.49,'x',1.98,'Club entrance');
-  const salon=plan(22,{x:25,z:-395,w:24,d:10},'salon','Lantern Point Salon');
-  door(salon,26.2,.8,-389.98,'x',2.34,'Salon entrance');
+  const salon=plan(22,lidoHouse,'villa-lido',lidoHouse.name);
+  door(salon,26.2,.8,-389.98,'x',2.34,'Villa Lido entrance');
   const casa=plan(23,{x:-25,z:-397,w:30,d:26},'existing','Casa de Luma','casa');
   for(const [x,z,axis,width,label] of [[-25,-401,'x',3.1,'Gallery'],[-36.45,-401,'x',2.4,'Bedroom wing'],[-13.75,-401,'x',2.4,'Dining wing'],
     ...[-397.25,-387.05].flatMap(z=>[[-32.6,z,'z',2.3,'Bedroom courtyard'],[-17.4,z,'z',2.3,'Dining courtyard']])])door(casa,x,1.07,z,axis,width,label);
   for(const x of [-36.45,-13.75])door(casa,x,4.77,-401.3,'x',2.4,'Roof terrace');
-  for(const y of [1.07,4.77])panel(casa,-30.2,y,-402.20,Math.PI,-30.2,-403.10);
+
   const mare=plan(24,{x:25,z:-444,w:30,d:16},'existing','Palazzo Mare','mare');
   for(const [x,y,z,axis,w,label] of [[15.4,.87,-437,'x',2.6,'Palazzo entrance'],[28.2,.87,-437,'x',2.6,'Palazzo entrance'],
     [39.5,.87,-441,'z',2.6,'Dining entrance'],[32.6,4.9,-439.5,'x',2.6,'Library terrace'],[30.05,8.7,-444.9,'z',2.6,'Suite terrace'],
     [31.2,.87,-442.32,'z',3.1,'Kitchen'],[28.2,4.9,-444.6,'z',3.85,'Writing room'],[18.25,8.7,-445.25,'z',2.82,'Dressing room']])door(mare,x,y,z,axis,w,label);
-  for(const [y,z] of [[.87,-437.61],[4.9,-440.12],[8.7,-442.45]])panel(mare,22,y,z,Math.PI,22,z-.95);
+
   // Append rear controls so existing saved door bits keep their original IDs.
   for(const g of galleryPlans)if(g.passage){
     const p=byBuilding.get(g.b);
     for(const e of g.ends)door(p,e.x,.824,e.z-e.side*(e.depth-.073),'x',1.48,'Gallery passage');
   }
-  const resort=plan(25,casinoHall,'casino',casinoName);
+  const resort=plan(25,{...casinoHall,z:55.65,d:33.3},'casino',casinoName);
   door(resort,casinoEntrance.x,casinoHall.floor,casinoEntrance.z,'x',4,'Casino entrance');
   door(resort,casinoSideDoor.x,casinoHall.floor,casinoSideDoor.z,'z',3,'Casino east entrance');
+  door(resort,grandLobbyOpening.x,casinoHall.floor,grandLobbyOpening.z,'z',grandLobbyOpening.width,'Casino west entrance');
+  resort.grandDoors=resortLevels.map(l=>{
+    const {x,z,exitX,exitZ}=grandLift;
+    panel(resort,x,l.y,z,0,exitX,exitZ);
+    resort.panels.at(-1).label=(l.n+1)+' · '+l.name;
+    if(l.n<5 || l.n===17 || l.n===19)return [];
+    const rooms=l.n===18?skyRooms(l.n).filter(r=>r.side):skyRooms(l.n);
+    return rooms.map((r,i)=>door(resort,r.doorX,l.y,r.doorZ,r.side?'z':'x',r.side?1.38:2.60,
+      'Suite '+((l.n+1)*100+i+1),false,l.n));
+  });
+
 }
 export const doorIsOpen=(d,state)=>d.initial!==!!((state?.roomLeaves?.[d.id>>>5]??0)&(1<<(d.id%32)));
 export function operableDoorAt(p,feet,range=1.57){
@@ -171,7 +195,8 @@ export function roomDoorTop(x,z,pad,probe,doors){
   let top=-Infinity;
   for(const p of near(x,z)){
     if(!intact(p,doors,x,probe,z))continue;
-    for(const d of p.entrances){
+    const extra=p.grandDoors?.[Math.floor((probe-.80)/GRAND_STEP)];
+    for(const d of extra?[...p.entrances,...extra]:p.entrances){
       if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
       if(intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+(d.height??2.18));
     }
@@ -188,7 +213,9 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   const p=byBuilding.get(b);
   if(!p || !Number.isFinite(probe) || !isInside(b,x,z,pad))return;
   if(p.type==='bank' && probe<3.77 && (Math.abs(x-b.x)>=2.66 || z>b.z+2.25)){
-    let top=.824;
+    // Walls meet the player's radius before their feet cross the threshold.
+    // The office floor supports the centre of the capsule only.
+    let top=isInside(b,x,z) ? .824 : -Infinity;
     for(const s of bankServiceParts)if(probe>=s.bottom-.001 && isInside(s,x,z,pad))top=Math.max(top,s.bottom+s.h);
     if(Math.abs(Math.abs(x-b.x)-2.57)<.11+pad && z<b.z+2.25+pad ||
       Math.abs(x-b.x)<2.66+pad && Math.abs(z-(b.z+2.25-.073))<.075+pad)return 3.77;
@@ -210,10 +237,12 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
 export function furnishedSupport(x,z,probe,doors){
   if(!Number.isFinite(probe))return;
   for(const p of near(x,z)){
+    if(p.type==='casino'){const y=resortSupport(x,z,probe);if(y!==undefined)return y;}
     if(!isInside(p,x,z) || !intact(p,doors,x,probe,z))continue;
     if(p.type==='bank' && probe>=.80 && probe<3.77)return .824;
-    if(p.type==='salon' && probe>=1.05 && probe<4.4)return 1.07;
+    if(p.type==='villa-lido' && probe>=1.05 && probe<4.4)return 1.07;
     if(p.type==='outpost' && probe>=p.b.base-.04)return p.b.base;
+    if(p.stair && spiralWell(p.stair,x,z))return spiralSupport(p.stair,x,z,probe);
     const floor=storyAt(p,probe);
     if(floor && probe<p.b.base+p.b.eave && breachedFloor(p.b,x,z,floor.y-.01,doors)==null)return floor.y;
   }
@@ -221,11 +250,15 @@ export function furnishedSupport(x,z,probe,doors){
 export function roomAtFeet(feet,doors){
   for(const p of near(feet.x,feet.z)){
     if(!isInside(p,feet.x,feet.z) || !intact(p,doors,feet.x,feet.y,feet.z))continue;
+    if(p.stair && spiralWell(p.stair,feet.x,feet.z) && feet.y<4.65)return {p,label:'Stair hall'};
     const l=storyAt(p,feet.y+.03);
     if(l && feet.y<p.b.base+p.b.eave-.12)return {p,l,label:l.rooms.find(r=>isInside(r,feet.x,feet.z))?.number??'Hall'};
-    if(p.type==='casino' && feet.y>=casinoHall.floor-.25 && feet.y<casinoHall.ceiling)return {p,label:casinoName};
+    if(p.type==='casino'){
+      const l=resortLevelAt(feet.x,feet.y,feet.z);
+      if(l)return {p,label:l.n?l.name:casinoName,casinoStorey:l.n};
+    }
     if(p.type==='bank' && feet.y<3.77 && (Math.abs(feet.x-p.x)>2.66 || feet.z>p.z+2.25))return {p,label:'Biscayne Mutual · Offices'};
-    if(p.type==='outpost' && feet.y>=p.b.base-.20 && feet.y<p.b.base+p.b.eave-.1 || p.type==='salon' && feet.y<4.4)return {p,label:p.name};
+    if(p.type==='outpost' && feet.y>=p.b.base-.20 && feet.y<p.b.base+p.b.eave-.1 || p.type==='villa-lido' && feet.y<4.4)return {p,label:p.name};
   }
 }
 export function approachRamp(x,z){
@@ -238,5 +271,5 @@ export function approachRamp(x,z){
 }
 export function interiorCeiling(feet,doors){
   const room=roomAtFeet(feet,doors);
-  return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? casinoHall.ceiling : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
+  return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? resortRoofAbove(feet.x,feet.z,room.casinoStorey) : room?.p.type==='villa-lido' ? 4.53 : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
 }

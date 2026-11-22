@@ -3,7 +3,7 @@ import {beginRoadBoarding} from './road-cabin.js';
 import {strikeFittings} from './road-fittings.js';
 import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
-import {launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
+import {onBridgeDeck,launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tipFurniture} from './shop-furniture.js';
 import {noteGlass} from './pane-damage.js';
@@ -313,7 +313,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
   // Ground-following wheels also strike the lower surface at a discrete ledge.
   // Ignore smooth ramps and grade changes within normal suspension travel.
   const drop=startHeight-r.y;
-  if(!r.wrecked && drop>.25)roadTouchdown(r,Math.sqrt(2*19*drop));
+  if(!r.wrecked && drop>.25 && !onBridgeDeck(r.x,r.z))roadTouchdown(r,Math.sqrt(2*19*drop));
   if(contacted){
     const forward=vx*sn-vz*cs;
     if(forward*r.speed<0)r.rebounding=true;

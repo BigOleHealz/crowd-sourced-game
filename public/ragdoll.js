@@ -1,3 +1,4 @@
+import {civilianLooks} from './civilian-style.js';
 import {crewBoat} from './patrol-boats.js';
 import {Vector3} from 'three';
 import {createRangerRig,poseRig} from './ranger-pose.js';
@@ -30,6 +31,7 @@ export function sampleRanger(actor,dt,world) {
   let state=frame.get(actor.life);
   if(!state) {
     state={rig:createRangerRig(),now:pointSet(),last:pointSet(),initialized:false};
+    if(actor.evacLook)state.rig.civilian=civilianLooks[actor.evacLook];
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;

@@ -12,7 +12,7 @@ export function bankFrontage(scene,Batch){
   const box=(c,x,y,z,w,h,d)=>batch.add(cube,c,x,y,z,w,h,d);
   const post=(c,x,y,z,r,h)=>batch.add(cylinder,c,x,y,z,r,h,r);
   const half=bankSite.w/2,depth=bankSite.d;
-  // Single-storey banking hall, with solid side wings and a recessed central lobby.
+  // Single-storey banking hall with a recessed central lobby and two office entrances.
   box(0xc6b89e,0,.81,depth/2,bankSite.w+.26,.035,depth+.24);
   box(0xe3d8bf,0,3.95,depth/2,bankSite.w,.28,depth);
   box(stone,0,4.44,depth/2,bankSite.w,.72,depth);
@@ -27,6 +27,7 @@ export function bankFrontage(scene,Batch){
   }
   for(const side of [-1,1]){
     box(ivory,side*half,4.49,depth/2,.25,.25,depth+.19);
+    box(bronze,side*(half+.014),3.20,2.25,.055,.36,1.83);
     // Bronze-grilled clerestories sit between the pilasters on each flank.
     for(const v of [depth*.72]){
       const face=side*(half+.025);
@@ -205,6 +206,8 @@ export function bankFrontage(scene,Batch){
   ctx.fillStyle=gold;ctx.fillRect(720,16,2,70);
   lettering('BANK',871,77,80,'Arial','#fff8dc','bold');
   ctx.strokeStyle=gold;ctx.lineWidth=3;ctx.strokeRect(6,4,1012,94);
+  lettering('BRANCH OFFICE',256,181,45,'Arial',paper);
+  lettering('MEMBER SERVICES',768,181,44,'Arial',paper);
   ctx.fillStyle='#153a37';ctx.fillRect(0,520,1024,370);
   ctx.strokeStyle='#cbb38a';ctx.lineWidth=6;ctx.strokeRect(12,532,1000,346);
   lettering('BANK',512,802,274,'Arial','#fff8dc','bold');
@@ -232,6 +235,7 @@ export function bankFrontage(scene,Batch){
   sign(-0.13,1.90,3.842,.393,.085,Math.PI,10,373,260,47);
   for(const side of [-1,1])sign(bladeX+side*.130,bladeY,bladeZ,3.43,1.49,side*Math.PI/2,0,520,1024,370);
   sign(atmX,2.71,-.37,1.40,.28,Math.PI,0,903,440,115);
+  for(const side of [-1,1])sign(side*(half+.044),3.20,2.25,1.76,.30,side*Math.PI/2,side<0?0:512,128,512,85);
   const map=new THREE.CanvasTexture(atlas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
   signs.mesh(group,new THREE.MeshBasicMaterial({map}),false);
 

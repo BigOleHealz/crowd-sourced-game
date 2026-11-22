@@ -1,3 +1,9 @@
+import {grandTopAt,poolSurface} from './grand-resort-layout.js';
+import {garageSurface} from './resort-parking.js';
+import {towerFloor,towerRail} from './marina-platform.js';
+import {boardAt,boardHeight,stepDive} from './estate-diving.js';
+import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
+import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
@@ -108,6 +114,9 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
+  const stair=b.finish && spiralForHouse(b);
+  if(stair && spiralWell(stair,x,z) && probe<roof-.1)
+    return Math.max(spiralSupport(stair,x,z,probe),spiralSolid(stair,x,z,pad,probe));
   const interior=furnishedFloorTop(b,x,z,pad,probe,doors,round);
   const shell=round && upperShellTop(b,x,z,probe,roof);
   if(round && shell!==undefined)return Math.max(shell,interior??-Infinity);
@@ -153,8 +162,14 @@ const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
-  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
+  let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
+  if(CITY)for(const stair of residenceSpirals){
+    if(!spiralWell(stair,x,z,padding) || doors?.houseRuins?.[stair.home])continue;
+    const cap=estateSupportLimit(doors,x,z);
+    const hit=spiralSolid(stair,x,z,padding,Math.min(maxBottom,cap));
+    if(hit<=cap)top=Math.max(top,hit);
+  }
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
@@ -248,16 +263,24 @@ export function sceneryHeight(x,z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const parking=garageSurface(x,z,maxBottom);
+    if(parking!==undefined)return parking;
     const ruin=ruinedHouseAt(doors,x,z);
     if(ruin)return houseRubbleHeight(ruin,x,z,doors.houseRuins[ruin.id]);
     const pile=collapsedLot(MAP.buildings,doors,x,z);
     if(pile)return rubbleHeight(pile,x,z,doors);
     const limit=estateSupportLimit(doors,x,z);
     const probe=Math.min(limit,maxBottom);
+    const tower=towerFloor(x,z,probe);
+    if(tower!==undefined)return tower;
+    const board=boardAt(x,z);
+    if(board && probe>=boardHeight(board,x)-.01)return boardHeight(board,x);
     const villa=casaFloor(x,z,probe);
     if(villa!==undefined)return villa<=limit+.001 ? villa : cityGround(x,z,probe,doors);
     const palace=mareFloor(x,z,probe);
     if(Number.isFinite(palace))return palace;
+    const pool=swimmingPoolAt(x,z,probe);
+    if(pool)return poolFloorAt(pool,x,z);
     const interior=furnishedSupport(x,z,probe,doors);
     if(interior!==undefined)return interior;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
@@ -305,6 +328,7 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,ro
 }
 
 export function blocked(x, y, z, hp, doors, height=1.7) {
+  if(CITY && towerRail(x,y,z))return true;
   const floor=groundHeight(x,z,y+1.7,doors);
   if (floor > y + 0.3) return true;
   const bridge = MAP.bridge;
@@ -316,10 +340,13 @@ export function blocked(x, y, z, hp, doors, height=1.7) {
 
 // Weight only grounded characters in the shallows. Falling, climbing and
 // deck occupants keep their own movement until the buoyancy model takes over.
+export function waterSurfaceAt(x,z,feetY){
+  return CITY ? (poolSurface(x,feetY,z)??swimmingPoolAt(x,z,feetY)?.waterY??MAP.waterY) : MAP.waterY;
+}
 export function waterBlend(state){
   if(state.swimming)return 1;
   if(!state.grounded || state.onYacht || state.climb || state.parachute)return 0;
-  return smoothstep(.08,.72,MAP.waterY-state.y);
+  return smoothstep(.08,.72,waterSurfaceAt(state.x,state.z,state.y)-state.y);
 }
 
 export function stanceBodyHeight(stance) {
@@ -338,6 +365,10 @@ export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
+  if(CITY && (state.dive || input.jump || input.flipDive)){
+    const dive=stepDive(state,input,dt);
+    if(dive)return dive;
+  }
   const grabAllowed=!state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
   const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
     ? {y:state.y,left:.25} : state.grab);
@@ -404,10 +435,12 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx-=inward*nx;vz-=inward*nz;
     contact=vehicleContact(x,y,z,world,CITY,height);
   }
-  let floor = Math.max(groundHeight(x, z,y+height,doors),contact.floor);
+  // A swimmer underneath the projecting board remains in the basin.
+  const floorProbe=CITY && state.swimming && boardAt(x,z) ? y+.26 : y+height;
+  let floor = Math.max(groundHeight(x,z,floorProbe,doors),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top) floor = Math.max(floor,top);
-  const draft=.72, floatY=MAP.waterY-draft;
+  const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
     // Damp the last part of a fall on entry, then converge to surface height.
@@ -434,7 +467,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     const shops=CITY && !ruined && !collapsedLot(MAP.buildings,doors,x,z);
     if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
-    if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
+    if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z) && !residenceSpirals.some(s=>spiralWell(s,x,z)))ceiling=Math.min(ceiling,galleryCeiling-height);
     if(CITY && vy>0)ceiling=Math.min(ceiling,balconyAt(x,z,PLAYER_RADIUS,state.y+height,doors,true)-height);
     if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {

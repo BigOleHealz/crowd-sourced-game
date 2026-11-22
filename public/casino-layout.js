@@ -1,3 +1,5 @@
+import {resortLevelAt} from './grand-resort-layout.js';
+import {fountainWalls} from './centaur-fountain-layout.js';
 export const casinoName='Lantern Club Casino';
 export const casinoHall={x:-59,z:47,w:26,d:16,floor:.80,ceiling:5.6};
 export const casinoEntrance={x:-55,z:55};
@@ -8,19 +10,18 @@ export const tableZ=casinoSeat.z-1.35;
 // Keep the south and east thresholds clear from the sidewalk to the tables.
 const wall=(x,z,w,d)=>({x,z,w,d,h:casinoHall.ceiling-casinoHall.floor});
 export const resortBarriers=[
-  wall(-72,47,.26,16),wall(-67.4,39,9.2,.26),wall(-52.6,39,13.2,.26),
+  wall(-72,42.1,.26,6.2),wall(-72,51.4,.26,7.2),{...wall(-67.4,39,9.2,.26),h:3.45},{...wall(-52.6,39,13.2,.26),h:3.45},
   wall(-64.5,55,15,.26),wall(-49.5,55,7,.26),
   wall(-46,41.75,.26,5.5),wall(-46,51.25,.26,7.5),
-  {...casinoHall,bottom:4.8,h:5.07},
-  {x:-44,z:53,w:2.64,d:2.64,h:.52},
+
+  ...fountainWalls,
   ...[-60.35,-49.65].map(x=>({x,z:56.35,w:.35,d:.38,h:3.7})),
   {x:casinoSeat.x,z:tableZ-.21,w:2.96,d:.50,h:.96},
   {x:casinoSeat.x,z:tableZ+.21,w:2.62,d:.36,h:.96},
   {x:casinoSeat.x,z:tableZ+.51,w:1.84,d:.25,h:.96},
 ];
 export function insideCasino(x,y,z){
-  return Math.abs(x-casinoHall.x)<casinoHall.w/2 && Math.abs(z-casinoHall.z)<casinoHall.d/2 &&
-    y>=casinoHall.floor-.25 && y<casinoHall.ceiling;
+  return !!resortLevelAt(x,y,z,.25);
 }
 export const stakes=[0,10,20,50];
 export function nearBlackjack(feet){

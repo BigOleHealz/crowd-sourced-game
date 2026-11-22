@@ -1,3 +1,4 @@
+import {updateRoadPose} from './bridge-driving.js';
 import {releaseCruiser} from './cruiser-handoff.js';
 import {engineBay} from './water-monitor.js';
 import {signalGap} from './junction-signals.js';
@@ -13,7 +14,6 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {CITY,MAP,blocked,groundHeight} from './world.js';
 import {clearRoadExit,driveRover,interactRover,stopRover} from './rover.js';
 import {roadContact} from './road-contact.js';
-import {stepSuspension} from './road-suspension.js';
 
 const path=new WeakMap();
 // Each display car can pull forward into the street from its own building's side.
@@ -253,7 +253,7 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
     car.x+=Math.cos(car.yaw)*route.offset;car.z+=Math.sin(car.yaw)*route.offset;
     car.y=groundHeight(car.x,car.z,car.y+1,world.doors);
     if(!CITY || bridges.some(b=>Math.abs(car.x)<6 && car.z<b.south && car.z>b.north)){
-      stepSuspension(car,dt,(x,z)=>groundHeight(x,z,car.y+1.65,world.doors));
+      updateRoadPose(world,car,dt);
     }else if(car.suspension)delete car.suspension;
     placeDriver(car,npc);
   }
@@ -270,5 +270,5 @@ export function finishTrafficDelivery(world,car,npcs){
 export function driveTrafficCar(world,car,input,dt,players){
   if(car.takeover || car.wrecked || car.sling)return;
   driveRover(world,input??{},dt,players,car.id);
-  stepSuspension(car,dt,(x,z)=>groundHeight(x,z,car.y+1.65,world.doors));
+  updateRoadPose(world,car,dt);
 }

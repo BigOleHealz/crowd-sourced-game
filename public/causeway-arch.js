@@ -2,20 +2,25 @@ import {leafLength} from './drawbridges.js';
 // Transverse sections shared by the concrete mesh and the two traffic levels.
 export function causewayArch(west, east, north, south) {
   const length = south - north, middle = (north + south) / 2;
-  const count = Math.ceil(length / 2);
-  const sections = Array.from({length: count + 1}, (_, i) => {
-    const z = north + length * i / count;
-    const crown = Math.sin(Math.PI * i / count);
-    const offset=leafLength-Math.abs(z-middle);
-    if(offset>=0){
-      const base=.70+5.80*Math.cos(Math.PI*leafLength/length)**2;
-      const road=base+(6.5-base)*offset/leafLength;
-      return {z,road,soffit:road-.65};
+  // A level pair of steel leaves meets without a ridge. Ease the concrete
+  // approaches into both the shore and the hinges, using the same sections
+  // for tyre contact, the painted surface, and the vault underneath.
+  const approach=length/2-leafLength, ease=Math.min(8,approach/3);
+  const count=Math.ceil(length);
+  const sections=Array.from({length:count+1},(_,i)=>{
+    const z=north+length*i/count;
+    const fromShore=Math.min(z-north,south-z);
+    let rise=1;
+    if(fromShore<approach){
+      const remaining=approach-fromShore;
+      const distance=fromShore<ease ? fromShore*fromShore/(2*ease)
+        : remaining<ease ? approach-ease-remaining*remaining/(2*ease) : fromShore-ease/2;
+      rise=distance/(approach-ease);
     }
-    return {
-      z, road: .70 + 5.80 * crown ** 2,
-      soffit: Math.max(-2.80, 5.72 - 8.52 * ((z - middle) / 24) ** 2),
-    };
+    const road=.70+5.80*rise;
+    const soffit=fromShore>=approach ? road-.65 :
+      Math.min(road-.65,Math.max(-2.80,5.72-8.52*((z-middle)/24)**2));
+    return {z,road,soffit};
   });
   function height(z, surface) {
     const t = Math.max(0, Math.min(count, (z - north) * count / length));

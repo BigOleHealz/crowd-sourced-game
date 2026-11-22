@@ -1,3 +1,4 @@
+import {sinkingHull} from './sinking-hull.js';
 import {wakeTrail} from './boat-wake-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {yachtRoomDoors} from './yacht-room-doors.js';
@@ -235,9 +236,9 @@ export function superyachtView(scene,Batch,renderer,panorama){
   return (yacht,dt,local)=>{
     root.visible=!!yacht;wake(yacht,dt,local);if(!yacht)return;
     updatePanes(yacht.brokenGlass);updateCabinLeaves(yacht.closedCabins??0,dt);
-    const sink=yacht.wrecked ? Math.min(1,Math.max(0,(6-yacht.recoverySeconds)/2)) : 0;
-    root.position.set(yacht.x,yacht.y-sink*2.6,yacht.z);
-    root.rotation.set(.055*sink,-yacht.yaw,(yacht.wakeRoll??0)-.12*sink,'YXZ');
+    const sink=sinkingHull(yacht,15.8,9);
+    root.position.set(yacht.x,yacht.y-sink.drop,yacht.z);
+    root.rotation.set(sink.trim,-yacht.yaw,(yacht.wakeRoll??0)+sink.list,'YXZ');
     gangway.visible=!!yacht.gangway;
     root.userData.target=yacht.id;
   };

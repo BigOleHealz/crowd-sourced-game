@@ -1,3 +1,4 @@
+import {towerFloor,inDivingLane} from './marina-platform.js';
 import {dockHeight} from './marina-docks.js';
 import {causewayArch} from './causeway-arch.js';
 import {berthing} from './lantern-buildings-layout.js';
@@ -48,6 +49,7 @@ export const gardens=[
 ];
 export function lanternLocation(x,z) {
   if(z>lanternBridge.south)return;
+  if(towerFloor(x,z,Infinity)!==undefined || inDivingLane(x,z))return 'East Quay · 10 m Diving';
   if(contains(lanternBridge,x,z))return 'Lantern Bridge';
   if(dockHeight(x,z)!==undefined || onLantern(x,z) || contains(berthing.lip,x,z) || onMarketPier(x,z) || contains(ferrySlip,x,z))return 'Lantern Point';
   return 'Biscayne Bay';

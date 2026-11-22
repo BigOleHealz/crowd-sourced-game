@@ -1,3 +1,4 @@
+import {lidoFurniture} from './lido-house.js';
 import {identifyPane} from './pane-damage.js';
 import {casaRails} from './casa-luma.js';
 import {clubSalon} from './lantern-buildings-layout.js';
@@ -29,7 +30,6 @@ for(const side of [-1,1])for(const alongX of [true,false]){
   }
 }
 const {x,z,w,d}=clubSalon;
-export const clubBarriers=[...clubPanes,{x:x-8.5,z,w:3.15,d:.75,bottom:.22,h:1.15},
-  ...[-5,0,5].flatMap(u=>[{x:x+u,z:z-2.9,w:2.22,d:.82,h:1.27},{x:x+u,z:z-1.65,w:1.13,d:.58,h:.84}]),
+export const clubBarriers=[...clubPanes,...lidoFurniture,
   {x,z,w:w+.30,d:d+.30,bottom:3.74,h:3.99}];
 export const estateGlassBarriers=[...estateRailBarriers,...skylights,...clubBarriers];

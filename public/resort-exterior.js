@@ -1,4 +1,7 @@
+import {centaurFountain} from './centaur-fountain-view.js';
 import * as THREE from 'three';
+import {grandResortTower,grandRooms} from './grand-resort-view.js';
+import {grandLobbyOpening} from './grand-resort-layout.js';
 
 const stone = 0xd5bf9d, ivory = 0xf3dfb7, shadowStone = 0x9b7e61;
 const bronze = 0xb99051, darkBronze = 0x73583b, gold = 0xf9bf6c;
@@ -240,7 +243,8 @@ function mainHall(parts) {
   const wallHeight = ceiling - floor;
   const wallY = floor + wallHeight / 2;
   function wallX(z, lo, hi) {
-    slab(stone, (lo + hi) / 2, wallY, z, hi - lo, wallHeight, .26);
+    const h=z===north?3.45:wallHeight;
+    slab(stone,(lo+hi)/2,floor+h/2,z,hi-lo,h,.26);
   }
   function wallZ(x, lo, hi) {
     slab(stone, x, wallY, (lo + hi) / 2, .26, wallHeight, hi - lo);
@@ -249,15 +253,15 @@ function mainHall(parts) {
   wallX(north, hotelEntryX + 1.8, east);
   wallX(front, west, entryX - 2);
   wallX(front, entryX + 2, east);
-  wallZ(west, north, front);
+  wallZ(west,north,grandLobbyOpening.z-grandLobbyOpening.width/2);
+  wallZ(west,grandLobbyOpening.z+grandLobbyOpening.width/2,front);
   wallZ(east, north, sideEntryZ - 1.5);
   wallZ(east, sideEntryZ + 1.5, front);
   const aboveDoors = (doorHead + ceiling) / 2;
   slab(stone, entryX, aboveDoors, front, 4, ceiling - doorHead, .26);
   slab(stone, east, aboveDoors, sideEntryZ, .26, ceiling - doorHead, 3);
   slab(stone, hotelEntryX, aboveDoors, north, 3.6, ceiling - doorHead, .26);
-  slab(0x6b736c, -59, ceiling + .19, 47, 26.42, .38, 16.42);
-  slab(shadowStone, -59, 6.06, 47, 26.62, .16, 16.64);
+  slab(stone, west, aboveDoors, grandLobbyOpening.z,.26,ceiling-doorHead,grandLobbyOpening.width);
 
   const southFace = face(-59, front, 0);
   const eastFace = face(east, 47, Math.PI / 2);
@@ -281,10 +285,10 @@ function mainHall(parts) {
   for (const along of [-12.76, -9.47, -6.31, -3.15, 1.12, 6.36, 9.07, 12.48]) flutedPier(southFace, along);
   for (const along of [-3.15, 1.12, 6.25, 12.48]) lantern(southFace, along, 3.43, .47);
 
-  for (const [wall, bays] of [[eastFace, [-6.02, -3.1, 4.1, 6.65]], [westFace, [-5.7, -2.76, 0, 2.76, 5.7]]]) {
+  for (const [wall, bays] of [[eastFace, [-6.02, -3.1, 4.1, 6.65]], [westFace, [-5.7, 2.76, 5.7]]]) {
     for (const [i, along] of bays.entries()) displayBay(wall, along, 2.02, i % 2 === 0);
     for (const along of [-7.56, -4.62, -1.70, 3.14, 5.35, 7.63]) {
-      if (wall === westFace || Math.abs(along - 1) > 1.80) flutedPier(wall, along);
+      if (wall === westFace ? Math.abs(along + .5)>1.7 : Math.abs(along - 1)>1.80) flutedPier(wall, along);
     }
   }
   for (const along of [-12.40, -8, -4, -.2, 4.2, 8, 12.40]) flutedPier(northFace, along);
@@ -473,90 +477,6 @@ function wing(parts, {x, z, w, d, roof, sign, accent}) {
   }
 }
 
-const fountainX = -44, fountainZ = 53, fountainBase = .80;
-const fountainScale = 1.65 / 1.75;
-const waterY = fountainBase + .455, spoutY = fountainBase + 1.23;
-const nozzles = Array.from({length: 6}, (_, i) => {
-  const angle = i * Math.PI / 3;
-  return [Math.cos(angle), Math.sin(angle)];
-});
-
-function fountain(parts, group, Batch, materials) {
-  const {masonry, metal, trim, cylinder} = parts;
-  const water = new Batch();
-  const profile = [[0, 0], [1.59, 0], [1.73, .065], [1.67, .13],
-    [1.61, .22], [1.61, .32], [1.75, .40], [1.75, .49],
-    [1.62, .56], [1.44, .56], [1.39, .49], [1.39, .27], [0, .27]];
-  const basin = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r * fountainScale, y)), 48);
-  masonry.add(basin, stone, fountainX, fountainBase, fountainZ);
-  basin.dispose();
-
-  const rim = new THREE.TorusGeometry(1, .014, 7, 52).rotateX(-Math.PI / 2);
-  metal.add(rim, bronze, fountainX, fountainBase + .544, fountainZ, 1.65 * fountainScale, 1.25, 1.65 * fountainScale);
-  metal.add(rim, darkBronze, fountainX, fountainBase + .265, fountainZ, 1.61 * fountainScale, 1.05, 1.61 * fountainScale);
-  const surface = new THREE.CircleGeometry(1.415 * fountainScale, 48).rotateX(-Math.PI / 2);
-  water.add(surface, 0x4e9a9d, fountainX, waterY, fountainZ);
-  surface.dispose();
-  for (const [i, r] of [1.34, 1.22, 1.07, .83].entries()) {
-    water.add(rim, [0x8dc2b9, 0x5ca7a6][i % 2], fountainX, waterY + .005, fountainZ, r * fountainScale, .24, r * fountainScale * .97);
-  }
-  rim.dispose();
-
-  cylinder(masonry, shadowStone, fountainX, fountainBase + .49, fountainZ, 1.11, .40);
-  cylinder(metal, bronze, fountainX, fountainBase + .69, fountainZ, .85, .065);
-  const column = new THREE.CylinderGeometry(.46, .78, 1, 16);
-  masonry.add(column, jade, fountainX, fountainBase + .92, fountainZ, .62, .45, .62);
-  column.dispose();
-  const bowlProfile = [[0, -.135], [.16, -.13], [.47, -.085], [.57, -.01],
-    [.56, .046], [.51, .064], [.45, .019], [.17, -.069], [0, -.069]];
-  const bowl = new THREE.LatheGeometry(bowlProfile.map(([r, y]) => new THREE.Vector2(r, y)), 32);
-  metal.add(bowl, bronze, fountainX, fountainBase + 1.15, fountainZ);
-  bowl.dispose();
-  for (const [x, z] of nozzles) {
-    trim(darkBronze, fountainX + x * .23, spoutY, fountainZ + z * .23, .12, .12, .12);
-  }
-  for (let i = 0; i < 6; i++) {
-    const angle = i * Math.PI / 3;
-    const x = fountainX + 1.19 * fountainScale * Math.cos(angle);
-    const z = fountainZ + 1.19 * fountainScale * Math.sin(angle);
-    cylinder(metal, darkBronze, x, waterY + .005, z, .104, .016);
-    cylinder(parts.glow, seafoam, x, waterY + .017, z, .072, .013);
-  }
-  water.mesh(group, materials.water, false);
-
-  const dropletsPerJet = 15, jetCount = nozzles.length + 1;
-  const drops = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 4), materials.spray, jetCount * dropletsPerJet);
-  drops.name = 'Fountain spray';
-  drops.frustumCulled = false;
-  group.add(drops);
-  const pose = new THREE.Object3D();
-  let phase = 0;
-  function updateSpray(dt, local) {
-    const near = !local || Math.hypot(local.x - fountainX, local.z - fountainZ) < 64;
-    drops.visible = near;
-    if (!near) return;
-    phase = (phase + dt * 1.36) % 1;
-    for (let jet = 0; jet < jetCount; jet++) {
-      const [dx, dz] = nozzles[jet] ?? [0, 0];
-      for (let j = 0; j < dropletsPerJet; j++) {
-        const progress = (phase + j / dropletsPerJet + jet * .179) % 1;
-        const reach = .23 + progress * .94;
-        const y = jet === nozzles.length
-          ? spoutY + Math.sin(Math.PI * progress) * .71
-          : spoutY + 1.15 * progress - 1.92 * progress * progress;
-        pose.position.set(fountainX + dx * reach, y, fountainZ + dz * reach);
-        const scale = .030 + .008 * Math.sin(j * 1.87);
-        pose.scale.set(scale, scale * 1.42, scale);
-        pose.updateMatrix();
-        drops.setMatrixAt(jet * dropletsPerJet + j, pose.matrix);
-      }
-    }
-    drops.instanceMatrix.needsUpdate = true;
-  }
-  updateSpray(0);
-  return updateSpray;
-}
-
 export function resortExterior(scene, Batch) {
   const cube = new THREE.BoxGeometry(), plane = new THREE.PlaneGeometry();
   const round = new THREE.CylinderGeometry(.5, .5, 1, 16);
@@ -580,9 +500,11 @@ export function resortExterior(scene, Batch) {
   const casino = partBuilder(Batch, cube, plane, round, hall, materials);
   const court = partBuilder(Batch, cube, plane, round, frontCourt, materials);
   mainHall(casino);
+  const updateCrown=grandResortTower(scene,Batch,casino,cube,materials);
+  const updateRooms=grandRooms(scene,Batch);
   casino.build();
   porteCochere(court);
-  const updateFountain = fountain(court, frontCourt, Batch, materials);
+  const updateFountain = centaurFountain(court, frontCourt, Batch, materials);
   court.build();
 
   for (const plan of resortWings) {
@@ -592,5 +514,7 @@ export function resortExterior(scene, Batch) {
   }
   for (const geometry of [cube, plane, round]) geometry.dispose();
 
-  return updateFountain;
+  return (dt,local)=>{
+    updateFountain(dt,local);updateCrown(dt,local);updateRooms(local,dt);
+  };
 }

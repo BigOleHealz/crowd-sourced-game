@@ -7,11 +7,7 @@ export const limestoneBase=mareBase;
 export const clubSalon=volume('club-salon',25,-395,24,10,4.4);
 export const lanternBuildings=[...villaWings,limestoneBase,clubSalon];
 export const upperFloors=mareUpper;
-export const pools=[
-  {x:-25,z:-392.6,w:10.3,d:13.6,color:0x9bdfdb},
-  {x:26.4,z:-429.8,w:17.7,d:5.6,color:0xabddd5},
-  {x:-25,z:-443,w:5.4,d:16.4,color:0x397774,reflecting:true},
-];
+export {estatePools as pools} from './swimming-pools.js';
 export const clubColumns=[-13.0,-6.5,0,6.5,13.0].map(u=>({x:25+u,z:-385.1,w:.48,d:.48,h:3.88}));
 export const loggiaColumns=[-12.8,-6.4,0,6.4,12.8].map(u=>({x:25+u,z:-433.8,w:.54,d:.54,h:3.86}));
 export const shadeColumns=[[-37.1,-381.6],[-12.9,-381.6]].map(([x,z])=>({x,z,w:.27,d:.27,h:3.9}));
@@ -29,4 +25,4 @@ export const clubRoof=volume('club-loggia',25,-390.3,26.7,11.1,4.18,3.88);
 export const loggiaRoof=mareLoggiaRoof;
 export const estateBarriers=[...mareBarriers,...clubColumns,...loggiaColumns,...shadeColumns,...hedges,...planters,clubRoof,
   volume('luma-tablet',-12.9,-378.9,3.12,.58,1.34),volume('mare-tablet',37.5,-425.3,3.12,.58,1.34),
-  ...pools.map(p=>({...p,h:.18})),volume('garden-sculpture',-25,-443,1.6,2.4,3.7)];
+  volume('garden-sculpture',-25,-443,1.6,2.4,3.7)];

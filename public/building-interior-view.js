@@ -1,3 +1,4 @@
+import {outsideWell} from './residential-spirals.js';
 import * as THREE from 'three';
 import {interiorPlans,doorIsOpen,landingValid,roomAtFeet} from './building-interiors.js';
 import {furnishingSupported} from './estate-damage.js';
@@ -80,9 +81,9 @@ export function buildingInteriorView(scene,Batch){
     previous=l;bits=newBits;revision=newRev;lastLevel=levelKey;prevRide=ride;count=textCount=0;sliding.clear();
     if(l){
       const p=l.p,b=p.b;
-      part(0xc4af90,b.x,l.y-.043,b.z,b.w-.42,.085,b.d-.42);
+      for(const r of outsideWell({x:b.x,z:b.z,w:b.w-.42,d:b.d-.42},p.stair))part(0xc4af90,r.x,l.y-.043,r.z,r.w,.085,r.d);
       part(0xe3dac6,b.x,l.y+l.height-.085,b.z,b.w-.42,.12,b.d-.42);
-      part(0x577074,b.x,l.y+.009,b.z,1.77,.016,b.d-.85);
+      for(const r of outsideWell({x:b.x,z:b.z,w:1.77,d:b.d-.85},p.stair))part(0x577074,r.x,l.y+.009,r.z,r.w,.016,r.d);
       for(const q of l.parts)part(q.color,q.x,q.bottom+q.h/2,q.z,q.w,q.h,q.d);
       if(!model)for(const r of l.rooms){
         part(0xb39773,r.x,l.y+.011,r.z,r.w*.73,.017,r.d*.69);
@@ -93,6 +94,7 @@ export function buildingInteriorView(scene,Batch){
     for(const p of nearby){
       if(doors?.beachWood?.[p.wood] || doors?.collapsedTowers?.includes(p.b.towerId) || p.home && doors?.houseRuins?.[p.home])continue;
       for(const s of p.panels)if(Math.abs(s.y-feet.y)<2.0 && landingValid(s,doors))lift(s,ride);
+      if(p.grandDoors)for(const d of p.grandDoors[Math.floor((feet.y-.80+.16)/3.6)]??[])leaf(d,doors,dt);
       for(const d of p.entrances)if(Math.abs(d.y-feet.y)<3.5 && (!p.home || furnishingSupported(p.home,d.x,d.y,d.z,doors)))leaf(d,doors,dt);
     }
     buffer.count=count;labels.count=textCount;buffer.instanceMatrix.needsUpdate=true;
