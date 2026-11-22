@@ -81,6 +81,14 @@ export function throwDog(world,player,aim={}){
   carry(dog,player);launch(dog,yaw,6.1*Math.cos(pitch),2.8+4*Math.sin(pitch),'thrown');return true;
 }
 
+export function returnDogToWalker(world,dog,owner,thief,tick){
+  if(!world.dogs?.includes(dog) || !dog.hp || dog.mode!=='carried' || dog.carrier!==thief || dog.walker!==owner.id)return false;
+  dog.mode='leashed';dog.carrier=null;dog.speed=0;dog.recoveredTick=tick;
+  delete dog.lastThief;
+  const m=motion.get(dog);m.time=0;m.lowering=true;
+  return true;
+}
+
 export function removeDog(world,dog){
   if(!dog || !world.dogs?.includes(dog) || dog.mode==='removed')return false;
   dog.mode='removed';dog.carrier=null;dog.speed=0;delete dog.attacker;motion.get(dog).time=0;return true;
@@ -129,7 +137,7 @@ function move(dog,dx,dz,world){
   if(canMove(dog.x,dog.z+dz))dog.z+=dz;
 }
 
-function aboard(world,p){
+export function aboardDogCarrier(world,p){
   const id=p.id;
   return p.state.ride || drivenRoad(world,id) || world.rover?.gunner===id ||
     [world.heli,world.jet,world.tank,world.yacht,...(world.boats??[])].some(v=>v && (v.pilot===id || v.driver===id || v.gunner===id));
@@ -143,12 +151,12 @@ function stepDog(dog,owner,world,players,dt,tick){
     return;
   }
   if(dog.mode==='removed'){
-    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
+    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.lastThief;delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
     return;
   }
   if(dog.mode==='carried'){
     const p=players.get(dog.carrier);
-    const boarded=p && aboard(world,p);
+    const boarded=p && aboardDogCarrier(world,p);
     if(p?.life.hp && !p.life.fall && !boarded){carry(dog,p);return;}
     launch(dog,dog.yaw,0,0,'thrown');
   }
@@ -162,7 +170,7 @@ function stepDog(dog,owner,world,players,dt,tick){
   }
   let enemy=players.get(dog.attacker);
   if(!enemy || enemy.life!==m.targetLife || !enemy.life.hp || tick>m.until ||
-    Math.hypot(enemy.state.x-dog.x,enemy.state.z-dog.z)>260 || aboard(world,enemy)){
+    Math.hypot(enemy.state.x-dog.x,enemy.state.z-dog.z)>260 || aboardDogCarrier(world,enemy)){
     enemy=null;delete dog.attacker;
     if(dog.mode==='defending'){dog.mode='loose';m.time=0;}
   }else if(dog.mode!=='swimming')dog.mode='defending';
@@ -182,10 +190,12 @@ function stepDog(dog,owner,world,players,dt,tick){
     dog.yaw+=clamp(Math.atan2(Math.sin(angle-dog.yaw),Math.cos(angle-dog.yaw)),-dt*6,dt*6);
   }
   dog.speed=Math.hypot(dog.x-beforeX,dog.z-beforeZ)/dt;
-  const floor=surface(dog,world);dog.y=floor.y;
+  const floor=surface(dog,world);
+  dog.y=m.lowering?Math.max(floor.y,dog.y-3*dt):floor.y;
+  if(dog.y===floor.y)m.lowering=false;
   if(floor.swimming){dog.mode='swimming';}
   else if(dog.mode==='swimming'){dog.mode='loose';m.time=0;}
-  else if(dog.mode==='loose' && !enemy && m.time>2 && d<.55){dog.mode='leashed';m.time=0;}
+  else if(dog.mode==='loose' && !enemy && m.time>2 && d<.55){dog.mode='leashed';delete dog.lastThief;m.time=0;}
   if(enemy && tick>=(m.nextBite??0) && clearBite(world,dog,enemy)){
     const hp=enemy.life.hp;
     damageActor(enemy,Math.round(7*dog.size),tick);

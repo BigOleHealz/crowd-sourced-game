@@ -1,4 +1,5 @@
 import {projectorRoar} from './projector-roar.js';
+import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
 import {marineBlastCalls,marineImpactSound} from './marine-float.js';
 import {crowdPanicAudio} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
@@ -120,7 +121,7 @@ function placement(listener,yaw,point) {
     pan:Math.max(-.93,Math.min(.93,(x*Math.cos(yaw)+z*Math.sin(yaw))/Math.max(3,distance)))};
 }
 
-export function createGameAudio(button,slider,level) {
+export function createGameAudio(button,slider,level,caption) {
   const action=button.querySelector('#sound-action');
   const key='pinewatch.audio.v1';
   let settings={muted:false,volume:.6};
@@ -134,7 +135,8 @@ export function createGameAudio(button,slider,level) {
   let priorSharks,priorManatees;
   let previousDolphins,previousSharkDefeats;
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
-  const civilianVoices=crowdPanicAudio();
+  const civilianVoices=crowdPanicAudio(),thefts=dogOwnerDialogue(),ownerLine=ownerSpeech();
+  let captionTimer;
   const collapse=fallAudioTracker(MAP.buildings);
   let clubTrackLoading=false;
   async function loadClubTrack(){
@@ -163,6 +165,7 @@ export function createGameAudio(button,slider,level) {
   const flameEmitters=new Map();
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
+    if(settings.muted || settings.volume<=0 || document.hidden)ownerLine.stop();
     action.textContent=settings.muted ? 'Unmute' : 'Mute';
     button.setAttribute('aria-label',settings.muted ? 'Unmute game sound' : 'Mute game sound');
     button.setAttribute('aria-pressed',String(settings.muted));
@@ -193,6 +196,7 @@ export function createGameAudio(button,slider,level) {
       limiter.connect(echo);echo.connect(damping);damping.connect(reflection);reflection.connect(master);
     }
     if(context.state!=='running')context.resume().catch(()=>{});
+    if(!recordingsStarted)window.speechSynthesis?.getVoices();
     void loadRecordings();
   }
   function voice(name,loop=false,variant=0) {
@@ -233,6 +237,8 @@ export function createGameAudio(button,slider,level) {
     else v.source.start();
   }
   function reset(world) {
+    thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
+    if(caption)caption.hidden=true;
     collapse.reset();flameEmitters.clear();
     priorSharks=world?.sharks;priorManatees=world?.manatees;
     previousDolphins=world?.dolphins;
@@ -252,6 +258,22 @@ export function createGameAudio(button,slider,level) {
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
     listenerSpace=acousticSpace(listener,world);
+    thefts.step(world,listener,(line,owner,mouth,fade,tick)=>{
+      if(document.hidden)return;
+      const show=text=>{
+        if(!caption)return;
+        clearTimeout(captionTimer);caption.hidden=false;caption.textContent=owner.name+' · “'+text+'”';
+        captionTimer=setTimeout(()=>{caption.hidden=true;},2900);
+      };
+      show(line.say);
+      if(!audible())return;
+      const level=fade*placement(listener,yaw,mouth).gain;
+      ownerLine.say(line,settings.volume*level,()=>{
+        if(!audible() || !buffers.has('crowd-reactions'))return;
+        show(line.fallback);
+        burst('crowd-reactions',mouth,listener,yaw,1.28*fade,tick,line.clip);
+      });
+    });
     if(context && context.currentTime>=nextEnvironment){
       nextEnvironment=context.currentTime+.2;
       const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
