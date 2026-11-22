@@ -1359,7 +1359,7 @@ export function createScene(canvas) {
       }
     }
     updateMissiles(world.missiles ?? [],dt);
-    updateRounds(world.bullets);
+
     drawCapsules(world.throwables,world.simTick,dt,local.id,view.sighted);
     effects.fireView.update(world.doors,local,dt);
     effects.update(dt);
@@ -1661,6 +1661,13 @@ export function createScene(canvas) {
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
+    // Sample once the visible gun, avatar and camera all have their current-frame pose.
+    for(const flash of pendingMuzzles){
+      const from=visibleMuzzle(flash.shooter,flash.firedWeapon,muzzlePoint);
+      effects.shot(from ? {...flash,from} : flash,flash.source);
+    }
+    pendingMuzzles.length=0;
+    updateRounds(world.bullets,visibleMuzzle);
     if(localDefeat && camera.position.y<MAP.waterY){
       if(!diveBackdrop){
         diveBackdrop=new THREE.Mesh(new THREE.SphereGeometry(12,24,12),new THREE.ShaderMaterial({
@@ -1686,8 +1693,25 @@ export function createScene(canvas) {
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
   }
+  const pendingMuzzles=[];
+  const muzzlePoint=new THREE.Vector3();
+  const muzzleTips=[[0,.099,-.628],[0,.091,-.202],[0,.120,-.744]];
+  function visibleMuzzle(shooter,weapon,out){
+    const tip=muzzleTips[weapon-1];
+    if(!tip)return null;
+    const avatar=avatars.get(shooter), sight=sightModels[weapon-1];
+    if(shooter===localActorId && sight.visible){
+      if(weapon===3)return camera.localToWorld(out.set(0,-.065,-.7));
+      return sight.localToWorld(out.fromArray(tip));
+    }
+    const tool=avatar?.tools?.[weapon-1];
+    return avatar?.root.visible && tool?.visible ? tool.localToWorld(out.fromArray(tip)) : null;
+  }
   function showShots(shots,tick) {
     for(const shot of shots){
+      if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
+        pendingMuzzles.push(shot);continue;
+      }
       if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
       if(shot.weapon==='ember'){
         const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
@@ -1703,7 +1727,7 @@ export function createScene(canvas) {
       effects.shot(shot,shot.source,displayedWorld);
     }
   }
-  return {resetSurfaceMarks(){marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {resetSurfaceMarks(){pendingMuzzles.length=0;marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }
