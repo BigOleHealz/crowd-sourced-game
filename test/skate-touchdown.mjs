@@ -37,8 +37,8 @@ for(const kind of ['board','bike']){
   const world={rides:parkRides(groundHeight)},item=world.rides[0],player={id:2,state:{grounded:true}};
   takeRide(item,player);player.state.ride.speed=3;
   const scene=new Scene(),show=streetRideView(scene),avatar=createRangerRig();
-  for(let i=0;i<14;i++){
-    player.state=stepPlayer(player.state,{jump:i===0,steer:1},dt,{},world);
+  for(let i=0;i<17;i++){
+    player.state=stepPlayer(player.state,{jump:i===0,steer:i>=5?1:0},dt,{},world);
     const remote={...player.state,id:player.id};
     show([item],{id:1},[remote],dt);riderPose(avatar,remote);
     assert(Math.abs(scene.children[0].rotation.y+remote.ride.yaw)<.001);

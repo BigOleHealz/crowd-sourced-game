@@ -1,5 +1,6 @@
-// Full steering turns the board 180 degrees over a level 14-tick ollie.
-const boardAirTurn=Math.PI*30/14,cleanAlignment=Math.cos(Math.PI/6);
+// A full half-turn takes 12 ticks, leaving room to steer after takeoff.
+const ollieTurnRate=Math.PI*30/12,dropTurnRate=Math.PI*30/14;
+const cleanAlignment=Math.cos(Math.PI/6);
 export const rideTravelYaw=ride=>ride.yaw+(ride.reverse?Math.PI:0);
 
 // Ride input is shared by the authoritative simulation and local prediction.
@@ -14,11 +15,20 @@ export function rollingMotion(ride,input,dt,grounded,grade=0,boardAir=false){
   // at speed; the same steering input makes a tighter turn at walking pace.
   const bikeTurn=Math.min(speed*Math.tan(.59)/1.07,7/Math.max(1,speed));
   const boardTurn=Math.min(speed/2.2,1)*1.85;
-  const rate=boardAir?boardAirTurn:grounded?(bike?bikeTurn:boardTurn):.32;
-  const yaw=ride.yaw+steer*dt*rate;
+  const ollie=boardAir && (grounded || ride.ollieTurn!=null);
+  const rate=ollie?ollieTurnRate:boardAir?dropTurnRate:grounded?(bike?bikeTurn:boardTurn):.32;
+  const delta=steer*dt*rate;
+  const started=grounded?0:(ride.ollieTurn??0);
+  // Holding a direction through touchdown settles at a half-turn. Steering
+  // back toward the takeoff heading still allows midair corrections.
+  const angle=ollie?Math.max(-Math.PI,Math.min(Math.PI,started+delta)):null;
+  const yaw=ride.yaw+(ollie?angle-started:delta);
   const pushing=grounded && push>.08;
   if(bike)return {...ride,yaw,speed,steer,pushing,phase:((ride.phase||0)+(pushing?Math.min(10,speed*1.8)*dt:0))%(2*Math.PI)};
-  return {...ride,yaw,speed,steer,pushing};
+  const next={...ride,yaw,speed,steer,pushing};
+  if(ollie)next.ollieTurn=angle;
+  else delete next.ollieTurn;
+  return next;
 }
 
 export function landBoard(next){

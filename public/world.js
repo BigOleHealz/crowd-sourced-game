@@ -317,6 +317,7 @@ export function spawn(index = 0) {
 const PLAYER_RADIUS = 0.32;
 const GRAVITY = 19;
 const JUMP_SPEED = 7.1;
+const OLLIE_SPEED = 5.4;
 
 const obstacles = [...MAP.rocks, ...MAP.trees, ...BREAKABLES].map(prop => ({
   ...prop, top: terrainHeight(prop.x, prop.z) + prop.height,
@@ -433,7 +434,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   let { x, y, z, vy = 0, grounded = false } = state;
   if (input.jump && grounded && (ride?.kind!=='bike' || CITY && inSkatePark(x,z))) {
     grounded = false;
-    vy = ride ? 4.7 : JUMP_SPEED;
+    vy = ride?.kind==='board' ? OLLIE_SPEED : ride ? 4.7 : JUMP_SPEED;
   }
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=stanceBodyHeight(stance);
@@ -512,6 +513,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   if(ride)next.ride={...ride,speed:Math.hypot(vx,vz)};
   if(CITY && ride && (ride.grind || inSkatePark(x,z)))rideParkRail(state,next,input);
   if(boardAir && !state.grounded && next.grounded && !next.ride.grind)landBoard(next);
+  if(next.grounded && next.ride)delete next.ride.ollieTurn;
   if(CITY && next.ride && (ride.landing || inSkatePark(x,z)))advanceRideLanding(state,next,dt);
   if(next.ride && (parkBoard || ride.run))stepSkateJam(state,next,input,dt);
   if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
