@@ -201,7 +201,7 @@ export function marinaFleetView(scene,Batch){
   return (boats,dt,local)=>{
     const live=new Set();
     for(const boat of boats??[]){
-      if(!boat.boatModel || Math.hypot(boat.x-local.x,boat.z-local.z)>190)continue;
+      if(!boat.boatModel || boat.partyYacht || Math.hypot(boat.x-local.x,boat.z-local.z)>190)continue;
       let view=views.get(boat.id);
       if(!view){view=buildBoat(scene,Batch,boat,glass);views.set(boat.id,view);}
       live.add(boat.id);view.root.visible=true;view.update(boat,dt,local);

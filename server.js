@@ -42,7 +42,7 @@ import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
-import {crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
+import {partyFleet,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -104,6 +104,7 @@ function freshWorld(){
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
+    w.boats.push(...partyFleet());
     const table=blackjack();
     Object.defineProperty(w,'blackjack',{value:table});
     w.casino=table.state;
