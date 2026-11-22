@@ -15,6 +15,7 @@ const gestures={
   turret:{name:'Gunner',look:'Drag to aim',tip:'Drag the open right side to turn the turret. Hold Fire turret to shoot.',help:'You can aim while holding Fire turret by dragging that same thumb.'},
   seat:{name:'Seated',look:'Drag to look',tip:'Swipe the right side to look around. Tap Leave dance to stand.',help:'Your movement and equipment controls return when you stand.'},
   volleyball:{name:'Beach volleyball',axis:'Move',look:'Drag to look',tip:'Follow the landing marker. Tap Dig for a low ball or Spike for a high ball near the net.',help:'Serve from behind your back line. Tap Leave volleyball to exit the game.'},
+  skateboard:{name:'Skateboard',axis:'Steer',up:'Push',down:'Brake',look:'Drag to look',tip:'Tap Ollie and move the stick left or right to rotate in the air.',help:'Land with the board lined up along your direction of travel. Landing sideways at speed causes a wipeout.'},
 };
 export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked,releaseMouse}){
   const byId=id=>document.getElementById(id);
@@ -214,7 +215,7 @@ export function touchLayout({role,active,jamBoard,onBoard,canOpen,throwable,shoo
   if(jamBoard)quick.push(['KeyF','Kickflip'],['KeyX','Shove-it']);
   if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);
-  if((foot || role==='volleyball') && jump)quick.push(['Space',jump]);
+  if((foot || role==='volleyball' || role==='skateboard') && jump)quick.push(['Space',jump]);
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(foot?canAim:['heli','jet','armed-car','turret','tank','engine'].includes(role)){

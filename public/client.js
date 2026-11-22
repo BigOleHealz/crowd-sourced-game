@@ -846,7 +846,8 @@ function remoteFrame(time) {
         joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
       const climb = q.climb && p.climb ? {...p.climb,t:mix(q.climb.t,p.climb.t,t)} : p.climb;
       const dive=q.dive && p.dive ? {...p.dive,time:mix(q.dive.time,p.dive.time,t)} : p.dive;
-      return { ...p, dive, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const ride=p.ride && p.ride.id===q.ride?.id ? {...p.ride,yaw:angleMix(q.ride.yaw,p.ride.yaw,t)} : p.ride;
+      return { ...p, dive, climb, fall, ride, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
@@ -1034,7 +1035,7 @@ function updateEquipment(local) {
     const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
     prompt.textContent=garage.name+' · '+label;
   }else if (local.climb) prompt.textContent = 'Pulling up…';
-  else if (vitals.fall && !vitals.dead) prompt.textContent='Knocked down · Getting back up…';
+  else if (vitals.fall && !vitals.dead) prompt.textContent=vitals.fall.cause==='skateboard'?'Skateboard wipeout · Getting back up…':'Knocked down · Getting back up…';
   else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
@@ -1085,6 +1086,7 @@ function updateEquipment(local) {
     const bikeHop=local.ride.kind==='bike' && inSkatePark(local.x,local.z);
     if(bikeHop)prompt.textContent='Bicycle · W pedal · A/D steer · Space hop · Align with a rail to grind';
     if(jamBoard)prompt.textContent='Skate park · Space ollie · F kickflip · X shove-it · Ride onto rails';
+    if(local.ride.kind==='board' && !local.grounded)prompt.textContent='A/D rotate · Line up with your direction of travel to land';
     if(local.ride.grind)prompt.textContent='Grinding · Space hop off';
     byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike' && !bikeHop;byId('space-action').textContent=bikeHop?'Bunny hop':'Ollie';canvas.classList.remove('armed');
   }
@@ -1112,7 +1114,7 @@ function updateEquipment(local) {
   const dogInfo=dogTarget && (dogTarget.dog.name+' · '+dogTarget.dog.hp+'/'+dogTarget.dog.maxHp+' HP');
   if(dogTarget)prompt.textContent=dogInfo+(dogTarget.held?' · X  Throw':' · E  Steal dog   X  Kick');
   if(touch.active){
-    const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model

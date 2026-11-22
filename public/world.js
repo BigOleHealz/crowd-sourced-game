@@ -7,7 +7,7 @@ import {upperShellTop} from './tower-glass.js';
 import {advanceRideLanding} from './skate-touchdown.js';
 import {isBoardTrick,stepSkateJam} from './skate-jam.js';
 import {inSkatePark,rideParkRail} from './skate-park.js';
-import {rollingMotion} from './street-rides.js';
+import {landBoard,rideTravelYaw,rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
 import {balconySurfaces} from './balcony-surfaces.js';
@@ -405,18 +405,24 @@ export function stepPlayer(state, input, dt, hp, world) {
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
   let vx=ix*scale, vz=iz*scale;
   let ride;
+  const boardAir=state.ride?.kind==='board' && (!state.grounded || input.jump);
   if(state.ride){
     let grade=0;
     if(state.grounded){
-      const ahead=.40,yaw=state.ride.yaw;
+      const ahead=.40,yaw=rideTravelYaw(state.ride);
       const rise=groundHeight(state.x+Math.sin(yaw)*ahead,state.z-Math.cos(yaw)*ahead,state.y+.28,world?.doors)-state.y;
       // A curb or a drop-off is a contact, not a steep slope.
       if(Math.abs(rise)<.14)grade=rise/ahead;
     }
-    ride=rollingMotion(state.ride,input,dt,state.grounded,grade);
+    ride=rollingMotion(state.ride,input,dt,state.grounded,grade,boardAir);
   }
   if(ride){
-    vx=Math.sin(ride.yaw)*ride.speed;vz=-Math.cos(ride.yaw)*ride.speed;
+    if(boardAir && !state.grounded){
+      vx=state.vx??0;vz=state.vz??0;
+    }else{
+      const heading=rideTravelYaw(boardAir?state.ride:ride);
+      vx=Math.sin(heading)*ride.speed;vz=-Math.cos(heading)*ride.speed;
+    }
   }else if(state.grounded && !parachute) {
     const oldX=state.vx ?? 0, oldZ=state.vz ?? 0;
     const change=Math.hypot(vx-oldX,vz-oldZ);
@@ -505,7 +511,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   const next = { x, y, z, vx, vy, vz, grounded };
   if(ride)next.ride={...ride,speed:Math.hypot(vx,vz)};
   if(CITY && ride && (ride.grind || inSkatePark(x,z)))rideParkRail(state,next,input);
-  if(CITY && ride && (ride.landing || inSkatePark(x,z)))advanceRideLanding(state,next,dt);
+  if(boardAir && !state.grounded && next.grounded && !next.ride.grind)landBoard(next);
+  if(CITY && next.ride && (ride.landing || inSkatePark(x,z)))advanceRideLanding(state,next,dt);
   if(next.ride && (parkBoard || ride.run))stepSkateJam(state,next,input,dt);
   if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);

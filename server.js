@@ -76,7 +76,7 @@ import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
-import { advanceFall } from './public/falls.js';
+import { advanceFall, startFall } from './public/falls.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = join(root, 'public');
@@ -749,9 +749,16 @@ function tick() {
     if(player.state.dive){player.yaw=player.state.dive.kind==='platform'?0:-Math.PI/2;player.sprint=player.moving=false;continue;}
     if(falling.ride){
       const item=world.rides.find(r=>r.id===falling.ride.id);
-      if(!player.state.ride)parkRide(world,player,true);
+      const {x,y,z,ride,skateBail}=player.state;
+      if(skateBail){
+        delete player.state.skateBail;
+        Object.assign(item,{x,y,z,yaw:skateBail.yaw});
+        parkRide(world,player);
+        player.yaw=skateBail.yaw;
+        startFall(player,ticks,{x:0,y:1,z:0},'skateboard');
+        damageActor(player,skateBail.damage,ticks);
+      }else if(!ride)parkRide(world,player,true);
       else {
-        const {x,y,z,ride}=player.state;
         Object.assign(item,{x,y,z,yaw:ride.yaw});recordWheelContact(item,player.state,ticks);player.yaw=ride.yaw;
       }
       player.moving=player.sprint=false;
