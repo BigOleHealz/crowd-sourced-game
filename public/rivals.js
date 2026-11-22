@@ -68,7 +68,7 @@ export function newRivals({resort=false}={}) {
     state: patrolStart(route), yaw: Math.PI, moving: false, weapon: 1, life: newLife(0, false) }));
 }
 
-export function updateRival(actor, tick, dt, hp, world) {
+export function stepRivalLife(actor, tick, dt, hp, world) {
   if (respawnDue(actor, tick)) {
     actor.state = patrolStart(actor.route);
     actor.next = 1;
@@ -76,8 +76,13 @@ export function updateRival(actor, tick, dt, hp, world) {
     delete actor.crossing;delete actor.checkingTraffic;delete actor.reaction;delete actor.escapeTrail;delete actor.panicCry;
     actor.pauseUntil = tick + 30;
   }
-  if (advanceFall(actor,tick,dt,hp,world) || !actor.life.hp){delete actor.reaction;return;}
-  if(stepPedestrianReaction(actor,tick,dt,world)){delete actor.checkingTraffic;return;}
+  if (advanceFall(actor,tick,dt,hp,world) || !actor.life.hp){delete actor.reaction;return true;}
+  if(stepPedestrianReaction(actor,tick,dt,world)){delete actor.checkingTraffic;return true;}
+  return false;
+}
+
+export function updateRival(actor, tick, dt, hp, world) {
+  if(stepRivalLife(actor,tick,dt,hp,world))return;
   if(tick<actor.pauseUntil)return;
   const [x, z] = actor.route.points[actor.next];
   const dx = x - actor.state.x, dz = z - actor.state.z;
