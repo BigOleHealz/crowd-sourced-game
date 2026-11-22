@@ -6,7 +6,7 @@ import {inBankLobby} from './bank-rules.js';
 import {newLife} from './rivals.js';
 import {patrolSight,firePatrolShot} from './expedition.js';
 
-const thresholds=[1,3,6,10,15],points={theft:1,defeat:2,wreck:2,officer:3,bank:6};
+const thresholds=[1,3,6,10,15],points={dogTheft:1,theft:1,defeat:2,wreck:2,officer:3,bank:6};
 const stars=heat=>thresholds.reduce((n,start)=>n+(heat>=start),0);
 const inactive={enabled:false,stars:0,phase:'off',escapeSeconds:0};
 const fresh=player=>({player,heat:0,lastContact:0,nextDispatch:0});
@@ -93,7 +93,8 @@ export function createWanted(world,players,{stepCruisers}={}){
   }
   function record(owner,kind,tick=now){
     if(!owner || session(owner.player)!==owner || !owner.player.life.hp || !Object.hasOwn(points,kind))return;
-    owner.heat=Math.min(thresholds.at(-1),owner.heat+points[kind]);
+    if(kind==='dogTheft')owner.heat=thresholds[stars(owner.heat)]??thresholds.at(-1);
+    else owner.heat=Math.min(thresholds.at(-1),owner.heat+points[kind]);
     owner.lastContact=tick;owner.lastKnown={x:owner.player.state.x,y:owner.player.state.y,z:owner.player.state.z};
   }
   function holdBankResponse(owner,tick){
