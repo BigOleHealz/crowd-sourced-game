@@ -35,6 +35,24 @@ export const civilianLooks = {
   'rival-della': {...look(21,0x905f49,0x454040,'coils','jacket',0x788a80,'skirt',0x765749,'satchel',1.04,1.02,.78),outfit:8},
 };
 
+// Each group shares one close-up mesh. Its distant silhouette uses the same clothes,
+// complexion and hair, while individual residents retain their own build and gait.
+const streetModels=[
+  {residents:['maia','ana','mei'],top:0xa63a90,pants:0x292627,shirt:'tank',bottom:'slacks',cut:'bob',hair:0x272124,shoe:0x272528},
+  {residents:['rowan','diego','jules','leo','santi'],top:0x353337,pants:0x85989e,shirt:'tee',bottom:'jeans',cut:'pony',hair:0x41382e,shoe:0x5d564b},
+  {residents:['ines','iman','nora'],top:0x30312e,pants:0x2c2c2a,shirt:'jacket',bottom:'slacks',cut:'bun',hair:0x4a352d,shoe:0x222320},
+  {residents:['omar','mateo','wes','rafi','amir'],top:0xc1ad85,pants:0x544437,shirt:'jacket',sleeve:0x49543c,bottom:'slacks',cut:'crop',hair:0x463328,shoe:0x927a53},
+  {residents:['fern','rosa','elena','isabel'],top:0x49352f,pants:0x49352f,shirt:'jacket',bottom:'skirt',cut:'bun',hair:0x302725,shoe:0x3b2823,boots:true},
+];
+
+export const civilianScanLooks={};
+for(const [index,{residents,...clothing}] of streetModels.entries()){
+  for(const resident of residents){
+    const id='rival-'+resident;
+    civilianScanLooks[id]={...civilianLooks[id],extra:null,skin:0xd8b697,...clothing,model:index+1};
+  }
+}
+
 export const beachStaffLooks={
   'beach-marisol': {...look(2,0xdc987d,0x493729,'bun','linen',0x42948a,'slacks',0x384e50,'hoops',.98,1.01,.65),outfit:0,bartender:true},
 };

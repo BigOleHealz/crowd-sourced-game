@@ -40,3 +40,6 @@ https://creativecommons.org/licenses/by/4.0/
 Pinewatch modifications: adapted the model to the existing marina plantings,
 simplified the trunk, fronds and fruit, packed the materials into one texture,
 and added two levels of detail with wind animation.
+
+Street pedestrians: Microsoft Rocketbox Avatar Library (MIT).
+See /civilians/SOURCES.txt and /civilians/LICENSE.txt for credits and license.

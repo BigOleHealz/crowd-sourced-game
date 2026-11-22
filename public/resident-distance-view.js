@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {civilianLooks} from './civilian-style.js';
+import {civilianLooks,civilianScanLooks} from './civilian-style.js';
 
 // The same wardrobe drives both distances. A single instanced draw holds
 // the far crowd, including exposed limbs, shoes, hats and bags.
@@ -25,7 +25,7 @@ export function distantResidents(scene){
   return {
     begin(){count=0;},
     add(state,local,zoom,time){
-      const p=civilianLooks[state.id];
+      const p=civilianScanLooks[state.id]??civilianLooks[state.id];
       if(!p)return false;
       const radius=(nearby.has(state.id)?44:37)*zoom;
       const far=Math.hypot(local.x-state.x,local.y-state.y,local.z-state.z)>radius;
@@ -53,14 +53,14 @@ export function distantResidents(scene){
       for(const side of [-1,1]){
         const leg=pivot(side*.106,.97,side*swing),bare=p.bottom==='shorts'||p.bottom==='skirt';
         ellipsoid(leg,p.bottom==='skirt'?p.skin:p.pants,0,-.187,0,.093,.227,.09);
-        ellipsoid(leg,bare?p.skin:p.pants,0,-.60,0,.066,.226,.072);
-        ellipsoid(leg,0xc1b6a3,0,-.884,-.039,.066,.048,.126);
+        ellipsoid(leg,p.boots?p.shoe:bare?p.skin:p.pants,0,-.60,0,.066,.226,.072);
+        ellipsoid(leg,p.shoe??0xc1b6a3,0,-.884,-.039,.066,.048,.126);
         const shield=fleeing && side===(p.face%2?-1:1);
         const arm=pivot(side*.203,1.437,shield?1.93+.16*swing:-side*swing*p.swing+(fleeing?.38:0));
         const sleeveless=p.shirt==='tank'||p.shirt==='dress',jacket=p.shirt==='jacket';
-        ellipsoid(arm,sleeveless?p.skin:p.top,0,-.074,0,.074,.111,.074);
-        ellipsoid(arm,jacket?p.top:p.skin,0,-.267,0,.055,.124,.056);
-        ellipsoid(arm,jacket?p.top:p.skin,0,-.423,-.027,.044,.113,.043,.16);
+        ellipsoid(arm,sleeveless?p.skin:(p.sleeve??p.top),0,-.074,0,.074,.111,.074);
+        ellipsoid(arm,jacket?(p.sleeve??p.top):p.skin,0,-.267,0,.055,.124,.056);
+        ellipsoid(arm,jacket?(p.sleeve??p.top):p.skin,0,-.423,-.027,.044,.113,.043,.16);
         ellipsoid(arm,p.skin,0,-.528,-.044,.036,.046,.030);
       }
       return true;
