@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 // A horizontal film sits on the waves. It marks the individual lunges while the
 // existing suspended pigment and air bubbles follow the swimmer down the column.
-export function strikeWaterFilm(scene,waterline,capacity){
+export function strikeWaterFilm(scene,waterline,capacity,foamOnly=false){
   const geo=new THREE.PlaneGeometry(1,1).rotateX(-Math.PI/2);
   const state=new THREE.InstancedBufferAttribute(new Float32Array(capacity*3),3);
   state.setUsage(THREE.DynamicDrawUsage);geo.setAttribute('strikeState',state);
@@ -33,25 +33,26 @@ export function strikeWaterFilm(scene,waterline,capacity){
         float crest=.37+.53*(1.-exp(-2.7*t));
         float froth=(1.-smoothstep(.018,.13,abs(r-crest)))*smoothstep(.36,.81,n)
                    *(1.-smoothstep(.18,1.08,t));
-        float alpha=fade*(.65*stain+.90*froth);
+        float alpha=fade*(${foamOnly ? '1.15*froth' : '.65*stain+.90*froth'});
         if(alpha<.006)discard;
         vec3 blood=mix(vec3(.102,.006,.010),vec3(.34,.035,.045),1.-core);
-        gl_FragColor=vec4(mix(blood,vec3(.68,.75,.65),froth),alpha);
+        gl_FragColor=vec4(${foamOnly ? 'vec3(.86,.94,.90)' : 'mix(blood,vec3(.68,.75,.65),froth)'},alpha);
         #include <colorspace_fragment>
       }`,
   });
   const film=new THREE.InstancedMesh(geo,mat,capacity);
-  film.name='Shark surface strike rings';film.frustumCulled=false;film.renderOrder=5;
+  film.name=foamOnly?'Feeding shark foam':'Shark surface strike rings';
+  film.frustumCulled=false;film.renderOrder=foamOnly?6:5;
   film.instanceMatrix.setUsage(THREE.DynamicDrawUsage);film.count=0;scene.add(film);
   const pose=new THREE.Object3D();
   return {
-    mark(i,pulse,t,fade,scale,yaw){
+    mark(i,x,z,phase,t,fade,scale,yaw){
       const spread=.36+1.1*Math.sqrt(t);
-      pose.position.set(pulse.x+.068*t,waterline+.024,pulse.z+.033*t);
-      pose.rotation.y=-yaw+.23*pulse.start;
+      pose.position.set(x+.068*t,waterline+.024,z+.033*t);
+      pose.rotation.y=-yaw;
       pose.scale.set(scale*spread*1.45,1,scale*spread*1.90);
       pose.updateMatrix();film.setMatrixAt(i,pose.matrix);
-      state.setXYZ(i,t,pulse.plumes[0].phase,fade);
+      state.setXYZ(i,t,phase,fade);
     },
     finish(count){
       film.count=count;film.visible=count>0;
