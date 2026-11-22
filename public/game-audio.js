@@ -1,3 +1,4 @@
+import {crowdPanicAudio,crowdRecordings} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
@@ -129,6 +130,7 @@ export function createGameAudio(button,slider,level) {
   let listenerSpace=acousticSpace(null,null);
   let previousDolphins,previousSharkDefeats;
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
+  const civilianVoices=crowdPanicAudio();
   const collapse=fallAudioTracker(MAP.buildings);
   let clubTrackLoading=false;
   async function loadClubTrack(){
@@ -143,7 +145,7 @@ export function createGameAudio(button,slider,level) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle',...crowdRecordings}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
         if(res.ok)buffers.set(name,await context.decodeAudioData(await res.arrayBuffer()));
@@ -240,6 +242,7 @@ export function createGameAudio(button,slider,level) {
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles={};
+    civilianVoices.reset(world?.npcs);
     if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
   }
   function roadAndAirVehicles(world){
@@ -292,6 +295,9 @@ export function createGameAudio(button,slider,level) {
       if(distance<range){nearest=f;range=distance;}
     }
     motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
+    civilianVoices.step(world.npcs,world.simTick,listener,(name,mouth,gain,id)=>{
+      if(buffers.has(name))burst(name,mouth,listener,yaw,gain,id);
+    });
     const impacts=[];
     for(const shot of shots) {
       if(shot.hit)impacts.push(shot);

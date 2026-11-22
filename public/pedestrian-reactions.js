@@ -4,6 +4,7 @@ import {CITY,MAP,blocked,groundHeight,insideTravelArea,stepPlayer} from './world
 import {vehicleContact} from './vehicle-contact.js';
 
 const cues={
+  gunfire:{rank:4},
   horn:{radius:10,retreat:1.6,speed:.42,duration:42,rank:1},
   spray:{radius:9,retreat:2.8,speed:.65,duration:69,rank:2},
   collapse:{radius:25,retreat:5.1,speed:.88,duration:95,rank:3},
@@ -38,7 +39,7 @@ export function signalPedestrians(world,npcs,type,source,tick){
   const cue=cues[type];
   for(const n of npcs){
     const s=n.state,r=n.reaction;
-    if(!n.life.hp || n.life.fall || !s.grounded || s.swimming ||
+    if(r?.type==='gunfire' || !n.life.hp || n.life.fall || !s.grounded || s.swimming ||
       (n.reactAfter>tick && (!r || cue.rank<=cues[r.type].rank)) ||
       world.traffic?.some(v=>v.npcDriver===n.id || v.takeover?.npcId===n.id))continue;
     if(Math.hypot(s.x-source.x,s.z-source.z)>cue.radius || Math.abs(s.y-source.y)>4.5)continue;
@@ -49,7 +50,88 @@ export function signalPedestrians(world,npcs,type,source,tick){
   }
 }
 
+const heardShots=new WeakSet();
+function scatter(world,npcs,source,tick,radius){
+  for(const [index,n] of npcs.entries()){
+    const s=n.state;
+    if(n.officer || !n.life.hp || n.life.fall || !s.grounded || s.swimming ||
+      Math.abs(s.y-source.y)>8 || Math.hypot(s.x-source.x,s.z-source.z)>radius ||
+      world.traffic?.some(v=>v.npcDriver===n.id || v.takeover?.npcId===n.id))continue;
+    const current=n.reaction;
+    if(current?.type==='gunfire'){
+      current.until=tick+155+index%65;
+      if(tick-current.lastThreat>14){
+        current.threat=source;current.lastThreat=tick;
+      }
+      continue;
+    }
+    // Different people hesitate and find their footing at different moments.
+    const delay=2+Math.imul(index+3,19)%12;
+    n.reaction={type:'gunfire',since:tick,until:tick+155+index%65,threat:source,lastThreat:tick,
+      moveAt:tick+delay,cryAt:tick+delay+index%9,nextLeg:tick,turnBias:(index%5-2)*.12,
+      trail:n.escapeTrail??[{x:s.x,z:s.z}]};
+    n.reactAfter=n.reaction.until;
+    delete n.escapeTrail;
+  }
+}
+
+function panicStep(n,tick,dt,world){
+  const r=n.reaction,s=n.state;
+  if(tick>=r.cryAt && tick>=(n.panicCry??-1000)+130){
+    n.panicCry=tick;r.cryAt=tick+150+Math.round(95*Math.abs(r.turnBias));
+  }
+  if(tick<r.moveAt){n.moving=false;s.vx=s.vz=0;return;}
+  if(tick>=r.nextLeg || r.x==null || (!r.cornered && Math.hypot(r.x-s.x,r.z-s.z)<.34)){
+    const away=Math.atan2(s.x-r.threat.x,r.threat.z-s.z);
+    const last=r.trail.at(-1);
+    if(!last || Math.hypot(s.x-last.x,s.z-last.z)>1.5){
+      if(r.trail.length>=40)r.trail.splice(1,1);
+      r.trail.push({x:s.x,z:s.z});
+    }
+    const goal=retreatPoint(world,s,away+r.turnBias,5.8);
+    r.x=goal.x;r.z=goal.z;r.nextLeg=tick+28;r.cornered=false;
+    if(Math.hypot(r.x-s.x,r.z-s.z)<.34){r.x=s.x;r.z=s.z;r.nextLeg=tick+18;r.cornered=true;}
+  }
+  const dx=r.x-s.x,dz=r.z-s.z,d=Math.hypot(dx,dz);
+  if(d>.24){
+    const stride=Math.min(d,6.5*dt),x=dx/d,z=dz/d;
+    if(safe(world,s.x+x*stride,s.z+z*stride,s.y,CITY && !roadway(s.x,s.z))){
+      n.state=stepPlayer(s,{x,z,sprint:true},dt,world.hp,world);
+      n.yaw=Math.atan2(dx,-dz);n.moving=true;return;
+    }
+  }
+  n.moving=false;s.vx=s.vz=0;
+}
+
+function returnFromCover(n,dt,world){
+  const trail=n.escapeTrail;
+  if(!trail?.length)return false;
+  const s=n.state,next=trail.at(-1);
+  const dx=next.x-s.x,dz=next.z-s.z,d=Math.hypot(dx,dz);
+  if(d<.32){trail.pop();if(!trail.length)delete n.escapeTrail;return true;}
+  const vx=dx/d*.45,vz=dz/d*.45;
+  const moved=stepPlayer(s,{x:vx,z:vz},dt,world.hp,world);
+  if(Math.hypot(s.x-moved.x,s.z-moved.z)<.001){
+    n.moving=false;return false;
+  }
+  n.state=moved;n.yaw=Math.atan2(dx,-dz);n.moving=true;return true;
+}
+
 export function localWorldReactions(world,npcs,tick){
+  const cues=world.panicCues??=[];
+  while(cues.length && tick-cues[0].tick>110)cues.shift();
+  for(const shot of world.shots??[]){
+    if(heardShots.has(shot))continue;
+    heardShots.add(shot);
+    const muzzle=shot.weapon==='muzzle' || shot.weapon==='launch';
+    const injury=shot.hit && (shot.hitKind==='npc' || shot.hitKind==='player');
+    if(!muzzle && !injury)continue;
+    const point=muzzle?shot.from:shot.to,radius=muzzle?37:25;
+    if(cues.some(c=>tick-c.tick<10 && Math.hypot(point.x-c.x,point.y-c.y,point.z-c.z)<4 && c.radius>=radius))continue;
+    if(cues.length>=28)cues.shift();
+    cues.push({id:shot.id,tick,x:point.x,y:point.y,z:point.z,radius});
+    scatter(world,npcs,point,tick,radius);
+  }
   for(const h of hydrants)if(world.doors?.hydrants?.[h.id]===repairTicks)signalPedestrians(world,npcs,'spray',h,tick);
   for(const f of world.doors?.structureFalls??[]){
     if(seenFalls.has(f))continue;
@@ -62,7 +144,13 @@ export function localWorldReactions(world,npcs,tick){
 
 export function stepPedestrianReaction(n,tick,dt,world){
   const r=n.reaction;
-  if(!r)return false;
+  if(!r)return returnFromCover(n,dt,world);
+  if(r.type==='gunfire'){
+    if(!n.life.hp || n.life.fall){delete n.reaction;return false;}
+    if(tick<r.until){panicStep(n,tick,dt,world);return true;}
+    n.escapeTrail=r.trail;delete n.reaction;
+    return returnFromCover(n,dt,world);
+  }
   if(tick>=r.until || n.life.fall || !n.life.hp){delete n.reaction;return false;}
   const s=n.state,dx=r.x-s.x,dz=r.z-s.z,d=Math.hypot(dx,dz);
   const retreat=tick-r.since>6 && d>.14;
