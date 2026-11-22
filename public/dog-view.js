@@ -118,7 +118,7 @@ export function dogView(scene,Batch){
         leash.geometry.attributes.position.needsUpdate=true;
       }
       const kickAge=(tick-(dog.lastKickTick??-1000))/30;
-      const kicker=kickAge>=0 && kickAge<.43 && avatars.get(dog.kicker);
+      const kicker=kickAge>=0 && kickAge<.43 ? avatars.get(dog.kicker) : null;
       if(kicker?.root.visible){
         kicker.root.worldToLocal(target.set(dog.x,dog.y+.38*dog.size,dog.z));
         const weight=Math.sin(Math.PI*kickAge/.43),sweep=Math.max(0,Math.sin(Math.PI*(kickAge-.07)/.36));
