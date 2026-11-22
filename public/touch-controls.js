@@ -2,6 +2,7 @@ import {footStickPace} from './foot-stick.js';
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 const gestures={
+  diving:{name:'Diving',axis:'Steer',look:'Drag to look',tip:'Choose a straight dive or a front flip. Tap Open for entry in the gold zone.',help:'Use the movement stick for a small course correction in the air.'},
   basketball:{name:'Basketball',axis:'Move',look:'Drag to aim',tip:'Face the hoop and hold Shoot. Release in the gold band.',help:'Walk off the court or tap Leave basketball to return to free roam.'},
   foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Nudge the stick to run. Push forward to its edge to sprint. Swipe right of the stick to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to change stance or switch weapons.'},
   car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Open Driver tools for the horn and rear view.'},
@@ -200,9 +201,14 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,throwable,shoot,use,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
+  if(role==='diving'){
+    if(onBoard)quick.push(['Space','Straight dive'],['KeyC','Front flip']);
+    else if(canOpen)quick.push(['Space','Open for entry']);
+    return {active,role,axis:gestures.diving.axis,quick,tools:[]};
+  }
   if(use)quick.push(['KeyE',use]);
   if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);

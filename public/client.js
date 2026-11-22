@@ -1,4 +1,5 @@
 import {footStickPace} from './foot-stick.js';
+import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
 import {casinoPanel} from './casino-panel.js';
@@ -111,7 +112,7 @@ let lastPointer = null, pressedAim = null;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
 const canUseWeaponInWater=state=>!state?.swimming || (!!world.sharks && swimWeapon(weapon));
-const canAim = () => self && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && canUseWeaponInWater(self) && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
+const canAim = () => self && !self.dive && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && canUseWeaponInWater(self) && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -207,6 +208,7 @@ let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
 let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
+let queuedFlip=false;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
@@ -267,7 +269,7 @@ function clearInput() {
   queuedSeat=queuedSeatKind=null;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
-  queuedJump = queuedInteract = queuedFire = mouseFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function releaseLook(){
@@ -377,6 +379,10 @@ function pressAction(code){
     if(code==='KeyE')queuedInteract=vitals.use;
     if(code==='KeyF')queuedFire=true;
     return;
+  }
+  if(CITY && !isPilot() && !isDriving() && !gunnerRole() && !vitals.dead && !vitals.fall && (self?.dive || takeoffBoard(self))){
+    if(code==='KeyC' && !self.dive){queuedFlip=true;return;}
+    if(code==='Space'){queuedJump=true;return;}
   }
   if (code === 'Space') queuedDeploy = true;
   if (code === 'Space' && !isPilot() && !isDriving() && !gunnerRole()) queuedJump = true;
@@ -703,7 +709,7 @@ function tick() {
   const basketball=playingHoops(),trigger=queuedFire || mouseFire || down('KeyF');
   const hoopShot=basketball && trigger;
   const playingVolleyball=!!inVolleyball();
-  const fire = !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && canUseWeaponInWater(self) && !self.climb && !vitals.dead && !vitals.fall && trigger;
+  const fire = !self.dive && !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && canUseWeaponInWater(self) && !self.climb && !vitals.dead && !vitals.fall && trigger;
   const gunner=gunnerRole();
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
@@ -713,7 +719,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
-  const cmd = { type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     sprint: sprint && !pilot, weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -724,7 +730,7 @@ function tick() {
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
-  queuedJump = queuedInteract = queuedFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
@@ -764,7 +770,8 @@ function remoteFrame(time) {
       const fall=p.fall?.joints && q.fall?.started===p.fall.started ? {...p.fall,
         joints:p.fall.joints.map((n,i)=>mix(q.fall.joints[i],n,t)),age:mix(q.fall.age,p.fall.age,t)} : p.fall;
       const climb = q.climb && p.climb ? {...p.climb,t:mix(q.climb.t,p.climb.t,t)} : p.climb;
-      return { ...p, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
+      const dive=q.dive && p.dive ? {...p.dive,time:mix(q.dive.time,p.dive.time,t)} : p.dive;
+      return { ...p, dive, climb, fall, x: mix(q.x,p.x,t), y: mix(q.y,p.y,t), z: mix(q.z,p.z,t), yaw: angleMix(q.yaw,p.yaw,t) };
     });
   }
   const players = interpolateActors(a.players,b.players);
@@ -862,6 +869,26 @@ function drivingView(rover, dt, wheeled) {
 }
 
 function updateEquipment(local) {
+  const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
+  const diving=local.dive;
+  const gauge=byId('dive-meter'),report=byId('dive-result');
+  let mark=vitals.lastDive,spectator=false;
+  if(CITY && local.z< -385 && local.z> -445){
+    for(const athlete of samples.at(-1)?.players??[]){
+      const entry=athlete.lastDive;
+      if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<14){
+        mark=entry;spectator=true;
+      }
+    }
+  }
+  report.hidden=!mark || !!diving || (!!board && !spectator);
+  if(!report.hidden)report.textContent=(spectator?'Poolside · ':'')+(mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
+  gauge.hidden=!diving;
+  if(diving){
+    const progress=diving.time/diving.duration;
+    gauge.style.setProperty('--progress',Math.min(100,(diving.release??diving.time)/diving.duration*100)+'%');
+    byId('dive-call').textContent=diving.release!=null?'Entry set':progress<entryBeat-.065?'Wait for the gold zone':progress<=entryBeat+.065?'Open now':'Open for entry';
+  }
   const volleyball=volleyballStatus();
   const heli = jetPilot()?world.jet:world.heli;
   const pilot = isPilot();
@@ -984,17 +1011,22 @@ function updateEquipment(local) {
     }
   }
   if(touch.active){
-    const role=basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
+    const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
+  }
+  if(board || diving){
+    prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
+    byId('space-action').textContent=board?'Straight dive':'Open for entry';
+    byId('crouch-action').textContent=board?'Front flip':'Crouch';
   }
 }
 
@@ -1121,7 +1153,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){

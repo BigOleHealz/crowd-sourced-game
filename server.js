@@ -252,7 +252,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -353,7 +353,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
-    hoopShot:input.hoopShot===true,
+    flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
@@ -551,7 +551,7 @@ function tick() {
     if(player.clubSince!=null && (!player.life.hp || player.life.fall))leaveClubSeat(player);
     const fallingBody = advanceFall(player, ticks, step, world.hp, world);
     if (player.life.hp === 0) {
-      delete player.trip;delete player.state.liftTravel;
+      delete player.trip;delete player.state.liftTravel;delete player.state.dive;delete player.lastDive;
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
       if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
@@ -689,6 +689,11 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
+    if(player.state.entryMark){
+      player.lastDive={...player.state.entryMark,tick:ticks};
+      delete player.state.entryMark;
+    }
+    if(player.state.dive){player.yaw=-Math.PI/2;player.sprint=player.moving=false;continue;}
     if(falling.ride){
       const item=world.rides.find(r=>r.id===falling.ride.id);
       if(!player.state.ride)parkRide(world,player,true);

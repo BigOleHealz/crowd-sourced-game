@@ -941,6 +941,36 @@ function makeParachute(root, material) {
   return canopy.mesh(root,material,false);
 }
 
+function diveSpray(avatar,mark,frameTick){
+  const age=mark?(frameTick-mark.tick)/30:Infinity;
+  let spray=avatar.diveSpray;
+  if(age<0 || age>=.9){
+    if(spray)spray.visible=false;
+    return;
+  }
+  if(!spray){
+    spray=new THREE.Group();
+    const material=new THREE.MeshBasicMaterial({color:0xe6faf7,transparent:true,depthWrite:false});
+    const ring=new THREE.Mesh(new THREE.RingGeometry(.92,1,32).rotateX(-Math.PI/2),material);
+    const drops=new THREE.InstancedMesh(new THREE.SphereGeometry(1,5,4),material,15);
+    drops.frustumCulled=false;
+    spray.add(ring,drops);avatar.root.parent.add(spray);avatar.diveSpray=spray;
+    spray.userData.drop=new THREE.Object3D();
+  }
+  spray.visible=true;spray.position.set(mark.x,mark.water+.025,mark.z);
+  const [ring,drops]=spray.children,size=mark.splash,radius=.18+age*2.1*size;
+  ring.scale.set(radius,1,radius);ring.material.opacity=(1-age/.9)*.82;
+  const dummy=spray.userData.drop;
+  for(let i=0;i<drops.count;i++){
+    const angle=i*2.39996,height=Math.max(0,age*((3+i%4*.48)*size-6.6*age));
+    const travel=.10+age*(.55+i%5*.19)*size;
+    dummy.position.set(Math.sin(angle)*travel,height,Math.cos(angle)*travel);
+    const width=height>0?.044*size:0;
+    dummy.scale.set(width,width*(1.8+i%3*.5),width);dummy.updateMatrix();drops.setMatrixAt(i,dummy.matrix);
+  }
+  drops.instanceMatrix.needsUpdate=true;
+}
+
 function updateSwimRipples(avatar,state) {
   if((state.swimming || state.moving && waterBlend(state)>.15) && !state.fall && !state.dead) {
     const stroke=avatar.stroke??0;
@@ -1162,6 +1192,10 @@ export function createScene(canvas) {
   function removeAvatar(a) {
     clearLostParts(a);
     a.label.dispose();
+    if(a.diveSpray){
+      const [ring,drops]=a.diveSpray.children;
+      ring.geometry.dispose();drops.geometry.dispose();drops.dispose();ring.material.dispose();scene.remove(a.diveSpray);
+    }
     for(const ring of a.ripples?.rings ?? []) {
       scene.remove(ring);
       ring.geometry.dispose();ring.material.dispose();
@@ -1326,6 +1360,7 @@ export function createScene(canvas) {
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
+      if(state.lastDive || a.diveSpray)diveSpray(a,state.lastDive,attackTick);
       if(state.weapon===6){
         const flight=world.throwables?.find(c=>c.shooter===state.id && world.simTick-c.born<12);
         if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}

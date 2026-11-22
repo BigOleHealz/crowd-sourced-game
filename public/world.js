@@ -1,5 +1,6 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {garageSurface} from './resort-parking.js';
+import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
@@ -269,6 +270,8 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(pile)return rubbleHeight(pile,x,z,doors);
     const limit=estateSupportLimit(doors,x,z);
     const probe=Math.min(limit,maxBottom);
+    const board=boardAt(x,z);
+    if(board && probe>=boardHeight(board,x)-.01)return boardHeight(board,x);
     const villa=casaFloor(x,z,probe);
     if(villa!==undefined)return villa<=limit+.001 ? villa : cityGround(x,z,probe,doors);
     const palace=mareFloor(x,z,probe);
@@ -358,6 +361,10 @@ export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
+  if(CITY && (state.dive || input.jump || input.flipDive)){
+    const dive=stepDive(state,input,dt);
+    if(dive)return dive;
+  }
   const grabAllowed=!state.ride && !input.interact && !input.seat && !state.stance && !state.parachute && !state.fall && !state.dead;
   const grab=grabAllowed && (input.jump && (state.grounded || state.swimming)
     ? {y:state.y,left:.25} : state.grab);
@@ -424,7 +431,9 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx-=inward*nx;vz-=inward*nz;
     contact=vehicleContact(x,y,z,world,CITY,height);
   }
-  let floor = Math.max(groundHeight(x, z,y+height,doors),contact.floor);
+  // A swimmer underneath the projecting board remains in the basin.
+  const floorProbe=CITY && state.swimming && boardAt(x,z) ? y+.26 : y+height;
+  let floor = Math.max(groundHeight(x,z,floorProbe,doors),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top) floor = Math.max(floor,top);
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;

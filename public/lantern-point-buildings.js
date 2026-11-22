@@ -1,4 +1,5 @@
 import {furnishLido} from './lido-house.js';
+import {divingBoards} from './estate-diving.js';
 import {footprint,estatePoolHoles,poolTreadHeight} from './swimming-pools.js';
 import {verges} from './waterfront-roads.js';
 import {addEstateSafes} from './estate-safe-view.js';
@@ -234,6 +235,14 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
         beam(brass,[edge-.18,.72,z+offset],[edge-.18,.19,z+offset],.042);
       }
     }
+  }
+  for(const {edge,z} of divingBoards){
+    box(limestone,edge+1.115,.08,z,.29,.16,1.06);
+    box(limestone,edge+.82,.16,z,.30,.32,1.06);
+    for(const post of [edge+.48,edge-.14])box(brass,post,.218,z,.13,.43,.90);
+    box(0xe9e4c6,edge-.49,.431,z,2.32,.106,1.06);
+    box(0x478987,edge-.49,.487,z,2.32,.012,.98);
+    for(let i=0;i<5;i++)box(0xc8dfd3,edge-1.50+i*.105,.496,z,.032,.008,.88);
   }
   // Two folded bronze sails terminate the axial view of the west parterre.
   cyl(0x627d77,-25,-.73,-443,1.48,1.70);
