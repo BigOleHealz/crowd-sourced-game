@@ -39,6 +39,8 @@ export function healthView(actor, tick) {
 export function damageActor(actor, amount, tick, direction) {
   const life = actor.life;
   if (life.hp === 0 || tick < life.immuneUntil) return false;
+  if(!(amount>0))return false;
+  life.lastHurtTick=tick;
   life.hp = Math.max(0, life.hp - amount);
   if (life.hp !== 0) return false;
   if(actor.score)actor.score.deaths++;

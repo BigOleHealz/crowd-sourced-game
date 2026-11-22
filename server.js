@@ -792,7 +792,7 @@ function tick() {
   world.wanted?.step(npcs,ticks);
   bank?.step(world,players,ticks);
   world.volleyballActivity?.step(world,players,ticks,step);
-  localWorldReactions(world,npcs,ticks);
+  localWorldReactions(world,npcs,ticks,players);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else updateSupplyRun(world, step);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
