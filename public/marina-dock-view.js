@@ -1,6 +1,49 @@
 import * as THREE from 'three';
 import {addDivingTower} from './marina-platform-view.js';
-import {berthDeckY,marinaFingers,marinaRamp,marinaSpine} from './marina-docks.js';
+import {berthDeckY,jettyY,jettySections,jettyRail,jettyBitts,jettyBeacon,marinaFingers,marinaRamp,marinaSpine} from './marina-docks.js';
+
+// Fixed masonry below the tide line, dressed stone courses and a timber cap.
+// Use the existing marina batch so the jetty adds no scene draw or light pass.
+export function addMarinaJetty(block,post,timber){
+  const masonry=[0xb2a58e,0xa79d8b,0xbeb19b,0xb9ad97],iron=0x3b4c4d;
+  for(const r of jettySections){
+    const w=r.east-r.west,d=r.south-r.north;
+    block(0x62736b,r.x,-.60,r.z,w,1.5,d);
+    block(masonry[0],r.x,.39,r.z,w,.50,d-.07);
+    for(const side of [-1,1])for(let row=0;row<2;row++){
+      const pitch=1.52,shift=row*pitch/2;
+      for(let at=r.west-shift;at<r.east;at+=pitch){
+        const from=Math.max(r.west,at),to=Math.min(at+pitch,r.east);
+        if(to-from<.04)continue;
+        const tint=masonry[(Math.floor((at-r.west+shift)/pitch+.01)+row)%masonry.length];
+        block(tint,(from+to)/2,.27+row*.23,r.z+side*(d/2-.024),to-from-.025,.205,.048);
+      }
+    }
+    block(0x978777,r.x,.665,r.z,w,.15,d);
+    const boards=Math.ceil(w/.27),pitch=w/boards,edge=.20;
+    for(let i=0;i<boards;i++)
+      block(timber[(i+Math.floor(i/5))%timber.length],r.west+(i+.5)*pitch,jettyY-.032,r.z,pitch-.008,.064,d-edge*2);
+    for(const side of [-1,1])block(0xc7bba2,r.x,jettyY-.032,r.z+side*(d-edge)/2,w,.064,edge);
+  }
+  const rail=jettyRail;
+  for(let i=0;i<=10;i++)post(iron,rail.x+rail.w*(i/10-.5),jettyY+.45,rail.z,.074,.90);
+  for(const h of [.47,rail.h-.04])block(iron,rail.x,jettyY+h,rail.z,rail.w,.075,rail.d);
+  for(const {x,z,h,w} of jettyBitts){
+    post(iron,x,jettyY+.028,z,w,.056);
+    post(iron,x,jettyY+h/2,z,.20,h);
+    post(iron,x,jettyY+h-.04,z,w,.08);
+  }
+  const {x,z,w,h}=jettyBeacon;
+  block(0xc5bca4,x,jettyY+.15,z,w,.30,w);
+  post(iron,x,jettyY+.88,z,.36,1.16);
+  post(0xe4dbbf,x,jettyY+1.52,z,.29,.50);
+  post(iron,x,jettyY+1.83,z,.48,.15);
+  post(0xffd996,x,jettyY+2.09,z,.33,.40);
+  for(const side of [-1,1])for(const end of [-1,1])
+    post(iron,x+side*.135,jettyY+2.09,z+end*.135,.026,.43);
+  post(iron,x,jettyY+2.34,z,.49,.12);
+  post(0xbf9d68,x,jettyY+h-.08,z,.16,.16);
+}
 
 export function addMarinaDocks(scene,batch){
   const box=new THREE.BoxGeometry(),tube=new THREE.CylinderGeometry(.5,.5,1,10);
@@ -8,6 +51,7 @@ export function addMarinaDocks(scene,batch){
   const timber=[0xad8460,0xb98b63,0xba926e,0xbb916a,0xb78c65];
   const block=(c,x,y,z,w,h,d,rz=0)=>batch.add(box,c,x,y,z,w,h,d,0,0,rz);
   const post=(c,x,y,z,w,h)=>batch.add(tube,c,x,y,z,w,h,w);
+  addMarinaJetty(block,post,timber);
   const grainVertices=[],grainUvs=[],grainColors=[];
   function woodFace(x,z,w,d,alongZ,seed){
     const tint=new THREE.Color(timber[seed%timber.length]).lerp(new THREE.Color(0xffffff),.39);

@@ -40,6 +40,7 @@ function detachedLimb(joint) {
     const skeleton=node.skeleton;
     mapped.get(node).bind(new THREE.Skeleton(skeleton.bones.map(bone=>mapped.get(bone)),skeleton.boneInverses),node.bindMatrix);
   }
+  for(const clone of clones)if(clone.userData.heldMelee)clone.removeFromParent();
   return copy;
 }
 function releaseLimb(prop) {

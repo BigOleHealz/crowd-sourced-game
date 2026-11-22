@@ -22,6 +22,7 @@ import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
+import {isArcadeMelee,meleeAudioTracker,meleeBuffer} from './arcade-melee-feedback.js';
 
 import {fatalBiteCalls,sharkDefeatSound,sharkStrikeWaterSound} from './shark-defeat-audio.js';
 import {dolphinCalls,dolphinSound} from './dolphin-audio.js';
@@ -33,6 +34,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('melee/'))return meleeBuffer(context,name.slice(6));
   if(name.startsWith('hoops/'))return courtContactBuffer(context,name.slice(6));
   if(name.startsWith('park-wheel/'))return wheelLandingBuffer(context,name==='park-wheel/bike');
   if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
@@ -254,9 +256,14 @@ export function createGameAudio(button,slider,level,caption) {
   let previousRides;
   let previousDogs;
   const courtSounds=courtContactAudio();
+  const meleeSounds=meleeAudioTracker();
+  function melee(actors,tick,listener,yaw){
+    meleeSounds.step(actors,tick,listener,(name,point,gain,seq)=>burst(name,point,listener,yaw,.78*gain,seq));
+  }
   function reset(world) {
     bankSerial=world?.bank?.serial??0;pendingBankClip=false;bankVoiceUntil=0;
     courtSounds.reset(world?.basketball);
+    meleeSounds.reset();
     previousRides=world?.rides;
     previousDogs=world?.dogs;
     thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
@@ -412,6 +419,7 @@ export function createGameAudio(button,slider,level,caption) {
     });
     const impacts=[];
     for(const shot of shots) {
+      if(isArcadeMelee(shot.weapon) || (shot.weapon==='muzzle' && isArcadeMelee(shot.firedWeapon)))continue;
       if(shot.hit)impacts.push(shot);
       if(shot.weapon==='molotov')burst(shot.water?'water-pop':'ember-wash',shot.to,listener,yaw,.55,shot.id);
       else if(shot.weapon==='ember'){
@@ -575,5 +583,5 @@ export function createGameAudio(button,slider,level,caption) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,melee,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
 }

@@ -1,3 +1,4 @@
+import {jettySections,nearJetty} from './marina-docks.js';
 import {waterHelm} from './water-helm.js';
 import {hullSize} from './marina-fleet-layout.js';
 import {damageBoat} from './patrol-boats.js';
@@ -42,6 +43,8 @@ for(const z of [...new Set([...yachtSections.map(s=>s[0]),...Array.from({length:
   for(const x of [-w,-w*.5,0,w*.5,w])samples.push([x,z]);
 }
 function clear(world,pose,players,old){
+  if(nearJetty(pose.x,pose.z,23) &&
+    jettySections.some(r=>yachtOverlap(pose,r.x,r.z,0,r.halfWidth,r.halfLength)))return false;
   const c=Math.cos(pose.yaw),s=Math.sin(pose.yaw);
   for(const [side,aft] of samples){
     const x=pose.x+c*side-s*aft,z=pose.z+s*side+c*aft;

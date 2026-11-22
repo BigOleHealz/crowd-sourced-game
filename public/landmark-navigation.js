@@ -11,7 +11,7 @@ import {skatePark} from './skate-park.js';
 import {basketballCourt} from './basketball-layout.js';
 
 export const destinations=CITY?new Map([
-  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['East Quay Jetty',[87,-408.7]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
   [skatePark.name,[39.35,-156.35]],
   [casinoName,[valet.x,valet.z]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
@@ -48,7 +48,8 @@ if(CITY){
   for(const x of [-49,0,49])path([-466,-419,...(x===49?[-377]:[]),-370].map(z=>[x,z]));
   path([[clubDoor.x+1.5,27],destinations.get('Club Lucero')]);
   path([[-38,27],...drive.slice(1,27),destinations.get(casinoName)]);
-  path([[49,-419],[66,-419]]);
+  path([[49,-419],[61,-419],[66,-419]]);
+  path([[61,-419],[61,-408.7],destinations.get('East Quay Jetty')]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
 }else{
   path(MAP.trail);path(MAP.northTrail);path(churchPath);

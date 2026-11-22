@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {fountainSite} from './centaur-fountain-layout.js';
 
 const verde=0x485747, bronze=0x826445, litBronze=0xae8754, dark=0x594938;
+const sculptureYaw=.28+Math.PI/2; // Face inland toward Brickell.
 const coping=0xe1cbb1, granite=0x43575a, gold=0xcaa665;
 
 // Smooth, tapered cross sections let the limbs flatten into joints and flare
@@ -43,8 +44,8 @@ function sculptedForm(stations){
 }
 
 function centaur(group,Batch){
-  const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=.28+Math.PI/2; // Face the inland approach across the fountain.
-  const ball=new THREE.SphereGeometry(1,14,12),horse=new THREE.Group();
+  const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=sculptureYaw;
+  const ball=new THREE.SphereGeometry(1,12,10),horse=new THREE.Group();
   // Build all of the bronze into one static batch. The forelegs paw the air
   // while the back hooves actually bear on the plinth.
   const metal=new Batch();
@@ -124,11 +125,58 @@ function centaur(group,Batch){
   form(litBronze,[[.25,2.63,.66,.094,.11],[.36,2.67,.66,.122,.127],[.45,2.79,.74,.097,.105],
     [.52,2.91,.83,.072,.080],[.59,3.03,.79,.074,.076],[.64,3.19,.74,.047,.050],[.67,3.24,.71,.043,.054]]);
   oval(bronze,[.67,3.25,.70],[.064,.065,.063]);
-  // Seven fluted palmetto blades open from the centaur's raised hand.
-  for(let i=-3;i<=3;i++){
-    const a=i*.23,dx=Math.sin(a),dy=Math.cos(a);
-    form(gold,[[.67,3.25,.70,.024,.025],[.67+.45*dx,3.25+.45*dy,.70,.09,.035],
-      [.67+1.12*dx,3.25+1.12*dy,.65,.065,.025],[.67+1.43*dx,3.25+1.43*dy,.60,.006,.008]]);
+  // Cast folds sweep away from the left shoulder, framing the space between
+  // the torso and tail. Front and back have their own normals at the hem.
+  function foldedSheet(color,rows,columns,point){
+    const positions=[],indices=[];
+    for(let side=0;side<2;side++){
+      const start=positions.length/3;
+      for(let j=0;j<=rows;j++)for(let k=0;k<=columns;k++){
+        positions.push(...point(j/rows,k/columns));
+        if(!j || !k)continue;
+        const d=start+j*(columns+1)+k,a=d-columns-2,b=a+1,c=d-1;
+        indices.push(...(side?[a,b,c,c,b,d]:[a,c,b,c,d,b]));
+      }
+    }
+    const geom=new THREE.BufferGeometry();
+    geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geom.setIndex(indices);geom.computeVertexNormals();
+    metal.add(geom,color,x,y,z,scale,scale,scale,0,yaw);geom.dispose();
+  }
+  function mantle(t,u){
+    const flare=Math.sin(t*Math.PI*.8),pleat=Math.cos(u*Math.PI*7);
+    return [-.245-.28*t-.21*flare+(u-.5)*(.14+.76*t)+.055*pleat*t,
+      2.64-.53*t-.22*Math.sin(t*Math.PI)+(.5-u)*(.12+.62*flare)+.045*pleat*t*t,
+      .60-1.80*t+.13*flare*pleat+.16*t*Math.sin(u*Math.PI*2)];
+  }
+  foldedSheet(0x46645b,16,22,mantle);
+  foldedSheet(0xbc914f,2,22,(t,u)=>mantle(.94+.034*t,u));
+  oval(gold,[-.25,2.65,.72],[.074,.076,.030]);
+
+  // A staggered sweep of carved hair gives the neck and face a profile.
+  for(const side of [-1,1])for(let row=0;row<3;row++){
+    const a=.65+.61*row,dx=side*Math.sin(a),dz=Math.cos(a);
+    form(verde,[[.12*dx,3.13,.68+.12*dz,.040,.034],
+      [.15*dx,3.04,.66+.15*dz,.048,.037],
+      [.16*dx,2.94,.60+.10*dz,.037,.027],
+      [.14*dx,2.87-.035*row,.54+.07*dz,.008,.010]]);
+  }
+  // Fingers are curled around the fan stem; the other hand opens into the wind.
+  for(let i=0;i<4;i++){
+    const k=i*.025;
+    form(litBronze,[[-.88-k*.35,2.83-k,.23,.022,.020],[-.96-k*.46,2.83-k,.26,.019,.017],
+      [-1.01+.017*i,2.87-k,.29+.014*i,.009,.012]]);
+    oval(bronze,[.646+k*.42,3.23+k*.46,.743],[.045,.019,.023],.22);
+  }
+  // Each palmetto blade has a folded spine and an individually drooping tip.
+  for(let i=-5;i<=5;i++){
+    const angle=i*.195,reach=1.39-.15*Math.abs(i)/5,dx=Math.sin(angle),dy=Math.cos(angle);
+    foldedSheet(i%2?0xd1a34c:0xf0c36a,12,4,(t,u)=>{
+      const breadth=.016*(1-t)+.092*Math.pow(Math.sin(Math.PI*t),.88);
+      const edge=(u-.5)*2*breadth;
+      return [.67+dx*t*reach+dy*edge,3.25+dy*t*reach-dx*edge-.11*t*t,
+        .70+.14*Math.sin(Math.PI*t)-.17*t*t+.032*(1-2*Math.abs(u-.5))*Math.sin(Math.PI*t)];
+    });
   }
   ball.dispose();
   const patina=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.38,roughness:.48});
@@ -191,9 +239,9 @@ function waterArches(group) {
 export function centaurFountain(parts,group,Batch,materials){
   const {x,z,radiusX:rx,radiusZ:rz,base}=fountainSite;
   const {masonry,metal,glow}=parts,water=new Batch();
-  function lathe(batch,color,profile,y,xScale=1,zScale=1){
+  function lathe(batch,color,profile,y,xScale=1,zScale=1,rotation=0){
     const shape=new THREE.LatheGeometry(profile.map(([r,h])=>new THREE.Vector2(r,h)),64);
-    batch.add(shape,color,x,y,z,xScale,1,zScale);shape.dispose();
+    batch.add(shape,color,x,y,z,xScale,1,zScale,0,rotation);shape.dispose();
   }
   // High pale coping, indented panels and a band of concealed aqua uplights.
   lathe(masonry,granite,[[0,0],[.98,0],[1,.065],[.99,.17],[.95,.19],[.95,.62],[.76,.62],[.76,.24],[0,.24]],base,rx,rz);
@@ -203,9 +251,9 @@ export function centaurFountain(parts,group,Batch,materials){
   const surface=new THREE.CircleGeometry(1,64).rotateX(-Math.PI/2);
   water.add(surface,0x397c7d,x,base+.50,z,rx*.86,1,rz*.86);surface.dispose();
   for(const factor of [.57,.72,.81])lathe(water,0x75b6ae,[[factor,.002],[factor+.004,.004]],base+.50,rx,rz);
-  lathe(masonry,granite,[[0,0],[.77,0],[.78,.11],[.67,.19],[.63,.42],[.58,.57],[.59,.61],[0,.61]],base+.48,1,2.03);
-  lathe(metal,gold,[[.63,.365],[.64,.375],[.64,.40],[.63,.412]],base+.48,1,2.03);
-  lathe(metal,verde,[[0,0],[.59,0],[.61,.035],[.60,.074],[0,.074]],base+1.055,1,2.03);
+  lathe(masonry,granite,[[0,0],[.77,0],[.78,.11],[.67,.19],[.63,.42],[.58,.57],[.59,.61],[0,.61]],base+.48,1.35,2.45,sculptureYaw);
+  lathe(metal,gold,[[.63,.365],[.64,.375],[.64,.40],[.63,.412]],base+.48,1.35,2.45,sculptureYaw);
+  lathe(metal,verde,[[0,0],[.59,0],[.61,.035],[.60,.074],[0,.074]],base+1.055,1.35,2.45,sculptureYaw);
   const disk=new THREE.CylinderGeometry(1,1,1,12);
   for(let i=0;i<24;i++){
     const a=2*Math.PI*(i+.5)/24,dx=Math.cos(a),dz=Math.sin(a);

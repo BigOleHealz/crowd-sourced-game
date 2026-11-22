@@ -202,7 +202,7 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,jamBoard,onBoard,canOpen,throwable,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,jamBoard,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(role==='diving'){
@@ -211,20 +211,21 @@ export function touchLayout({role,active,jamBoard,onBoard,canOpen,throwable,shoo
     return {active,role,axis:gestures.diving.axis,quick,tools:[]};
   }
   if(use)quick.push(['KeyE',use]);
+  if(foot && holsterLabel)quick.push(['Digit0',holsterLabel]);
   if(foot && dogAction)quick.push(['KeyX',dogAction]);
   if(jamBoard)quick.push(['KeyF','Kickflip'],['KeyX','Shove-it']);
   if(shoot)quick.push(['KeyF','Shoot']);
-  if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);
+  if(canAim && !melee)quick.push(['aim',sighted?'Lower sight':'Aim']);
   if((foot || role==='volleyball' || role==='skateboard') && jump)quick.push(['Space',jump]);
   if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(foot?canAim:['heli','jet','armed-car','turret','tank','engine'].includes(role)){
-    const label=role==='engine'?'Spray water':heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':foot && throwable?'Throw':'Fire';
+    const label=role==='engine'?'Spray water':heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':foot && melee?'Swing':foot && throwable?'Throw':'Fire';
     quick.push(['KeyF',label]);
   }
   if(foot){
     if(stance)extra.push(['KeyC',stance==='crouch'?'Stand':'Crouch'],['KeyZ',stance==='prone'?'Stand':'Prone'],['run',sprint?'Walk':'Sprint']);
-    if(canAim)extra.push(['tool','Switch weapon']);
+    if(canAim || holsterLabel)extra.push(['tool','Switch weapon']);
     if(caseAction)extra.push(['KeyG','Handle case']);
     if(replay)extra.push(['KeyR','Replay']);
   }

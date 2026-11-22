@@ -1,3 +1,4 @@
+import {equipmentKeys,meleeItems,nextEquipment} from './arcade-melee.js';
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
 import {diveScorecard} from './dive-scorecard.js';
@@ -53,7 +54,7 @@ import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {arcadeMolotov} from './arcade-molotov.js';
 import {flameProjector} from './fire-sites.js';
-const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov};
+const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov,...meleeItems};
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach, courts } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
@@ -117,7 +118,16 @@ const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null, releaseSwimTrigger=false;
 let lookPaused=false;
 const locked=()=>document.pointerLockElement===canvas;
-const canAim = () => self && !self.dive && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !vitals.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
+let manualHolster=false,holsterSeq=0;
+const canHandleGear = () => self && !atTable() && !self.liftTravel && !atYachtHelm() && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' && !self.dive && !playingHoops() && !self.ride && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !self.swimming && !vitals.swimming && !self.parachute && !isPilot() && !isDriving() && !gunnerRole() && !inVolleyball();
+const canAim=()=>!manualHolster && canHandleGear();
+function setHolster(value){
+  manualHolster=value;
+  holsterSeq=seq+1;
+  releaseSwimTrigger=!!(queuedFire || mouseFire || down('KeyF'));
+  pressedAim=null;queuedFire=false;
+  showSight(false);
+}
 function showSight(active) {
   camera.sighted = active;
   canvas.classList.toggle('sighted', active);
@@ -209,6 +219,7 @@ const bankDialog=bankConversation(byId('bank-dialog'),{
 });
 function openBag(){if(world?.market && canChangeStance(self) && !touchBlocked())market.open();}
 byId('wallet').onclick=openBag;
+byId('holster-control').onclick=()=>{if(canHandleGear()){setHolster(!manualHolster);canvas.focus({preventScroll:true});}};
 function speaker(current=null){
   const available=canChangeStance(self) && byId('guide').hidden && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup';
   return nearbySpeaker(world,self,available,vitals.use,self && hotelEntrance(self),current);
@@ -229,7 +240,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -266,9 +277,9 @@ const touch=createTouchControls(canvas,{
   },
   endLook(){if(jetPilot()){stickX=stickY=0;byId('flight-cursor').style.transform='';}},
   action(code){
-    if(code==='aim'){if(canAim())showSight(!camera.sighted);return;}
+    if(code==='aim'){if(canAim() && !meleeItems[weapon])showSight(!camera.sighted);return;}
     if(code==='run'){touchSprint=!touchSprint;return;}
-    if(code==='tool')code='Digit'+(weapon%6+1);
+    if(code==='tool')code='KeyQ';
     if(code==='KeyT'){startMarinaSprint();return;}
     pressAction(code);
   },
@@ -490,13 +501,15 @@ function pressAction(code){
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6'].includes(code)) {
+  if(code==='Digit0'){if(canHandleGear())setHolster(!manualHolster);return;}
+  if(code==='KeyQ' && canHandleGear())code='Digit'+nextEquipment(weapon);
+  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && !inTank() && equipmentKeys.includes(code)) {
     const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
     if(kind) {
       if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
-    } else if(!self?.swimming && !vitals.swimming){weapon=number;if(camera.sighted)showSight(true);}
+    } else if(!self?.swimming && !vitals.swimming && !self?.ride){weapon=number;if(manualHolster && canHandleGear())setHolster(false);if(camera.sighted)showSight(!meleeItems[number]);}
   }
 }
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -517,7 +530,7 @@ function pressButton(e) {
     try{canvas.requestPointerLock()?.catch(()=>{});}catch{}
   }
   if (e.button === 2) {
-    if (canAim()) {
+    if (canAim() && !meleeItems[weapon]) {
       canvas.focus({ preventScroll: true });
       showSight(!camera.sighted);
     }
@@ -526,8 +539,8 @@ function pressButton(e) {
   canvas.focus({ preventScroll: true });
   if(inVolleyball())return;
   if(playingHoops()){mouseFire=queuedFire=true;return;}
-  if(self?.swimming && !isDriving() && !isPilot() && !gunnerRole())return;
-  if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
+  if((self?.swimming || manualHolster) && !isDriving() && !isPilot() && !gunnerRole()){mouseFire=true;return;}
+  if (self && (!meleeItems[weapon] || meleeItems[weapon].posedContact || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
@@ -646,7 +659,7 @@ function connect() {
       if(CITY && !mode && resortArrivals.has(arrival))camera.yaw=facing;
       damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
-      world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;
+      world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;manualHolster=!!m.state.holstered;holsterSeq=0;
       predictedDriver=null;
       seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
@@ -668,6 +681,10 @@ function connect() {
         if(authoritative.clubSince!=null){camera.yaw=Math.PI/2;camera.pitch=-.055;facing=camera.yaw;showSight(false);}
       }
       vitals = authoritative;wantedHud(vitals.wanted);
+      if(authoritative.ack>=holsterSeq){
+        manualHolster=!!authoritative.holstered;holsterSeq=0;
+        if(manualHolster)weapon=authoritative.weapon;
+      }
       const road=myRoad(), bump=drivenRoad(m.world,id)?.contactSound;
       if(road && bump?.damage>0 && bump.id!==road.contactSound?.id){
         roadImpact={message:bump.panel+' impact −'+bump.damage+' HP',until:performance.now()+1800};
@@ -714,6 +731,7 @@ function connect() {
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots,m.simTick);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
+      audio.melee?.(m.players,m.simTick,authoritative,roverView?.yaw ?? camera.yaw);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
@@ -772,7 +790,7 @@ function tick() {
   const driving = isDriving();
   const basketball=playingHoops(),trigger=queuedFire || mouseFire || down('KeyF');
   const mounted=pilot || driving || gunnerRole() || atYachtHelm();
-  const holstered=!mounted && (self.swimming || vitals.swimming);
+  const holstered=!mounted && (self.swimming || vitals.swimming || manualHolster);
   if(holstered){
     releaseSwimTrigger=!!trigger;pressedAim=null;
     if(camera.sighted)showSight(false);
@@ -784,7 +802,7 @@ function tick() {
   // Ordinary movement sends camera angles. Only interactions that consume a
   // muzzle-to-target bearing need to raycast the world on this input tick.
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
-  const needsAim=fire || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
+  const needsAim=(fire && (!meleeItems[weapon] || meleeItems[weapon].posedContact)) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
@@ -795,6 +813,8 @@ function tick() {
   const descending = down('ShiftLeft') || down('ShiftRight');
   const cmd = { skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
+    ...(holsterSeq && canHandleGear()?{holster:manualHolster}:{}),
+    ...(!mounted && trigger && (holstered || releaseSwimTrigger)?{handheldHeld:true}:{}),
     sprint: sprint && !pilot, weapon:holstered?null:weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:jetPilot() && (queuedMissile || down('KeyR')),
@@ -915,7 +935,7 @@ function remoteFrame(time) {
   const volleyball=b.volleyball?.map((court,index)=>({...court,
     athletes:interpolateActors(a.volleyball?.[index]?.athletes??[],court.athletes),
   }));
-  return { players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
+  return { sim:mix(a.sim,b.sim,t),players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -983,9 +1003,9 @@ function updateEquipment(local) {
   const gunner=gunnerRole(),basketball=playingHoops();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?'Swimming · Gear holstered':weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?'Swimming · Gear holstered':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
   const maxHp = health.maxHp || 100;
@@ -998,6 +1018,9 @@ function updateEquipment(local) {
   byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
+  const gearAvailable=!!canHandleGear();
+  byId('holster-control').hidden=!gearAvailable || touch.active;
+  byId('holster-action').textContent=manualHolster?'Draw':'Put away';
   const showStances = canChangeStance(local);
   byId('prone-shortcut').hidden = byId('crouch-shortcut').hidden = !showStances;
   byId('crouch-action').textContent = local.stance === 'crouch' ? 'Stand' : 'Crouch';
@@ -1013,8 +1036,8 @@ function updateEquipment(local) {
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
-  byId('fire-shortcut').hidden = (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
-  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':'Fire';
+  byId('fire-shortcut').hidden = (manualHolster && gearAvailable) || (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':meleeItems[weapon] && !kind?'Swing':'Fire';
   const sharkNearby=local.swimming && world.sharks?.some(s=>s.target===id);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
@@ -1121,7 +1144,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,jamBoard,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,jamBoard,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
@@ -1300,7 +1323,8 @@ function frame(time) {
     const tank=world.tank?.driver===traffic.tank?.driver ? traffic.tank : world.tank;
     const cars=traffic.traffic??[];
     const road=inTank()?tank:myRoad()?.model ? cars.find(c=>c.driver===id)??myRoad() : inGT() ? supercar : rover;
-    local.weapon = weapon;
+    local.weapon = weapon;local.holstered=manualHolster;
+    local.meleeSwing=vitals.meleeSwing;
     if (isPilot()) Object.assign(local, { x: aircraft.x, y: aircraft.y, z: aircraft.z, yaw: aircraft.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
     else if (atYachtHelm() && yacht)Object.assign(local,yachtHelmFeet(yacht),{yaw:yacht.yaw});
@@ -1319,7 +1343,7 @@ function frame(time) {
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
-    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,frameTick:volleyballTick });
+    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
     if (time >= nextHud) {
       nextHud = time + 80;
       hoopsHud.update(world.basketball,local,view.yaw,touch.active);

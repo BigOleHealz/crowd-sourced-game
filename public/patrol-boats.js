@@ -1,4 +1,5 @@
 import {partySites,cruisePartyYacht,resetCruise} from './party-cruises.js';
+import {jettySections,nearJetty} from './marina-docks.js';
 import {waterHelm} from './water-helm.js';
 import {damageYacht} from './superyacht.js';
 import {yachtOverlap} from './yacht-layout.js';
@@ -136,8 +137,10 @@ function insideChart(b,x,z,yaw) {
   return insideTravelArea(x,z,halfX,halfZ);
 }
 function canFloat(world,b,x,z,yaw) {
-  const model=marinaModel(b),{halfWidth,halfLength}=hullSize(b),own=footprint(b);
+  const model=marinaModel(b),hull=hullSize(b),{halfWidth,halfLength}=hull,own=footprint(b);
   if(!insideChart(b,x,z,yaw) || yachtOverlap(world.yacht,x,z,yaw,halfWidth,halfLength))return false;
+  if(nearJetty(x,z,halfLength+halfWidth) &&
+    jettySections.some(r=>overlaps(x,z,yaw,hull,r,r.halfWidth,r.halfLength)))return false;
   const c=Math.cos(yaw),s=Math.sin(yaw);
   // Enclose the collar, outboard, crew and stern aerial through pitch and roll.
   const clearance=b.y+Math.max(2.5,(model?.roof??0)+.15);

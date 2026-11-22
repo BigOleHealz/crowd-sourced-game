@@ -32,13 +32,15 @@ for(const [z,x0,x1,yaw] of [[58.25,-68,-42,Math.PI/2],[63.75,-42,-68,-Math.PI/2]
 }
 
 for(const [model,name,throttle,steer,departed] of [
-  ['falco','Lamborghini',.50,0,car=>car.x> -44.5],
-  ['veloce','Ferrari',.25,.12,car=>car.x> -44.5],
+  ['falco','Lamborghini',.28,.83,car=>car.z<64.2],
+  ['veloce','Ferrari',.28,-.83,car=>car.z<64.2],
 ]){
   const world=newResort(),car=world.traffic.find(car=>car.model===model);
   // Sample the full body footprint, including the bumpers, on the actual forecourt.
-  for(let dx=-2.4;dx<=2.4;dx+=.3)for(let dz=-1.1;dz<=1.1;dz+=.2){
-    assert.equal(groundHeight(car.x+dx,car.z+dz),car.y,'The entire parked car sits on one level surface');
+  for(let front=-2.7;front<=2.71;front+=.3)for(let side=-1.51;side<=1.52;side+=.15){
+    const x=car.x+Math.sin(car.yaw)*front+Math.cos(car.yaw)*side;
+    const z=car.z-Math.cos(car.yaw)*front+Math.sin(car.yaw)*side;
+    assert.equal(groundHeight(x,z),car.y,'The full marked bay sits on one level surface');
   }
   const home={x:car.x,z:car.z,yaw:car.yaw,hp:car.hp};
   assert(!roadContact(world,car.x,car.z,car.yaw,car.x,car.z,car));
