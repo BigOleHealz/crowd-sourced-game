@@ -1,3 +1,4 @@
+import {seabedHeight} from '../public/reef-channel.js';
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {bridges}=await import('../public/brickell-map.js');
@@ -32,7 +33,7 @@ for(const bridge of bridges){
       // The aircraft is parked on the yacht helipad directly under the approach lip.
       Object.assign(world.heli,{x:sign*2,z:mid-sign,y:world.yacht.y+2.55,grounded:true,onYacht:true});
       const gap=leafGeometry(bridge,maxLift).gap;
-      assert.equal(groundHeight(0,mid,Infinity,world.doors),-2.8);
+      assert.equal(groundHeight(0,mid,Infinity,world.doors),seabedHeight(0,mid));
       Object.assign(v,{x:sign*2,z:mid-sign*45,yaw:sign>0?Math.PI:0,driver:2});
       v.y=groundHeight(v.x,v.z,Infinity,world.doors);
       let launch,landing,lastY=v.y;

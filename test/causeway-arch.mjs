@@ -1,3 +1,4 @@
+import {seabedHeight} from '../public/reef-channel.js';
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {causeway}=await import('../public/brickell-map.js');
@@ -23,7 +24,7 @@ assert(boat.x<-6 && boat.hp<boat.maxHp,'solid haunch stops the bow before the hu
 
 for(const z of [mid-12,mid,mid+12]){
   assert(causeway.height(z,'soffit')-MAP.waterY>3.7);
-  assert.equal(groundHeight(0,z,MAP.waterY+2.5),-2.8);
+  assert.equal(groundHeight(0,z,MAP.waterY+2.5),seabedHeight(0,z));
   assert.equal(groundHeight(0,z),causeway.height(z,'road'));
   assert(blocked(5.85,groundHeight(5.85,z),z,world.hp),'parapet blocks the road edge');
 }

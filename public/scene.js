@@ -1,3 +1,4 @@
+import {reefChannelView} from './reef-channel-view.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
 import {casinoSeat} from './casino-layout.js';
@@ -1121,6 +1122,7 @@ export function createScene(canvas) {
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateDogs=CITY?dogView(scene,Batch):null;
+  const updateReef=CITY?reefChannelView(scene,Batch):null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
@@ -1672,6 +1674,7 @@ export function createScene(canvas) {
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
     updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
+    updateReef?.(camera,MAP.waterY);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     // Sample once the visible gun, avatar and camera all have their current-frame pose.
