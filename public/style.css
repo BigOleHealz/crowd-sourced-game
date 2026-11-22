@@ -323,3 +323,4 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 @media(max-width:600px){#casino-dialog{margin:auto auto .4rem;width:96vw;max-height:54dvh;padding:.65rem .85rem}}
 
 #touch-pad.sprinting #touch-stick { box-shadow: 0 0 0 2px #c2efcf, 0 0 12px #5dd09c; }
+#dive-result {white-space:pre-line;font-variant-numeric:tabular-nums}

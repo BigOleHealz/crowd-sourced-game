@@ -1,4 +1,5 @@
 import {footStickPace} from './foot-stick.js';
+import {platformReport} from './platform-judges.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
@@ -873,16 +874,21 @@ function updateEquipment(local) {
   const diving=local.dive;
   const gauge=byId('dive-meter'),report=byId('dive-result');
   let mark=vitals.lastDive,spectator=false;
-  if(CITY && local.z< -385 && local.z> -445){
+  if(CITY && local.z< -385 && local.z> -490){
     for(const athlete of samples.at(-1)?.players??[]){
       const entry=athlete.lastDive;
-      if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<14){
+      if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<(entry.judging?32:14)){
         mark=entry;spectator=true;
       }
     }
   }
   report.hidden=!mark || !!diving || (!!board && !spectator);
-  if(!report.hidden)report.textContent=(spectator?'Poolside · ':'')+(mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
+  if(!report.hidden){
+    const text=mark.judging ? platformReport(mark) :
+      (mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
+    const label=(spectator?(mark.judging?'Marina · ':'Poolside · '):'')+text;
+    if(report.textContent!==label)report.textContent=label;
+  }
   gauge.hidden=!diving;
   if(diving){
     const progress=diving.time/diving.duration;
@@ -1025,6 +1031,7 @@ function updateEquipment(local) {
   }
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
+    if(board?.kind==='platform')prompt.textContent=(touch.active?'Choose your dive':'Space · Straight dive   C · Front flip')+'   101A straight ×1.6   /   103C tuck ×1.5';
     byId('space-action').textContent=board?'Straight dive':'Open for entry';
     byId('crouch-action').textContent=board?'Front flip':'Crouch';
   }

@@ -1,3 +1,4 @@
+import {judgePlatform} from './platform-judges.js';
 // Each board projects west from the east apron over the deep part of its pool.
 import {estatePools} from './swimming-pools.js';
 export const divingBoards=estatePools.filter(p=>!p.reflecting).map(p=>({
@@ -43,7 +44,8 @@ export function stepDive(p,command,dt){
   const error=d.release==null?1:Math.abs(d.release/d.duration-entryBeat);
   const alignment=Math.max(0,1-Math.abs(turns-target)*2);
   const score=Math.round((5*Math.max(0,1-error/.36)+5*alignment)*10)/10;
-  const note=d.release==null?'Missed entry':error<.065?'Clean entry':d.release/d.duration<entryBeat?'Opened early':'Opened late';
+  const judging=d.kind==='platform'?judgePlatform(d,x,diveMotion(d).angle):null;
+  const note=judging?.points===0?'Missed dive':d.release==null?'Missed entry':error<.065?'Clean entry':d.release/d.duration<entryBeat?'Opened early':'Opened late';
   return {x,z,y:d.water-.72,vx,vy:0,vz,grounded:false,swimming:true,
-    entryMark:{score,note,flip:d.flip,x,z,water:d.water,splash:.55+(10-score)*.092}};
+    entryMark:{score,note,flip:d.flip,x,z,water:d.water,splash:.55+(10-score)*.092,...(judging && {judging})}};
 }
