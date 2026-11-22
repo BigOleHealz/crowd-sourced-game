@@ -243,7 +243,8 @@ function mainHall(parts) {
   const wallHeight = ceiling - floor;
   const wallY = floor + wallHeight / 2;
   function wallX(z, lo, hi) {
-    slab(stone, (lo + hi) / 2, wallY, z, hi - lo, wallHeight, .26);
+    const h=z===north?3.45:wallHeight;
+    slab(stone,(lo+hi)/2,floor+h/2,z,hi-lo,h,.26);
   }
   function wallZ(x, lo, hi) {
     slab(stone, x, wallY, (lo + hi) / 2, .26, wallHeight, hi - lo);

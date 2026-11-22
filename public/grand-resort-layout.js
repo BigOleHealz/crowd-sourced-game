@@ -1,9 +1,12 @@
 // Dimensions in world metres. Changing a storey affects simulation, landmark and architecture together.
 export const GRAND_STORIES=20, GRAND_STEP=3.60, GRAND_BASE=.80;
 export const grandStoryY=n=>GRAND_BASE+n*GRAND_STEP;
-export const hallBounds={x:-59,z:47,w:26,d:16};
+const lobbyBounds={x:-59,z:47,w:26,d:16};
+// The north hotel has 1.45 m wrap balconies beyond its z=38.35 facade.
+export const upperNorth=40.58;
+export const hallBounds={x:-59,z:(upperNorth+55)/2,w:26,d:55-upperNorth};
 export const bridgeBounds={x:-56,z:63.65,w:12,d:17.30};
-export const grandLift={x:-59,z:39.64,exitX:-59,exitZ:40.94};
+export const grandLift={x:-59,z:40.83,exitX:-59,exitZ:41.65};
 export const atrium={west:-61.25,east:-49.10,north:46.45,south:55};
 export const grandLobbyOpening={x:-72,z:46.5,width:2.60};
 export const grandTop=grandStoryY(GRAND_STORIES);
@@ -11,7 +14,7 @@ export function inRect(b,x,z,pad=0){return Math.abs(x-b.x)<=b.w/2+pad && Math.ab
 const rect=(x,z,w,d)=>({x,z,w,d});
 const frontLeft=(atrium.west+72)/2, frontRight=(-46+atrium.east)/2;
 const balconyDecks=[
-  rect(-59,(39+atrium.north)/2,26,atrium.north-39),
+  rect(-59,(upperNorth+atrium.north)/2,26,atrium.north-upperNorth),
   rect(frontLeft,(55+atrium.north)/2,72+atrium.west,55-atrium.north),
   rect(frontRight,(55+atrium.north)/2,-46-atrium.east,55-atrium.north),
 ];
@@ -19,14 +22,14 @@ export const resortLevels=Array.from({length:GRAND_STORIES},(_,n)=>{
   const gallery=n>0 && n<5, joined=n>=9;
   const y=grandStoryY(n);
   const name=({17:'Penthouse · Grand Salon',18:'Penthouse · Private Suites',19:'Penthouse · Pool Terrace'})[n]??['Gaming floor','Crystal Slots','Poker Gallery','Sapphire Promenade','Orchid Lounge'][n]??(n===19?'Crown Penthouses':'Hotel Suites');
-  const decks=gallery?balconyDecks:joined?[hallBounds,bridgeBounds]:[hallBounds];
+  const decks=!n?[lobbyBounds]:gallery?balconyDecks:joined?[hallBounds,bridgeBounds]:[hallBounds];
   return {n,y,name,decks,gallery,joined};
 });
 export function resortLevelAt(x,y,z,tolerance=.16){
   const n=Math.floor((y-GRAND_BASE+tolerance)/GRAND_STEP),l=resortLevels[n];
   if(l?.decks.some(deck=>inRect(deck,x,z)))return l;
   // An airborne player can be above the first floor inside the uninterrupted atrium.
-  if(n>=0 && n<5 && inRect(hallBounds,x,z))return resortLevels[0];
+  if(n>=0 && n<5 && inRect(lobbyBounds,x,z))return resortLevels[0];
 }
 export function resortRoofAbove(x,z,n){
   if(n===18 && inRect(penthousePool,x,z))return grandStoryY(19)-1.63;
@@ -49,8 +52,8 @@ export function piecesForResortLevel(level){
     for(const x of [atrium.west,atrium.east])add(x,(atrium.north+55)/2,.10,55-atrium.north,0,1.12,'rail',0xd5a659);
     if(n===1){
       for(const x of [-69.4,-67.9,-66.4,-64.9,-53.5,-52,-50.5,-49]){
-        add(x,40.25,.90,1.04,0,2.30,'slot',0x41cecf);
-        add(x,41.37,.55,.55,0,.77,'stool',0x7d434e);
+        add(x,41.22,.90,1.04,0,2.30,'slot',0x41cecf);
+        add(x,42.34,.55,.55,0,.77,'stool',0x7d434e);
       }
     }
     if(n>2)for(const z of [49.1,52.6])add(-69.6,z,2.55,.88,0,.90,'sofa',n===1?0x65384f:0x417078);
@@ -73,7 +76,8 @@ export function piecesForResortLevel(level){
         add(x,50.6,2.2,.83,0,.96,'sofa',0x87686e);
       }
       for(const r of skyRooms(n).filter(r=>r.side)){
-        for(const z of [42.66,51.34])wall(r.doorX,z,.13,7.30);
+        wall(r.doorX,(upperNorth+46.30)/2,.13,46.30-upperNorth);
+      wall(r.doorX,51.34,.13,7.30);
         add(r.doorX,47,.13,1.38,2.12,GRAND_STEP-2.24,'wall',0xc5b59d);
       }
       add(-54.6,66.2,3.1,.9,0,1,'sofa',0x816458);
@@ -90,7 +94,8 @@ export function piecesForResortLevel(level){
   const gold=0xb99355;
   for(const r of skyRooms(n)){
     if(r.side){
-      for(const z of [42.66,51.34])wall(r.doorX,z,.13,7.30);
+      wall(r.doorX,(upperNorth+46.30)/2,.13,46.30-upperNorth);
+      wall(r.doorX,51.34,.13,7.30);
       add(r.doorX,47,.13,1.38,2.12,GRAND_STEP-2.24,'wall',0xc5b59d);
     }else{
       wall(-59.65,r.doorZ,4.70,.14);wall(-52.35,r.doorZ,4.70,.14);
@@ -127,7 +132,7 @@ function shellForLevel(level){
   if(!n)return [];
   const shell=[];
   const put=(x,z,w,d,bottom=0,h=GRAND_STEP,kind='window')=>shell.push({x,z,w,d,bottom,h,kind});
-  put(-72,47,.17,16);put(-46,47,.17,16);put(-59,39,26,.17);
+  put(-72,hallBounds.z,.17,hallBounds.d);put(-46,hallBounds.z,.17,hallBounds.d);put(-59,upperNorth,26,.17);
   if(joined){
     put(-67,55,10,.17);put(-48,55,4,.17);
     const fence=n===19;
@@ -143,7 +148,9 @@ const grandSolids=grandShells.map((shell,i)=>[...shell,...grandFurniture[i]]);
 // Walkable surfaces and furniture share the same metre-height inputs as the renderer.
 // Check the occupied floor and its neighbours rather than walking twenty stories of furniture.
 export function grandTopAt(x,z,pad,probe){
-  if(x<-72.25-pad || x>-45.75+pad || z<38.75-pad || z>72.55+pad)return -Infinity;
+  const pier=hotelPiers.find(p=>inRect(p,x,z,pad));
+  const pierTop=pier && probe>=.68 ? pier.h : -Infinity;
+  if(x<-72.25-pad || x>-45.75+pad || z<38.75-pad || z>72.55+pad)return pierTop;
   const n=Number.isFinite(probe)?Math.min(20,Math.floor((probe-GRAND_BASE+.001)/GRAND_STEP)):20;
   let top=-Infinity;
   for(let i=Math.max(1,n-1);i<=Math.min(19,n+1);i++){
@@ -157,5 +164,9 @@ export function grandTopAt(x,z,pad,probe){
     }
   }
   if(probe>=grandTop-.24 && inRect(hallBounds,x,z))top=Math.max(top,grandTop);
-  return top;
+  return Math.max(top,pierTop);
 }
+
+// The casino addition straddles the older hotel's footprint on four
+// independent piers; its occupied span stays supported if the infill falls.
+export const hotelPiers=[-63.45,-48.55].flatMap(x=>[65.30,72.80].map(z=>({x,z,w:.66,d:.72,h:32.78})));

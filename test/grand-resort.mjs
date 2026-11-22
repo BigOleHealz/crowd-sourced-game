@@ -48,7 +48,7 @@ assert(player.state.swimming,'pool deep section');
 assert(Math.abs(player.state.y-(pool.water-.72))<.33);
 walk(pool.x,61.9);assert(player.state.grounded && !player.state.swimming,'steps out onto pool deck');
 walk(-59,56);walk(-59,54.5);walk(grandLift.exitX,grandLift.exitZ);lift(0);
-walk(-58.55,43.70);walk(-58.5,45.7);walk(-58.5,50.8);walk(-55,50.8);
+walk(-58.55,43.70);walk(-58.5,45.7);walk(-58.5,48.2);walk(-55,48.2);walk(-55,50.8);
 assert.equal(interiorCeiling(player.state,w.doors),grandStoryY(5));
 assert(grandTopAt(-55,50.8,0,grandStoryY(5)-.6)<1,'clear five-storey entrance void');
 assert(grandTopAt(-56,60,0,5)<1,'road remains passable under tower');

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {GRAND_STEP,grandTop,grandShells,grandFurniture,grandStoryY,resortLevels,atrium,penthousePool,poolDepthAt} from './grand-resort-layout.js';
+import {GRAND_STEP,grandTop,grandShells,grandFurniture,grandStoryY,resortLevels,atrium,penthousePool,poolDepthAt,upperNorth,hallBounds,hotelPiers} from './grand-resort-layout.js';
 
 const cream=0xd4bd99,brass=0xb39359,gold=0xffd99b,amber=0xffb657,jade=0x51e3c9,coral=0xff8195;
 const deep=0x213a42,twilight=0x3b5056;
@@ -77,11 +77,13 @@ export function grandResortTower(scene,Batch,parts,cube,materials){
     trim(brass,x,bridgeY-1.65,60,.26,.27,10.3);
     light(amber,x,bridgeY-1.80,60,.32,.08,10.3);
   }
-  for(const x of [-61.1,-50.95])for(const z of [66.4,71.4]){
-    slab(deep,x,30.92,z,.71,4.35,.71);
-    light(gold,x,30.92,z,.27,4.35,.74);
+  for(const {x,z,w,d,h} of hotelPiers){
+    slab(deep,x,(h+.8)/2,z,w,h-.8,d);
+    trim(brass,x,(h+.8)/2,z,w+.10,h-.8,.14);
+    light(gold,x,(h+.8)/2,z,.13,h-.8,d+.04);
+    slab(deep,(x-56)/2,bridgeY-.46,z,Math.abs(x+56)+w,.92,d+.12);
   }
-  for(const x of [-72,-46])for(const z of [39,55]){
+  for(const x of [-72,-46])for(const z of [upperNorth,55]){
     slab(deep,x,grandTop*.53,z,.72,grandTop*.94,.75);
     for(const du of [-.25,0,.25]){
       light(du?jade:gold,x+du,grandTop*.535,z,.055,grandTop*.936,.83);
@@ -89,7 +91,7 @@ export function grandResortTower(scene,Batch,parts,cube,materials){
     }
   }
   // Projecting lantern crown and an actual sign face on each approach.
-  slab(deep,-59,grandTop-.03,47,26.40,.31,16.40);
+  slab(deep,-59,grandTop-.03,hallBounds.z,26.40,.31,hallBounds.d+.40);
   for(const [dy,w,d] of [[.26,26.85,16.81],[.86,24.6,14.8],[1.96,21.8,12.0],[3.65,16.6,8.8],[5.06,11.6,6.10],[6.19,7.80,4.48]]){
     slab(deep,-59,grandTop+dy,47,w,dy<1?.53:1.71,d);
     trim(brass,-59,grandTop+dy+.32,47,w+.23,.17,d+.23);

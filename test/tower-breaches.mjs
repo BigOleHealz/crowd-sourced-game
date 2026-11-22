@@ -46,7 +46,11 @@ for(const b of MAP.buildings.filter(b=>b.housing)){
   }
   assert.deepEqual(w.doors.collapsedTowers,[b.towerId],'sixteenth hit collapses tower '+b.towerId);
   const doors=JSON.parse(JSON.stringify(w.doors));
-  const top=solidTopAt(b.x,b.z,w.hp,0,Infinity,doors);
+  const overhead=solidTopAt(b.x,b.z,w.hp,0,Infinity,doors);
+  // The separately supported casino wing extends above the old hotel infill.
+  // Check both the walkable wreck below it and the occupied overhead structure.
+  if(b.towerId===11)assert(overhead>65,'casino suite wing remains supported on independent piers');
+  const top=b.towerId===11?solidTopAt(b.x,b.z,w.hp,0,b.base+2,doors):overhead;
   assert.equal(top,rubbleHeight(b,b.x,b.z,doors),'the pile starts at ground level when supports fail');
   assert.equal(groundHeight(b.x,b.z,Infinity,doors),top);
   delete doors.structureFalls;

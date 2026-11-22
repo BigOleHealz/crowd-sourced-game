@@ -10,7 +10,7 @@ export const tableZ=casinoSeat.z-1.35;
 // Keep the south and east thresholds clear from the sidewalk to the tables.
 const wall=(x,z,w,d)=>({x,z,w,d,h:casinoHall.ceiling-casinoHall.floor});
 export const resortBarriers=[
-  wall(-72,42.1,.26,6.2),wall(-72,51.4,.26,7.2),wall(-67.4,39,9.2,.26),wall(-52.6,39,13.2,.26),
+  wall(-72,42.1,.26,6.2),wall(-72,51.4,.26,7.2),{...wall(-67.4,39,9.2,.26),h:3.45},{...wall(-52.6,39,13.2,.26),h:3.45},
   wall(-64.5,55,15,.26),wall(-49.5,55,7,.26),
   wall(-46,41.75,.26,5.5),wall(-46,51.25,.26,7.5),
 
