@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {stations, sandHeight, lookoutSteps} from './beach-layout.js';
+import {stations, sandHeight, lookoutSteps, rescueCanopies, canopyHeight} from './beach-layout.js';
 
 export function addLookouts(scene,Batch,makeRig) {
   const grain=new THREE.TextureLoader().load('./sawn-timber.webp');grain.colorSpace=THREE.SRGBColorSpace;
@@ -11,7 +11,8 @@ export function addLookouts(scene,Batch,makeRig) {
   const wrap = new THREE.TorusGeometry(.205,.05,8,9,.30);
   for(const {x,z,number} of stations) {
     const y=sandHeight(x,z), aqua=number==='01';
-    const paint=aqua?0x55a69d:0xcc7858, pale=aqua?0x79bcb0:0xe49673;
+    const paint=aqua?0x298e95:0xd75b56, pale=aqua?0x76d5c4:0xf4a26c;
+    const accent=aqua?0xf29a79:0x31878e, ivory=0xf8eacb;
     const parts=makeRig(number,x,y,z,true);
     const lumber=new Batch(true),trim=new Batch();
     const timber=(color,dx,dy,dz,w,h,d,...rot)=>lumber.add(box,color,x+dx,y+dy,z+dz,w,h,d,...rot);
@@ -32,27 +33,37 @@ export function addLookouts(scene,Batch,makeRig) {
     // Low beadboard walls leave open sightlines from the swivel seat toward the sea.
     for(let i=0;i<6;i++){
       const h=1.51+i*.109;
-      for(const side of [-1,1]) timber(i%3===0?pale:paint,-.12,h,side*1.12,1.72,.102,.075);
-      timber(i%3===0?pale:paint,-.94,h,-.73,.076,.102,.76);
+      const band=[paint,paint,pale,ivory,accent,pale][i];
+      for(const side of [-1,1]) timber(band,-.12,h,side*1.12,1.72,.102,.075);
+      timber(band,-.94,h,-.73,.076,.102,.76);
     }
     for(const side of [-1,1]){
-      for(const dx of [-.94,.69]) timber(0xf4e8c7,dx,2.39,side*1.12,.105,1.94,.105);
+      for(const dx of [-.94,.69]){
+        const top=canopyHeight(number,dx)-.036;
+        timber(ivory,dx,(1.42+top)/2,side*1.12,.105,top-1.42,.105);
+      }
       timber(0xeee2bd,-.13,2.16,side*1.12,1.82,.097,.15);
       const end=side*1.26;
       for(const dx of [.81,1.39]) timber(0xe1d9bf,dx,1.91,end,.075,.93,.075);
       for(const dy of [1.92,2.35]) timber(0xe8debd,1.08,dy,end,.72,.065,.078);
     }
     for(const dy of [1.92,2.35]) timber(0xe8debd,1.39,dy,0,.075,.068,2.59);
-    // Overlapping standing seams, a drip edge and a contrasting fascia.
-    const tilt=.085;
-    for(let i=0;i<14;i++) {
-      const dz=-1.43+i*.22;
-      piece(i%3===0?0xe2dcbf:0xece7ca,-.11,3.48,dz,2.99,.09,.22,0,0,-tilt);
-      piece(0xcbcab4,-.11,3.536,dz-.105,2.99,.034,.028,0,0,-tilt);
+    // One station curls up toward the water, the other has a folded butterfly roof.
+    // Sandwich the dark shadow line between the pastel underside and white fascia.
+    const profile=rescueCanopies[number];
+    for(let i=1;i<profile.length;i++){
+      const [ax,ay]=profile[i-1], [bx,by]=profile[i];
+      const dx=(ax+bx)/2, dy=(ay+by)/2;
+      const width=Math.hypot(bx-ax,by-ay)+.015, slope=Math.atan2(by-ay,bx-ax);
+      piece(pale,dx,dy-.03,0,width,.07,3.04,0,0,slope);
+      piece(ivory,dx,dy+.037,0,width,.075,3.10,0,0,slope);
+      for(const side of [-1,1]){
+        piece(paint,dx,dy-.01,side*1.55,width,.065,.045,0,0,slope);
+        piece(ivory,dx,dy+.052,side*1.55,width,.048,.053,0,0,slope);
+      }
     }
     for(const side of [-1,1]){
-      timber(paint,-.11,3.407,side*1.54,3.01,.13,.08,0,0,-tilt);
-      timber(pale,-.11+side*1.47,3.408-side*.125,0,.08,.135,3.10);
+      brace(accent,[.69,2.86,side*1.12],[1.30,canopyHeight(number,1.30)-.07,side*1.12],.064);
     }
     // The west stair enters through a gap in the back wall.
     for(const side of [-1,1]) {

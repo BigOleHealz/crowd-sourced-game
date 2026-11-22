@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import {marketHalls} from './harbor-market.js';
+import {roundedBrow,marketSunburst} from './harbor-deco-view.js';
 
 export function furnishMarketStreet(solids){
   const box=new THREE.BoxGeometry(),tube=new THREE.CylinderGeometry(1,1,1,12);
   for(const [index,h] of marketHalls.entries()){
-    const {x,z,w,d}=h,blue=index?0x597d80:0x3b6970;
-    const c=index?0xb97658:0xe6dfcd,front=z+d/2;
+    const {x,z,w,d}=h,blue=index?0x467f83:0x367476;
+    const c=index?0xe69889:0x95cdc4,cream=0xffebce,brass=0xc9a873,front=z+d/2;
     const add=(color,dx,y,dz,ww,hh,dd)=>solids.add(box,color,x+dx,.8+y,z+dz,ww,hh,dd);
     // Wide walkable porches under ribbed metal fascias. Roof piers are at the
     // four corners, leaving every shop and gallery entrance exposed.
     add(0xc8bca6,0,3.79,0,w+.90,.24,d+.90);
     add(c,0,3.976,0,w+.67,.22,d+.66);
-    add(0x647473,0,4.13,0,w+.76,.10,d+.75);
+    add(blue,0,4.13,0,w+.76,.10,d+.75);
     for(let u=-w/2+.6;u<w/2;u+=.44)add(0xa1aaa0,u,4.196,0,.035,.037,d+.51);
     for(const side of [-1,1]){
       const xside=side*(w/2-.25);
@@ -28,11 +29,29 @@ export function furnishMarketStreet(solids){
         for(let j=0;j<6;j++)add(0xbba486,u,3.07+j*.16,v+.04,.48,.056,.37);
       }
     }
-    // Eyebrow and timber soffit pick out the north/south arcade entrances.
+    // The faceted sunrise sits above the north and south portals. All support
+    // is overhead so both arcades keep their full approach and turning space.
     for(const end of [-1,1]){
-      add(blue,0,3.19,end*(d/2+.49),4.86,.22,1.6);
-      for(let k=-6;k<=6;k++)add(0xb58b63,k*.35,3.055,end*(d/2+.44),.26,.045,1.38);
-      for(const u of [-1.35,1.35])add(0xffdbad,u,3.025,end*(d/2+.57),.19,.03,.19);
+      const face=z+end*(d/2+.30);
+      roundedBrow(solids,blue,x,.8+3.10,face,6.0,1.85,.13);
+      roundedBrow(solids,cream,x,.8+3.21,face,6.18,1.92,.11);
+      roundedBrow(solids,c,x,.8+3.37,face,5.84,1.65,.20);
+      for(const [width,height] of [[6.6,.39],[4.6,.69],[2.8,1.07]]){
+        add(c,0,4.10+height/2,end*(d/2-.08),width,height,.36);
+        add(cream,0,4.10+height,end*(d/2-.08),width+.10,.071,.46);
+      }
+      marketSunburst(solids,box,tube,x,.8+4.60,z+end*(d/2+.15),end,blue,brass);
+    }
+    // Ocean Drive's long horizontal shade ledges curl around a vertical blade.
+    // The two street fronts answer one another across the central avenue.
+    const avenueSide=Math.sign(-x),avenueFace=x+avenueSide*w/2;
+    for(const [y,width,depth,tint] of [[4.26,d+.54,.83,cream],[4.46,d-.46,.70,blue]]){
+      roundedBrow(solids,tint,avenueFace,.8+y,z,width,depth,.13,Math.PI/2);
+    }
+    for(let i=-1;i<=1;i++){
+      const tall=(i===0?2.74:2.11)*(index?.88:1);
+      add(cream,avenueSide*(w/2-.08),4.15+tall/2,i*.37,.53,tall,.34);
+      add(blue,avenueSide*(w/2+.20),4.20+(tall-.22)/2,i*.37,.044,tall-.22,.082);
     }
     // A band of flush terracotta and limestone guides the walk from the road
     // to the arcade. These inlays sit on the existing walkable surface.

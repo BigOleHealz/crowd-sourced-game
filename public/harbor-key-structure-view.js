@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {paneBatch} from './pane-damage-view.js';
 import {beachHut, harborHouses, harborUpperWindows} from './harbor-key-structures.js';
 import {sandHeight} from './beach-layout.js';
+import {decoResidence} from './harbor-deco-view.js';
 
 function addResidences(houses, panes, box, podiumTop) {
   const variation = new THREE.Color();
@@ -69,6 +70,8 @@ function addResidences(houses, panes, box, podiumTop) {
       }
     }
     piece(shade(roof,1.12),0,top+rise+.04,0,w+.46,.09,.24);
+
+    decoResidence(houses,box,house,top);
 
     for(const {id,tint,axis,side,across,y,width,h:height,withShutters} of windows){
       const line=side*(axis==='x' ? w/2 : d/2);

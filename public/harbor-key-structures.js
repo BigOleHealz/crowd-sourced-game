@@ -4,10 +4,10 @@ import {sandHeight} from './beach-layout.js';
 // Keep the original footprints and sequence. Their ground floors still hold the
 // existing tenants and gallery entrances.
 export const harborHouses = [
-  {x:-28,z:-240,w:13,d:19,eave:6.68,rise:2.25, siding:0x84a8ac, trim:0xece2ce, roof:0x526e72, shutters:0x355d61, finish:'clapboard'},
-  {x:-36,z:-184,w:15,d:18,eave:8.17,rise:1.48, siding:0xe3d3b2, trim:0xf4e8d2, roof:0x827368, shutters:0x756451, finish:'stucco'},
-  {x:19,z:-246,w:10,d:17,eave:6.82,rise:2.75, siding:0xc9907c, trim:0xf3e1cb, roof:0x77716b, shutters:0x436862, finish:'batten'},
-  {x:18,z:-177,w:12,d:15,eave:8.34,rise:2.03, siding:0xb2bda1, trim:0xf0e9d7, roof:0x576565, shutters:0x546955, finish:'clapboard'},
+  {x:-28,z:-240,w:13,d:19,eave:6.68,rise:2.25, siding:0x8fcac4, trim:0xece2ce, roof:0x526e72, shutters:0x397a78, finish:'clapboard'},
+  {x:-36,z:-184,w:15,d:18,eave:8.17,rise:1.48, siding:0xf1c6a4, trim:0xf4e8d2, roof:0x827368, shutters:0x9d6555, finish:'stucco'},
+  {x:19,z:-246,w:10,d:17,eave:6.82,rise:2.75, siding:0xe6a095, trim:0xf3e1cb, roof:0x77716b, shutters:0x436862, finish:'batten'},
+  {x:18,z:-177,w:12,d:15,eave:8.34,rise:2.03, siding:0xc3cbb2, trim:0xf0e9d7, roof:0x576565, shutters:0x55786b, finish:'clapboard'},
 ].map((house,i)=>house.finish==='stucco' ? house : {...house,fireHome:'harbor-'+i});
 
 export function harborUpperWindows(house,podiumTop=4.7){

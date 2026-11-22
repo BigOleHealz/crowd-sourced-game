@@ -27,6 +27,7 @@ import { addBrickellHorizon } from './brickell-horizon.js';
 import {updateShopFurniture} from './shop-furniture-view.js';
 import {breakableWindows} from './frontage-break-view.js';
 import {streetLampView} from './street-lamp-view.js';
+import {addHarborPromenade,addArrivalMarker} from './harbor-promenade.js';
 import {harborSigns} from './scenery-layout.js';
 import {galleryPlans,galleryPanes,galleryDoorPanes} from './gallery-lobbies.js';
 import {galleryLobbyView} from './gallery-lobby-view.js';
@@ -120,6 +121,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   // Face northbound traffic from the sidewalk before the causeway and at landfall.
   for(const [i,[x,z,label]] of harborSigns.entries()) {
     posts.add('harbor-'+i,x,.8,z,solids=>{
+    if(label==='HARBOR KEY')return addArrivalMarker(scene,solids,box,x,z);
     const face=document.createElement('canvas');face.width=640;face.height=144;
     const ink=face.getContext('2d');
     ink.fillStyle='#e3e6cd';ink.fillRect(0,0,640,144);
@@ -134,6 +136,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     return sign;
     });
   }
+  addHarborPromenade(solids,box,ground,harbor,streetPlan,MAP.trees);
   ground('pavers',lots.map(r=>patch(r,.80)),3);
   ground('lawn',[...lawns.map(r=>patch(r,.80)),...bayfrontLawns.flatMap(r=>verges(r,streetPlan.mainland).map(l=>patch(l,.812)))],3);
   solids.add(box,0xa59f90,cx,.15,cz,w,1,d);

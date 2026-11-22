@@ -93,7 +93,8 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
   if(x===-45 && z===53)continue; // The fountain occupies this former planting bed.
   palms.push({x,z,height:6.4+1.1*Math.abs(Math.sin(x+z)), radius:.22});
 }
-for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
+for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-253,-267])
+  palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
   barriers:[...arrivalSolids,...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
