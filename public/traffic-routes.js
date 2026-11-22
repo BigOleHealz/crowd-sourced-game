@@ -1,7 +1,7 @@
 // The center of each traffic lane is in map metres. Round each survey corner
 // with a tangent quadratic and tabulate arc length once for constant road speed.
 function circuit(points,trim) {
-  const samples=[];
+  const samples=[],stops=[];
   let length=0;
   function add(x,z,yaw) {
     const last=samples.at(-1);
@@ -16,10 +16,11 @@ function circuit(points,trim) {
     for(let n=0;n<=12;n++){
       const t=n/12,q=1-t;
       add(x+cut*(vx*t*t-ux*q*q),z+cut*(vz*t*t-uz*q*q),Math.atan2(q*ux+t*vx,-q*uz-t*vz));
+      if(n===6 && points[i][2])stops.push({at:length,name:points[i][2]});
     }
   }
   add(samples[0].x,samples[0].z,samples[0].yaw);
-  return {length,pose(distance){
+  return {length,stops,pose(distance){
     const d=distance%length;
     let lo=0,hi=samples.length-1;
     while(hi-lo>1){const mid=(lo+hi)>>1;if(samples[mid].at<=d)lo=mid;else hi=mid;}
@@ -30,10 +31,23 @@ function circuit(points,trim) {
 }
 
 const shops=circuit([[4.18,59],[4.18,-7],[29.45,-7],[29.45,59]],3);
-// Both causeways carry one lane in each direction. The long run turns
-// around on the yacht-club block, then loops through western Brickell.
-const interisland=circuit([[2.15,-43.15],[2.15,-417.15],[46.95,-417.15],[46.95,-371.85],
-  [-2.15,-371.85],[-2.15,-10.85],[-35.95,-10.85],[-35.95,-43.15]],3.1);
+// These two trips start at the same point, headed north in the east lane
+// of the causeway. A driver completing one continues straight onto the other.
+// Named points lie along the curb lane, clear of junctions and stop lines.
+const marinaMarket=circuit([
+  [2.15,-88],[2.15,-417.15],[46.95,-417.15],[46.95,-381,'Lantern Point Marina'],
+  [46.95,-371.85],[-2.15,-371.85],[-2.15,-259.9],[29.9,-259.9],
+  [29.9,-207.1],[19.1,-207.1,'Harbor Key Market'],[-2.15,-207.1],[-2.15,-10.85],
+  [-35.95,-10.85],[-35.95,-43.15],[-16,-43.15,'Hotel Maravela'],[2.15,-43.15],
+],3.1);
+const estatesBank=circuit([
+  [2.15,-88],[2.15,-421.1],[-46.9,-421.1],[-46.9,-434,'Lantern Point Estates'],
+  [-46.9,-463.9],[46.95,-463.9],[46.95,-371.85],[-2.15,-371.85],
+  [-2.15,-7],[18,-7,'Biscayne Mutual Bank'],[29.45,-7],[29.45,59],
+  [4.18,59],[4.18,-10.85],[-35.95,-10.85],[-35.95,-43.15],[2.15,-43.15],
+],3.1);
+marinaMarket.onward=estatesBank;
+estatesBank.onward=marinaMarket;
 const harbor=circuit([[-46.9,-207.1],[-46.9,-259.9],[29.9,-259.9],[29.9,-207.1]],3);
 const marina=circuit([[-46.9,-421.1],[-46.9,-463.9],[-2.1,-463.9],[-2.1,-421.1]],3);
 // The ford shuttle turns on the gravel landing at the water's edge.
@@ -48,7 +62,7 @@ const ridge=circuit([[0,-39],[5,-47],[12,-55],[16,-65],[13,-74],[6,-76.2],[3,-76
 export const cityServices=[
   [shops,.19,'sedan','omar',[35.7,2]], [shops,.52,'hatchback','maia',[35.7,10]],
   [shops,.85,'van','diego',[35.7,18]],
-  [interisland,.07,'sedan','ines',[-39.5,-28]], [interisland,.62,'hatchback','rafi',[3.9,-239]],
+  [marinaMarket,.07,'sedan','ines',[-39.5,-28]], [estatesBank,.62,'hatchback','rafi',[3.9,-239]],
   [harbor,.60,'van','wes',[30,-245]], [marina,.16,'sedan','amir',[-47,-446]],
 ];
 export const outpostServices=[
