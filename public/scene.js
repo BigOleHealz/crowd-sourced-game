@@ -11,6 +11,8 @@ import {airborneCapsules} from './molotov-view.js';
 import {poseVolleyball,volleyballActors,volleyballLooks,volleyballView} from './volleyball-view.js';
 import {volleyballMember} from './volleyball-court.js';
 import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
+import {arcadeMeleeEquipment,arcadeSwordContacts} from './arcade-melee-view.js';
+import {isArcadeMelee} from './arcade-melee-feedback.js';
 import {inClub} from './club-lucero.js';
 import {bankPresentation} from './bank-presentation.js';
 import {buildingInteriorView} from './building-interior-view.js';
@@ -121,7 +123,7 @@ function random(seed) {
   };
 }
 
-class Batch {
+export class Batch {
   constructor(textured=false) { this.uv=textured ? [] : null; }
   positions = [];
   normals = [];
@@ -700,6 +702,9 @@ function fieldEffects(scene) {
       particle(new THREE.Vector3(at.x,at.y,at.z),v,new THREE.Vector3(size,.012,size*1.7),i%3?0x85b5ba:0xe1f0ec,.36+.40*rng());
     }
   }
+  function swordCut(part,point,actor){
+    characterBurst(part,new THREE.Vector3().copy(point),new THREE.Vector3(actor.x,actor.y+1.3,actor.z),particle,rng);
+  }
   const chainMetal=new Set(['rover','supercar','tank','jet','lamp','superyacht']);
   let lastChainChipTick=-Infinity;
   function shot(s,sourceVehicle,world) {
@@ -782,7 +787,7 @@ function fieldEffects(scene) {
     particles.length=write;cloud.count=write;
     if(write) {cloud.instanceMatrix.needsUpdate=true;cloud.instanceColor.needsUpdate=true;}
   }
-  return {shot,burst,wreck,glassBurst,update,fireView,yachtExhaust,trail:plume.trail};
+  return {shot,burst,wreck,glassBurst,swordCut,update,fireView,yachtExhaust,trail:plume.trail};
 }
 
 const coats=[0xc96937,0x427382,0xb9544a,0x80739c,0xb38649,0x5c825e];
@@ -949,6 +954,7 @@ function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
     boot.mesh(ankle,uniform);
   }
   rig.tools=carriedEquipment(upper,scene,Batch);
+  rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
   return finishAvatar(scene,rig,material,shadowMap,name);
 }
 
@@ -1041,10 +1047,10 @@ function updateSwimRipples(avatar,state) {
   }
 }
 
-function pose(avatar,state,dt,seated,station,doors) {
+function pose(avatar,state,dt,seated,station,doors,tick) {
   if(state.fall?.joints) {poseRagdoll(avatar,state,dt);return;}
   releaseRagdoll(avatar);
-  poseRig(avatar,state,dt,seated,station,doors);
+  poseRig(avatar,state,dt,seated,station,doors,tick);
   riderPose(avatar,state);
   updateSwimRipples(avatar,state);
 }
@@ -1187,6 +1193,7 @@ export function createScene(canvas) {
   camera.remove(sightModels[2]);
   sightModels[2]=scopedEyepiece(camera,Batch);
   const effects=fieldEffects(scene);
+  const showSwordContacts=arcadeSwordContacts(scene,effects.swordCut);
   const updateMissiles=missileView(scene,Batch,effects.trail);
   const parked={...HELIPAD,y:groundHeight(HELIPAD.x,HELIPAD.z),yaw:0,pilot:null,grounded:true};
   let lastFocus=null;
@@ -1376,10 +1383,12 @@ export function createScene(canvas) {
     updateCasino?.(world.casino,local);
     updateResortExterior?.(dt,local,world.doors);
     const attackTick=world.frameTick??world.simTick;
+    const remoteAttackTick=world.meleeRemoteTick??attackTick;
+    const players=[local,...remotes];
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
+    for(const state of [...players,...(world?.npcs ?? []),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       if(state.venue && Math.hypot(state.x-local.x,state.z-local.z)>(state.venue==='beach'?48:22))continue;
       if(state.burning)effects.fireView.burningActor(state,local);
       live.add(state.id);
@@ -1441,7 +1450,7 @@ export function createScene(canvas) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
+        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
         if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
@@ -1468,6 +1477,7 @@ export function createScene(canvas) {
       }
       applyLostParts(a,state,scene,world.hp,dt);
     }
+    showSwordContacts(players,local,attackTick,remoteAttackTick);
     updateDogs?.(world.dogs,avatars,local,dt,clock,attackTick);
     contacts.end(world,local);
     effects.fireView.finishActors();
@@ -1601,7 +1611,7 @@ export function createScene(canvas) {
     }
     const localBody=avatars.get(local.id)?.root;
     if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
-    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming;
+    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming && !isArcadeMelee(local.weapon);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     sightModels[5].visible=sighted && local.weapon===6 && !avatars.get(local.id)?.throwSwing;
@@ -1712,6 +1722,7 @@ export function createScene(canvas) {
   }
   function showShots(shots,tick) {
     for(const shot of shots){
+      if(isArcadeMelee(shot.weapon) || (shot.weapon==='muzzle' && isArcadeMelee(shot.firedWeapon)))continue;
       if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
         pendingMuzzles.push(shot);continue;
       }
