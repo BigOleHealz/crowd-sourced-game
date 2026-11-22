@@ -383,7 +383,9 @@ function startMarinaSprint(){
 }
 function beachUse(){
   if(!CITY || mode || !canChangeStance(self) || inVolleyball() || atTable())return null;
-  return beachClubAction(self);
+  const action=beachClubAction(self);
+  if(barMenu.some(drink=>drink.id===action) && !world.npcs.some(n=>n.id==='beach-club-0' && n.beachRole==='bar'))return null;
+  return action;
 }
 function beachHint(action){
   const drink=barMenu.find(d=>d.id===action);
@@ -404,7 +406,7 @@ function beachHint(action){
 function clubInteraction(){
   if(!CITY || mode || !self || vitals.dead || vitals.fall)return '';
   if(vitals.clubSince!=null)return 'Leave dance';
-  if(!canChangeStance(self) || !inBoothAisle(self))return '';
+  if(!canChangeStance(self) || !inBoothAisle(self) || !world.npcs.some(n=>n.id==='lucero-daniel' && n.performer))return '';
   return 'Sit for a private dance';
 }
 function dogInteraction(){

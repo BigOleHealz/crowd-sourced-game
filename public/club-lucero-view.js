@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {club,clubFixtures,clubPoint,clubCast} from './club-lucero.js';
+import {club,clubFixtures} from './club-lucero.js';
 
 export function clubInterior(scene,Batch){
   const root=new THREE.Group();root.name='Club Lucero';root.position.set(club.x,club.floor,club.z);root.rotation.y=club.yaw;scene.add(root);
@@ -75,38 +75,4 @@ export function clubInterior(scene,Batch){
   };
   b.mesh(root,mat,false);
   cube.dispose();drum.dispose();
-}
-
-export function castForAudience(local,remotes,simTick){
-  if(Math.hypot(local.x-club.x,local.z-club.z)>22)return [];
-  const guest=[local,...remotes].find(p=>p.clubSince!=null);
-  // The host walks from the stage to the booth at the same point in the
-  // performance for all observers, including a guest who joins mid-song.
-  const travel=guest?Math.min(1,Math.max(0,(simTick-guest.clubSince)/72)):0;
-  const fraction=travel*travel*(3-2*travel);
-  const booth=clubPoint(-1.47,1.02);
-  return clubCast.map((p,i)=>({...p,...(i===1 && guest?{
-    x:p.x+(booth.x-p.x)*fraction,y:p.y-.27*Math.min(1,fraction*2),
-    z:p.z+(booth.z-p.z)*fraction,moving:travel>0 && travel<1}:{}),
-    yaw:(i===1 && guest?-Math.PI/2:Math.PI)-club.yaw,grounded:true,hp:100,performer:i+1}));
-}
-export function poseCabaret(actor,state,t){
-  const beat=t*(Math.PI*2*96/60),v=beat+(state.performer===2?1.3:0);
-  for(const kit of actor.tools)kit.visible=false;
-  if(state.clubSince!=null){
-    actor.body.position.y=-.38;actor.spine.rotation.x=.06;
-    for(const {leg,knee,arm,forearm,side} of actor.limbs){
-      leg.rotation.set(1.39,0,side*.07);knee.rotation.set(-1.52,0,0);
-      arm.rotation.set(.18,0,side*.09);forearm.rotation.set(.76,0,0);
-    }
-    return;
-  }
-  actor.body.position.y=.017*Math.cos(v*2);actor.spine.rotation.y=.12*Math.sin(v*.5);
-  actor.head.rotation.z=.043*Math.sin(v*.5);
-  for(const {side,leg,knee,arm,forearm} of actor.limbs){
-    const phase=v+(side>0?Math.PI:0);
-    leg.rotation.set(.07*Math.sin(phase),0,.032*side);knee.rotation.x=-.07*(1+Math.sin(phase));
-    arm.rotation.set(.26+.23*Math.cos(phase*.5),side*.16,side*(.38+.28*Math.sin(v*.5)));
-    forearm.rotation.set(.68+.32*Math.sin(phase*.5),side*.14,0);
-  }
 }

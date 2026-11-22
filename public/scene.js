@@ -17,8 +17,8 @@ import {buildingInteriorView} from './building-interior-view.js';
 import {roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
-import {beachClubCast,poseBeachClub} from './beach-club-cast.js';
-import {castForAudience,poseCabaret} from './club-lucero-view.js';
+import {poseBeachClub} from './beach-club-cast.js';
+import {poseCabaret} from './club-lucero.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
@@ -1379,7 +1379,8 @@ export function createScene(canvas) {
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...(CITY?beachClubCast(local,[local,...remotes],attackTick,skyDarkness.value>0):[]),...athletes,...hoopPlayers]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
+      if(state.venue && Math.hypot(state.x-local.x,state.z-local.z)>(state.venue==='beach'?48:22))continue;
       if(state.burning)effects.fireView.burningActor(state,local);
       live.add(state.id);
       let a=avatars.get(state.id);
@@ -1404,7 +1405,7 @@ export function createScene(canvas) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.beachRole && !state.volleyball && !state.performer && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.venue && !state.volleyball && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1414,7 +1415,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (state.beachRole || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1448,10 +1449,11 @@ export function createScene(canvas) {
         if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
-        if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick);
+        if(a.shaker)a.shaker.visible=!!state.pouring;
+        if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick,skyDarkness.value>0);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(typeof state.id==='string' && !state.dead && !state.fall &&
-          (state.casinoDealer || state.bankRole || state.performer || state.volleyball || basketballLooks[state.id])){
+          (state.casinoDealer || state.bankRole || state.volleyball || basketballLooks[state.id])){
           const alarm=gunfireAlarm(world.panicCues,state,world.simTick);
           poseBystanderCover(a,state,alarm,dt,clock,!!(state.volleyball || basketballLooks[state.id]));
         }

@@ -1,3 +1,4 @@
+import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
 import {compactAmbientView} from './ambient-snapshot.js';
 import {resortArrivals} from './public/palma-site.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
@@ -160,6 +161,7 @@ function freshResidents(){
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
   if(CITY && !mode)world.dogs=newDogs(residents);
+  if(CITY)addClubResidents(world,residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -171,7 +173,7 @@ function worldView() {
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
-  return { ...world, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => rivalView(actor, ticks)) };
+  return { ...world, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -311,13 +313,13 @@ function acceptInput(player, data, binary) {
   if(input?.type==='market'){world.trading?.request(player,input,ticks);return;}
   if(input?.type==='beachClub'){
     if(CITY && !mode && canPlayVolleyball(world,player) && !world.volleyballActivity?.member(player.id) &&
-      world.casino?.player!==player.id)useBeachClub(player,input.action,ticks,players);
+      world.casino?.player!==player.id && canServeDrink(world,input.action))useBeachClub(player,input.action,ticks,players);
     return;
   }
   if(input?.type==='clubSeat'){
     if(!CITY || mode)return;
     if(input.action==='leave' && player.clubSince!=null)leaveClubSeat(player);
-    else if(input.action==='join' && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
+    else if(input.action==='join' && staffAtWork(world,'lucero-daniel') && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
       !gunnerVehicle(world,player.id) && world.heli.pilot!==player.id && world.jet.pilot!==player.id &&
       world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
     return;
@@ -562,8 +564,9 @@ function tick() {
     stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
     stepPartyEvacuation(world,npcs,ticks,step);
+    stepClubResidents(world,players,ticks,step);
     for(const npc of npcs){
-      if(npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
+      if(npc.venue || npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
       if(!stepDogPursuit(world,npc,players,ticks,step))updateRival(npc,ticks,step,world.hp,world);
     }
   }
@@ -813,7 +816,7 @@ function tick() {
   if(players.size)stepSharkScavenging(world,players,npcs,ticks,step);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
-    for(const npc of npcs)sampleRanger(npc,step,world);
+    for(const npc of npcs)sampleRanger(npc,step,world,ticks);
   }
   world.hoops?.step(step);
   if(marina){
