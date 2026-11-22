@@ -1,3 +1,4 @@
+import {compactAmbientView} from './ambient-snapshot.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
@@ -268,7 +269,8 @@ function playerState(player) {
 
 function publish() {
   if (!players.size) return;
-  const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: worldView() });
+  const view=worldView();
+  const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: CITY?compactAmbientView(view):view });
   let packed;
   for (const { ws, packedSnapshots } of players.values()) {
     if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) continue;
