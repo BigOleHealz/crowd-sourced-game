@@ -5,6 +5,7 @@ import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {newDogs,removeDog,stepDogs} from './public/dog-walkers.js';
 import {createGulls} from './public/gull-flight.js';
 import {stepSharkDogEncounters} from './public/shark-dog-encounter.js';
 import {createSharks} from './public/shark-swim.js';
@@ -107,6 +108,7 @@ function freshWorld(){
   }
   if(CITY && !mode){
     w.boats.push(...partyFleet());
+    Object.defineProperty(w,'removeEncounterDog',{value:dog=>removeDog(w,dog)});
     const table=blackjack();
     Object.defineProperty(w,'blackjack',{value:table});
     w.casino=table.state;
@@ -150,6 +152,7 @@ function freshResidents(){
   const residents=newRivals({resort:!mode});
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
+  if(CITY && !mode)world.dogs=newDogs(residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -774,7 +777,10 @@ function tick() {
   }
   world.stepGulls?.(step);
   world.stepSharks?.(step,players,ticks,damageActor);
-  if(players.size && world.removeEncounterDog)stepSharkDogEncounters(world,step,world.removeEncounterDog);
+  if(players.size && world.dogs){
+    stepDogs(world,npcs,players,step,ticks);
+    stepSharkDogEncounters(world,step,world.removeEncounterDog);
+  }
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);

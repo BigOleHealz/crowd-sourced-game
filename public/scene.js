@@ -21,6 +21,7 @@ import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {dogView} from './dog-view.js';
 import {gullView} from './gull-view.js';
 import {dolphinView} from './dolphin-view.js';
 import {sharkDogSpray} from './shark-dog-spray.js';
@@ -1082,6 +1083,7 @@ export function createScene(canvas) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateDogs=CITY?dogView(scene,Batch):null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
@@ -1417,6 +1419,7 @@ export function createScene(canvas) {
       }
       applyLostParts(a,state,scene,world.hp,dt);
     }
+    updateDogs?.(world.dogs,avatars,local,dt,clock,attackTick);
     contacts.end(world,local);
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}

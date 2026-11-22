@@ -269,6 +269,14 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const b of world.boats??[]) {
     if(!b.wrecked && b.id!==round.source)accept(box(round,d,{...b,y:b.y-.5},2.08,1.55,5.30,b.yaw),b,b.id);
   }
+  for(const dog of world.dogs??[]){
+    if(!dog.hp || dog.mode==='removed' || dog.carrier===round.shooter)continue;
+    const scale=dog.size;
+    accept(box(round,d,{x:dog.x,y:dog.y+.23*scale,z:dog.z},.32*scale,.45*scale,.83*scale,dog.yaw),dog,'dog');
+    const nose=.4*scale;
+    accept(box(round,d,{x:dog.x+Math.sin(dog.yaw)*nose,y:dog.y+.55*scale,z:dog.z-Math.cos(dog.yaw)*nose},
+      .27*scale,.35*scale,.36*scale,dog.yaw),dog,'dog');
+  }
   for(const actor of actors){
     const now=actor.state, prev=previous.get(actor)??now;
     // Respawns are discontinuities; ordinary movers sweep relative to the bullet.

@@ -14,7 +14,7 @@ const MAX_HP = 100;
 const RESPAWN_TICKS = 90;
 const SHIELD_TICKS = 60;
 const patrols = [
-  { id: 'rival-fern', name: 'Fern', points: [[-3.5, 8], [-2.8, 7.6], [-3.3, 6.7]] },
+  { id: 'rival-fern', name: 'Fern', points: CITY ? [[-7.55,8],[-7.55,16.2],[-8.25,13.7],[-8.25,8.1]] : [[-3.5, 8], [-2.8, 7.6], [-3.3, 6.7]] },
   { id: 'rival-rowan', name: 'Rowan', points: [[10, 13], [11, 12], [12, 13.5]] },
   ...(CITY ? brickellResidents : outpostPatrols),
 ];
