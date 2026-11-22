@@ -16,6 +16,11 @@ import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
 const path=new WeakMap();
+// Each display car can pull forward into the street from its own building's side.
+const valetBays=[
+  ['falco',-65.5,67.25,0,200],
+  ['veloce',-45.5,56.35,Math.PI/2,195],
+];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
 function chooseDestination(route,car){
@@ -39,19 +44,29 @@ function destinationGap(route,car,dt){
   return route.stopGap;
 }
 
-export function newCityTraffic(){
+function newTrafficCar(id,model,pose,speed,npcDriver,maxHp=250){
+  return {id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed,
+    lateralSpeed:0,engineLoad:npcDriver ? .36 : 0,driver:null,npcDriver,takeover:null,hp:maxHp,maxHp,
+    wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
+}
+
+export function newCityTraffic({resort=false}={}){
   const services=CITY?cityServices:outpostServices;
-  return services.map(([route,offset,model,name,bay,cruise],i)=>{
+  const fleet=services.map(([route,offset,model,name,bay,cruise],i)=>{
     const distance=route.length*offset,pose=route.pose(distance);
     const npcDriver='rival-'+name,id=(CITY?'city-car-':'outpost-car-')+(i+1);
-    const car={id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed:cruise??civilianProfiles[model].cruise,
-      lateralSpeed:0,engineLoad:.36,driver:null,npcDriver,takeover:null,hp:250,maxHp:250,
-      wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
+    const car=newTrafficCar(id,model,pose,cruise??civilianProfiles[model].cruise,npcDriver);
     const journey={track:route,bay,cruise,distance,wait:0};
     chooseDestination(journey,car);
     path.set(car,journey);
     return car;
   });
+  if(CITY && resort)for(const [model,x,z,yaw,hp] of valetBays){
+    const car=newTrafficCar('valet-'+model,model,{x,z,yaw},0,null,hp);
+    path.set(car,{bay:[x,z],yaw});
+    fleet.push(car);
+  }
+  return fleet;
 }
 
 export const drivenTraffic=(world,id)=>id==null?null:world?.traffic?.find(car=>car.driver===id)??null;
@@ -184,9 +199,10 @@ function recoverTrafficCar(world,car,actors,dt){
   if(car.model==='engine' && car.id!=='fire-engine-0'){
     world.traffic=world.traffic.filter(v=>v!==car);return;
   }
-  const [x,z]=path.get(car)?.bay??[engineBay.x,engineBay.z],y=groundHeight(x,z);
-  if(roadContact(world,x,z,0,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
-  Object.assign(car,{x,y,z,yaw:0,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
+  const home=path.get(car),[x,z]=home?.bay??[engineBay.x,engineBay.z],yaw=home?.yaw??0;
+  const y=groundHeight(x,z);
+  if(roadContact(world,x,z,yaw,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
+  Object.assign(car,{x,y,z,yaw,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
   delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }

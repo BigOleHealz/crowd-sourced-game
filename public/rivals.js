@@ -2,6 +2,7 @@ import {sidewalkPace,curbWait} from './sidewalk-crossings.js';
 import {stepPedestrianReaction} from './pedestrian-reactions.js';
 import {outpostPatrols} from './outpost-patrols.js';
 import {brickellResidents} from './brickell-residents.js';
+import {resortGuests} from './resort-guests.js';
 import {packedJoints,releaseJoints} from './ragdoll.js';
 // The server advances every actor's lifecycle on the same 30 Hz clock.
 import { vehicleContact } from './vehicle-contact.js';
@@ -59,8 +60,9 @@ function patrolStart(route) {
   return { x, y: groundHeight(x, z), z, vy: 0, grounded: true };
 }
 
-export function newRivals() {
-  return patrols.map((route,index) => ({ sidewalk:CITY && index>=2 ? sidewalkPace(index) : null, id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
+export function newRivals({resort=false}={}) {
+  const routes=CITY && resort ? [...patrols,...resortGuests] : patrols;
+  return routes.map((route,index) => ({ sidewalk:CITY && index>=2 ? sidewalkPace(index) : null, id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
     state: patrolStart(route), yaw: Math.PI, moving: false, weapon: 1, life: newLife(0, false) }));
 }
 

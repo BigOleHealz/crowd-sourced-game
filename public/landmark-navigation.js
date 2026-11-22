@@ -1,4 +1,4 @@
-import {casinoName} from './casino-layout.js';
+import {casinoName,casinoEntrance} from './casino-layout.js';
 import {bankSite,bankRoadZ} from './bank-site.js';
 import {fuelStop} from './fire-sites.js';
 import {avenues,streets,harbor,streetPlan} from './brickell-map.js';
@@ -9,7 +9,7 @@ import {basketballCourt} from './basketball-layout.js';
 
 export const destinations=CITY?new Map([
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[-71,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
-  [casinoName,[26.2,-389.1]],
+  [casinoName,[casinoEntrance.x,casinoEntrance.z+.8]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
@@ -31,16 +31,16 @@ function path(coords){
   }
 }
 if(CITY){
-  for(const z of streets)path([-71,...avenues,...(z===-45?[-16]:z===bankRoadZ?[bankSite.x]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
+  for(const z of streets)path([-71,...avenues,...(z===61?[casinoEntrance.x]:[]),...(z===-45?[-16]:z===bankRoadZ?[bankSite.x]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
   for(const x of avenues)path([x===0?-60:-55,...streets,...(x===0?[14]:[]),...(x===32?[roadGarages[0].z]:[]),71].sort((a,b)=>a-b).map(z=>[x,z]));
   const outer=[streetPlan.westStreet,0,streetPlan.eastStreet];
   for(const z of [harbor.crossing,streetPlan.northStreet])path((z===harbor.crossing?[...outer,19.1].sort((a,b)=>a-b):[...outer,fuelStop.x].sort((a,b)=>a-b)).map(x=>[x,z]));
   for(const x of outer)path([[x,harbor.crossing],[x,streetPlan.northStreet]]);
   path([[streetPlan.eastStreet,streetPlan.northStreet],[37,streetPlan.northStreet],[39,basketballCourt.z+2.7],destinations.get(basketballCourt.name)]);
   path([[0,-60],[0,harbor.crossing]]);path([[0,streetPlan.northStreet],[0,-370]]);
-  for(const z of [-466,-419,-370])path((z===-370?[-49,0,26.2,49]:[-49,0,49]).map(x=>[x,z]));
+  for(const z of [-466,-419,-370])path([-49,0,49].map(x=>[x,z]));
   for(const x of [-49,0,49])path([-466,-419,...(x===49?[-377]:[]),-370].map(z=>[x,z]));
-  path([[26.2,-370],[26.2,-382],destinations.get(casinoName)]);
+  path([[casinoEntrance.x,61],destinations.get(casinoName)]);
   path([[49,-419],[66,-419]]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
 }else{

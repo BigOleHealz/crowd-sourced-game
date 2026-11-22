@@ -98,7 +98,7 @@ function canPlayVolleyball(world,player){
 }
 function freshWorld(){
   const w=newExpedition({civilianMarina:!mode});
-  w.traffic=newCityTraffic();w.traffic.push(fireEngine());
+  w.traffic=newCityTraffic({resort:!mode});w.traffic.push(fireEngine());
   if(CITY){
     w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
@@ -145,7 +145,7 @@ function freshWorld(){
 }
 let world = freshWorld();
 function freshResidents(){
-  const residents=newRivals();
+  const residents=newRivals({resort:!mode});
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
   return residents;

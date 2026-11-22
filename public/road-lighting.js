@@ -16,7 +16,7 @@ export function lampPose(car,side,rear=false){
   const span=profile?.bodyWidth??(gt?1.02:.82),nose=profile?.nose??(gt?-2.32:-1.67),tail=profile?.tail??(gt?2.32:1.69);
   const yaw=car.yaw,pitch=car.suspension?.pitch??0,roll=car.suspension?.roll??0;
   const along=rear?tail:nose,across=side*span*.70,c=Math.cos(yaw),s=Math.sin(yaw);
-  const y=car.y+(gt?.52:.80)+(car.suspension?.heave??0)-along*Math.sin(pitch)+across*Math.sin(roll);
+  const y=car.y+(gt||profile?.cabin ? .52 : .80)+(car.suspension?.heave??0)-along*Math.sin(pitch)+across*Math.sin(roll);
   return {x:car.x+across*c-along*s,y,z:car.z+across*s+along*c,aim:pitch-.085};
 }
 
