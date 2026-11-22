@@ -1,5 +1,6 @@
-import {brickellMap,cityGround} from './brickell-map.js';
-import {clearSharkCourse} from './shark-swim.js';
+import {brickellMap} from './brickell-map.js';
+import {clearSharkCourse,sharkSeabed} from './shark-swim.js';
+import {dogTossNotice} from './shark-dog-encounter.js';
 import {inDivingLane} from './marina-platform.js';
 import {immersedSurface} from './water-impact.js';
 
@@ -13,7 +14,7 @@ export function inFeedingDepth(y,floor){
   return y<=sea+.20 && y>=floor-.20 && sea-floor>1.5;
 }
 function safeWater(p){
-  return !inDivingLane(p.x,p.z) && inFeedingDepth(p.y,cityGround(p.x,p.z));
+  return !inDivingLane(p.x,p.z) && inFeedingDepth(p.y,sharkSeabed(p.x,p.z));
 }
 function release(shark){
   if(shark.phase==='scavenge-approach' || shark.phase==='scavenging')shark.phase='patrol';
@@ -27,7 +28,30 @@ function addSite(memory,key,point,blast,tick,body){
   if(memory.sites.size>=12)memory.sites.delete(memory.sites.keys().next().value);
   memory.sites.set(key,{key,x:point.x,y:sea-.24,z:point.z,created:tick,expires:tick+(blast?540:330),blast,body});
 }
+// The strike owner controls the dog. Other sharks share a moving feeding site
+// until contact, then stay at the last water position for a short feeding bout.
+function observeDogTosses(world,memory,tick){
+  for(const lead of world.sharks){
+    const encounter=lead.dogEncounter;
+    if(!encounter?.tossKey)continue;
+    const dog=world.dogs?.find(d=>d.id===encounter.dogId);
+    if(!dog)continue;
+    const key=encounter.tossKey;
+    if(dog.mode==='swimming' && safeWater(dog)){
+      addSite(memory,key,dog,false,tick,null);
+      const site=memory.sites.get(key);
+      Object.assign(site,{x:dog.x,z:dog.z,lead,dog,notice:dogTossNotice,expires:tick+240});
+    }else if(dog.mode==='removed' && encounter.consumed){
+      const site=memory.sites.get(key);
+      if(site?.dog){
+        Object.assign(site,{x:dog.x,z:dog.z,expires:tick+240});
+        delete site.dog;delete site.lead;
+      }
+    }
+  }
+}
 function observe(world,memory,players,npcs,tick){
+  observeDogTosses(world,memory,tick);
   const subjects=[...players.values(),...npcs];
   const bodies=new Map(subjects.map(p=>[p.id,p.life]));
   for(const dog of world.dogs??[])bodies.set(dog.id,dog);
@@ -61,7 +85,10 @@ function observe(world,memory,players,npcs,tick){
   }
   const present=new Set(bodies.values());
   for(const group of ['sharks','manatees','dolphins','gulls'])for(const a of world[group]??[])present.add(a);
-  for(const [key,site] of memory.sites)if(tick>=site.expires || site.body && (site.body.hp || site.body.mode==='removed' || !present.has(site.body)))memory.sites.delete(key);
+  for(const [key,site] of memory.sites){
+    const lostDog=site.dog && (site.dog.mode!=='swimming' || site.lead.dogEncounter?.tossKey!==site.key || !safeWater(site.dog));
+    if(lostDog || tick>=site.expires || site.body && (site.body.hp || site.body.mode==='removed' || !present.has(site.body)))memory.sites.delete(key);
+  }
 }
 function assign(world,sites){
   const pairs=[];
@@ -69,16 +96,17 @@ function assign(world,sites){
     if(!s.hp || s.phase!=='patrol' || s.target!=null || s.dogEncounter || s.scavenge)continue;
     for(const site of sites.values()){
       const d=distance(s,site);
-      if(d<=(site.blast?124:18))pairs.push({s,site,d});
+      if(d<=(site.notice??(site.blast?124:18)))pairs.push({s,site,d});
     }
   }
   for(const {s,site} of pairs.sort((a,b)=>a.d-b.d)){
     if(s.scavenge)continue;
     const others=world.sharks.filter(o=>o.scavenge?.key===site.key);
-    if(others.length>=3)continue;
+    if(others.length+(site.lead?1:0)>=3)continue;
     const approach=Math.atan2(s.x-site.x,site.z-s.z);
     const nose=1.47*s.size+.52;
     const bearing=approachOffsets.map(offset=>approach+offset).find(a=>{
+      if(site.lead && Math.abs(angleDiff(a,Math.atan2(site.lead.x-site.x,site.z-site.lead.z)))<=.73)return false;
       if(others.some(o=>Math.abs(angleDiff(a,o.scavenge.bearing))<=.73))return false;
       const stand={x:site.x+Math.sin(a)*nose,z:site.z-Math.cos(a)*nose};
       return clearSharkCourse(s,stand);

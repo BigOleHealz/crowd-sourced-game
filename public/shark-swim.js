@@ -1,5 +1,6 @@
 import {floatingBody} from './marine-float.js';
-import {brickellMap,cityGround} from './brickell-map.js';
+import {brickellMap,bridges,cityGround} from './brickell-map.js';
+import {bridgeMiddle} from './drawbridges.js';
 import {inDivingLane} from './marina-platform.js';
 import {sharkDefeatPose} from './shark-defeat.js';
 
@@ -12,21 +13,26 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
 // Patrols cover the bay, Harbor Key, Lantern Point and the west channel.
 const huntingHomes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
-// These four ambient sharks patrol continuously. Only the original five hunt swimmers.
-const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292]];
-export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98];
+// Ambient sharks feed on wildlife. Only the original five hunt swimmers.
+const channelHomes=bridges.flatMap(b=>[[b.west-5,bridgeMiddle(b)-3],[b.east+5,bridgeMiddle(b)+3]]);
+const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292],...channelHomes];
+export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98,...bridges.flatMap(()=>[.94,1.06])];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
+
+// Sample at fin height so an overhead bridge leaves the channel navigable,
+// while low approaches and shallow shoreline still block the shark.
+export const sharkSeabed=(x,z)=>cityGround(x,z,water+.55);
 
 function openWater(x,z,padding,edgePadding=padding){
   if(inDivingLane(x,z))return false;
   if(x-edgePadding<brickellMap.westBound || x+edgePadding>brickellMap.bounds ||
      z-edgePadding<brickellMap.northBound || z+edgePadding>brickellMap.bounds)return false;
-  return water-cityGround(x,z)>=deep && water-cityGround(x-padding,z)>=deep &&
-    water-cityGround(x+padding,z)>=deep && water-cityGround(x,z-padding)>=deep &&
-    water-cityGround(x,z+padding)>=deep;
+  return water-sharkSeabed(x,z)>=deep && water-sharkSeabed(x-padding,z)>=deep &&
+    water-sharkSeabed(x+padding,z)>=deep && water-sharkSeabed(x,z-padding)>=deep &&
+    water-sharkSeabed(x,z+padding)>=deep;
 }
 function clearCourse(a,b){
-  const steps=Math.ceil(distance(a,b)/1.6);
+  const steps=Math.max(1,Math.ceil(distance(a,b)/1.6));
   for(let k=1;k<=steps;k++){
     const t=k/steps;
     if(!openWater(a.x+(b.x-a.x)*t,a.z+(b.z-a.z)*t,1.5,0))return false;
