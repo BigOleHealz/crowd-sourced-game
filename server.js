@@ -5,6 +5,7 @@ import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
+import {recordWheelContact} from './public/skate-touchdown.js';
 import {parkRides} from './public/skate-park.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
@@ -732,7 +733,7 @@ function tick() {
       if(!player.state.ride)parkRide(world,player,true);
       else {
         const {x,y,z,ride}=player.state;
-        Object.assign(item,{x,y,z,yaw:ride.yaw});player.yaw=ride.yaw;
+        Object.assign(item,{x,y,z,yaw:ride.yaw});recordWheelContact(item,player.state,ticks);player.yaw=ride.yaw;
       }
       player.moving=player.sprint=false;
       continue;

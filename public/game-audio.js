@@ -1,5 +1,6 @@
 import {courtContactAudio,courtContactBuffer} from './basketball-audio.js';
 import {hoop} from './basketball-layout.js';
+import {wheelContactSounds,wheelLandingBuffer} from './skate-touchdown.js';
 import {beachDJ} from './beach-club.js';
 import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
@@ -32,6 +33,7 @@ const shapes={
 };
 function synth(context,name) {
   if(name.startsWith('hoops/'))return courtContactBuffer(context,name.slice(6));
+  if(name.startsWith('park-wheel/'))return wheelLandingBuffer(context,name==='park-wheel/bike');
   if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
@@ -246,10 +248,13 @@ export function createGameAudio(button,slider,level,caption) {
     if(segment)v.source.start(0,segment.start,segment.duration);
     else v.source.start();
   }
+  let previousRides;
   let previousDogs;
   const courtSounds=courtContactAudio();
   function reset(world) {
-    previousDogs=world?.dogs;courtSounds.reset(world?.basketball);
+    courtSounds.reset(world?.basketball);
+    previousRides=world?.rides;
+    previousDogs=world?.dogs;
     thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
     if(caption)caption.hidden=true;
     collapse.reset();flameEmitters.clear();
@@ -279,6 +284,11 @@ export function createGameAudio(button,slider,level,caption) {
       if(Math.hypot(listener.x-hoop.x,listener.z-hoop.z)<=38)
         burst('hoops/'+cue.kind,hoop,listener,yaw,cue.kind==='swish'?.66:.86,cue.id);
     });
+    wheelContactSounds(previousRides,world.rides,world.simTick,(kind,event)=>{
+      if(Math.hypot(listener.x-event.x,listener.z-event.z)<28)
+        burst('park-wheel/'+kind,event,listener,yaw,.25+.48*event.impact,event.tick);
+    });
+    previousRides=world.rides;
     for(const npc of world.npcs??[]){
       const time=npc.drenchedAt;
       if(time==null || time===sprayLines.get(npc.id) || world.simTick-time>18 || npc.dead)continue;

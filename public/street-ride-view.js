@@ -1,3 +1,4 @@
+import {wheelContactPose} from './skate-touchdown.js';
 import {trickTime} from './skate-jam.js';
 import {bicycleModel,cyclistPose} from './shop-bicycle.js';
 import * as THREE from 'three';
@@ -35,9 +36,9 @@ export function streetRideView(scene,Batch){
       const actor=item.rider===local.id?local:remotes.find(p=>p.id===item.rider);
       const at=actor?.ride?.id===item.id?actor:item;
       model.userData.animate?.(at.ride,dt);
-      model.position.set(at.x,at.y+.007,at.z);
+      const pose=wheelContactPose(at);model.position.set(at.x,pose.y,at.z);
       const trick=at.ride?.trick,turn=trick?Math.min(1,trick.age/trickTime(trick.kind))*2*Math.PI:0;
-      model.rotation.set(at.ride && !at.grounded?-.10*Math.tanh(at.vy):0,-(at.ride?.yaw??item.yaw)+(trick?.kind==='shove'?turn:0),trick?.kind==='kickflip'?turn:0,'YXZ');
+      model.rotation.set(pose.pitch,-(at.ride?.yaw??item.yaw)+(trick?.kind==='shove'?turn:0),trick?.kind==='kickflip'?turn:0,'YXZ');
     }
   };
 }
@@ -45,13 +46,19 @@ export function streetRideView(scene,Batch){
 export function riderPose(a,state){
   const r=state.ride;
   if(!r)return;
-  if(r.kind==='bike'){cyclistPose(a,state);return;}
-  a.root.position.set(state.x,state.y+.117,state.z);a.root.rotation.set(0,-r.yaw+1.30,0);
-  a.body.position.set(0,-.085,0);a.spine.rotation.set(-.07,-.24,r.steer*.10);
+  const pose=wheelContactPose(state),bend=pose.bend;
+  if(r.kind==='bike'){
+    cyclistPose(a,state);a.root.position.y=pose.y+.183;
+    a.root.rotation.x+=pose.pitch;a.body.position.y-=bend*.075;
+    for(const l of a.limbs){l.leg.rotation.x+=bend*.26;l.knee.rotation.x-=bend*.45;l.forearm.rotation.x+=bend*.23;}
+    return;
+  }
+  a.root.position.set(state.x,pose.y+.11,state.z);a.root.rotation.set(0,-r.yaw+1.30,0);
+  a.body.position.set(0,-.085-bend*.18,0);a.spine.rotation.set(-.07-bend*.16,-.24,r.steer*.10);
   a.head.rotation.y=-.68;
   for(const l of a.limbs){
-    l.leg.rotation.set(.33,0,l.side*.22);l.knee.rotation.set(-.60,0,0);
-    l.ankle.rotation.set(.27,0,-l.side*.22);l.arm.rotation.set(.03,0,l.side*(.44+Math.abs(r.steer)*.21));l.forearm.rotation.set(.21,0,0);
+    l.leg.rotation.set(.33+bend*.55,0,l.side*.22);l.knee.rotation.set(-.60-bend*1.03,0,0);
+    l.ankle.rotation.set(.27+bend*.48,0,-l.side*.22);l.arm.rotation.set(.03,0,l.side*(.44+Math.abs(r.steer)*.21));l.forearm.rotation.set(.21,0,0);
   }
   if(r.pushing){
     const back=a.limbs[1],stroke=Math.max(0,Math.sin(a.cycle*4.2));
