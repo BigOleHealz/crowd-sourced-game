@@ -66,6 +66,7 @@ import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
 import { patrolBoatView } from './patrol-boat-view.js';
+import {partyYachtView} from './party-yacht-view.js';
 import {marinaFleetView} from './marina-fleet-view.js';
 import {marinaHullContains,marinaModel} from './marina-fleet-layout.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
@@ -1081,6 +1082,7 @@ export function createScene(canvas,onFootfall) {
   const contacts=contactShadows(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
+  const updatePartyYachts=CITY?partyYachtView(scene,Batch):null;
   const updateMarinaFleet=CITY?marinaFleetView(scene,Batch):null;
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
@@ -1232,6 +1234,7 @@ export function createScene(canvas,onFootfall) {
     updateRuralGlass?.(world.doors?.brokenPanes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
+    updatePartyYachts?.(world.boats,dt,local,world.simTick);
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}

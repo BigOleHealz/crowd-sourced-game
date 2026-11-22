@@ -40,7 +40,13 @@ export const marinaModels={
     wave:{rise:.022,roll:.52,trim:.025},motorPitch:.74,
   }),
 };
-export const marinaModel=boat=>marinaModels[boat?.boatModel];
+const partyModel=makeModel({
+  title:'Party yacht',length:19,beam:5.5,deck:1.32,keel:-.99,helmX:-.8,helmZ:-1.7,roof:4.2,maxHp:780,
+  hydrodynamics:{ahead:6.2,astern:2.1,thrust:1.32,brake:2.7,drag:.55,dragSpeed:.067,
+    rudder:.60,flow:2.7,response:1.8,grip:4},
+  wave:{rise:.035,roll:.50,trim:.029},motorPitch:.70,
+});
+export const marinaModel=boat=>boat?.partyYacht?partyModel:marinaModels[boat?.boatModel];
 
 function east(id,name,boatModel,hull,z,side){
   const besidePier=1.1+marinaModels[boatModel].halfWidth+.28;

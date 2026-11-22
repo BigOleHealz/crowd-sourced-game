@@ -245,7 +245,14 @@ export function createGameAudio(button,slider,level) {
       nextEnvironment=context.currentTime+.2;
       const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
       const inEarshot=world.map==='brickell' && Math.hypot(listener.x-clubSpeaker.x,listener.z-clubSpeaker.z)<19;
-      if(inEarshot && audible() && !buffers.has('lucero'))loadClubTrack();
+      let party=null,partyRange=36;
+      for(const b of world.boats??[]){
+        if(!b.partyYacht || b.wrecked)continue;
+        const range=Math.hypot(listener.x-b.x,listener.y-b.y-2,listener.z-b.z);
+        if(range<partyRange){party=b;partyRange=range;}
+      }
+      if((inEarshot || party) && audible() && !buffers.has('lucero'))loadClubTrack();
+      motor('lucero',party,!!party && buffers.has('lucero'),1,.55*(1-partyRange/36),listener,yaw,'yacht-party-music');
       motor('lucero',clubSpeaker,inEarshot && buffers.has('lucero'),1,.56,listener,yaw);
       const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
       const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
@@ -341,7 +348,8 @@ export function createGameAudio(button,slider,level) {
     motor('rotor',heli,drive && near,heli.grounded?.88:1+Math.min(.085,airspeed*.002),heli.grounded?.41:.61,listener,yaw);
     const present=new Set();
     for(const boat of boats) {
-      if(boat.driver==null || boat.wrecked)continue;
+      if((boat.driver==null && !boat.cruising) || boat.wrecked)continue;
+      if(boat.cruising && Math.hypot(boat.x-listener.x,boat.z-listener.z)>45)continue;
       const mix=boatMix(boat), motorKey='boat/motor/'+boat.id, wakeKey='boat/wake/'+boat.id;
       present.add(motorKey);
       motor('outboard',boat,true,mix.motorRate,mix.motorVolume,listener,yaw,motorKey);
