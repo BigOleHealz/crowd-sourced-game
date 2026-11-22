@@ -1380,6 +1380,7 @@ export function createScene(canvas) {
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
     for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...(CITY?beachClubCast(local,[local,...remotes],attackTick,skyDarkness.value>0):[]),...athletes,...hoopPlayers]) {
+      if(state.burning)effects.fireView.burningActor(state,local);
       live.add(state.id);
       let a=avatars.get(state.id);
       if(state.dead && state.deathKind==='blast'){
@@ -1467,6 +1468,7 @@ export function createScene(canvas) {
     }
     updateDogs?.(world.dogs,avatars,local,dt,clock,attackTick);
     contacts.end(world,local);
+    effects.fireView.finishActors();
     distant?.finish();
     for(const [key,a] of avatars) if(!live.has(key)){removeAvatar(a);avatars.delete(key);}
     const boat=crewBoat(world,local.id);

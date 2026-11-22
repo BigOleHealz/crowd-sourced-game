@@ -22,7 +22,23 @@ export function districtFireEffects(scene,puff,random){
       puff(at,velocity.clone(),.13,.38,.16+random()*.14,i===0?0xffcf73:0xe47836,.74);
     }
   }
+  let actorSheets,actorDelay=0,emitActors=false;
+  function burningActor(actor,local){
+    if(Math.hypot(actor.x-local.x,actor.z-local.z)>55)return;
+    const height=actor.stance==='prone'?.28:actor.stance==='crouch'?.8:1.12;
+    actorSheets??=flameSheets(scene);
+    actorSheets.add(actor.x,actor.y+height*.42,actor.z,.54,height*.90);
+    if(!emitActors)return;
+    for(let i=0;i<3;i++){
+      at.set(actor.x+(random()-.5)*.44,actor.y+height*(.55+.6*random()),actor.z+(random()-.5)*.34);
+      velocity.set((random()-.5)*.3,.8+random()*.7,(random()-.5)*.3);
+      puff(at,velocity.clone(),.16,.32,.37,i%2?0xffba53:0xe65720,.88);
+    }
+  }
   function update(doors,local,dt){
+    actorSheets?.begin();actorSheets?.tick(dt);
+    actorDelay-=dt;emitActors=actorDelay<=0;
+    if(emitActors)actorDelay=.09;
     sheets.tick(dt);streams.update(dt);
     if(!doors?.fires){sheets.begin();sheets.finish();scars.begin();scars.finish();return;}
     delay-=dt;if(delay>0)return;
@@ -83,5 +99,5 @@ export function districtFireEffects(scene,puff,random){
     }
     sheets.finish();scars.finish();
   }
-  return {pulse,update};
+  return {pulse,update,burningActor,finishActors:()=>actorSheets?.finish()};
 }
