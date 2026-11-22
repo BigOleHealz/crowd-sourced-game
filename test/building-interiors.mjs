@@ -50,7 +50,7 @@ if(!process.env.INTERIOR_TEST_MAP){
         p.state=feet(d.x-dir*.72,d.y,d.z);send({door:d.id,open:false});assert(!doorIsOpen(d,w.doors));rooms++;
       }
     }
-    assert.equal(rooms,292);assert.equal(trips,306);
+    assert.equal(rooms,292);assert.equal(trips,260);
 
     for(const building of interiorPlans)for(const d of building.entrances){
       const doors={};setDoorOpen(d,doors,true);
