@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {finishAuroraRoom} from './aurora-stonework.js';
 import {wingArchitecture,wingBounds,wingEntrances} from './waterfront-wing.js';
 
 const plum=0x361c38, pearl=0xf1d9b8, onyx=0x222337, gold=0xd2a056;
@@ -18,7 +19,12 @@ export function addWaterfrontWing(scene,Batch){
     box(masonry,0xdac9af,step);
     put(metal,gold,step.x,step.top+.002,step.z+step.d/2-.034,step.w,.016,.052);
   }
+  const stairSides=new Map();
   for(const rail of wingArchitecture.rails){
+    if(rail.kind==='stair'){
+      const side=stairSides.get(rail.x)??[];side.push(rail);stairSides.set(rail.x,side);
+      continue;
+    }
     const along=rail.w>rail.d;
     put(metal,gold,rail.x,rail.top-.055,rail.z,rail.w,.11,rail.d);
     const len=along?rail.w:rail.d,count=Math.ceil(len/1.25);
@@ -27,6 +33,15 @@ export function addWaterfrontWing(scene,Batch){
       put(metal,0xa17b51,rail.x+(along?off:0),(rail.bottom+rail.top)/2,rail.z+(along?0:off),.052,rail.top-rail.bottom,.052);
     }
   }
+  for(const [x,side] of stairSides){
+    const first=side[0],last=side.at(-1);
+    for(const [height,radius] of [[0,.09],[-.46,.045]])metal.beam(gold,
+      [x,first.top+height,first.z+first.d/2],[x,last.top+height,last.z-last.d/2],radius);
+    for(let i=0;i<side.length;i+=2){
+      const r=side[i];put(metal,gold,x,(r.bottom+r.top)/2,r.z,.049,r.top-r.bottom,.049);
+    }
+  }
+  finishAuroraRoom(group,wingBounds);
   for(const p of wingArchitecture.walls){
     // The shared lobby wall has interior finishes on both sides. Other walls
     // open visually to the bay behind a continuous, collidable glazed curtain.
@@ -112,6 +127,16 @@ export function addWaterfrontWing(scene,Batch){
     metal.add(cube,gold,x,y,z,width+.22,width*.3125+.21,.17,0,yaw);
     const face=new THREE.Mesh(panel,lettering);face.scale.set(width,width*.3125,1);face.rotation.y=yaw;
     face.position.set(x+Math.sin(yaw)*.095,y,z+Math.cos(yaw)*.095);group.add(face);
+  }
+  for(const z of [n+.52,s-.52]){
+    for(const x of [w+.11,e-.11]){
+      for(let j=0;j<4;j++){
+        const y=1.14+j*2.02;
+        put(masonry,plum,x,y+.83,z, .75,1.89,.78);
+        put(metal,gold,x,y+.04,z,.83,.085,.83);
+        put(lamps,champagne,x-.4,y+.83,z,.025,1.39,.06);
+      }
+    }
   }
   marquee(portal,6.27,s+.40,0,7.3);
   marquee(e+.14,4.74,wingEntrances.avenue.z,Math.PI/2,3.65);
