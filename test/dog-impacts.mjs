@@ -30,6 +30,7 @@ assert.equal(head.hitKind,'dog');assert.equal(head.headshot,true);assert.equal(h
 assert(Number.isFinite(head.injuryPoint.y));assert(dog.headInjury);assert.equal(dog.hp,0);
 listen(55);listen(56);assert.equal(sounds.length,3);
 for(let t=56;t<66;t++)stepDogs(world,npcs,players,1/30,t);
+assert(Number.isFinite(dog.y),'horizontal shots retain a finite landing height');
 assert(dog.x>origin,'impact carries the downed dog along the simulated ground');
 dogWhimpers(undefined,snap(),55,()=>assert.fail('late join replayed hurt sound'));
 for(const small of [true,false]){

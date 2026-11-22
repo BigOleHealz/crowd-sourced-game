@@ -112,7 +112,7 @@ export function projectileDogHit(dog,amount,tick,direction,headshot){
     const m=motion.get(dog);
     if(!dog.hp){
       m.vx=direction.x*impulse;m.vz=direction.z*impulse;
-      m.vy=Math.max(.25,direction.y*impulse);
+      m.vy=Math.max(.25,(direction.y??0)*impulse);
     }else{
       // Preserve the facing direction during a short, collision-checked stagger.
       dog.mode='startled';dog.speed=impulse;
