@@ -1,3 +1,4 @@
+import {furnishLido} from './lido-house.js';
 import {addEstateSafes} from './estate-safe-view.js';
 import {estateCollection} from './estate-collection.js';
 import {breezeMaterial,addClubBurgees} from './waterfront-breeze.js';
@@ -50,18 +51,6 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     const ceiling=bottom+h,frame=style==='villa'?0x474839:bronze;
     slab(x,bottom+.14,z,w+.22,d+.22,.26);
     slab(x,ceiling-.13,z,w+.30,d+.30,.24);
-    masonry(0xb89565,x-8.5,bottom+.68,z,3.15,.94,.75);
-    box(limestone,x-8.5,bottom+1.19,z,3.25,.085,.86);
-    for(const u of [-5,0,5]){
-      const lounge=x+u,lz=z-2.9;
-      box(0x684937,lounge,.48,lz,2.20,.29,.78);
-      box(0x36584e,lounge,.68,lz+.04,2.11,.22,.72);
-      box(0x426257,lounge,.96,lz-.34,2.15,.63,.15,-.08);
-      for(let j=-3;j<=3;j++)box(0x304b43,lounge+j*.28,.97,lz-.246,.015,.57,.019);
-      for(const side of [-1,1])box(0x466253,lounge+side*1.06,.77,lz,.15,.33,.77);
-      cyl(brass,lounge,.32,z-1.65,.39,.10);cyl(bronze,lounge,.54,z-1.65,.11,.43);
-      cyl(limestone,lounge,.79,z-1.65,1.13,.075,.58);
-    }
     for(const p of clubPanes){
         const {alongX,side,bay:t,index:i,x:cx,z:cz}=p;
         const offset=(alongX?d:w)*side/2, u=alongX?cx-x:cz-z;
@@ -176,14 +165,15 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   for(const x of [13.9,38.4]){seat(x,-429.5);umbrella(x,-432,.82);}
   // Rounded navy club fascia and a brass-lined breezeway look toward Solana.
   const club=clubSalon;
-  glazing(club.x,club.z,club.w,club.d,0,3.99,'club');
+  glazing(club.x,club.z,club.w,club.d,0,3.99,'villa');
+  furnishLido({box,cyl,leaf,beam,masonry});
   deck(25,-384.5,30,11.0);
   const rounded=(c,x,y,z,w,h,d)=>{
     box(c,x,y,z,w-d,h,d);
     for(const side of [-1,1])cyl(c,x+side*(w-d)/2,y,z,d,h);
   };
-  rounded(0x29484a,25,4.14,-390.5,29,.68,12.1);
-  rounded(brass,25,3.86,-390.5,29.06,.085,12.16);
+  rounded(0xc5b092,25,4.14,-390.5,29,.68,12.1);
+  rounded(teak,25,3.86,-390.5,29.06,.085,12.16);
   rounded(linen,25,4.51,-390.5,29.14,.12,12.22);
   for(const b of clubColumns){cyl(0xcbbb9f,b.x,1.91,b.z,.48,3.82);cyl(brass,b.x,.13,b.z,.56,.25);}
   for(const x of [15,21,29,35]){
@@ -200,10 +190,8 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     const label=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map}));
     label.position.set(x,floor+y,z);scene.add(label);
   }
-  plaque(25,4.15,-384.426,8.45,.69,'L A N T E R N   C L U B   C A S I N O','L A N T E R N   P O I N T   ·   M A R I N A','#213d38');
-  box(0x29443e,26.2,2.90,-389.93,2.34,.53,.08);
-  plaque(26.2,2.90,-389.876,2.29,.49,'C A S I N O','T A B L E   G A M E S','#29443e');
-  box(brass,26.2,2.62,-389.92,2.38,.03,.10);
+  box(teak,28.22,1.82,-389.85,1.26,.45,.09);
+  plaque(28.22,1.82,-389.795,1.20,.40,'Villa Lido','18   ·   MARINA WALK','#675241');
   for(const [x,z,name,subtitle] of [[-12.9,-378.9,'Casa de Luma','P A T I O   R E S I D E N C E'],[37.5,-425.3,'Palazzo Mare','L A N T E R N   P O I N T']]){
     masonry(limestone,x,.67,z,3.12,1.34,.58);
     plaque(x,.73,z+.301,2.28,.52,name,subtitle,'#47493b');
