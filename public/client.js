@@ -1,6 +1,6 @@
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
-import {platformReport} from './platform-judges.js';
+import {diveScorecard} from './dive-scorecard.js';
 import {marinaPlatform} from './marina-platform.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -886,29 +886,28 @@ function drivingView(rover, dt, wheeled) {
   return roverView.rearAngle>.0001 ? {...roverView,yaw:roverView.yaw+roverView.rearAngle} : roverView;
 }
 
+const divingScores=diveScorecard(byId('dive-result'));
+
 function updateEquipment(local) {
   const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
   const diving=local.dive;
   const gauge=byId('dive-meter'),report=byId('dive-result');
-  let mark=vitals.lastDive,spectator=false;
+  let mark=vitals.lastDive,spectatorName='';
+  divingScores.observe(mark);
   if(CITY && local.z< -385 && local.z> -490){
     for(const athlete of samples.at(-1)?.players??[]){
       const entry=athlete.lastDive;
       if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<(entry.judging?32:14)){
-        mark=entry;spectator=true;
+        mark=entry;spectatorName=athlete.name || 'Hiker '+athlete.id;
       }
     }
   }
-  report.hidden=!mark || !!diving || (!!board && !spectator);
-  if(!report.hidden){
-    const text=mark.judging ? platformReport(mark) :
-      (mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
-    const label=(spectator?(mark.judging?'Marina · ':'Poolside · '):'')+text;
-    if(report.textContent!==label)report.textContent=label;
-  }
+  report.hidden=!mark || !!diving || (!!board && !spectatorName);
+  if(!report.hidden)divingScores.show(mark,spectatorName);
   gauge.hidden=!diving;
   if(diving){
     const progress=diving.time/diving.duration;
+    gauge.dataset.inZone=String(diving.release==null && Math.abs(progress-entryBeat)<=.065);
     gauge.style.setProperty('--progress',Math.min(100,(diving.release??diving.time)/diving.duration*100)+'%');
     byId('dive-call').textContent=diving.release!=null?'Entry set':progress<entryBeat-.065?'Wait for the gold zone':progress<=entryBeat+.065?'Open now':'Open for entry';
   }
@@ -1054,6 +1053,10 @@ function updateEquipment(local) {
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
     if(board?.kind==='platform')prompt.textContent=(touch.active?'Choose your dive':'Space · Straight dive   C · Front flip')+'   101A straight ×1.6   /   103C tuck ×1.5';
+    if(board){
+      const target=divingScores.targets(board.kind==='platform');
+      if(target)prompt.textContent+=' · '+target;
+    }
     byId('space-action').textContent=board?'Straight dive':'Open for entry';
     byId('crouch-action').textContent=board?'Front flip':'Crouch';
   }

@@ -8,6 +8,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+  <link rel="stylesheet" href="./dive-scorecard.css">
 </head>
 <body>
   <canvas id="game" tabindex="0" aria-label="Pinewatch multiplayer hiking world"></canvas>
@@ -47,7 +48,7 @@
       <div class="health-readout"><label id="hp-label" for="hp-meter">Health</label><meter id="hp-meter" min="0" max="100" value="100"></meter><span id="life-status"></span></div>
       <button id="wallet" type="button" aria-label="Open wallet and inventory" aria-keyshortcuts="I" hidden>$0 · Bag</button>
       <div id="dive-meter" hidden><span id="dive-call"></span><div class="dive-track"><i></i></div></div>
-      <output id="dive-result" aria-live="polite" hidden></output>
+      <output id="dive-result" aria-live="polite" aria-atomic="true" hidden></output>
       <output id="owner-caption" aria-live="polite" hidden></output>
       <output id="bank-receipt" aria-live="polite" hidden></output>
       <output id="bank-event" role="status" hidden></output>
