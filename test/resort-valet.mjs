@@ -36,6 +36,10 @@ for(const [model,name,throttle,steer,departed] of [
   ['veloce','Ferrari',.25,.12,car=>car.x> -44.5],
 ]){
   const world=newResort(),car=world.traffic.find(car=>car.model===model);
+  // Sample the full body footprint, including the bumpers, on the actual forecourt.
+  for(let dx=-2.4;dx<=2.4;dx+=.3)for(let dz=-1.1;dz<=1.1;dz+=.2){
+    assert.equal(groundHeight(car.x+dx,car.z+dz),car.y,'The entire parked car sits on one level surface');
+  }
   const home={x:car.x,z:car.z,yaw:car.yaw,hp:car.hp};
   assert(!roadContact(world,car.x,car.z,car.yaw,car.x,car.z,car));
   const feet=clearRoadExit(world,car);
