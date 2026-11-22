@@ -10,10 +10,10 @@ export const shorePads=[
   {west:-32.4,east:-6.1,north:72.55,south:80.25},
 ];
 export const valet={x:-63.9,z:44}, fountain={x:-54.6,z:44,r:6.05};
-// Level display spaces inside the fountain loop, both opening east onto the avenue.
+// Salt Arcade curbside display bays. Each nose turns out toward the street.
 export const displayBays=[
-  {model:'falco',x:-46.5,z:46.75,yaw:Math.PI/2,hp:200},
-  {model:'veloce',x:-46.5,z:41.25,yaw:Math.PI/2,hp:195},
+  {model:'falco',x:-62,z:67.35,yaw:-Math.PI*4/9,hp:200},
+  {model:'veloce',x:-54,z:67.35,yaw:Math.PI*4/9,hp:195},
 ];
 export const resortArrivals=new Map([
   ['palma',{x:-67.4,y:1.8,z:43.4,yaw:-Math.PI/2}],

@@ -20,10 +20,13 @@ export function dressPalmaArchitecture({stone,metal,glow,box,disc,ball,blade}){
         [x+radius*Math.cos(a),y+r*(.87+.54*(j%3)),z+radius*Math.sin(a)],r*.36,[0,1,0]);
     }
   }
-  // Flush brass inlays mark the two display spaces on the stone forecourt.
-  for(const {x,z} of displayBays){
-    for(const side of [-1,1])box(metal,champagne,x,.819,z+side*1.48,5.4,.012,.055);
-    box(metal,champagne,x-2.69,.819,z,.055,.012,2.96);
+  // Brass inlays follow the pose of each vehicle, with an open approach at the nose.
+  for(const {x,z,yaw} of displayBays){
+    const c=Math.cos(yaw),s=Math.sin(yaw);
+    const point=(right,forward)=>[x+c*right+s*forward,.804,z+s*right-c*forward];
+    const strip=(left,right,rear,front)=>quad(metal,champagne,point(left,rear),point(right,rear),point(right,front),point(left,front));
+    for(const side of [-1,1])strip(side*1.48-.028,side*1.48+.028,-2.7,2.7);
+    strip(-1.48,1.48,-2.7,-2.645);
   }
   // Wall-to-ground cheeks close both exposed road edges, even at the curb cuts.
   for(let i=1;i<arrivalSections.length;i++){
