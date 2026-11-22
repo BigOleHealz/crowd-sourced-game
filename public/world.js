@@ -1,6 +1,6 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {wingSurface} from './waterfront-wing.js';
-import {towerFloor,towerRail} from './marina-platform.js';
+import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
@@ -376,6 +376,10 @@ export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
+  if(CITY && (state.climb?.kind==='platformLadder' || input.jump)){
+    const ladder=stepPlatformLadder(state,input,dt);
+    if(ladder)return ladder;
+  }
   if(CITY && (state.dive || input.jump || input.flipDive)){
     const dive=stepDive(state,input,dt);
     if(dive)return dive;

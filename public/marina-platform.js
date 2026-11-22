@@ -3,28 +3,40 @@ import {berthDeckY} from './marina-docks.js';
 const water=-.14;
 export const marinaPlatform={
   kind:'platform',x:71.6,startZ:-449,water,deck:water+10,width:2.22,
-  flights:3,treads:16,run:.32,landing:1.08,apron:3.25,
+  near:-466.52,apron:3.25,rungs:31,
   exitX:74.35,exitWidth:1.52,exitZ:-471.4,exitRun:.49,exitSteps:8,exitRise:.22,
 };
 const p=marinaPlatform;
-p.near=p.startZ-p.flights*p.treads*p.run-(p.flights-1)*p.landing;
 p.tip=p.near-p.apron;
 p.exitEnd=p.exitZ-p.exitRun*p.exitSteps;
 
-export const towerSlabs=[];
-let edge=p.startZ;
-for(let flight=0;flight<p.flights;flight++){
-  for(let tread=1;tread<=p.treads;tread++){
-    const top=berthDeckY+(p.deck-berthDeckY)*(flight*p.treads+tread)/(p.flights*p.treads);
-    towerSlabs.push({south:edge,north:edge-p.run,top,tread:true});
-    edge-=p.run;
-  }
-  if(flight<p.flights-1){
-    towerSlabs.push({south:edge,north:edge-p.landing,top:towerSlabs.at(-1).top});
-    edge-=p.landing;
-  }
+export const rungPitch=(p.deck-berthDeckY)/p.rungs;
+const ladderZ=p.near+.38,upperExitZ=p.near-.47,lowerExitZ=p.near+.80;
+const climbSeconds=5.5;
+
+export function platformLadderAt(feet){
+  if(!feet?.grounded || feet.dead || feet.fall || feet.ride || feet.swimming || feet.stance ||
+    feet.parachute || feet.liftTravel || Math.abs(feet.x-p.x)>.58)return;
+  if(Math.abs(feet.y-berthDeckY)<.09 && feet.z>=p.near+.18 && feet.z<=p.near+1.25)return 'up';
+  if(Math.abs(feet.y-p.deck)<.09 && feet.z>=p.near-.82 && feet.z<=p.near)return 'down';
 }
-towerSlabs.push({south:edge,north:p.tip,top:p.deck});
+
+export function stepPlatformLadder(state,input,dt){
+  let climb=state.climb;
+  if(climb?.kind!=='platformLadder'){
+    if(climb || !input.jump || input.seat || input.interact)return;
+    const direction=platformLadderAt(state);
+    if(!direction)return;
+    climb={kind:'platformLadder',down:direction==='down',sx:state.x,sz:state.z,t:0,yaw:0};
+  }
+  const t=Math.min(1,climb.t+dt/climbSeconds);
+  const mount=Math.min(1,t/.08),dismount=Math.max(0,(t-.92)/.08);
+  const rise=Math.max(0,Math.min(1,(t-.08)/.84));
+  const y=berthDeckY+(p.deck-berthDeckY)*(climb.down?1-rise:rise);
+  const x=climb.sx+(p.x-climb.sx)*mount;
+  const z=climb.sz+(ladderZ-climb.sz)*mount+((climb.down?lowerExitZ:upperExitZ)-ladderZ)*dismount;
+  return {x,y,z,vx:0,vy:0,vz:0,grounded:t===1,...(t<1 && {climb:{...climb,t}})};
+}
 
 export function onPlatform(x,z){
   return Math.abs(x-p.x)<=p.width/2 && z<=p.near+.001 && z>=p.tip;
@@ -37,14 +49,19 @@ export function towerFloor(x,z,probe){
     const step=z>=p.exitZ?0:Math.min(p.exitSteps,Math.ceil((p.exitZ-z)/p.exitRun));
     top=berthDeckY-step*p.exitRise;
   }else if(Math.abs(x-p.x)<=p.width/2){
-    top=towerSlabs.find(s=>z<=s.south+.0001 && z>=s.north-.0001)?.top;
+    if(onPlatform(x,z))top=p.deck;
+    else if(z>=p.near && z<=p.startZ)top=berthDeckY;
   }
   if(top!==undefined && probe>=top-.01)return top;
 }
 export function towerRail(x,y,z){
-  if(z>p.startZ || z<p.near-1.5 || Math.abs(Math.abs(x-p.x)-p.width/2)>.24)return false;
-  const deck=towerFloor(p.x,z,Infinity);
-  return deck!==undefined && y>=deck-.32 && y<deck+1.03;
+  if(z>p.startZ || z<p.tip-.30 || Math.abs(x-p.x)>p.width/2+.26)return false;
+  const side=Math.abs(Math.abs(x-p.x)-p.width/2)<.24;
+  if(y>=berthDeckY-.34 && y<berthDeckY+1.03 && z>=p.near && (side || z<=p.near+.18))return true;
+  if(y>=p.deck-.32 && y<p.deck+1.03 && z>=p.near-1.5 && z<=p.near+.10){
+    return side || (Math.abs(z-p.near)<.22 && Math.abs(x-p.x)>.50);
+  }
+  return Math.abs(Math.abs(x-p.x)-.77)<.27 && Math.abs(z-(p.near-.33))<.32 && y<p.deck-.24;
 }
 // The marked competition water and its exit are reserved for swimming.
 export function inDivingLane(x,z){

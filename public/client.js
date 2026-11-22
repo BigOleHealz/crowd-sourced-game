@@ -1,7 +1,7 @@
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
 import {diveScorecard} from './dive-scorecard.js';
-import {marinaPlatform} from './marina-platform.js';
+import {marinaPlatform,platformLadderAt} from './marina-platform.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
@@ -915,6 +915,9 @@ const divingScores=diveScorecard(byId('dive-result'));
 function updateEquipment(local) {
   const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
   const diving=local.dive;
+  const ladderDirection=CITY && platformLadderAt(local);
+  const ladderLabel=ladderDirection && (ladderDirection==='up'?'Climb ladder':'Descend ladder');
+  const climbingLadder=local.climb?.kind==='platformLadder';
   const gauge=byId('dive-meter'),report=byId('dive-result');
   let mark=vitals.lastDive,spectatorName='';
   divingScores.observe(mark);
@@ -1073,10 +1076,16 @@ function updateEquipment(local) {
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
-      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
+      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
     if(dogInfo)prompt.textContent=dogInfo;
+  }
+  if(climbingLadder){
+    prompt.textContent=local.climb.down?'Descending ladder…':'Climbing ladder…';
+  }else if(ladderLabel){
+    prompt.textContent=(touch.active?'Tap ':'Space · ')+ladderLabel;
+    byId('space-action').textContent=ladderLabel;
   }
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
