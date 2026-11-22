@@ -1,3 +1,4 @@
+import {atrium,grandStoryY,resortLevels,grandFurniture} from './grand-resort-layout.js';
 import * as THREE from 'three';
 import {resortFloor,resortChandeliers,resortFurniture,resortLounges,resortMachines} from './resort-floor-layout.js';
 
@@ -380,7 +381,8 @@ export function resortFloorView(scene,Batch) {
   }
   paneling(-67.26,39.28,8.92,0);
   paneling(-52.74,39.28,12.92,0);
-  paneling(-71.72,midZ,south-north-.56,Math.PI/2);
+  paneling(-71.72,42.15,5.52,Math.PI/2);
+  paneling(-71.72,51.40,6.42,Math.PI/2);
   paneling(-64.36,54.72,14.72,Math.PI);
   paneling(-49.64,54.72,6.72,Math.PI);
   paneling(-46.28,41.89,5.22,-Math.PI/2);
@@ -406,22 +408,16 @@ export function resortFloorView(scene,Batch) {
   }
   wallSign(-55,39.54,0,6.66,'B L A C K J A C K','L A N T E R N   C L U B',3.27,1.31);
   wallSign(-61,39.30,0,3.45,'H O T E L','',4.23,.57);
-  wallSign(-61,39.30,0,3.45,'H O T E L','',4.23,.57);  wallSign(-71.50,47.55,Math.PI/2,5.31,'C O C K T A I L S','L O U N G E',3.27,.99);
+  wallSign(-71.50,51.60,Math.PI/2,4.55,'C O C K T A I L S','L O U N G E',3.27,.99);
   wallSign(-55,54.69,Math.PI,3.90,'V A L E T','',4.23,.57);
   wallSign(-46.31,46,-Math.PI/2,2.85,'E X I T','',4.23,.57);
 
-  matte.add(box,0x28232b,midX,ceiling-.027,midZ,east-west-.35,.05,south-north-.32);
-  for (const [x,wide] of [[-68.34,5.62],[-62.8,4.88],[-55,6.88],[-49.4,4.08]]) {
-    matte.add(box,0x24202a,x,ceiling-.098,midZ,wide,.123,14.85);
-    for (const [offset,delta,color,width] of [[0,0,deepBrass,.081],[.16,.014,brass,.022],[.26,.017,deepTeal,.044]]) {
-      for (const dir of [-1,1]) {
-        metal.add(box,color,x+dir*(wide*.5-offset),ceiling-.16-delta,midZ,width,.04,14.85-offset*2);
-        metal.add(box,color,x,ceiling-.16-delta,midZ+dir*(7.425-offset),wide-offset*2,.04,width);
-      }
-    }
-    for (const z of [44.22,51.08]) {
-      matte.add(box,walnut,x,ceiling-.167,z,wide-.143,.062,.145);
-      metal.add(box,brass,x,ceiling-.20,z,wide-.16,.012,.056);
+  const galleryCeiling=grandStoryY(1)-.25;
+  for(const deck of resortLevels[1].decks){
+    matte.add(box,0x29232d,deck.x,galleryCeiling,deck.z,deck.w-.16,.08,deck.d-.13);
+    for(const side of [-1,1]){
+      metal.add(box,brass,deck.x+side*(deck.w/2-.28),galleryCeiling-.055,deck.z,.055,.04,deck.d-.40);
+      luminous.add(box,champagne,deck.x,galleryCeiling-.058,deck.z+side*(deck.d/2-.26),deck.w-.45,.035,.050);
     }
   }
 
@@ -444,7 +440,8 @@ export function resortFloorView(scene,Batch) {
     }
   }
   for (const {x,z,radius} of resortChandeliers) {
-    chandelier(metal,luminous,accents,x,z,radius,ceiling-.20,radius>1.4?1.22:1.04);
+    if(x>atrium.west && x<atrium.east && z>atrium.north)continue;
+    chandelier(metal,luminous,accents,x,z,radius,galleryCeiling-.08,.84);
   }
 
   const screenMaterials = Object.fromEntries(Object.entries(themes).map(([name,theme]) =>
@@ -453,8 +450,11 @@ export function resortFloorView(scene,Batch) {
   const screenFixtures = Object.fromEntries(Object.keys(themes).map(name => [name,[]]));
   const lamps = Object.fromEntries(Object.keys(themes).map(name => [name,new Batch()]));
   const pose = new THREE.Object3D();
-  for (const {x,z,stoolZ,face,theme} of resortMachines) {
-    const {put,block,point} = frame(x,floor,z,face===1?0:Math.PI);
+  const upperSlots=grandFurniture[1].filter(p=>p.kind==='slot').map(({x,z},i)=>({
+    x,z,stoolZ:z+1.12,face:1,theme:['sun','moon','lotus','oasis'][i%4],machineY:grandStoryY(1),
+  }));
+  for (const {x,z,stoolZ,face,theme,machineY=floor} of [...resortMachines,...upperSlots]) {
+    const {put,block,point} = frame(x,machineY,z,face===1?0:Math.PI);
     const {glow} = themes[theme];
     const sideChrome = theme === 'moon' ? 0x7892ab : brass;
     block(matte,0x211e28,0,.05,0,.87,.10,.87);
@@ -482,12 +482,12 @@ export function resortFloorView(scene,Batch) {
     }
     block(metal,sideChrome,.244,.691,.370,.118,.042,.038);
     block(matte,0x131721,.244,.693,.394,.086,.012,.012);
-    luminous.add(box,0xb5eda6,x+face*.318,floor+.718,z+face*.400,.025,.016,.013);
-    metal.add(drum,sideChrome,x,floor+.037,stoolZ,.49,.068,.49);
-    metal.add(drum,deepBrass,x,floor+.322,stoolZ,.085,.57,.085);
-    metal.add(drum,sideChrome,x,floor+.217,stoolZ,.36,.037,.36);
-    matte.add(cushion,0x593349,x,floor+.633,stoolZ,.52,.113,.52);
-    matte.add(cushion,0x623b50,x,floor+.728,stoolZ+face*.192,.49,.15,.15);
+    luminous.add(box,0xb5eda6,x+face*.318,machineY+.718,z+face*.400,.025,.016,.013);
+    metal.add(drum,sideChrome,x,machineY+.037,stoolZ,.49,.068,.49);
+    metal.add(drum,deepBrass,x,machineY+.322,stoolZ,.085,.57,.085);
+    metal.add(drum,sideChrome,x,machineY+.217,stoolZ,.36,.037,.36);
+    matte.add(cushion,0x593349,x,machineY+.633,stoolZ,.52,.113,.52);
+    matte.add(cushion,0x623b50,x,machineY+.728,stoolZ+face*.192,.49,.15,.15);
   }
   for (const [theme,fixtures] of Object.entries(screenFixtures)) {
     const screens = new THREE.InstancedMesh(screenGeometry,screenMaterials[theme],fixtures.length);
@@ -606,7 +606,7 @@ export function resortFloorView(scene,Batch) {
   const reducedMotion = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   let t = 0;
   return (dt,local) => {
-    room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42;
+    room.visible = Math.abs(local.x-midX)<45 && Math.abs(local.z-midZ)<42 && local.y<20;
     for (const {x,lobby} of lobbies) {
       lobby.visible = Math.abs(local.x-x)<24 && Math.abs(local.z-69)<23;
     }

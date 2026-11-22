@@ -1,3 +1,4 @@
+import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
@@ -153,7 +154,7 @@ const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
-  let top=CITY ? Math.max(parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
+  let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
@@ -319,7 +320,8 @@ export function blocked(x, y, z, hp, doors, height=1.7) {
 export function waterBlend(state){
   if(state.swimming)return 1;
   if(!state.grounded || state.onYacht || state.climb || state.parachute)return 0;
-  return smoothstep(.08,.72,MAP.waterY-state.y);
+  const water=CITY?poolSurface(state.x,state.y,state.z)??MAP.waterY:MAP.waterY;
+  return smoothstep(.08,.72,water-state.y);
 }
 
 export function stanceBodyHeight(stance) {
@@ -407,7 +409,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   let floor = Math.max(groundHeight(x, z,y+height,doors),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top) floor = Math.max(floor,top);
-  const draft=.72, floatY=MAP.waterY-draft;
+  const draft=.72, water=CITY?poolSurface(x,y,z)??MAP.waterY:MAP.waterY, floatY=water-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
     // Damp the last part of a fall on entry, then converge to surface height.

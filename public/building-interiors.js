@@ -1,4 +1,5 @@
 import {lidoHouse} from './lido-house.js';
+import {GRAND_STEP,grandLift,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
 import {casinoHall,casinoName,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
 // the camera occupies. Door bits are the only persistent per-room network data.
@@ -121,9 +122,20 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     const p=byBuilding.get(g.b);
     for(const e of g.ends)door(p,e.x,.824,e.z-e.side*(e.depth-.073),'x',1.48,'Gallery passage');
   }
-  const resort=plan(25,casinoHall,'casino',casinoName);
+  const resort=plan(25,{...casinoHall,z:55.65,d:33.3},'casino',casinoName);
   door(resort,casinoEntrance.x,casinoHall.floor,casinoEntrance.z,'x',4,'Casino entrance');
   door(resort,casinoSideDoor.x,casinoHall.floor,casinoSideDoor.z,'z',3,'Casino east entrance');
+  door(resort,grandLobbyOpening.x,casinoHall.floor,grandLobbyOpening.z,'z',grandLobbyOpening.width,'Casino west entrance');
+  resort.grandDoors=resortLevels.map(l=>{
+    const {x,z,exitX,exitZ}=grandLift;
+    panel(resort,x,l.y,z,0,exitX,exitZ);
+    resort.panels.at(-1).label=(l.n+1)+' · '+l.name;
+    if(l.n<5 || l.n===17 || l.n===19)return [];
+    const rooms=l.n===18?skyRooms(l.n).filter(r=>r.side):skyRooms(l.n);
+    return rooms.map((r,i)=>door(resort,r.doorX,l.y,r.doorZ,r.side?'z':'x',r.side?1.38:2.60,
+      'Suite '+((l.n+1)*100+i+1),false,l.n));
+  });
+
 }
 export const doorIsOpen=(d,state)=>d.initial!==!!((state?.roomLeaves?.[d.id>>>5]??0)&(1<<(d.id%32)));
 export function operableDoorAt(p,feet,range=1.57){
@@ -172,7 +184,8 @@ export function roomDoorTop(x,z,pad,probe,doors){
   let top=-Infinity;
   for(const p of near(x,z)){
     if(!intact(p,doors,x,probe,z))continue;
-    for(const d of p.entrances){
+    const extra=p.grandDoors?.[Math.floor((probe-.80)/GRAND_STEP)];
+    for(const d of extra?[...p.entrances,...extra]:p.entrances){
       if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
       if(intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+(d.height??2.18));
     }
@@ -211,6 +224,7 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
 export function furnishedSupport(x,z,probe,doors){
   if(!Number.isFinite(probe))return;
   for(const p of near(x,z)){
+    if(p.type==='casino'){const y=resortSupport(x,z,probe);if(y!==undefined)return y;}
     if(!isInside(p,x,z) || !intact(p,doors,x,probe,z))continue;
     if(p.type==='bank' && probe>=.80 && probe<3.77)return .824;
     if(p.type==='villa-lido' && probe>=1.05 && probe<4.4)return 1.07;
@@ -224,7 +238,10 @@ export function roomAtFeet(feet,doors){
     if(!isInside(p,feet.x,feet.z) || !intact(p,doors,feet.x,feet.y,feet.z))continue;
     const l=storyAt(p,feet.y+.03);
     if(l && feet.y<p.b.base+p.b.eave-.12)return {p,l,label:l.rooms.find(r=>isInside(r,feet.x,feet.z))?.number??'Hall'};
-    if(p.type==='casino' && feet.y>=casinoHall.floor-.25 && feet.y<casinoHall.ceiling)return {p,label:casinoName};
+    if(p.type==='casino'){
+      const l=resortLevelAt(feet.x,feet.y,feet.z);
+      if(l)return {p,label:l.n?l.name:casinoName,casinoStorey:l.n};
+    }
     if(p.type==='bank' && feet.y<3.77 && (Math.abs(feet.x-p.x)>2.66 || feet.z>p.z+2.25))return {p,label:'Biscayne Mutual · Offices'};
     if(p.type==='outpost' && feet.y>=p.b.base-.20 && feet.y<p.b.base+p.b.eave-.1 || p.type==='villa-lido' && feet.y<4.4)return {p,label:p.name};
   }
@@ -239,5 +256,5 @@ export function approachRamp(x,z){
 }
 export function interiorCeiling(feet,doors){
   const room=roomAtFeet(feet,doors);
-  return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? casinoHall.ceiling : room?.p.type==='villa-lido' ? 4.53 : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
+  return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? resortRoofAbove(feet.x,feet.z,room.casinoStorey) : room?.p.type==='villa-lido' ? 4.53 : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
 }

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {grandResortTower,grandRooms} from './grand-resort-view.js';
+import {grandLobbyOpening} from './grand-resort-layout.js';
 
 const stone = 0xd5bf9d, ivory = 0xf3dfb7, shadowStone = 0x9b7e61;
 const bronze = 0xb99051, darkBronze = 0x73583b, gold = 0xf9bf6c;
@@ -249,15 +251,15 @@ function mainHall(parts) {
   wallX(north, hotelEntryX + 1.8, east);
   wallX(front, west, entryX - 2);
   wallX(front, entryX + 2, east);
-  wallZ(west, north, front);
+  wallZ(west,north,grandLobbyOpening.z-grandLobbyOpening.width/2);
+  wallZ(west,grandLobbyOpening.z+grandLobbyOpening.width/2,front);
   wallZ(east, north, sideEntryZ - 1.5);
   wallZ(east, sideEntryZ + 1.5, front);
   const aboveDoors = (doorHead + ceiling) / 2;
   slab(stone, entryX, aboveDoors, front, 4, ceiling - doorHead, .26);
   slab(stone, east, aboveDoors, sideEntryZ, .26, ceiling - doorHead, 3);
   slab(stone, hotelEntryX, aboveDoors, north, 3.6, ceiling - doorHead, .26);
-  slab(0x6b736c, -59, ceiling + .19, 47, 26.42, .38, 16.42);
-  slab(shadowStone, -59, 6.06, 47, 26.62, .16, 16.64);
+  slab(stone, west, aboveDoors, grandLobbyOpening.z,.26,ceiling-doorHead,grandLobbyOpening.width);
 
   const southFace = face(-59, front, 0);
   const eastFace = face(east, 47, Math.PI / 2);
@@ -281,10 +283,10 @@ function mainHall(parts) {
   for (const along of [-12.76, -9.47, -6.31, -3.15, 1.12, 6.36, 9.07, 12.48]) flutedPier(southFace, along);
   for (const along of [-3.15, 1.12, 6.25, 12.48]) lantern(southFace, along, 3.43, .47);
 
-  for (const [wall, bays] of [[eastFace, [-6.02, -3.1, 4.1, 6.65]], [westFace, [-5.7, -2.76, 0, 2.76, 5.7]]]) {
+  for (const [wall, bays] of [[eastFace, [-6.02, -3.1, 4.1, 6.65]], [westFace, [-5.7, 2.76, 5.7]]]) {
     for (const [i, along] of bays.entries()) displayBay(wall, along, 2.02, i % 2 === 0);
     for (const along of [-7.56, -4.62, -1.70, 3.14, 5.35, 7.63]) {
-      if (wall === westFace || Math.abs(along - 1) > 1.80) flutedPier(wall, along);
+      if (wall === westFace ? Math.abs(along + .5)>1.7 : Math.abs(along - 1)>1.80) flutedPier(wall, along);
     }
   }
   for (const along of [-12.40, -8, -4, -.2, 4.2, 8, 12.40]) flutedPier(northFace, along);
@@ -580,6 +582,8 @@ export function resortExterior(scene, Batch) {
   const casino = partBuilder(Batch, cube, plane, round, hall, materials);
   const court = partBuilder(Batch, cube, plane, round, frontCourt, materials);
   mainHall(casino);
+  const updateCrown=grandResortTower(scene,Batch,casino,cube,materials);
+  const updateRooms=grandRooms(scene,Batch);
   casino.build();
   porteCochere(court);
   const updateFountain = fountain(court, frontCourt, Batch, materials);
@@ -592,5 +596,7 @@ export function resortExterior(scene, Batch) {
   }
   for (const geometry of [cube, plane, round]) geometry.dispose();
 
-  return updateFountain;
+  return (dt,local)=>{
+    updateFountain(dt,local);updateCrown(dt,local);updateRooms(local,dt);
+  };
 }

@@ -93,6 +93,7 @@ export function buildingInteriorView(scene,Batch){
     for(const p of nearby){
       if(doors?.beachWood?.[p.wood] || doors?.collapsedTowers?.includes(p.b.towerId) || p.home && doors?.houseRuins?.[p.home])continue;
       for(const s of p.panels)if(Math.abs(s.y-feet.y)<2.0 && landingValid(s,doors))lift(s,ride);
+      if(p.grandDoors)for(const d of p.grandDoors[Math.floor((feet.y-.80+.16)/3.6)]??[])leaf(d,doors,dt);
       for(const d of p.entrances)if(Math.abs(d.y-feet.y)<3.5 && (!p.home || furnishingSupported(p.home,d.x,d.y,d.z,doors)))leaf(d,doors,dt);
     }
     buffer.count=count;labels.count=textCount;buffer.instanceMatrix.needsUpdate=true;

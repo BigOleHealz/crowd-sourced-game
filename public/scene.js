@@ -1297,7 +1297,7 @@ export function createScene(canvas) {
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
     updateResortExterior?.(dt,local);
-    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58)
+    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58 && local.y<20)
       updateResortFloor=resortFloorView(scene,Batch);
     updateResortFloor?.(dt,local);
     const attackTick=world.frameTick??world.simTick;
