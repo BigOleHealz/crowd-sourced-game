@@ -744,7 +744,7 @@ function tick() {
     }
     const falling = player.state;
     player.state = stepPlayer(falling, input || idle, step, world.hp, world);
-    const handheld=updateHandheldGear(player,input,falling.swimming);
+    const handheld=!player.state.ride && updateHandheldGear(player,input,falling.swimming);
     if(player.state.entryMark){
       player.lastDive={...player.state.entryMark,tick:ticks};
       delete player.state.entryMark;
