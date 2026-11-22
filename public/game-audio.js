@@ -163,7 +163,7 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net','shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
         if(!res.ok)return;
