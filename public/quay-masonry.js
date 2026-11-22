@@ -1,4 +1,4 @@
-import {garageQuay} from './resort-parking.js';
+import {casinoQuay} from './waterfront-wing.js';
 import {marinaDecks} from './marina-docks.js';
 import * as THREE from 'three';
 import {coast,harbor,bridges} from './brickell-map.js';
@@ -6,7 +6,7 @@ import {beach} from './beach-layout.js';
 import {lanternLand,ferrySlip,marketPiers} from './lantern-point.js';
 import {berthing} from './lantern-buildings-layout.js';
 
-const shores=[garageQuay,coast,harbor,...lanternLand];
+const shores=[casinoQuay,coast,harbor,...lanternLand];
 const adjoining=[...shores,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges];
 // Render the exposed boundary of the land union. Overlapping survey strips,
 // bridge entries, the sand and the marina slipway retain their open approaches.

@@ -1,4 +1,4 @@
-import {garageArea} from './resort-parking.js';
+import {inWaterfrontSalon,wingFloor} from './waterfront-wing.js';
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -60,8 +60,8 @@ function roundContact(x,z,s,c,prop,radius,shape){
 export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const shape=roadHullFor(vehicle);
   const s=Math.sin(yaw),c=Math.cos(yaw);
-  const parking=CITY && garageArea(x,z,2);
-  const floorProbe=parking ? (vehicle.y??.8)+1.6 : CITY && onEstate(x,z) ? (vehicle.y??.8)+.32 : Infinity;
+  const interior=CITY && (onEstate(x,z) || inWaterfrontSalon(x,wingFloor,z));
+  const floorProbe=interior ? (vehicle.y??.8)+.32 : Infinity;
   const base=groundHeight(x,z,floorProbe,world.doors);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
@@ -84,9 +84,6 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     if(world.doors?.beachWood?.[b.woodId])continue;
     if(b.net!=null && world.doors?.nets?.[b.net])continue;
     if(postDown(world.doors,b) || world.doors?.brokenPanes?.[b.paneId] || world.doors?.brokenSills?.[b.sillPaneId])continue;
-    // Deck support comes from the wheel surface, including the ramp landing.
-    if(b.garageDeck)continue;
-    if(b.garageRail && terrainHeight(b.x,b.z)+b.h<=base+.05)continue;
     if(CITY && onEstate(b.x,b.z) && terrainHeight(b.x,b.z)+b.h<=(vehicle.y??base)+.30)continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16){
@@ -112,7 +109,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
-  if(x< -limit && !parking)return {nx:1,nz:0,depth:-limit-x,object:'west'};
+  if(x< -limit)return {nx:1,nz:0,depth:-limit-x,object:'west'};
   if(z>limit)return {nx:0,nz:-1,depth:z-limit,object:'south'};
   if(z<north)return {nx:0,nz:1,depth:north-z,object:'north'};
   const boat=base<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,shape.halfWidth,shape.halfLength);

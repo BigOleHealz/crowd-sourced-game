@@ -43,7 +43,7 @@ export const resortLounges = [
   {kind: 'chair', x: -67.12, z: 50.0, span: .91, depth: .87, yaw: -.76, fabric: 'jade'},
   {kind: 'chair', x: -67.12, z: 52.9, span: .91, depth: .87, yaw: -2.28, fabric: 'jade'},
   {kind: 'coffee', x: -68.34, z: 51.45, w: .95, d: .95},
-  {kind: 'console', x: -71.38, z: 47.55, w: .60, d: 1.94},
+  {kind: 'console', x: -71.38, z: 49.36, w: .60, d: 1.94},
   {kind: 'planter', x: -70.68, z: 40.1, w: .65, d: .65},
   {kind: 'planter', x: -70.68, z: 54.04, w: .65, d: .65},
   {kind: 'planter', x: -47.02, z: 53.83, w: .65, d: .65},
