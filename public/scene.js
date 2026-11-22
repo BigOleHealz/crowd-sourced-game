@@ -1,3 +1,4 @@
+import {pierFishingView} from './pier-fishing-view.js';
 import {reefChannelView} from './reef-channel-view.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
@@ -1125,6 +1126,7 @@ export function createScene(canvas) {
   const updateDogs=CITY?dogView(scene,Batch):null;
   const updateReef=CITY?reefChannelView(scene,Batch):null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
+  const updateFishing=CITY ? pierFishingView(scene,MAP.waterY) : null;
   const updateFish=CITY ? reefFishView(scene,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
@@ -1389,6 +1391,7 @@ export function createScene(canvas) {
     const attackTick=world.frameTick??world.simTick;
     const remoteAttackTick=world.meleeRemoteTick??attackTick;
     const players=[local,...remotes];
+    updateFishing?.(players,local,attackTick);
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);

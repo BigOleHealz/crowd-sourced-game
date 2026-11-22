@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {fishSpecies,fishSchools,fishPose} from './reef-fish.js';
 
-function fishGeometry(id,species) {
+export function fishGeometry(id,species) {
   const positions=[],colors=[],ink=new THREE.Color();
   const triangle=(a,b,c,color)=>{
     positions.push(...a,...b,...c);

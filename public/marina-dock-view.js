@@ -149,7 +149,7 @@ export function addMarinaDocks(scene,batch){
   c.strokeStyle='#bba276';c.lineWidth=4;c.strokeRect(12,12,1000,246);c.textAlign='center';
   c.fillStyle='#e8d5a4';c.font='25px sans-serif';c.fillText('L A N T E R N    P O I N T',512,67);
   c.fillStyle='#fff4d8';c.font='78px Georgia,serif';c.fillText('East Quay Marina',512,156);
-  c.fillStyle='#d3bd8e';c.font='32px sans-serif';c.fillText('GUEST DOCKS    ·    A    B    C',512,218);
+  c.fillStyle='#d3bd8e';c.font='32px sans-serif';c.fillText('GUEST DOCKS   /   PIER FISHING   /   A · B · C',512,218);
   for(const [i,f] of marinaFingers.entries()){
     const x=i*336;c.strokeRect(x+9,290,314,197);c.font='bold 116px Georgia,serif';c.fillText(f.id,x+167,435);
   }

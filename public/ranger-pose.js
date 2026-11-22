@@ -1,3 +1,4 @@
+import {activeCast} from './pier-fishing.js';
 import {diveMotion} from './estate-diving.js';
 import {rungPitch} from './marina-platform.js';
 import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
@@ -276,7 +277,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
     avatar.spine.rotation.set(-.04,0,0);
   }
   const toolIndex=(state.weapon ?? 1)-1;
-  const carrying=!state.holstered && !state.dive && !climb && !fall && !swimming && !state.dead && !seated && !station;
+  const fishing=activeCast(state.fishing);
+  const carrying=!fishing && !state.holstered && !state.dive && !climb && !fall && !swimming && !state.dead && !seated && !station;
   const melee=isArcadeMelee(state.weapon),fit=carryFits[toolIndex];
   const meleeReady=carrying && !state.parachute && !(state.lostParts?.leftArm && state.lostParts.rightArm);
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0) && (!melee || meleeReady);});
@@ -345,6 +347,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       arm.parent.worldToLocal(grip);
       gripPose(arm,forearm,THREE.MathUtils.lerp(side*.22,grip.x,hold),
         THREE.MathUtils.lerp(1.24,grip.y,hold),THREE.MathUtils.lerp(-.18,grip.z,hold),side);
+    } else if(fishing){
+      arm.rotation.set(.72,side*.03,side*.12);
+      forearm.rotation.x=.72+(side<0 && state.fishing.phase==='reel'?.22*Math.sin(tick*.34):0);
     } else if(fleeing){
       const shield=side===((avatar.civilian?.face??0)%2 ? -1 : 1);
       const pump=side*swing*weight;
