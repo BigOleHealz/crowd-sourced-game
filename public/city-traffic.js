@@ -16,9 +16,10 @@ import {roadContact} from './road-contact.js';
 import {stepSuspension} from './road-suspension.js';
 
 const path=new WeakMap();
+// Each display car can pull forward into the street from its own building's side.
 const valetBays=[
-  ['falco',-65,57.03,Math.PI/2,200],
-  ['veloce',-47,57.03,Math.PI/2,195],
+  ['falco',-65.5,67.25,0,200],
+  ['veloce',-45.5,56.35,Math.PI/2,195],
 ];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 

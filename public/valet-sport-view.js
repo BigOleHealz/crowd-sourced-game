@@ -83,8 +83,10 @@ export function valetSportBody(Batch,type,{skin,pane,run,box}){
       const rows=[];
       for(let i=0;i<=22;i++){
         const angle=i*Math.PI/22,z=axle-arch*Math.cos(angle),y=tire+arch*Math.sin(angle);
-        const [width]=dims(z);
-        rows.push([[s*(width-.085),y,z],[s*(width-.22),y-.027,z]]);
+        const [width]=dims(z),outer=width-.085,inner=width-.22;
+        const outerY=Math.min(y,hood(z,outer/width)[1]-.012);
+        const innerY=Math.min(y-.027,hood(z,inner/width)[1]-.018);
+        rows.push([[s*outer,outerY,z],[s*inner,innerY,z]]);
       }
       skin(body,carbon,rows);
     }
