@@ -1,3 +1,4 @@
+import {centaurFountain} from './centaur-fountain-view.js';
 import * as THREE from 'three';
 import {grandResortTower,grandRooms} from './grand-resort-view.js';
 import {grandLobbyOpening} from './grand-resort-layout.js';
@@ -475,90 +476,6 @@ function wing(parts, {x, z, w, d, roof, sign, accent}) {
   }
 }
 
-const fountainX = -44, fountainZ = 53, fountainBase = .80;
-const fountainScale = 1.65 / 1.75;
-const waterY = fountainBase + .455, spoutY = fountainBase + 1.23;
-const nozzles = Array.from({length: 6}, (_, i) => {
-  const angle = i * Math.PI / 3;
-  return [Math.cos(angle), Math.sin(angle)];
-});
-
-function fountain(parts, group, Batch, materials) {
-  const {masonry, metal, trim, cylinder} = parts;
-  const water = new Batch();
-  const profile = [[0, 0], [1.59, 0], [1.73, .065], [1.67, .13],
-    [1.61, .22], [1.61, .32], [1.75, .40], [1.75, .49],
-    [1.62, .56], [1.44, .56], [1.39, .49], [1.39, .27], [0, .27]];
-  const basin = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r * fountainScale, y)), 48);
-  masonry.add(basin, stone, fountainX, fountainBase, fountainZ);
-  basin.dispose();
-
-  const rim = new THREE.TorusGeometry(1, .014, 7, 52).rotateX(-Math.PI / 2);
-  metal.add(rim, bronze, fountainX, fountainBase + .544, fountainZ, 1.65 * fountainScale, 1.25, 1.65 * fountainScale);
-  metal.add(rim, darkBronze, fountainX, fountainBase + .265, fountainZ, 1.61 * fountainScale, 1.05, 1.61 * fountainScale);
-  const surface = new THREE.CircleGeometry(1.415 * fountainScale, 48).rotateX(-Math.PI / 2);
-  water.add(surface, 0x4e9a9d, fountainX, waterY, fountainZ);
-  surface.dispose();
-  for (const [i, r] of [1.34, 1.22, 1.07, .83].entries()) {
-    water.add(rim, [0x8dc2b9, 0x5ca7a6][i % 2], fountainX, waterY + .005, fountainZ, r * fountainScale, .24, r * fountainScale * .97);
-  }
-  rim.dispose();
-
-  cylinder(masonry, shadowStone, fountainX, fountainBase + .49, fountainZ, 1.11, .40);
-  cylinder(metal, bronze, fountainX, fountainBase + .69, fountainZ, .85, .065);
-  const column = new THREE.CylinderGeometry(.46, .78, 1, 16);
-  masonry.add(column, jade, fountainX, fountainBase + .92, fountainZ, .62, .45, .62);
-  column.dispose();
-  const bowlProfile = [[0, -.135], [.16, -.13], [.47, -.085], [.57, -.01],
-    [.56, .046], [.51, .064], [.45, .019], [.17, -.069], [0, -.069]];
-  const bowl = new THREE.LatheGeometry(bowlProfile.map(([r, y]) => new THREE.Vector2(r, y)), 32);
-  metal.add(bowl, bronze, fountainX, fountainBase + 1.15, fountainZ);
-  bowl.dispose();
-  for (const [x, z] of nozzles) {
-    trim(darkBronze, fountainX + x * .23, spoutY, fountainZ + z * .23, .12, .12, .12);
-  }
-  for (let i = 0; i < 6; i++) {
-    const angle = i * Math.PI / 3;
-    const x = fountainX + 1.19 * fountainScale * Math.cos(angle);
-    const z = fountainZ + 1.19 * fountainScale * Math.sin(angle);
-    cylinder(metal, darkBronze, x, waterY + .005, z, .104, .016);
-    cylinder(parts.glow, seafoam, x, waterY + .017, z, .072, .013);
-  }
-  water.mesh(group, materials.water, false);
-
-  const dropletsPerJet = 15, jetCount = nozzles.length + 1;
-  const drops = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 5, 4), materials.spray, jetCount * dropletsPerJet);
-  drops.name = 'Fountain spray';
-  drops.frustumCulled = false;
-  group.add(drops);
-  const pose = new THREE.Object3D();
-  let phase = 0;
-  function updateSpray(dt, local) {
-    const near = !local || Math.hypot(local.x - fountainX, local.z - fountainZ) < 64;
-    drops.visible = near;
-    if (!near) return;
-    phase = (phase + dt * 1.36) % 1;
-    for (let jet = 0; jet < jetCount; jet++) {
-      const [dx, dz] = nozzles[jet] ?? [0, 0];
-      for (let j = 0; j < dropletsPerJet; j++) {
-        const progress = (phase + j / dropletsPerJet + jet * .179) % 1;
-        const reach = .23 + progress * .94;
-        const y = jet === nozzles.length
-          ? spoutY + Math.sin(Math.PI * progress) * .71
-          : spoutY + 1.15 * progress - 1.92 * progress * progress;
-        pose.position.set(fountainX + dx * reach, y, fountainZ + dz * reach);
-        const scale = .030 + .008 * Math.sin(j * 1.87);
-        pose.scale.set(scale, scale * 1.42, scale);
-        pose.updateMatrix();
-        drops.setMatrixAt(jet * dropletsPerJet + j, pose.matrix);
-      }
-    }
-    drops.instanceMatrix.needsUpdate = true;
-  }
-  updateSpray(0);
-  return updateSpray;
-}
-
 export function resortExterior(scene, Batch) {
   const cube = new THREE.BoxGeometry(), plane = new THREE.PlaneGeometry();
   const round = new THREE.CylinderGeometry(.5, .5, 1, 16);
@@ -586,7 +503,7 @@ export function resortExterior(scene, Batch) {
   const updateRooms=grandRooms(scene,Batch);
   casino.build();
   porteCochere(court);
-  const updateFountain = fountain(court, frontCourt, Batch, materials);
+  const updateFountain = centaurFountain(court, frontCourt, Batch, materials);
   court.build();
 
   for (const plan of resortWings) {

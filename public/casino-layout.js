@@ -1,4 +1,5 @@
 import {resortLevelAt} from './grand-resort-layout.js';
+import {fountainWalls} from './centaur-fountain-layout.js';
 export const casinoName='Lantern Club Casino';
 export const casinoHall={x:-59,z:47,w:26,d:16,floor:.80,ceiling:5.6};
 export const casinoEntrance={x:-55,z:55};
@@ -13,7 +14,7 @@ export const resortBarriers=[
   wall(-64.5,55,15,.26),wall(-49.5,55,7,.26),
   wall(-46,41.75,.26,5.5),wall(-46,51.25,.26,7.5),
 
-  {x:-44,z:53,w:2.64,d:2.64,h:.52},
+  ...fountainWalls,
   ...[-60.35,-49.65].map(x=>({x,z:56.35,w:.35,d:.38,h:3.7})),
   {x:casinoSeat.x,z:tableZ-.21,w:2.96,d:.50,h:.96},
   {x:casinoSeat.x,z:tableZ+.21,w:2.62,d:.36,h:.96},
