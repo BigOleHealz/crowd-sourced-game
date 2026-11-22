@@ -233,7 +233,7 @@ export function createSharks(){
         }
         continue;
       }
-      if(s.dogEncounter)continue;
+      if(s.dogEncounter || s.scavenge)continue;
       if(mind.feeding && stepFeeding(s,i,dt,tick,players))continue;
       const prey=swimmers.get(s.target);
       const ang=time*.115+i*1.23;

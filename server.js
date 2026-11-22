@@ -1,3 +1,4 @@
+import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
@@ -786,6 +787,7 @@ function tick() {
     stepDogs(world,npcs,players,step,ticks);
     stepSharkDogEncounters(world,step,world.removeEncounterDog);
   }
+  if(players.size)stepSharkScavenging(world,players,npcs,ticks,step);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);
