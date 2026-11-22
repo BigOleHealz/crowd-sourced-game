@@ -1,7 +1,7 @@
 import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
 
 // Piecewise convex prisms leave clear space ahead of the swept wings and
-// underneath the airframe. Clip each to the car's height before testing in XZ.
+// underneath the airframe. Clip each to the traveller's height before testing in XZ.
 const pieces=[];
 function prism(plan,bottom,top,gear=false){
   const n=plan.length;
@@ -44,7 +44,7 @@ function transformed(jet){
       const a=cr*u-sr*v,b=sr*u+cr*v,c=sp*b+cp*w;
       return [x+cy*a-sy*c,y+cp*b-sp*w,z+sy*a+cy*c];
     });
-    return {points,edges,bottom:Math.min(...points.map(p=>p[1])),top:Math.max(...points.map(p=>p[1]))};
+    return {points,edges,level:pitch===0 && roll===0,bottom:Math.min(...points.map(p=>p[1])),top:Math.max(...points.map(p=>p[1]))};
   });
   cache.set(jet,{x,y,z,yaw,pitch,roll,gear,solids});
   return solids;
@@ -112,4 +112,64 @@ export function jetRoadContact(jet,x,y,z,yaw,shape){
     if(depth && (!result || result.depth<depth))result={nx,nz,depth,object:jet};
   }
   return result;
+}
+
+// Distance to the nearest edge of the clipped convex piece. Inside it, the
+// outward edge normal also gives a walker already in the hull a way out.
+function circleContact(outline,x,z,radius){
+  if(outline.length<3)return;
+  let inside=true,best=Infinity,nx=0,nz=0,nearestX=0,nearestZ=0;
+  for(let i=0;i<outline.length;i++){
+    const [ax,az]=outline[i],[bx,bz]=outline[(i+1)%outline.length];
+    const dx=bx-ax,dz=bz-az,len2=dx*dx+dz*dz;
+    if(!len2)continue;
+    const rx=x-ax,rz=z-az;
+    if(dx*rz-dz*rx<0)inside=false;
+    const t=Math.max(0,Math.min(1,(rx*dx+rz*dz)/len2));
+    const ox=rx-t*dx,oz=rz-t*dz,d2=ox*ox+oz*oz;
+    if(d2<best){
+      const len=Math.sqrt(len2);
+      best=d2;nx=dz/len;nz=-dx/len;
+      nearestX=ox;nearestZ=oz;
+    }
+  }
+  const distance=Math.sqrt(best);
+  if(inside)return {depth:radius+distance,nx,nz};
+  if(distance<radius && distance>0)return {depth:radius-distance,nx:nearestX/distance,nz:nearestZ/distance};
+}
+
+// On a banked or pitched aircraft the surface under a walker can differ from
+// the highest vertex. Only nearby, tilted pieces need the height search.
+function surfaceAt(solid,x,z,radius,top){
+  if(solid.level)return top?solid.top:solid.bottom;
+  let lo=solid.bottom,hi=solid.top;
+  for(let i=0;i<13;i++){
+    const mid=(lo+hi)/2;
+    const slice=outlineAtHeight(solid,top?mid:solid.bottom,top?solid.top:mid);
+    if(Boolean(circleContact(slice,x,z,radius))===top)lo=mid;
+    else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+export function jetWalkContact(result,jet,x,y,z,radius,height){
+  if(!jet || Math.abs(jet.x-x)>5 || Math.abs(jet.z-z)>5 || Math.abs(jet.y-y)>6)return;
+  for(const solid of transformed(jet)){
+    const full=solid.fullOutline??=outlineAtHeight(solid,solid.bottom,solid.top);
+    const footprint=circleContact(full,x,z,radius);
+    if(!footprint)continue;
+    const feet=y+.001,head=y+height-.001;
+    const hit=feet<solid.top && head>solid.bottom && (solid.level?footprint:
+      circleContact(outlineAtHeight(solid,feet,head),x,z,radius));
+    if(hit){
+      if(hit.depth>result.depth){
+        result.depth=hit.depth;result.dx=hit.nx*hit.depth;result.dz=hit.nz*hit.depth;
+      }
+    }else if(feet>=solid.top || (feet>solid.bottom &&
+      circleContact(outlineAtHeight(solid,solid.bottom,feet),x,z,radius))){
+      result.floor=Math.max(result.floor,surfaceAt(solid,x,z,radius,true));
+    }else{
+      result.ceiling=Math.min(result.ceiling,surfaceAt(solid,x,z,radius,false)-height);
+    }
+  }
 }
