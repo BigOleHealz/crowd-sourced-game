@@ -1,6 +1,12 @@
 # Recorded sound credits
 
-Club Lucero and the Harbor Key beach DJ play **Scoopin Dung (Poppin)** by Trash Thug Healz, supplied by the artist for Pinewatch.
+Club Lucero and the Harbor Key beach DJ play these artist-supplied tracks on shuffle:
+
+- Big Ole Healz Greatest Rhymes Ever
+- Crawdaddy Healz Alligator Chedda
+- Leaky Garbage Drip — TrashThug Healz x Yung Katsu
+- Country Healy Trap
+- Scoopin Dung (Poppin) — Trash Thug Healz
 
 The sound effects listed below use edited mono Opus files. Their source recordings carry the [CC0 1.0 public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
 

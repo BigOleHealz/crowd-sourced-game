@@ -65,6 +65,32 @@ export function addLookouts(scene,Batch,makeRig) {
     for(const side of [-1,1]){
       brace(accent,[.69,2.86,side*1.12],[1.30,canopyHeight(number,1.30)-.07,side*1.12],.064);
     }
+    if(number==='02') {
+      // Lash the pennant to the seaward eave, above the deck and the rescue sign.
+      const mastX=1.32,mastZ=1.44,roof=canopyHeight(number,mastX),peak=roof+1.22;
+      piece(ivory,mastX,roof+.42,mastZ,.054,1.65,.054);
+      for(const h of [-.20,-.035])piece(accent,mastX,roof+h,mastZ,.085,.060,.18);
+      piece(pale,mastX,peak+.035,mastZ,.084,.084,.084);
+      // Taper two sewn bands to one point. Each station is a crease in the cloth.
+      const folds=[[0,0,0,.48],[-.32,-.045,.16,.37],[-.66,-.07,.095,.26],
+        [-.98,-.05,.24,.14],[-1.30,-.11,.29,0]];
+      for(let i=1;i<folds.length;i++) {
+        for(const [top,bottom,tint] of [[0,.22,ivory],[.22,1,i%2?paint:pale]]) {
+          const vertices=[];
+          for(const [dx,dy,dz,height] of [folds[i-1],folds[i]])
+            for(const fraction of [top,bottom])vertices.push(dx,dy-height*fraction,dz);
+          const panel=new THREE.BufferGeometry();
+          panel.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+          // Duplicate the reverse face so both sides retain their own lit normal.
+          const front=[0,1,2,1,3,2],indices=folds[i][3]===0?front.slice(0,3):front;
+          for(const face of [indices,[...indices].reverse()]){
+            panel.setIndex(face);panel.computeVertexNormals();
+            trim.add(panel,tint,x+mastX,y+peak,z+mastZ);
+          }
+          panel.dispose();
+        }
+      }
+    }
     // The west stair enters through a gap in the back wall.
     for(const side of [-1,1]) {
       brace(0x948269,[-2.60,.07,side*.405],[-.99,1.39,side*.405],.094,.11);

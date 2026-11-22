@@ -1,3 +1,4 @@
+import {venueSet} from './venue-soundtrack.js';
 import {courtContactAudio,courtContactBuffer} from './basketball-audio.js';
 import {hoop} from './basketball-layout.js';
 import {wheelContactSounds,wheelLandingBuffer} from './skate-touchdown.js';
@@ -177,6 +178,7 @@ export function createGameAudio(button,slider,level,caption) {
       }catch{/* Keep synthesized playback available on browsers without Opus. */}
     }));
   }
+  const venuePlayers=new Map();
   const flameEmitters=new Map();
   const buffers=new Map(),loops=new Map(),voices=new Set();
   function controls() {
@@ -276,6 +278,7 @@ export function createGameAudio(button,slider,level,caption) {
 
     listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
+    for(const key of venuePlayers.keys())stopVenue(key);
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
@@ -366,14 +369,10 @@ export function createGameAudio(button,slider,level,caption) {
         const range=Math.hypot(listener.x-b.x,listener.y-b.y-2,listener.z-b.z);
         if(range<partyRange){party=b;partyRange=range;}
       }
-      if(audible()){
-        if(beachRange<32 || inEarshot)loadMusic('scoopin-dung','scoopin-dung.mp3');
-        if(party)loadMusic('lucero','lucero-trio.ogg');
-      }
-      const songReady=buffers.has('scoopin-dung');
-      motor('scoopin-dung',beachDJ,beachRange<32 && songReady,1,.72*Math.max(0,1-beachRange/32),listener,yaw,'beach-dj');
+      if(party && audible())loadMusic('lucero','lucero-trio.ogg');
+      venueMusic('beach-dj',beachDJ,beachRange<32,.72*Math.max(0,1-beachRange/32),listener,yaw);
       motor('lucero',party,!!party && buffers.has('lucero'),1,.55*(1-partyRange/36),listener,yaw,'yacht-party-music');
-      motor('scoopin-dung',clubSpeaker,inEarshot && songReady,1,.56,listener,yaw,'club-speakers');
+      venueMusic('club-speakers',clubSpeaker,inEarshot,.56,listener,yaw);
       const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
       const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
       motor('branch-alarm',bankDesk,nearBank,1,context.currentTime<bankVoiceUntil?.24:.84,listener,yaw);
@@ -460,6 +459,28 @@ export function createGameAudio(button,slider,level,caption) {
     }
     previousVehicles=nextVehicles;
   }
+  function stopVenue(key) {
+    const player=venuePlayers.get(key);
+    if(!player)return;
+    player.set.stop();
+    player.gain.disconnect();player.pan.disconnect();player.tone.disconnect();
+    venuePlayers.delete(key);
+  }
+  function venueMusic(key,point,active,volume,listener,yaw) {
+    if(!active || !audible()){stopVenue(key);return;}
+    let player=venuePlayers.get(key);
+    if(!player){
+      const gain=context.createGain(),pan=context.createStereoPanner(),tone=context.createBiquadFilter();
+      tone.type='lowpass';tone.frequency.value=20000;tone.Q.value=.65;gain.gain.value=0;
+      gain.connect(pan);pan.connect(tone);tone.connect(limiter);
+      player={gain,pan,tone,nextTone:0,transmission:1,set:venueSet(context,gain)};
+      venuePlayers.set(key,player);
+    }
+    const now=context.currentTime,place=placement(listener,yaw,point);
+    player.gain.gain.setTargetAtTime(volume*place.gain*passage(player,point),now,.08);
+    player.pan.pan.setTargetAtTime(place.pan,now,.05);
+    void player.set.update();
+  }
   function stopMotor(key) {
     const track=loops.get(key);
     if(!track)return;
@@ -479,9 +500,7 @@ export function createGameAudio(button,slider,level,caption) {
     if(!track) {
       track=voice(name,true);
       track.gain.gain.value=0;
-      const clubMusic=key==='beach-dj' || key==='club-speakers';
-      const offset=clubMusic ? Math.random()*track.source.buffer.duration : 0;
-      track.source.start(0,offset);
+      track.source.start();
       loops.set(key,track);
     }
     const now=context.currentTime,place=placement(listener,yaw,v);
