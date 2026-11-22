@@ -1,3 +1,4 @@
+import {trickTime} from './skate-jam.js';
 import {bicycleModel,cyclistPose} from './shop-bicycle.js';
 import * as THREE from 'three';
 
@@ -35,7 +36,8 @@ export function streetRideView(scene,Batch){
       const at=actor?.ride?.id===item.id?actor:item;
       model.userData.animate?.(at.ride,dt);
       model.position.set(at.x,at.y+.007,at.z);
-      model.rotation.set(at.ride && !at.grounded?-.10*Math.tanh(at.vy):0,-(at.ride?.yaw??item.yaw),0,'YXZ');
+      const trick=at.ride?.trick,turn=trick?Math.min(1,trick.age/trickTime(trick.kind))*2*Math.PI:0;
+      model.rotation.set(at.ride && !at.grounded?-.10*Math.tanh(at.vy):0,-(at.ride?.yaw??item.yaw)+(trick?.kind==='shove'?turn:0),trick?.kind==='kickflip'?turn:0,'YXZ');
     }
   };
 }

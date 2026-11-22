@@ -378,6 +378,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
+    skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
