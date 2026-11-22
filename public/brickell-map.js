@@ -1,3 +1,4 @@
+import {palaceQuays,arrivalGround,arrivalSolids} from './palace-arrival.js';
 import {casinoQuay,wingSolids} from './waterfront-wing.js';
 import {salonFurniture} from './waterfront-salon-layout.js';
 import {atriumFixtures} from './grand-atrium.js';
@@ -39,12 +40,16 @@ streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-71.5 && e.z===61));
 // Keep the avenue curb open for pedestrians crossing onto the salon terrace.
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(c.x< -71.5 && c.x> -72 && Math.abs(c.z-61)<4.5));
 export const bridges=[causeway,lanternBridge];
-const oldShores=[coast,causeway,harbor,casinoQuay],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
+// Open the former avenue turning head into the resort drive.
+streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
+streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
+const oldShores=[...palaceQuays,coast,causeway,harbor,casinoQuay],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
 export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
+  const arrival=arrivalGround(x,z);if(arrival!==undefined)return arrival;
   const bridge=bridges.find(r=>within(r,x,z));
   if(bridge){
     const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
@@ -91,7 +96,7 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  barriers:[...arrivalSolids,...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

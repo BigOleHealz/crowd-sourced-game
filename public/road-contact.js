@@ -1,3 +1,4 @@
+import {onArrivalQuay} from './palace-arrival.js';
 import {inWaterfrontSalon,wingFloor} from './waterfront-wing.js';
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
@@ -109,8 +110,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   if(result)return result;
   const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
   if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
-  if(x< -limit)return {nx:1,nz:0,depth:-limit-x,object:'west'};
-  if(z>limit)return {nx:0,nz:-1,depth:z-limit,object:'south'};
+  if(x< -limit && !(CITY&&onArrivalQuay(x,z)))return {nx:1,nz:0,depth:-limit-x,object:'west'};
+  if(z>limit && !(CITY&&onArrivalQuay(x,z)))return {nx:0,nz:-1,depth:z-limit,object:'south'};
   if(z<north)return {nx:0,nz:1,depth:north-z,object:'north'};
   const boat=base<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,shape.halfWidth,shape.halfLength);
   // Keep the prior shore/bridge traversal limits as terrain safeguards.

@@ -43,7 +43,7 @@ function sculptedForm(stations){
 }
 
 function centaur(group,Batch){
-  const {x,z,base}=fountainSite,y=base+1.13,scale=1.25,yaw=.50;
+  const {x,z,base}=fountainSite,y=base+1.13,scale=1.98,yaw=.28;
   const ball=new THREE.SphereGeometry(1,14,12),horse=new THREE.Group();
   // Build all of the bronze into one static batch. The forelegs paw the air
   // while the back hooves actually bear on the plinth.
@@ -164,14 +164,14 @@ function waterArches(group) {
     shader.fragmentShader='uniform float jetTime;varying float archT;\n'+shader.fragmentShader.replace('#include <color_fragment>',
       '#include <color_fragment>\n float gleam=.5+.5*cos(archT*85.-jetTime*9.0);diffuseColor.rgb*=.83+.31*gleam;diffuseColor.a*=1.-.32*archT;');
   };
-  const count=14,arches=new THREE.InstancedMesh(tube,water,count),pose=new THREE.Object3D();
+  const count=24,arches=new THREE.InstancedMesh(tube,water,count),pose=new THREE.Object3D();
   arches.name='Choreographed fountain jets';group.add(arches);
   for(let i=0;i<count;i++){
     const a=2*Math.PI*(i+.5)/count,dx=Math.cos(a),dz=Math.sin(a);
     const ax=rx*.85*dx,az=rz*.87*dz,bx=rx*.55*Math.cos(a+.47),bz=rz*.53*Math.sin(a+.47);
     pose.position.set(x+ax,waterY,z+az);
     pose.rotation.y=Math.atan2(bx-ax,bz-az);
-    pose.scale.set(1,1.04+.52*(.5+.5*dz*dz)+.20*(i%2),Math.hypot(bx-ax,bz-az));
+    pose.scale.set(1,1.55+.76*(.5+.5*dz*dz)+.20*(i%2),Math.hypot(bx-ax,bz-az));
     pose.updateMatrix();arches.setMatrixAt(i,pose.matrix);
   }
   arches.computeBoundingSphere();
@@ -201,8 +201,8 @@ export function centaurFountain(parts,group,Batch,materials){
   lathe(metal,gold,[[.63,.365],[.64,.375],[.64,.40],[.63,.412]],base+.48,1,2.03);
   lathe(metal,verde,[[0,0],[.59,0],[.61,.035],[.60,.074],[0,.074]],base+1.055,1,2.03);
   const disk=new THREE.CylinderGeometry(1,1,1,12);
-  for(let i=0;i<14;i++){
-    const a=2*Math.PI*(i+.5)/14,dx=Math.cos(a),dz=Math.sin(a);
+  for(let i=0;i<24;i++){
+    const a=2*Math.PI*(i+.5)/24,dx=Math.cos(a),dz=Math.sin(a);
     const bx=x+rx*.85*dx,bz=z+rz*.87*dz;
     metal.add(disk,bronze,bx,base+.496,bz,.105,.037,.105);
     glow.add(disk,i%2?0xffdc93:0x7ee6e3,bx,base+.518,bz,.072,.010,.072);

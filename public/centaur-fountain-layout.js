@@ -1,5 +1,5 @@
-// The avenue, east doorway and Ferrari bay bound the three sides of the terrace.
-export const fountainSite={x:-43.99,z:51.25,radiusX:1.76,radiusZ:3.53,base:.80,lip:.63};
+// A stepped elliptical basin anchors the raised processional carriage court.
+export const fountainSite={x:-57,z:88.3,radiusX:7.55,radiusZ:4.15,base:2.55,lip:.63};
 
 // Match the stepped collision to the oval coping instead of blocking its four corners.
 export const fountainWalls=Array.from({length:13},(_,i)=>{

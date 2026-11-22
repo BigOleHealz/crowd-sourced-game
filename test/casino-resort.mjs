@@ -18,7 +18,7 @@ function walkTo(player,x,z){
 const {grandStoryY}=await import('../public/grand-resort-layout.js');
 let p={x:-55,y:.70,z:61,vx:0,vy:0,vz:0,grounded:true};
 const guide=landmarkGuide(casinoName);
-assert.deepEqual(guide(0,15,0).goal,[-55,55.8]);
+assert.deepEqual(guide(0,15,0).goal,[-57,80.7]);
 p=walkTo(p,-55,50);
 assert.equal(roomAtFeet(p,world.doors).label,casinoName);
 assert.equal(interiorCeiling(p,world.doors),grandStoryY(5));

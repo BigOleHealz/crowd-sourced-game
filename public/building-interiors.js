@@ -2,6 +2,7 @@ import {resortWingShaft,shaftContains} from './hotel-lifts.js';
 import {lidoHouse} from './lido-house.js';
 import {GRAND_STEP,grandShaft,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
 import {spiralForHouse,outsideWell,spiralWell,spiralSupport} from './residential-spirals.js';
+import {courtRoom,promenades,westArcades} from './palace-arrival.js';
 import {inWaterfrontSalon,wingGallery,wingPlan,wingCeiling} from './waterfront-wing.js';
 import {casinoHall,casinoName,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
@@ -136,6 +137,7 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     [39.5,.87,-441,'z',2.6,'Dining entrance'],[32.6,4.9,-439.5,'x',2.6,'Library terrace'],[30.05,8.7,-444.9,'z',2.6,'Suite terrace'],
     [31.2,.87,-442.32,'z',3.1,'Kitchen'],[28.2,4.9,-444.6,'z',3.85,'Writing room'],[18.25,8.7,-445.25,'z',2.82,'Dressing room']])door(mare,x,y,z,axis,w,label);
 
+  for(const [i,r] of [...promenades,...westArcades].entries())plan(140+i,{x:(r.west+r.east)/2,z:(r.north+r.south)/2,w:r.east-r.west,d:r.south-r.north},'palace-arrival',r.name);
   plan(26,wingPlan,'waterfront-salon','Aurora Waterfront Salon');
   // Append rear controls so existing saved door bits keep their original IDs.
   for(const g of galleryPlans)if(g.passage){
@@ -266,6 +268,7 @@ export function furnishedSupport(x,z,probe,doors){
 export function roomAtFeet(feet,doors){
   for(const p of near(feet.x,feet.z)){
     if(!isInside(p,feet.x,feet.z) || !intact(p,doors,feet.x,feet.y,feet.z))continue;
+    if(p.type==='palace-arrival' && courtRoom(feet.x,feet.y,feet.z))return {p,label:p.name};
     if(p.type==='waterfront-salon' && inWaterfrontSalon(feet.x,feet.y,feet.z)){
       return {p,label:feet.y>=wingGallery-.08?p.name+' · Gallery':p.name};
     }
@@ -290,6 +293,7 @@ export function approachRamp(x,z){
 }
 export function interiorCeiling(feet,doors){
   const room=roomAtFeet(feet,doors);
+  if(room?.p.type==='palace-arrival')return room.p.name==='Aurora Colonnade'?5.95:8.48;
   if(room?.p.type==='waterfront-salon')return wingCeiling(feet.y,feet.z);
   return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? resortRoofAbove(feet.x,feet.z,room.casinoStorey) : room?.p.type==='villa-lido' ? 4.53 : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
 }

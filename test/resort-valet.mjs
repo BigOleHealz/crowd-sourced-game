@@ -32,8 +32,8 @@ for(const [z,x0,x1,yaw] of [[58.25,-68,-42,Math.PI/2],[63.75,-42,-68,-Math.PI/2]
 }
 
 for(const [model,name,throttle,steer,departed] of [
-  ['falco','Lamborghini',.50,0,car=>car.z<61],
-  ['veloce','Ferrari',.25,.12,car=>car.z>59.7],
+  ['falco','Lamborghini',.50,0,car=>car.z<92.5],
+  ['veloce','Ferrari',.25,.12,car=>car.z<92.5],
 ]){
   const world=newResort(),car=world.traffic.find(car=>car.model===model);
   const home={x:car.x,z:car.z,yaw:car.yaw,hp:car.hp};

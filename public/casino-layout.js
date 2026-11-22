@@ -1,3 +1,4 @@
+import {courtRoom} from './palace-arrival.js';
 import {inWaterfrontSalon} from './waterfront-wing.js';
 import {resortLevelAt} from './grand-resort-layout.js';
 import {fountainWalls} from './centaur-fountain-layout.js';
@@ -22,7 +23,7 @@ export const resortBarriers=[
   {x:casinoSeat.x,z:tableZ+.51,w:1.84,d:.25,h:.96},
 ];
 export function insideCasino(x,y,z){
-  return inWaterfrontSalon(x,y,z) || !!resortLevelAt(x,y,z,.25);
+  return !!courtRoom(x,y,z) || inWaterfrontSalon(x,y,z) || !!resortLevelAt(x,y,z,.25);
 }
 export const stakes=[0,10,20,50];
 export function nearBlackjack(feet){
