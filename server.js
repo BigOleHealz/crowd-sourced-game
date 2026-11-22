@@ -42,6 +42,7 @@ import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
+import {stepPartyEvacuation} from './public/party-evacuation.js';
 import {partyFleet,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
@@ -524,7 +525,8 @@ function tick() {
     for(const car of world.traffic)stepRoadBoarding(car,step);
     stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
-    for (const npc of npcs) if(!npc.officer && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
+    stepPartyEvacuation(world,npcs,ticks,step);
+    for (const npc of npcs) if(!npc.officer && !npc.partyEvac && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();

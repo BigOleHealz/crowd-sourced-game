@@ -89,7 +89,7 @@ export function crowdPanicAudio(){
     if(ends.length>=3)return;
     let actor,near=35;
     for(const npc of npcs){
-      if(npc.dead || npc.reaction!=='gunfire' || !Number.isInteger(npc.panicCry) ||
+      if(npc.dead || (npc.reaction!=='gunfire' && npc.reaction!=='shipwreck') || !Number.isInteger(npc.panicCry) ||
         npc.panicCry>tick || tick-npc.panicCry>12)continue;
       const prior=before.find(p=>p.id===npc.id);
       if(!prior || prior.panicCry===npc.panicCry)continue;
@@ -101,7 +101,7 @@ export function crowdPanicAudio(){
     for(const ch of String(actor.id))hash=(Math.imul(hash,31)+ch.charCodeAt(0))>>>0;
     // Keep each resident in character and cycle through every take for that
     // voice before repeating one. Adjacent listeners hear a spatial call.
-    const face=civilianLooks[actor.id]?.face??hash;
+    const face=civilianLooks[actor.evacLook??actor.id]?.face??hash;
     const cast=(face%2===0?higherVoices:lowerVoices)[hash%3];
     const start=(hash+actor.panicCry)%cast.length;
     let cue=cast[start];

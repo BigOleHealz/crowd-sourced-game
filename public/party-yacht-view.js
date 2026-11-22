@@ -1,3 +1,5 @@
+import {partySeats,partySinkDepth} from './party-seats.js';
+import {sinkingHull} from './sinking-hull.js';
 import * as THREE from 'three';
 import {gunfireAlarm} from './bystander-cover.js';
 import {wakeTrail} from './boat-wake-view.js';
@@ -232,17 +234,11 @@ function yacht(scene,Batch,boat,shared){
     mesh.name=i===0?'Skipper':'Party guests';root.add(mesh);
     return mesh;
   });
-  const guests=[
-    [[-.8,1.32,-1.7,0]],
-    [[-.75,1.33,3.48,2.84],[.51,3.18,-1.94,-2.9]],
-    [[.30,1.33,3.72,-.99],[-.62,3.18,-1.53,1.9]],
-    [[1.11,1.33,4.46,-.40],[-.91,1.33,6.18,-2.04]],
-    [[-.65,1.33,4.62,1.65],[.92,1.33,6.28,2.50]],
-  ];
   const wake=wakeTrail(scene);
   return {root,wake,update(b,distance,time,dt,local,alarm){
-    root.position.set(b.x,b.y,b.z);
-    root.rotation.set(b.pitch??0,-b.yaw,b.roll??0,'YXZ');
+    const sink=sinkingHull(b,partySinkDepth);
+    root.position.set(b.x,b.y-sink.drop,b.z);
+    root.rotation.set((b.pitch??0)+sink.trim,-b.yaw,(b.roll??0)+sink.list,'YXZ');
     metal.visible=distance<130;cabin.visible=distance<155;lamps.visible=distance<115;
     for(let i=0;i<crew.length;i++){
       const group=crew[i];group.visible=distance<95 && (i>0 || (b.driver==null && b.cruising));
@@ -256,12 +252,13 @@ function yacht(scene,Batch,boat,shared){
           group.morphTexture.needsUpdate=true;
         }
       }
-      const moves=guests[i];
+      const moves=partySeats[i];
       for(let j=0;j<moves.length;j++){
         const [x,y,z,a]=moves[j],beat=time*(1.92+i*.064)+i*2+j*1.51+(b.style??0);
         const rock=i?.027*Math.sin(beat):0;
         dummy.position.set(x+rock*.86,y,z);dummy.rotation.set(.012*Math.sin(beat),a+(i?.105*Math.sin(beat*.5):0),rock,'YXZ');
-        dummy.scale.setScalar(i?1+(j-.5)*.055-i*.004:1);dummy.updateMatrix();group.setMatrixAt(j,dummy.matrix);
+        const seat=i?1+(i-1)*2+j:0;
+        dummy.scale.setScalar((b.evacuatedSeats??0)&(1<<seat)?0:i?1+(j-.5)*.055-i*.004:1);dummy.updateMatrix();group.setMatrixAt(j,dummy.matrix);
       }
       group.instanceMatrix.needsUpdate=true;
     }
@@ -276,7 +273,7 @@ export function partyYachtView(scene,Batch){
     time=Number.isFinite(tick)?tick/30:time+dt;
     const live=new Set();
     for(const boat of boats??[]){
-      if(!boat.partyYacht || boat.wrecked)continue;
+      if(!boat.partyYacht)continue;
       const d=Math.hypot(boat.x-local.x,boat.z-local.z);
       if(d>185)continue;
       if(!shared)shared={
@@ -288,7 +285,7 @@ export function partyYachtView(scene,Batch){
       };
       let model=models.get(boat.id);
       if(!model){model=yacht(scene,Batch,boat,shared);models.set(boat.id,model);}
-      model.root.visible=true;model.update(boat,d,time,dt,local,gunfireAlarm(cues,boat,tick));live.add(boat.id);
+      model.root.visible=true;model.update(boat,d,time,dt,local,boat.wrecked?1:gunfireAlarm(cues,boat,tick));live.add(boat.id);
     }
     for(const [id,model] of models)if(!live.has(id)){model.root.visible=false;model.wake(null,dt,local);}
   };

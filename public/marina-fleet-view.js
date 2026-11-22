@@ -1,3 +1,4 @@
+import {sinkingHull} from './sinking-hull.js';
 import * as THREE from 'three';
 import {marinaModel} from './marina-fleet-layout.js';
 import {wakeTrail} from './boat-wake-view.js';
@@ -179,11 +180,12 @@ function buildBoat(scene,Batch,boat,glass){
   const scorched=new THREE.MeshStandardMaterial({color:0x504944,vertexColors:true,roughness:.97,side:THREE.DoubleSide});
   for(const mesh of meshes)Object.assign(mesh.userData,{target:boat.id,impactSurface:'metal'});
   for(const mesh of glazed)Object.assign(mesh.userData,{target:boat.id,impactSurface:'solid'});
+  const rooftopDepth=deck+3.3;
   let wrecked=false;
   return {root,wake,update(b,dt,local){
-    const settle=b.wrecked?1-Math.exp(-1.2*(6-b.recoverySeconds)):0;
-    root.position.set(b.x,b.y-(deck+.54)*settle,b.z);
-    root.rotation.set(b.pitch+.10*settle,-b.yaw,b.roll-.32*settle,'YXZ');
+    const sink=sinkingHull(b,rooftopDepth);
+    root.position.set(b.x,b.y-sink.drop,b.z);
+    root.rotation.set(b.pitch+sink.trim,-b.yaw,b.roll+sink.list,'YXZ');
     if(wrecked!==b.wrecked){
       wrecked=b.wrecked;
       meshes.forEach((mesh,i)=>{mesh.material=wrecked?scorched:finishes[i];});

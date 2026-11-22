@@ -1,3 +1,4 @@
+import {sinkingHull} from './sinking-hull.js';
 import {wakeTrail} from './boat-wake-view.js';
 import * as THREE from 'three';
 import { helmCushion, helmWheel, patrolFleet } from './patrol-boats.js';
@@ -168,10 +169,9 @@ export function patrolBoatView(scene,Batch,material) {
       view.root.visible=!!boat;
       if(!boat) continue;
       view.setWrecked(boat.wrecked);
-      const age=boat.wrecked ? Math.max(0,6-boat.recoverySeconds) : 0;
-      const settle=1-Math.exp(-1.20*age);
-      view.root.position.set(boat.x,boat.y-.88*settle,boat.z);
-      view.root.rotation.set(boat.pitch+.20*settle,-boat.yaw,boat.roll-.39*settle,'YXZ');
+      const sink=sinkingHull(boat,3.55);
+      view.root.position.set(boat.x,boat.y-sink.drop,boat.z);
+      view.root.rotation.set(boat.pitch+sink.trim,-boat.yaw,boat.roll+sink.list,'YXZ');
       view.turret(boat);view.wake(boat,dt,local);
     }
   };
