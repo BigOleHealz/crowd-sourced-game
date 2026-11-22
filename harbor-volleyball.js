@@ -1,3 +1,4 @@
+import {courtRoster} from './court-residents.js';
 import {courts,sandHeight} from './public/beach-layout.js';
 import {atVolleyballCourt,ballRadius,canServeVolleyball,courtHalfLength,courtHalfWidth,
   courtSide,nearbyVolleyballCourt,netTop,sampleVolleyball,sideSign,slotSide,spikeRecovery,spikeWindup,volleyballMember,
@@ -17,10 +18,11 @@ export function createVolleyball(eligible,random=Math.random){
     athletes:slots.map(slot=>{
       const {x,z}=restSpot(court,slot);
       return {id:'volley-'+index+'-'+slot,name:athleteNames[4*index+slot],slot,
-        x,z,y:sandHeight(x,z),yaw:slotSide(slot)?0:Math.PI,moving:false,sprint:false,grounded:true};
+        x,z,y:sandHeight(x,z),hp:100,yaw:slotSide(slot)?0:Math.PI,moving:false,sprint:false,grounded:true};
     }),
     server:index*2,flight:null,until:0,hits:0,
   }));
+  const rosters=state.map(game=>courtRoster(game.athletes));
   const pending=state.map(()=>Array(4).fill(null)),cooldown=new Map();
 
   function prepare(game,side,tick){
@@ -116,7 +118,7 @@ export function createVolleyball(eligible,random=Math.random){
     const member=volleyballMember(state,id);
     if(!member)return;
     const {state:game,slot,court,index}=member;
-    game.players[slot]=null;game.swings[slot]=null;
+    game.players[slot]=null;rosters[index].setActive(slot,game.phase!=='closed');game.swings[slot]=null;
     pending[index][slot]=null;cooldown.delete(id);
     const {x,z}=restSpot(court,slot);
     Object.assign(game.athletes[slot],{x,y:sandHeight(x,z),z,moving:false,sprint:false});
@@ -137,7 +139,7 @@ export function createVolleyball(eligible,random=Math.random){
       const slot=[preferred,preferred^1,preferred^2,preferred^3].find(i=>game.players[i]==null);
       if(slot==null)return;
       const first=game.players.every(id=>id==null);
-      game.players[slot]=id;game.swings[slot]=null;pending[index][slot]=null;
+      game.players[slot]=id;rosters[index].setActive(slot,false);game.swings[slot]=null;pending[index][slot]=null;
       if(first)prepare(game,slotSide(slot),tick);
       return;
     }
@@ -161,14 +163,16 @@ export function createVolleyball(eligible,random=Math.random){
   function stepCourt(world,players,court,game,index,tick,dt){
     if(world.doors.nets?.[index]){
       for(const id of game.players)if(id!=null)leave(id,tick);
+      if(game.phase!=='closed')for(const slot of slots)rosters[index].setActive(slot,false);
       game.phase='closed';game.flight=null;game.drop=null;
       return;
     }
+    if(game.phase==='closed')for(const slot of slots)rosters[index].setActive(slot,true);
     if(!game.until || game.phase==='closed')prepare(game,index,tick);
     for(const slot of slots){
       const id=game.players[slot],player=players.get(id);
       if(id!=null && (!player || !eligible(world,player) || !atVolleyballCourt(player.state,court,3.1)))leave(id,tick);
-      if(game.players[slot]==null)moveAthlete(court,game,slot,tick,dt);
+      if(game.players[slot]==null && !game.athletes[slot].sidelined)moveAthlete(court,game,slot,tick,dt);
     }
     if(game.phase==='game' || game.phase==='point'){
       if(tick<game.until)return;
@@ -176,6 +180,14 @@ export function createVolleyball(eligible,random=Math.random){
       prepare(game,game.winner,tick);
       return;
     }
+    if(game.athletes.some((a,slot)=>game.players[slot]==null && a.sidelined)){
+      if(game.phase!=='interrupted'){
+        game.phase='interrupted';game.flight=null;game.drop=null;
+        game.swings.fill(null);pending[index].fill(null);
+      }
+      return;
+    }
+    if(game.phase==='interrupted')prepare(game,slotSide(game.server),tick);
     if(game.phase==='serve'){
       const slot=game.server,id=game.players[slot],side=slotSide(slot);
       if(id==null){
@@ -235,5 +247,5 @@ export function createVolleyball(eligible,random=Math.random){
   function step(world,players,tick,dt){
     for(const [index,court] of courts.entries())stepCourt(world,players,court,state[index],index,tick,dt);
   }
-  return {state,request,leave,step,member:id=>volleyballMember(state,id)};
+  return {state,request,leave,step,rosters,member:id=>volleyballMember(state,id)};
 }

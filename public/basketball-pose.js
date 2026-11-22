@@ -4,7 +4,7 @@ import {basketballTeams} from './basketball-layout.js';
 export function basketballPose(game,actor,clock){
   if(!game)return null;
   const side=game.players.findIndex((id,i)=>(id??basketballTeams[i].npc)===actor.id);
-  if(side<0 || actor.dead || actor.fall)return null;
+  if(side<0 || actor.sidelined || actor.dead || actor.fall)return null;
   if(game.shot?.kind==='dunk' && game.shot.actorId===actor.id && game.shot.age<dunkLanding)
     return {dunk:dunkFrame(game.shot,game.shot.age,actor)};
   if(game.reach?.side===side && game.players[side]==null){

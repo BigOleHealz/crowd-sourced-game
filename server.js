@@ -20,6 +20,7 @@ import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
+import {stepCourtResident} from './court-residents.js';
 import {createBasketball} from './basketball-game.js';
 import {stepDistrictFires} from './public/district-fire.js';
 import {useBeachClub,updateBeachVisit} from './public/beach-club.js';
@@ -162,6 +163,8 @@ function freshResidents(){
   world.trading?.assign(residents);
   if(CITY && !mode)world.dogs=newDogs(residents);
   if(CITY)addClubResidents(world,residents);
+  world.hoops?.roster.attach(residents);
+  for(const roster of world.volleyballActivity?.rosters??[])roster.attach(residents);
   return residents;
 }
 let npcs = freshResidents();
@@ -173,7 +176,11 @@ function worldView() {
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
-  return { ...world, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
+  const sports=world.hoops?{
+    basketball:{...world.basketball,npcs:world.hoops.roster.view(ticks)},
+    volleyball:world.volleyball.map((game,i)=>({...game,athletes:world.volleyballActivity.rosters[i].view(ticks)})),
+  }:{};
+  return { ...world,...sports, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, map: CITY ? 'brickell' : 'outpost', npcs: npcs.filter(actor=>!actor.courtPose).map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -566,6 +573,7 @@ function tick() {
     stepPartyEvacuation(world,npcs,ticks,step);
     stepClubResidents(world,players,ticks,step);
     for(const npc of npcs){
+      if(npc.courtPose){stepCourtResident(npc,ticks,step,world);continue;}
       if(npc.venue || npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
       if(!stepDogPursuit(world,npc,players,ticks,step))updateRival(npc,ticks,step,world.hp,world);
     }

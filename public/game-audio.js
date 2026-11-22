@@ -273,8 +273,13 @@ export function createGameAudio(button,slider,level,caption) {
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles={};
     sprayLines.clear();
-    civilianVoices.reset(world?.npcs);
+    civilianVoices.reset(audibleResidents(world));
     if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
+  }
+  function audibleResidents(world){
+    if(!world?.volleyball)return world?.npcs;
+    return [...world.npcs,...world.basketball.npcs.filter((_,i)=>world.basketball.players[i]==null),
+      ...world.volleyball.flatMap(game=>game.phase==='closed'?[]:game.athletes.filter((_,i)=>game.players[i]==null))];
   }
   function roadAndAirVehicles(world){
     return [['rover',world.rover],['heli',world.heli],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
@@ -307,7 +312,8 @@ export function createGameAudio(button,slider,level,caption) {
         burst('park-wheel/'+kind,event,listener,yaw,.25+.48*event.impact,event.tick);
     });
     previousRides=world.rides;
-    for(const npc of world.npcs??[]){
+    const residents=audibleResidents(world);
+    for(const npc of residents??[]){
       const time=npc.drenchedAt;
       if(time==null || time===sprayLines.get(npc.id) || world.simTick-time>18 || npc.dead)continue;
       sprayLines.set(npc.id,time);
@@ -397,7 +403,7 @@ export function createGameAudio(button,slider,level,caption) {
       if(distance<range){nearest=f;range=distance;}
     }
     motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
-    civilianVoices.step(world.npcs,world.simTick,listener,(cue,mouth,gain,id)=>{
+    civilianVoices.step(residents,world.simTick,listener,(cue,mouth,gain,id)=>{
       if(buffers.has('crowd-reactions'))burst('crowd-reactions',mouth,listener,yaw,gain,id,cue);
     });
     const impacts=[];

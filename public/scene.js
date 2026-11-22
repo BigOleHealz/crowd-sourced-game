@@ -1446,16 +1446,16 @@ export function createScene(canvas) {
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
-        if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
+        if(volley && !state.sidelined && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
         if(a.shaker)a.shaker.visible=!!state.pouring;
         if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick,skyDarkness.value>0);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(typeof state.id==='string' && !state.dead && !state.fall &&
-          (state.casinoDealer || state.bankRole || state.volleyball || basketballLooks[state.id])){
+          (state.casinoDealer || state.bankRole)){
           const alarm=gunfireAlarm(world.panicCues,state,world.simTick);
-          poseBystanderCover(a,state,alarm,dt,clock,!!(state.volleyball || basketballLooks[state.id]));
+          poseBystanderCover(a,state,alarm,dt,clock,false);
         }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
