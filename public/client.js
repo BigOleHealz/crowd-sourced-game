@@ -1162,7 +1162,7 @@ function frame(time) {
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
-    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick });
+    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,frameTick:volleyballTick });
     if (time >= nextHud) {
       nextHud = time + 80;
       hoopsHud.update(world.basketball,local,view.yaw,touch.active);

@@ -15,6 +15,7 @@ import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 
+import {fatalBiteCalls,sharkDefeatSound} from './shark-defeat-audio.js';
 import {dolphinCalls,dolphinSound} from './dolphin-audio.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
@@ -24,6 +25,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name==='shark-defeat')return sharkDefeatSound(context);
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
   if(name==='patrol-siren')return sirenLoop(context);
@@ -125,7 +127,7 @@ export function createGameAudio(button,slider,level) {
   } catch {}
   let context,master,limiter,reflection,environmentWorld;
   let listenerSpace=acousticSpace(null,null);
-  let previousDolphins;
+  let previousDolphins,previousSharkDefeats;
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const collapse=fallAudioTracker(MAP.buildings);
   let clubTrackLoading=false;
@@ -141,7 +143,7 @@ export function createGameAudio(button,slider,level) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
         if(res.ok)buffers.set(name,await context.decodeAudioData(await res.arrayBuffer()));
@@ -231,6 +233,7 @@ export function createGameAudio(button,slider,level) {
   function reset(world) {
     collapse.reset();
     previousDolphins=world?.dolphins;
+    previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -269,6 +272,9 @@ export function createGameAudio(button,slider,level) {
       }
       for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
     }
+    fatalBiteCalls(previousSharkDefeats,world.sharkDefeats,world.simTick,listener,
+      event=>burst('shark-defeat',event,listener,yaw,.86,event.tick+event.sharkIndex));
+    previousSharkDefeats=world.sharkDefeats;
     dolphinCalls(previousDolphins,world.dolphins,listener,(kind,point,gain,id)=>
       burst('dolphin/'+kind,point,listener,yaw,gain,id));
     previousDolphins=world.dolphins;

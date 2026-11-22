@@ -121,6 +121,7 @@ function freshWorld(){
     Object.defineProperty(w,'stepGulls',{value:gulls.step});
     const sharks=createSharks();
     w.sharks=sharks.state;
+    w.sharkDefeats=sharks.defeats;
     Object.defineProperty(w,'stepSharks',{value:sharks.step});
     const pod=createDolphins(w,MAP.waterY);
     w.dolphins=pod.state;
