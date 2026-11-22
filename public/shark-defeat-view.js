@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {strikeWaterFilm} from './shark-strike-water.js';
 import {bloodCloudBatch} from './aquatic-impact-view.js';
 import {sharkDefeatPose} from './shark-defeat.js';
 
@@ -19,7 +20,7 @@ function eventPulses(event,waterline,emissions=times,seed=0){
   const rand=()=>((state=(Math.imul(state,1664525)+1013904223)>>>0)/4294967296);
   return emissions.map((start,i)=>{
     const p=sharkDefeatPose(event,start),y=Math.min(waterline-.10,p.y+.75);
-    return {start,x:p.x,y,z:p.z,
+    return {start,x:p.x,y,z:p.z,crest:seed===0 ? i===0 || i===3 || i===5 : i===0,
       plumes:Array.from({length:clouds},()=>({angle:rand()*6.283,spread:.16+.4*rand(),scale:.67+.69*rand(),phase:rand()*31})),
       foam:Array.from({length:bubbles},(_,j)=>({bloody:j%3===0,angle:rand()*6.283,spread:.16+.36*rand(),rise:.48+.45*rand(),
         height:(i<3?.61:.24)*(.45+.75*rand()),radius:.016+.031*rand()}))};
@@ -27,7 +28,7 @@ function eventPulses(event,waterline,emissions=times,seed=0){
 }
 export function createSharkDefeatView(scene,waterline){
   const pose=new THREE.Object3D(),entries=new Map();
-  let batch,spray,previous,frameAge=0;
+  let batch,spray,film,previous,frameAge=0;
   return (events,tick,local,dt)=>{
     // Fill the small gaps between authoritative snapshots using render time.
     if(tick!==previous){if(tick<previous)entries.clear();frameAge=0;previous=tick;}
@@ -38,7 +39,7 @@ export function createSharkDefeatView(scene,waterline){
       let trail=entries.get(e.id);
       if(!trail){
         if(entries.size>=maxEvents)entries.delete(entries.keys().next().value);
-        trail={tick:e.tick,x:e.x,z:e.z,size:e.size,pulses:eventPulses(e,waterline),arrivals:new Set()};
+        trail={tick:e.tick,x:e.x,z:e.z,size:e.size,yaw:e.towYaw??e.yaw,pulses:eventPulses(e,waterline),arrivals:new Set()};
         entries.set(e.id,trail);
       }
       for(const contact of e.arrivals??[]){
@@ -48,7 +49,7 @@ export function createSharkDefeatView(scene,waterline){
         trail.pulses.push(...eventPulses(e,waterline,[t,t+.13],1+contact.sharkIndex));
       }
     }
-    let n=0,k=0;
+    let n=0,k=0,m=0;
     for(const [id,e] of entries){
       const age=(tick-e.tick)/30+frameAge;
       if(age<0 || age>life){entries.delete(id);continue;}
@@ -56,10 +57,15 @@ export function createSharkDefeatView(scene,waterline){
       if(distance>60)continue;
       if(!batch){
         batch=bloodCloudBatch(scene,waterline,maxEvents*maxPulses*clouds);
+        film=strikeWaterFilm(scene,waterline,maxEvents*(3+maxArrivals));
         batch.mist.name='Shark struggle blood trail';spray=sprayBatch(scene);
       }
       for(const pulse of e.pulses){
         const t=age-pulse.start;if(t<0)continue;
+        if(pulse.crest && t<6.4 && distance<44){
+          const fade=THREE.MathUtils.smoothstep(t,0,.11)*(1-THREE.MathUtils.smoothstep(t,2.1,6.4))*(1-THREE.MathUtils.smoothstep(distance,35,44));
+          film.mark(m++,pulse,t,fade,e.size,e.yaw);
+        }
         const appear=.48+.52*(1-Math.exp(-9*t)),disperse=1-Math.exp(-.84*t);
         for(const p of pulse.plumes){
           const drift=(.11+.96*disperse)*p.spread*e.size,diam=e.size*p.scale*(.39+Math.sqrt(t)*.97);
@@ -83,6 +89,7 @@ export function createSharkDefeatView(scene,waterline){
       }
     }
     if(batch){
+      film.finish(m);
       batch.mist.visible=n>0;batch.mist.count=n;
       if(n){batch.mist.instanceMatrix.needsUpdate=true;batch.density.needsUpdate=true;}
       spray.visible=k>0;spray.count=k;if(k){spray.instanceMatrix.needsUpdate=true;spray.instanceColor.needsUpdate=true;}

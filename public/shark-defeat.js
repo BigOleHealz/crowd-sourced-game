@@ -12,6 +12,16 @@ export function sharkDefeatPose(event,age){
     roll:.18*grab+1.12*Math.sin(10.5*age)*tension+.33*sink};
 }
 
+// The lens follows the overall pull, independent of the faster shoulder and jaw motion.
+export function sharkDefeatCamera(event,age,side,reduced,waterline){
+  const yaw=event.towYaw??event.yaw,s=Math.sin(yaw),c=Math.cos(yaw);
+  const along=reduced?1.22:.34+2.24*smooth(.3,2.35,age);
+  const dive=reduced?0:smooth(.89,2.22,age),cross=reduced?4.85:3.80;
+  const x=event.x+s*along,z=event.z-c*along;
+  return {x:x+c*side*cross-s*1.36,y:waterline+(reduced?1.77:1.19)-2.60*dive,
+    z:z+s*side*cross+c*1.36,lookX:x-s*.27,lookY:event.y+.83-1.20*dive,lookZ:z+c*.27};
+}
+
 export function poseBittenSwimmer(a,event,age){
   const p=sharkDefeatPose(event,age);
   const fight=(1-smooth(1.12,1.68,age)),pull=smooth(0,.25,age);
@@ -28,10 +38,16 @@ export function poseBittenSwimmer(a,event,age){
   for(const {side,leg,knee,ankle,arm,forearm} of a.limbs){
     const kick=Math.sin(age*13+side*1.2)*fight;
     const sweep=Math.sin(age*9.4+side*1.75)*fight;
+    // One hand breaks the surface first. The other braces against the jaw;
+    // both arms trail the body once it is pulled below the surface.
+    const reachOut=side>0 ? smooth(.22,.60,age)*(1-smooth(.91,1.23,age)) : 0;
+    const brace=side<0 ? smooth(.08,.28,age)*(1-smooth(.67,1.06,age)) : 0;
+    const tow=smooth(1.2,2.1,age);
     leg.rotation.set(.13+.55*kick,0,side*(.15+.14*pull));
     knee.rotation.set(-.49-.38*kick,0,0);ankle.rotation.set(-.15-.12*kick,0,0);
-    arm.rotation.set(.55+.79*fight+.72*sweep,0,side*(.31+.65*fight));
-    forearm.rotation.set(.38+.56*fight-.32*sweep,0,0);
+    arm.rotation.set(.55+.79*fight+.72*sweep+.68*reachOut-.39*brace+.46*tow,
+      -.17*side*brace,side*(.31+.65*fight-.47*reachOut-.56*brace));
+    forearm.rotation.set(.38+.56*fight-.32*sweep-.58*reachOut+.53*brace,0,0);
   }
   for(const tool of a.tools)tool.visible=false;
   if(a.canopy)a.canopy.visible=false;

@@ -29,3 +29,15 @@ for(const rate of [24000,48000]){
   assert(rms(1.72,1.77)<.001);
 }
 console.log('Fatal bite cues deduplicate across snapshots and fade from a voiced cry to quieter bubbles.');
+
+const {sharkStrikeWaterSound}=await import('../public/shark-defeat-audio.js');
+for(const sampleRate of [24000,48000]){
+  const buf=sharkStrikeWaterSound({sampleRate,createBuffer(_,n){const pcm=new Float32Array(n);return {getChannelData:()=>pcm};}});
+  const pcm=buf.getChannelData(0), rms=(a,b)=>{
+    const part=pcm.subarray(a*sampleRate,b*sampleRate);
+    return Math.sqrt(part.reduce((sum,x)=>sum+x*x,0)/part.length);
+  };
+  assert(pcm.every(v=>Number.isFinite(v)&&Math.abs(v)<1));
+  assert(rms(.07,.21)>rms(1.92,2.16)*2);
+  assert(rms(1.92,2.16)>.002 && rms(2.52,2.54)<.001);
+}
