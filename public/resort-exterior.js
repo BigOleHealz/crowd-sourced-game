@@ -103,7 +103,9 @@ export function resortExterior(scene,Batch,panorama){
     box(glow,C.light,-87.82,10.05,z,.14,.09,2.05);
   }
   function quayPad(x0,z0,x1,z1){
-    box(stone,C.stone,(x0+x1)/2,.34,(z0+z1)/2,x1-x0,.90,z1-z0);
+    // Keep the original .79 m deck and carry its sides below the tidal surface.
+    const deck=.79,footing=-2.4;
+    box(stone,C.stone,(x0+x1)/2,(deck+footing)/2,(z0+z1)/2,x1-x0,deck-footing,z1-z0);
   }
   for(const r of shorePads){
     if(r.west===-76){
