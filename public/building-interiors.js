@@ -150,10 +150,10 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     const shaft=lift.shaft;
     const bounds=i===0?{x:-49,z:63.5,w:83,d:65}:{x:shaft.x,z:shaft.z,w:4.8,d:6};
     const p=plan(lift.id,bounds,i===0?'casino':'resort-lift',lift.name);
-    p.shaft=shaft;p.hotelTower=i<3;
+    p.shaft=shaft;p.hotelTower=!!lift.tower;
     lift.stops.forEach((y,n)=>{
       shaftLanding(p,y);
-      p.panels.at(-1).label=(n+1)+' · '+(i===3?['Blackjack court','Slot gallery','Card salon'][n]:resortLevels[n].name);
+      p.panels.at(-1).label=(n+1)+' · '+(lift.tower?resortLevels[n].name:['Blackjack court','Slot gallery','Card salon'][n]);
     });
     if(i)continue;
     for(const [name,d] of Object.entries(resortDoors)){

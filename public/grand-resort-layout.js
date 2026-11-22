@@ -6,9 +6,8 @@ export const grandTop=100.8, GRAND_STORIES=levelY.length;
 export const floorIndex=y=>levelY.findLastIndex(floor=>floor<=y+.015);
 export const grandShaft=hotelShaft(-83.1,54.85,Math.PI);
 export const lifts=[
-  {id:25,name:'Palma de Sal',shaft:grandShaft,stops:levelY},
-  {id:141,name:'Palma de Sal · Guest lift II',shaft:hotelShaft(-80.3,54.85,Math.PI),stops:levelY},
-  {id:142,name:'Palma de Sal · Service lift',shaft:hotelShaft(-76.1,59.35,Math.PI),stops:levelY},
+  {id:25,name:'Palma de Sal',shaft:grandShaft,tower:true,stops:levelY},
+  {id:141,name:'Palma de Sal · Guest lift II',shaft:hotelShaft(-80.3,54.85,Math.PI),tower:true,stops:levelY},
   {id:143,name:'Salt Arcade',shaft:hotelShaft(-53.7,72.95,0),stops:[.8,6.8,11.8]},
 ];
 export const penthousePool={...pool,water:96.30};
@@ -101,7 +100,7 @@ function layout(l){
   if(n>0)l.stairs.push({...rect(-88.45,54,-85.05,55.2),y});
   if(n<2)staircase(-52,70,3.5,5.9,n?y:.8,ceiling);
   if(n===2)l.stairs.push({...rect(-52,70,-48.5,71.2),y});
-  const holes=lifts.slice(0,3).map(({shaft:s})=>rect(s.x-1,s.z-1,s.x+1,s.z+1));
+  const holes=lifts.filter(lift=>lift.tower).map(({shaft:s})=>rect(s.x-1,s.z-1,s.x+1,s.z+1));
   const upper=n>=5,gal=n>0 && n<5;
   const galleryDoor={x:-71.35,z:52,axis:'x',width:3.3};
   slabs(upper?[fanDecks[0]]:fanDecks,[...holes,...(n?[westStair]:[]),...(gal?[atriumVoid]:[]),...(n===23?[pool]:[])],y,'hall');
