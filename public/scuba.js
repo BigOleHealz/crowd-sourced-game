@@ -26,3 +26,12 @@ export function swimColumn(state,input,y,surface,floor,dt,ceiling=Infinity) {
     ...((air<capacity || scuba) && {swimAir:air}),
     ...(surfacing && {outOfAir:true})};
 }
+
+// Climbs, ladders and platform dives return fresh movement states before ordinary locomotion.
+export function carryScuba(state,next,dt) {
+  if(state.scuba){
+    next.scuba=true;
+    next.swimAir=Math.min(tankSeconds,(state.swimAir??tankSeconds)+5*dt);
+  }
+  return next;
+}

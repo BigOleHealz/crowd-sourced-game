@@ -40,3 +40,23 @@ const sharks=createSharks(), diver={id:7,state:{x:85,y:-3.15,z:-214,swimming:tru
 let bites=0;
 for(let n=0;n<1600;n++)sharks.step(dt,new Map([[7,diver]]),n,()=>{bites++;return false;});
 assert.equal(bites,0,'surface patrols only bite a swimmer within vertical reach');
+
+const {newExpedition}=await import('../public/expedition.js');
+const world=newExpedition();
+let exiting={...tank,x:43.45,z:32,y:surface-.75,swimDepth:.75,swimAir:80};
+for(let tick=0;tick<70;tick++){
+  exiting=stepPlayer(exiting,{swimY:1,x:-1,z:0},dt,world.hp,world);
+  assert(exiting.scuba && exiting.swimAir>=79);
+}
+assert(exiting.grounded && !exiting.swimming,'hold Rise toward the quay to surface and pull up');
+const {marinaPlatform}=await import('../public/marina-platform.js');
+const {berthDeckY}=await import('../public/marina-docks.js');
+let onLadder={...tank,swimming:false,grounded:true,x:marinaPlatform.x,y:berthDeckY,z:marinaPlatform.near+.60,swimAir:85};
+onLadder=stepPlayer(onLadder,{jump:true},dt,world.hp,world);
+assert.equal(onLadder.climb?.kind,'platformLadder');
+for(let tick=0;tick<185 && onLadder.climb;tick++){
+  assert(onLadder.scuba);
+  onLadder=stepPlayer(onLadder,{},dt,world.hp,world);
+}
+assert(onLadder.grounded && onLadder.scuba && onLadder.swimAir>85,'gear retained on the top platform');
+console.log('PASS continuously held ascent, shore pull-up, dry walk and full 10-m ladder with the same tank.');
