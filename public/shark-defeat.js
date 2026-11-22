@@ -2,13 +2,13 @@
 const smooth=(a,b,t)=>{const u=Math.max(0,Math.min(1,(t-a)/(b-a)));return u*u*(3-2*u);};
 export function sharkDefeatPose(event,age){
   const grab=smooth(0,.30,age),tow=smooth(.26,1.85,age),sink=smooth(.58,2.30,age);
-  const tension=grab*(1-smooth(1.05,2.15,age));
-  const forward=.45*grab+2.40*tow,side=.24*Math.sin(7.6*age)*tension;
-  const c=Math.cos(event.yaw),s=Math.sin(event.yaw);
+  const tension=grab*(1-smooth(1.50,2.35,age));
+  const forward=.45*grab+2.40*tow,side=.27*Math.sin(9.6*age)*tension;
+  const towYaw=event.towYaw??event.yaw,c=Math.cos(towYaw),s=Math.sin(towYaw);
   return {x:event.x+s*forward+c*side,y:event.y+.16*Math.sin(Math.PI*grab)-.90*sink,
     z:event.z-c*forward+s*side,yaw:event.yaw+.34*Math.sin(6.7*age)*tension,
     pitch:-.54-.79*grab+.12*Math.sin(12*age)*tension,
-    roll:.18*grab+.82*Math.sin(8.1*age)*tension+.33*sink};
+    roll:.18*grab+1.12*Math.sin(10.5*age)*tension+.33*sink};
 }
 
 export function poseBittenSwimmer(a,event,age){

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {confirmedShot,hitAngle} from '../public/shot-damage-vignette.js';
+import {confirmedShot,hitAngle,shotDamageVignette} from '../public/shot-damage-vignette.js';
 import {fire,advanceRounds,newExpedition} from '../public/expedition.js';
 import {newLife,healthView,damageActor,respawnDue} from '../public/rivals.js';
 
@@ -39,3 +39,16 @@ assert.equal(damaged.hitSector,4,'shot arriving from behind a north-facing targe
 assert.equal(hitAngle(damaged.hitSector,0),180);
 assert.equal(hitAngle(damaged.hitSector,Math.PI/2),90,'behind becomes right after camera turns east');
 assert.equal(hitAngle(undefined,0),null,'ordinary all-edge feedback when horizontal direction is unavailable');
+
+
+const flashes=[];
+const vignette=shotDamageVignette({classList:{
+  toggle:(name,enabled)=>assert.equal(enabled,false),contains:()=>false,
+  add:name=>flashes.push(name),remove:()=>{}
+},getAnimations:()=>[]});
+const bitten={hp:66,lastBiteTick:100};
+vignette.update({hp:100},bitten,0);
+vignette.update(bitten,bitten,0);
+vignette.update(bitten,{hp:32,lastBiteTick:130},0);
+assert.deepEqual(flashes,['struck','struck'],'Each confirmed bite flashes the edges once');
+vignette.reset();

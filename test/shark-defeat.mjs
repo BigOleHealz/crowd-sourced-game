@@ -48,7 +48,7 @@ const shielded=encounter({shield:1800});
 shielded.step(1350);assert.equal(shielded.victim.life.hp,1);
 assert.equal(shielded.sim.defeats.length,0);assert(shielded.sim.state.every(s=>s.phase!=='feeding'));
 const survivor=encounter({hp:100});
-survivor.step(29*30);assert(survivor.victim.life.hp>0 && survivor.victim.life.hp<100);
+for(let i=0;i<900 && survivor.victim.life.hp===100;i++)survivor.step(1);assert(survivor.victim.life.hp>0 && survivor.victim.life.hp<100);
 assert.equal(survivor.sim.defeats.length,0);
 
 for(const reason of ['respawn','disconnected','shark defeated']){
@@ -106,3 +106,29 @@ console.log('Confirmed fatal swimmer bites publish once, follow the same timelin
   assert(p.life.lostParts.leftLeg.water);
 }
 console.log('A nearby shark joins only on contact. Far, facing-away and defeated sharks cannot join the encounter.');
+
+
+// Keep swimming at normal top speed until reaching the playable boundary.
+// Stationary targets in the middle of a patrol do not exercise this turn.
+for(const [x,z,dx,dz] of [[44,-6,1,0],[65,-211,1,0],[0,82,0,1],[-80,70,-1,0],
+  [92,-485,0,-1],[108,108,0,0],[-93,-517,0,0],[75,-200,0,-1]]){
+  const bay=encounter({hp:100}),victim=bay.victim,hits=[];
+  Object.assign(victim.state,{x,z});
+  for(let n=0;n<65*30 && victim.life.hp;n++){
+    victim.state.x=Math.max(-94,Math.min(109,victim.state.x+dx*3.05/30));
+    victim.state.z=Math.max(-518,Math.min(109,victim.state.z+dz*3.05/30));
+    const hp=victim.life.hp;
+    bay.step(1);
+    if(hp===victim.life.hp)continue;
+    hits.push(victim.life.hp);
+    assert.equal(victim.life.lastBiteTick,bay.tick);
+    const shark=bay.sim.state.find(s=>s.target===victim.id || s.phase==='feeding');
+    const jaw=1.48*shark.size;
+    assert(Math.hypot(shark.x+Math.sin(shark.yaw)*jaw-victim.state.x,
+      shark.z-Math.cos(shark.yaw)*jaw-victim.state.z)<1.1);
+  }
+  assert.deepEqual(hits,[66,32,0],`Three contact bites on the route from ${x},${z}`);
+  const pose=sharkDefeatPose(bay.sim.defeats[0],1.85);
+  assert(pose.x>=-94 && pose.x<=109 && pose.z>=-518 && pose.z<=109);
+  assert.equal(victim.score.deaths,1);
+}

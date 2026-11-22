@@ -61,11 +61,11 @@ export function createSharkDefeatView(scene,waterline){
         const t=age-pulse.start;if(t<0)continue;
         const appear=.48+.52*(1-Math.exp(-9*t)),disperse=1-Math.exp(-.84*t);
         for(const p of pulse.plumes){
-          const drift=(.11+.96*disperse)*p.spread*e.size,diam=e.size*p.scale*(.29+Math.sqrt(t)*.84);
+          const drift=(.11+.96*disperse)*p.spread*e.size,diam=e.size*p.scale*(.39+Math.sqrt(t)*.97);
           pose.position.set(pulse.x+Math.cos(p.angle)*drift+t*.085,Math.min(waterline-.16,pulse.y-.08+.045*t),
             pulse.z+Math.sin(p.angle)*drift+t*.038);
           pose.scale.set(diam,diam*(.59+.17*disperse),1);pose.updateMatrix();batch.mist.setMatrixAt(n,pose.matrix);
-          const opacity=.69*appear*(1-THREE.MathUtils.smoothstep(age,3,life))*(1-THREE.MathUtils.smoothstep(distance,49,60));
+          const opacity=.81*appear*(1-THREE.MathUtils.smoothstep(age,3,life))*(1-THREE.MathUtils.smoothstep(distance,49,60));
           batch.density.setXY(n++,opacity,p.phase+.06*t);
         }
         for(const p of pulse.foam){

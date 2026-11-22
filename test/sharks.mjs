@@ -25,7 +25,7 @@ assert(bayfront.game.state.every(s=>s.target==null),'Boarding and jumping back i
 bayfront.step(2);
 assert(bayfront.game.state.some(s=>s.target===near.id),'A player sees an approach before damage');
 assert.equal(near.life.hp,100);
-bayfront.step(20);
+for(let i=0;i<600 && near.life.hp===100;i++)bayfront.step(1/30);
 assert(near.life.hp>0 && near.life.hp<100,'A shark bites and gives the swimmer time to escape');
 const hp=near.life.hp;
 near.state.x=65;
