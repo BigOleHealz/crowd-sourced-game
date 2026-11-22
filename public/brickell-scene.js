@@ -87,6 +87,18 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateEstates=addLanternBuildings(scene,Batch,panorama,()=>{renderer.shadowMap.needsUpdate=true;});
   const estateMeshes=scene.children.slice(estateStart);
   const updateDamage=estateDamageView(scene,estateMeshes,MAP.barriers);
+  // Cast-iron grates sit inside the east gutter of the inland west avenue.
+  for(const z of [-35,-24]) {
+    const x=-32.6;
+    solids.add(box,0x252724,x,.705,z,.52,.014,1.12);
+    for(const side of [-1,1]) {
+      solids.add(box,0x575852,x+side*.237,.714,z,.046,.012,1.12);
+      solids.add(box,0x575852,x,.714,z+side*.536,.428,.012,.048);
+    }
+    for(let bar=-4;bar<=4;bar++)
+      solids.add(box,0x63625a,x,.715,z+bar*.11,.428,.014,.045);
+    solids.add(box,0x4d4e48,x,.713,z,.035,.008,1.024);
+  }
   const {northStreet,westStreet,eastStreet}=streetPlan;
   const paint=(x,z,w,d,tint=0xe3bc67)=>solids.add(box,tint,x,.712,z,w,.012,d);
   for(const x of [westStreet,0,eastStreet]) {
