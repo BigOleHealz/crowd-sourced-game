@@ -13,6 +13,7 @@ import {inClub} from './club-lucero.js';
 import {bankPresentation} from './bank-presentation.js';
 import {buildingInteriorView} from './building-interior-view.js';
 import {roomAtFeet} from './building-interiors.js';
+import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
@@ -22,6 +23,7 @@ import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {gullView} from './gull-view.js';
 import {dolphinView} from './dolphin-view.js';
 import {sharkView} from './shark-view.js';
+import {createSharkDefeatView} from './shark-defeat-view.js';
 import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
@@ -64,6 +66,7 @@ import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
+import {sharkDefeatPose,poseBittenSwimmer} from './shark-defeat.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
@@ -1047,6 +1050,7 @@ export function createScene(canvas,onFootfall) {
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
+  const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1238,7 +1242,7 @@ export function createScene(canvas,onFootfall) {
     updateRuralGlass?.(world.doors?.brokenPanes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
-    updatePartyYachts?.(world.boats,dt,local,world.simTick);
+    updatePartyYachts?.(world.boats,dt,local,world.simTick,world.panicCues);
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
@@ -1287,6 +1291,8 @@ export function createScene(canvas,onFootfall) {
       basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
+    const attackTick=world.frameTick??world.simTick;
+    const localDefeat=local.dead && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
     for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
@@ -1327,7 +1333,11 @@ export function createScene(canvas,onFootfall) {
       const skipper=world.yacht?.driver===state.id;
       if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
       if(a.parade)a.parade.visible=!!state.paradeCostume && !seated && !station && !skipper && !entering;
-      if(a.root.visible){
+      const mauling=state.dead && world.sharkDefeats?.find(e=>e.playerId===state.id);
+      if(a.root.visible && mauling){
+        releaseRagdoll(a);
+        poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
+      }else if(a.root.visible){
         const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
         if(!seated && !station && !entering && !skipper){
@@ -1347,6 +1357,11 @@ export function createScene(canvas,onFootfall) {
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
+        if(typeof state.id==='string' && !state.dead && !state.fall &&
+          (state.casinoDealer || state.bankRole || state.performer || state.volleyball || basketballLooks[state.id])){
+          const alarm=gunfireAlarm(world.panicCues,state,world.simTick);
+          poseBystanderCover(a,state,alarm,dt,clock,!!(state.volleyball || basketballLooks[state.id]));
+        }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){
@@ -1520,6 +1535,18 @@ export function createScene(canvas,onFootfall) {
       camera.translateZ(-1.12);
       avatars.get(local.id).root.visible=false;
     }
+    if(localDefeat){
+      const age=Math.max(0,(attackTick-localDefeat.tick)/30);
+      const victim=sharkDefeatPose(localDefeat,age);
+      const foreX=Math.sin(localDefeat.yaw),foreZ=-Math.cos(localDefeat.yaw);
+      const side=Math.cos(view.yaw-localDefeat.yaw)>=0 ? 1 : -1;
+      // Frame the crossing shark broadside and keep the struggle visible even
+      // when the defeated swimmer was sighting straight up or down.
+      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65,victim.z+foreX*3.7*side-foreZ*.85);
+      camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.25));
+      camera.lookAt(victim.x,Math.max(MAP.waterY-.35,victim.y+.74),victim.z);
+      avatars.get(local.id).root.visible=true;
+    }
     if(world.casino?.player===local.id && !local.dead){
       camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
@@ -1527,6 +1554,7 @@ export function createScene(canvas,onFootfall) {
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     updateSharks?.(world.sharks,local,world.simTick,dt);
+    updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}

@@ -27,9 +27,9 @@ function fragmentGeometry(){
   geometry.computeVertexNormals();
   return geometry;
 }
-function makeBatches(scene,waterline){
+export function bloodCloudBatch(scene,waterline,capacity){
   const plane=new THREE.PlaneGeometry(1,1);
-  const density=new THREE.InstancedBufferAttribute(new Float32Array(maxBursts*cloudsPerBurst*2),2);
+  const density=new THREE.InstancedBufferAttribute(new Float32Array(capacity*2),2);
   density.setUsage(THREE.DynamicDrawUsage);plane.setAttribute('cloudState',density);
   const ink=new THREE.ShaderMaterial({
     transparent:true,depthWrite:false,uniforms:{waterline:{value:waterline}},
@@ -64,7 +64,13 @@ function makeBatches(scene,waterline){
         #include <colorspace_fragment>
       }`
   });
-  const mist=new THREE.InstancedMesh(plane,ink,maxBursts*cloudsPerBurst);
+  const mist=new THREE.InstancedMesh(plane,ink,capacity);
+  mist.name='Suspended blood';mist.renderOrder=4;mist.count=0;mist.frustumCulled=false;
+  mist.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mist);
+  return {mist,density};
+}
+function makeBatches(scene,waterline){
+  const {mist,density}=bloodCloudBatch(scene,waterline,maxBursts*cloudsPerBurst);
   const surface=new THREE.MeshStandardMaterial({roughness:.38,vertexColors:true,transparent:true});
   surface.onBeforeCompile=shader=>{
     shader.uniforms.waterline={value:waterline};
@@ -76,11 +82,8 @@ function makeBatches(scene,waterline){
     `);
   };
   const debris=new THREE.InstancedMesh(fragmentGeometry(),surface,maxBursts*piecesPerBurst);
-  mist.name='Suspended blood';debris.name='Floating tissue and fragments';
-  for(const mesh of [mist,debris]){
-    mesh.count=0;mesh.frustumCulled=false;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
-  }
-  mist.renderOrder=4;debris.renderOrder=3;
+  debris.name='Floating tissue and fragments';debris.count=0;debris.frustumCulled=false;debris.renderOrder=3;
+  debris.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(debris);
   return {mist,debris,density};
 }
 

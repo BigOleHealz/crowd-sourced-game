@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {groundHeight,solidTopAt} from './world.js';
+import {MAP,groundHeight,solidTopAt} from './world.js';
 
 export function characterBurst(part,point,from,particle,random) {
   if(part==='headPop') {
@@ -85,6 +85,12 @@ export function applyLostParts(avatar,state,scene,hp,dt) {
     const travel=t*(1.55-.65*t);
     const x=hit.x+travel*(hit.dx+.58*side*Math.cos(hit.yaw));
     const z=hit.z+travel*(hit.dz+.58*side*Math.sin(hit.yaw));
+    if(hit.water){
+      const rise=1-Math.exp(-fallTime*1.8);
+      entry.prop.position.set(x+.12*fallTime,(1-rise)*hit.y+rise*(MAP.waterY-.03+.03*Math.sin(fallTime*3+side)),z);
+      entry.prop.rotation.set(.8+rise*.65,-hit.yaw+side*1.1*rise,side*.18*Math.cos(fallTime*2));
+      continue;
+    }
     const top=solidTopAt(x,z,hp,0,hit.y+.05);
     const floor=top<=hit.y+.10 ? top : groundHeight(x,z);
     entry.prop.position.set(x,Math.max(floor+.12,hit.y+2.3*fallTime-7*fallTime*fallTime),z);

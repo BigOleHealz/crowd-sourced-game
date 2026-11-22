@@ -1,4 +1,5 @@
 import {brickellMap,cityGround} from './brickell-map.js';
+import {sharkDefeatPose} from './shark-defeat.js';
 
 const water=brickellMap.waterY;
 const deep=2.05, grace=14, recover=150;
@@ -86,12 +87,13 @@ export function sharkContact(states,start,end){
 }
 
 export function createSharks(){
-  const state=homes.map((_,i)=>initial(i));
+  const state=homes.map((_,i)=>initial(i)),defeats=[];
+  let nextDefeatId=1;
   const minds=homes.map(([x,z])=>({home:{x,z},pass:0,down:0}));
   const exposure=new WeakMap();
   let time=0,nextSearch=0;
   function assign(swimmers,observers){
-    const free=state.map((s,i)=>({s,i})).filter(({s})=>s.hp>0 && s.target==null);
+    const free=state.map((s,i)=>({s,i})).filter(({s})=>s.hp>0 && s.phase==='patrol');
     for(const p of swimmers.values()){
       if(state.some(s=>s.target===p.id) || !free.length)continue;
       free.sort((a,b)=>distance(a.s,p.state)-distance(b.s,p.state));
@@ -117,8 +119,80 @@ export function createSharks(){
     }
   }
 
+  // Free nearby sharks can reach the existing event only by turning and
+  // swimming there. Predict the moving contact point for the remaining pass.
+  function inviteNearby(event){
+    let visitors=0;
+    for(const [i,other] of state.entries()){
+      if(visitors>=2 || i===event.sharkIndex || !other.hp || other.phase!=='patrol')continue;
+      if(distance(other,event)>11)continue;
+      for(const horizon of [.45,.9,1.4,1.85]){
+        const intercept=sharkDefeatPose(event,horizon);
+        const heading=Math.atan2(intercept.x-other.x,other.z-intercept.z);
+        const turn=Math.abs(Math.atan2(Math.sin(heading-other.yaw),Math.cos(heading-other.yaw)));
+        const travel=Math.max(0,distance(other,intercept)-1.45*other.size-.40)/4.4;
+        if(travel+turn/2.4>horizon || !clearCourse(other,intercept))continue;
+        minds[i].feeding=event;minds[i].biteYaw=heading;
+        other.phase='joining';other.target=null;visitors++;
+        break;
+      }
+    }
+  }
+
+  // All clients pose the swimmer at this same impact-relative position.
+  // Once contact occurs the shark's nose remains at the pelvis during the tow.
+  function stepFeeding(s,i,dt,tick,players){
+    const mind=minds[i],event=mind.feeding;
+    const age=(tick-event.tick)/30,turnEnd=2.65;
+    if(age>=turnEnd || !defeats.includes(event)){
+      s.phase='patrol';mind.feeding=null;return false;
+    }
+    const contact=sharkDefeatPose(event,age);
+    const side=i%2?1:-1;
+    const joined=s.phase==='feeding';
+    let desiredYaw,motion,depth;
+    if(!joined){
+      const lookAhead=sharkDefeatPose(event,Math.min(1.95,age+.16));
+      desiredYaw=Math.atan2(lookAhead.x-s.x,s.z-lookAhead.z);
+      motion=4.4;depth=contact.y+.72;
+    }else{
+      desiredYaw=mind.biteYaw+side*(age<1.86 ? .12*Math.sin(age*5) : .12+(age-1.86)*2.05);
+      motion=age<1.86?0:2.55;
+      depth=contact.y+.72-Math.max(0,age-1.86)*.28;
+    }
+    const turn=Math.atan2(Math.sin(desiredYaw-s.yaw),Math.cos(desiredYaw-s.yaw));
+    const yaw=s.yaw+clamp(turn,-dt*2.4,dt*2.4);
+    const next=atBearing(s,yaw,motion*dt);
+    if(joined && age<1.86){
+      const grip=atBearing(contact,yaw,-1.45*s.size);
+      const d=distance(s,grip),k=Math.min(1-Math.exp(-18*dt),5.5*dt/Math.max(.001,d));
+      next.x=s.x+(grip.x-s.x)*k;next.z=s.z+(grip.z-s.z)*k;
+    }
+    if(openWater(next.x,next.z,1.5,0)){s.x=round(next.x);s.z=round(next.z);}
+    s.yaw=round(Math.atan2(Math.sin(yaw),Math.cos(yaw)));
+    s.y=round(s.y+(depth-s.y)*(1-Math.exp(-9*dt)));
+    s.stroke=round((s.stroke+dt*(joined?4.3:6.1))%tau);
+    if(!joined){
+      const jaw=atBearing(s,s.yaw,1.45*s.size);
+      if(age<=2.1 && distance(jaw,contact)<.66 && Math.abs(s.y-contact.y-.72)<.42){
+        s.phase='feeding';mind.biteYaw=s.yaw;
+        const victim=players.get(event.playerId),parts=victim.life.lostParts??={};
+        const part=['leftLeg','rightArm','rightLeg','leftArm'].find(key=>!parts[key]);
+        if(part)parts[part]={tick,x:contact.x,y:contact.y+.66,z:contact.z,dx:Math.sin(yaw),dz:-Math.cos(yaw),yaw,water:true};
+        event.arrivals.push({sharkIndex:i,tick});
+      }else if(age>2.1){s.phase='patrol';mind.feeding=null;}
+    }
+    return true;
+  }
+
   function step(dt,players,tick,hurt){
     time+=dt;
+    for(let i=defeats.length-1;i>=0;i--){
+      const event=defeats[i],victim=players.get(event.playerId);
+      if(tick-event.tick>=90 || !victim || victim.life.hp>0 || victim.life.fall?.started!==event.tick){
+        defeats.splice(i,1);
+      }
+    }
     const swimmers=new Map(),observers=[...players.values()];
     for(const p of observers){
       const {x,z}=p.state;
@@ -140,10 +214,11 @@ export function createSharks(){
         mind.down+=dt;
         if(mind.down>=recover){
           Object.assign(s,initial(i),{hitSeq:s.hitSeq});
-          mind.down=0;mind.home={x:s.x,z:s.z};
+          mind.down=0;mind.feeding=null;mind.home={x:s.x,z:s.z};
         }
         continue;
       }
+      if(mind.feeding && stepFeeding(s,i,dt,tick,players))continue;
       const prey=swimmers.get(s.target);
       const ang=time*.115+i*1.23;
       let goal={x:mind.home.x+4.2*Math.sin(ang),z:mind.home.z+6.5*Math.cos(ang)};
@@ -157,8 +232,22 @@ export function createSharks(){
           goal=prey.state;speed=3.85;
           const nose=atBearing(s,s.yaw,1.48*s.size);
           if(time>=mind.pass && distance(nose,goal)<.84 && clearCourse(s,goal)){
-            hurt(prey,Math.round(19*s.size),tick,{x:Math.sin(s.yaw),z:-Math.cos(s.yaw)});
-            s.phase='retreat';mind.pass=time+3.4;
+            const {x,y,z}=prey.state;
+            if(hurt(prey,Math.round(19*s.size),tick,{x:Math.sin(s.yaw),z:-Math.cos(s.yaw)})){
+              const event={id:nextDefeatId++,playerId:prey.id,sharkIndex:i,tick,
+                x:round(x),y:round(y),z:round(z),yaw:s.yaw,size:s.size,arrivals:[]};
+              if(defeats.length>=12)defeats.shift();
+              defeats.push(event);
+              mind.feeding=event;mind.biteYaw=s.yaw;s.target=null;s.phase='feeding';
+              inviteNearby(event);stepFeeding(s,i,dt,tick,players);continue;
+            }else{
+              s.phase='retreat';mind.pass=time+3.4;
+            }
+          }else if(time>=mind.pass && distance(s,goal)<1.7*s.size &&
+              Math.cos(Math.atan2(goal.x-s.x,s.z-goal.z)-s.yaw)<.38){
+            // A near miss leaves too little room for the snout to turn. Circle
+            // out for a fresh pass instead of orbiting a stationary swimmer.
+            s.phase='retreat';mind.pass=time+1.5;
           }
         }
       }
@@ -174,11 +263,11 @@ export function createSharks(){
       }else{
         // Turn back out to sea before the body can clip a shoal or dock.
         s.yaw+=dt*2.2;
-        if(prey){s.target=null;s.phase='patrol';}
+        if(s.target!=null){s.target=null;s.phase='patrol';}
       }
       s.y=round(s.y+(water-depth-s.y)*Math.min(1,dt*2.6));
       s.stroke=round((s.stroke+dt*(2.1+speed*.9))%tau);
     }
   }
-  return {state,step};
+  return {state,defeats,step};
 }

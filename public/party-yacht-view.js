@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {gunfireAlarm} from './bystander-cover.js';
 import {wakeTrail} from './boat-wake-view.js';
 
 const ivory=0xece8db,bronze=0xb3a17b,chrome=0xb8c4c3,teak=0xa97b54,onyx=0x262d31;
@@ -83,6 +84,18 @@ function person(Batch,index){
       position.setZ(i,position.getZ(i)-.31*(1-THREE.MathUtils.smoothstep(y,.51,.91)));
     }
     geometry.computeVertexNormals();
+  }
+  if(!captain){
+    // One vertex pose per shared guest shape. Shoes stay put as the knees bend
+    // forward and the upper body folds back below the gunwale.
+    const rest=geometry.attributes.position,cover=rest.clone();
+    for(let i=0;i<rest.count;i++){
+      const y=rest.getY(i),z=rest.getZ(i),bend=THREE.MathUtils.smoothstep(y,.08,.51);
+      const hip=THREE.MathUtils.smoothstep(y,.51,.91),upper=Math.max(0,y-.91);
+      cover.setXYZ(i,rest.getX(i),y-.11*bend-.23*hip-.26*upper,
+        z-.22*bend+.32*hip-.68*upper);
+    }
+    geometry.morphAttributes.position=[cover];
   }
   return geometry;
 }
@@ -211,7 +224,12 @@ function yacht(scene,Batch,boat,shared){
   for(const m of [metal,cabin]){m.userData.target=boat.id;m.userData.impactSurface='metal';}
   const crew=shared.people.map((geo,i)=>{
     const mesh=new THREE.InstancedMesh(geo,shared.matte,i===0?1:2);
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;mesh.name=i===0?'Skipper':'Party guests';root.add(mesh);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);mesh.frustumCulled=false;if(i){
+      mesh.userData.alarm=0;
+      for(let j=0;j<mesh.count;j++)mesh.setMorphAt(j,{morphTargetInfluences:[0]});
+      mesh.morphTexture.needsUpdate=true;
+    }
+    mesh.name=i===0?'Skipper':'Party guests';root.add(mesh);
     return mesh;
   });
   const guests=[
@@ -222,13 +240,22 @@ function yacht(scene,Batch,boat,shared){
     [[-.65,1.33,4.62,1.65],[.92,1.33,6.28,2.50]],
   ];
   const wake=wakeTrail(scene);
-  return {root,wake,update(b,distance,time,dt,local){
+  return {root,wake,update(b,distance,time,dt,local,alarm){
     root.position.set(b.x,b.y,b.z);
     root.rotation.set(b.pitch??0,-b.yaw,b.roll??0,'YXZ');
     metal.visible=distance<130;cabin.visible=distance<155;lamps.visible=distance<115;
     for(let i=0;i<crew.length;i++){
       const group=crew[i];group.visible=distance<95 && (i>0 || (b.driver==null && b.cruising));
       if(!group.visible)continue;
+      if(i && (alarm || group.userData.alarm)){
+        let cover=mix(group.userData.alarm,alarm,1-Math.exp(-dt*(alarm?14:5)));
+        if(cover<.002)cover=0;
+        if(cover!==group.userData.alarm){
+          group.userData.alarm=cover;
+          for(let j=0;j<group.count;j++)group.setMorphAt(j,{morphTargetInfluences:[cover]});
+          group.morphTexture.needsUpdate=true;
+        }
+      }
       const moves=guests[i];
       for(let j=0;j<moves.length;j++){
         const [x,y,z,a]=moves[j],beat=time*(1.92+i*.064)+i*2+j*1.51+(b.style??0);
@@ -245,7 +272,7 @@ const mix=THREE.MathUtils.lerp;
 export function partyYachtView(scene,Batch){
   const models=new Map();
   let shared,time=0;
-  return (boats,dt,local,tick)=>{
+  return (boats,dt,local,tick,cues)=>{
     time=Number.isFinite(tick)?tick/30:time+dt;
     const live=new Set();
     for(const boat of boats??[]){
@@ -261,7 +288,7 @@ export function partyYachtView(scene,Batch){
       };
       let model=models.get(boat.id);
       if(!model){model=yacht(scene,Batch,boat,shared);models.set(boat.id,model);}
-      model.root.visible=true;model.update(boat,d,time,dt,local);live.add(boat.id);
+      model.root.visible=true;model.update(boat,d,time,dt,local,gunfireAlarm(cues,boat,tick));live.add(boat.id);
     }
     for(const [id,model] of models)if(!live.has(id)){model.root.visible=false;model.wake(null,dt,local);}
   };

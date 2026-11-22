@@ -69,7 +69,7 @@ export function updateRival(actor, tick, dt, hp, world) {
     actor.state = patrolStart(actor.route);
     actor.next = 1;
     actor.life = newLife(tick);
-    delete actor.crossing;delete actor.checkingTraffic;
+    delete actor.crossing;delete actor.checkingTraffic;delete actor.reaction;delete actor.escapeTrail;delete actor.panicCry;
     actor.pauseUntil = tick + 30;
   }
   if (advanceFall(actor,tick,dt,hp,world) || !actor.life.hp){delete actor.reaction;return;}
@@ -104,7 +104,7 @@ export function updateRival(actor, tick, dt, hp, world) {
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving,...(actor.checkingTraffic && {checkingTraffic:true}), weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}), ...healthView(actor, tick) };
+    moving: actor.moving,...(actor.checkingTraffic && {checkingTraffic:true}), weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}),...(actor.reaction?.type==='gunfire' && {sprint:actor.moving,panicCry:actor.panicCry}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {

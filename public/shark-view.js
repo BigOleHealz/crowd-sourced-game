@@ -5,7 +5,7 @@ import {sharkSizes} from './shark-swim.js';
 
 // The pointed rostrum, swept pectorals and longer upper tail lobe remain visible
 // together in silhouette when the dorsal fin is the only part above the water.
-function sharkGeometry(tail){
+function sharkGeometry(part){
   const pos=[],rgb=[],ix=[];
   const upper=new THREE.Color(0x596c74),middle=new THREE.Color(0x939b96),belly=new THREE.Color(0xd4d3c2);
   function vertex(point,tone){
@@ -29,8 +29,20 @@ function sharkGeometry(tail){
     const peak=vertex(ridge,tone),base=points.map(p=>vertex(p,tone));
     for(let i=0;i<base.length;i++)ix.push(peak,base[i],base[(i+1)%base.length]);
   }
-  if(!tail){
-    loft([[-1.70,.008,.009,.02],[-1.56,.142,.075,.022],[-1.32,.236,.168,.032],
+  if(part==='jaw'){
+    // The hinge sits under the gills. The darker inner jaw and pale tooth
+    // line become visible as the lower jaw swings down during the bite.
+    loft([[-.59,.009,.009,0],[-.49,.119,.032,-.019],[-.29,.192,.052,-.034],
+      [-.10,.217,.057,-.020],[.03,.178,.062,.013]],14,[0,0,0],belly);
+    const gum=new THREE.Color(0x613f42),tooth=new THREE.Color(0xdccfb7);
+    loft([[-.565,.01,.005,.002],[-.44,.115,.014,-.002],[-.23,.157,.019,-.001],
+      [-.085,.169,.017,.026],[.002,.124,.015,.045]],14,[0,0,0],gum);
+    for(const side of [-1,1])for(let i=0;i<5;i++){
+      const z=-.42+i*.078,x=side*(.119+.047*Math.sin((i+.6)*.45)),y=.014+i*.007;
+      fin([[x,y,z],[x,y+.042,z+.026],[x,y,z+.052]],[x-side*.009,y+.007,z+.02],tooth);
+    }
+  }else if(part==='body'){
+    loft([[-1.70,.008,.009,.02],[-1.56,.142,.055,.044],[-1.32,.236,.124,.072],
       [-.98,.309,.251,.021],[-.55,.359,.328,.007],[-.07,.369,.349,0],[.38,.320,.296,.004],
       [.71,.237,.224,.008],[1.03,.141,.128,.01]],20);
     const dorsal=[[-.052,.29,-.45],[-.014,.77,-.05],[0,.79,.031],[.015,.51,.067],[.052,.26,.28]];
@@ -63,17 +75,19 @@ function sharkGeometry(tail){
 export function sharkView(scene,waterline){
   const impacts=aquaticImpactView(scene,waterline,sharkSizes);
   const models=[],clock={value:0};
-  let bodyShape,tailShape,material;
+  let bodyShape,tailShape,jawShape,material;
   function model(index){
-    bodyShape??=sharkGeometry(false);tailShape??=sharkGeometry(true);
+    bodyShape??=sharkGeometry('body');tailShape??=sharkGeometry('tail');jawShape??=sharkGeometry('jaw');
     if(!material){
       material=manateeMaterial({map:null},0xffffff,waterline,clock);
       material.side=THREE.DoubleSide;
     }
     const root=new THREE.Group(),body=new THREE.Mesh(bodyShape,material),tail=new THREE.Mesh(tailShape,material);
+    const jaw=new THREE.Mesh(jawShape,material);jaw.name='Lower jaw';jaw.position.set(0,-.068,-1.02);
+    root.add(jaw);
     root.name='Offshore shark';root.scale.setScalar(sharkSizes[index]);
     root.renderOrder=1;root.add(body,tail);tail.position.z=1.02;scene.add(root);
-    return {root,tail};
+    return {root,tail,jaw};
   }
   return (states,local,tick,dt)=>{
     impacts(states,local,dt);clock.value=(tick??0)/30;
@@ -83,7 +97,7 @@ export function sharkView(scene,waterline){
         if(models[i])models[i].root.visible=false;
         continue;
       }
-      const {root,tail}=models[i]??=model(i);
+      const {root,tail,jaw}=models[i]??=model(i);
       if(!root.visible || root.position.distanceToSquared(s)>36){
         root.position.set(s.x,s.y,s.z);root.rotation.y=-s.yaw;
       }
@@ -94,6 +108,8 @@ export function sharkView(scene,waterline){
       root.position.z+=(s.z-root.position.z)*mix;
       root.rotation.y+=Math.atan2(Math.sin(-s.yaw-root.rotation.y),Math.cos(-s.yaw-root.rotation.y))*mix;
       root.rotation.z=s.hp ? .055*Math.sin(s.stroke):Math.min(1.45,s.ageSinceHit*.78);
+      const bite=s.phase==='feeding' ? .27+.23*Math.sin(clock.value*8.4+i) : 0;
+      jaw.rotation.x=-bite;
       tail.rotation.y=s.hp ? .26*Math.sin(s.stroke):0;
     }
   };

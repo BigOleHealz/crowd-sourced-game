@@ -56,6 +56,18 @@ try {
   assert.equal(initial.hp,100);
   await until(() => Math.hypot(actor(a, fern).x - initial.x, actor(a, fern).z - initial.z) > .05, 'NPC patrol');
   await until(() => !actor(a, b.id).protected, 'initial shield expiry');
+  // Exercise the nearby patroller before the player duel scatters local witnesses.
+  for (const expected of [75,50,25,0]) {
+    await delay(230);
+    await shoot(a,fern);
+    await until(() => actor(a,fern).hp===expected && actor(b,fern).hp===expected,'shared NPC damage');
+  }
+  assert(actor(b,fern).dead && !actor(b,fern).moving);
+  assert(actor(b,fern).fall.joints.length>40,'patrol uses the same physical rig');
+  const joined = await join(url);
+  assert(joined.welcome.world.npcs.find(n=>n.id===fern).dead,'welcome includes current NPC defeat');
+  await until(()=>actor(joined,fern).protected && actor(joined,fern).hp === 100,'NPC respawn');
+  assert.equal(actor(joined,a.id).hp,100);
   await shoot(a,b.id,2);
   await until(() => actor(b,b.id).hp === 60, 'Bloom hits once');
   assert.equal(actor(a,a.id).hp,100,'no Bloom self-damage');
@@ -81,17 +93,6 @@ try {
   await shoot(a,b.id);
   assert.equal(actor(b,b.id).hp,100, 'respawn shield absorbs pulse');
 
-  for (const expected of [75,50,25,0]) {
-    await delay(230);
-    await shoot(a,fern);
-    await until(() => actor(a,fern).hp===expected && actor(b,fern).hp===expected,'shared NPC damage');
-  }
-  assert(actor(b,fern).dead && !actor(b,fern).moving);
-  assert(actor(b,fern).fall.joints.length>40,'patrol uses the same physical rig');
-  const joined = await join(url);
-  assert(joined.welcome.world.npcs.find(n=>n.id===fern).dead,'welcome includes current NPC defeat');
-  await until(()=>actor(joined,fern).protected && actor(joined,fern).hp === 100,'NPC respawn');
-  assert.equal(actor(joined,a.id).hp,100);
   console.log('PASS: two people and patrolling NPCs, both blasters, single-hit damage, shooter immunity, replicated death, dead controls, late joins, timed respawns and shields.');
 } finally {
   for (const ws of sockets) ws.terminate();
