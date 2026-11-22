@@ -36,7 +36,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     const left=x-w/2+.10,right=x+w/2-.10;
     const rear=wz(depth),zmin=shared ? b.z-b.d/2 : Math.min(z,rear),zmax=shared ? b.z+b.d/2 : Math.max(z,rear);
     if(!shared || side<0){
-      const name=plan.hotel?hotel.name:bank?bankSite.name:'Gallery Lobby';
+      const name=plan.hotel?hotel.name:bank?bankSite.name:(b.resortWing??'Gallery Lobby');
       const room={name,index,shared,x,left,right,zmin,zmax,entries:shared ? [b.z-b.d/2,b.z+b.d/2] : [z]};
       plan.rooms.push(room);galleryLobbies.push(room);
       indexRoom(room);
