@@ -6,6 +6,7 @@ import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
 import {createGulls} from './public/gull-flight.js';
 import {createSharks} from './public/shark-swim.js';
+import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
@@ -120,6 +121,9 @@ function freshWorld(){
     const sharks=createSharks();
     w.sharks=sharks.state;
     Object.defineProperty(w,'stepSharks',{value:sharks.step});
+    const pod=createDolphins(w,MAP.waterY);
+    w.dolphins=pod.state;
+    Object.defineProperty(w,'stepDolphins',{value:pod.step});
     const wildlife=createManatees(w,MAP.waterY);
     w.manatees=wildlife.state;
     Object.defineProperty(w,'stepManatees',{value:wildlife.step});
@@ -762,6 +766,7 @@ function tick() {
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
   stepWakeCrossings(world,step);
+  world.stepDolphins?.(step);
   world.stepManatees?.(step);
   for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);

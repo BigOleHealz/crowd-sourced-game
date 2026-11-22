@@ -20,6 +20,7 @@ import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from '
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {gullView} from './gull-view.js';
+import {dolphinView} from './dolphin-view.js';
 import {sharkView} from './shark-view.js';
 import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
@@ -1044,6 +1045,7 @@ export function createScene(canvas,onFootfall) {
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
+  const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1520,6 +1522,7 @@ export function createScene(canvas,onFootfall) {
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
+    updateDolphins?.(world.dolphins,local,world.simTick,dt);
     updateSharks?.(world.sharks,local,world.simTick,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);
