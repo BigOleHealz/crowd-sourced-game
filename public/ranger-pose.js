@@ -369,7 +369,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const reach=Math.sin(avatar.throwSwing*Math.PI*.70);
       arm.rotation.set(side===1?1.03+reach*1.44:.28,side*.05,side*(.11+.09*reach));
       forearm.rotation.x=side===1?.24+.37*(1-reach):.67;
-    } else if(!seated && !state.parachute && !state.dead && !swimming) {
+    } else if(!seated && !state.parachute && !state.dead && !swimming && avatar.tools[toolIndex] && carryFits[toolIndex]) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position,fit=carryFits[toolIndex];
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
