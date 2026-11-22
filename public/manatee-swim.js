@@ -1,3 +1,4 @@
+import {floatingBody} from './marine-float.js';
 import {marinaModel} from './marina-fleet-layout.js';
 import {cityGround} from './brickell-map.js';
 
@@ -123,7 +124,7 @@ export function damageManatee(states,index,amount,kind,point) {
   animal.hitY=round(point?.y??animal.y);
   animal.hitZ=round(point?.z??animal.z);
   if (animal.hp===0) {
-    animal.deathKind=kind;
+    animal.deathKind=kind;animal.deathY=animal.y;
     animal.air=-1;
   }
   return true;
@@ -150,10 +151,13 @@ export function createManatees(world,water) {
       const animal=state[i];
       if (animal.ageSinceHit!==null) animal.ageSinceHit=Math.min(150,animal.ageSinceHit+dt);
       if (animal.hp===0) {
-        if (animal.ageSinceHit<150) continue;
+        if (animal.ageSinceHit<150){
+          animal.y=round(floatingBody(animal.deathY,water,h.size,animal.ageSinceHit).y);
+          continue;
+        }
         const spawn=orbit(h,time);
         Object.assign(p,spawn,{y:water-.77,vx:0,vz:0});
-        Object.assign(animal,{hp:animal.maxHp,ageSinceHit:null,deathKind:null,hitX:null,hitY:null,hitZ:null});
+        Object.assign(animal,{hp:animal.maxHp,deathY:null,ageSinceHit:null,deathKind:null,hitX:null,hitY:null,hitZ:null});
       }
       let ax=(goal.x-p.x)*.52,az=(goal.z-p.z)*.52,pressure=0,dive=0;
       const keel=boat=>(boat.y??water)+(boat===world.yacht?-1.25:(marinaModel(boat)?.keel??-.58))-.56*h.size;

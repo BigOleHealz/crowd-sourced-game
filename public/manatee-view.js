@@ -1,3 +1,4 @@
+import {floatingBody} from './marine-float.js';
 import * as THREE from 'three';
 import {manateeHabitats} from './manatee-swim.js';
 import {manateeAssets,manateeMaterial} from './manatee-model.js';
@@ -75,10 +76,6 @@ export function manateeView(scene,waterline){
       }
       const a=animals[i]??=make(i),p=shown[i];
       const state=states[i],down=state.hp===0,elapsed=(state.ageSinceHit??0)+age;
-      if(down && (state.deathKind==='blast' || elapsed>=14)){
-        a.root.visible=false;for(const ring of a.ripples)ring.visible=false;
-        continue;
-      }
       const high=near.d<(a.high?19:17);
       if(high!==a.high){
         const lod=high?kit.high:kit.low;
@@ -91,7 +88,8 @@ export function manateeView(scene,waterline){
       root.rotation.set(p.pitch,-p.yaw,p.roll,'YXZ');
       if(down){
         const settle=1-Math.exp(-elapsed*.8);
-        root.rotation.z+=settle*.97;root.position.y-=.024*elapsed;
+        root.rotation.z=p.roll*(1-settle)+floatingBody(state.deathY,waterline,manateeHabitats[i].size,elapsed).roll;
+        root.rotation.x*=1-settle;
       }
       tail.rotation.set(.245*beat+.059*Math.sin(p.stroke*2-.48),.031*Math.sin(p.stroke-.75),0);
       for(const [j,fin] of fins.entries()){

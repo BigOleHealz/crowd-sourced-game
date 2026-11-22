@@ -1,4 +1,5 @@
 import {projectorRoar} from './projector-roar.js';
+import {marineBlastCalls,marineImpactSound} from './marine-float.js';
 import {crowdPanicAudio} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
@@ -26,6 +27,7 @@ const shapes={
 };
 function synth(context,name) {
   if(name==='projector-roar')return projectorRoar(context);
+  if(name==='marine-impact')return marineImpactSound(context);
   if(name==='shark-defeat')return sharkDefeatSound(context);
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
@@ -128,6 +130,7 @@ export function createGameAudio(button,slider,level) {
   } catch {}
   let context,master,limiter,reflection,environmentWorld;
   let listenerSpace=acousticSpace(null,null);
+  let priorSharks,priorManatees;
   let previousDolphins,previousSharkDefeats;
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const civilianVoices=crowdPanicAudio();
@@ -230,6 +233,7 @@ export function createGameAudio(button,slider,level) {
   }
   function reset(world) {
     collapse.reset();flameEmitters.clear();
+    priorSharks=world?.sharks;priorManatees=world?.manatees;
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
@@ -271,6 +275,10 @@ export function createGameAudio(button,slider,level) {
       }
       for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
     }
+    const impact=s=>burst('marine-impact',{x:s.hitX,y:s.hitY,z:s.hitZ},listener,yaw,.88,s.hitSeq);
+    marineBlastCalls(priorSharks,world.sharks,impact);
+    marineBlastCalls(priorManatees,world.manatees,impact);
+    priorSharks=world.sharks;priorManatees=world.manatees;
     fatalBiteCalls(previousSharkDefeats,world.sharkDefeats,world.simTick,listener,
       event=>burst('shark-defeat',event,listener,yaw,.86,event.tick+event.sharkIndex));
     previousSharkDefeats=world.sharkDefeats;
