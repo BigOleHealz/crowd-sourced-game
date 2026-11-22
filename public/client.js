@@ -1301,6 +1301,24 @@ function drawMap(player, remotes, yaw) {
   ctx.beginPath(); ctx.moveTo(0,-10); ctx.lineTo(7,7); ctx.lineTo(0,4); ctx.lineTo(-7,7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
 }
 
+// Enable a local frame-time readout on a phone with ?perf=1.
+const frameReadout = new URLSearchParams(location.search).get('perf') === '1' ? document.createElement('small') : null;
+const frameTimes = [];
+let previousRender = 0;
+if (frameReadout) {
+  byId('location').parentElement.append(frameReadout);
+  document.addEventListener('visibilitychange', () => { previousRender = 0; frameTimes.length = 0; });
+}
+function measureFrame(time, players) {
+  if (previousRender) frameTimes.push(time - previousRender);
+  previousRender = time;
+  if (frameTimes.length < 120) return;
+  const elapsed = frameTimes.reduce((sum, t) => sum + t, 0);
+  frameTimes.sort((a, b) => a - b);
+  const p95 = frameTimes[Math.ceil(frameTimes.length * .95) - 1];
+  frameReadout.textContent = (1000 * frameTimes.length / elapsed).toFixed(0) + ' FPS · 95th ' + p95.toFixed(0) + ' ms · ' + players + ' online';
+  frameTimes.length = 0;
+}
 function frame(time) {
   // On high-refresh displays keep the prototype's visual workload near 60 frames/s.
   if (time+.75 < nextFrame) { requestAnimationFrame(frame); return; }
@@ -1369,6 +1387,7 @@ function frame(time) {
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
+    if (frameReadout) measureFrame(time, remotes.length + 1);
     scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
     if (time >= nextHud) {
       nextHud = time + 80;

@@ -1,0 +1,10 @@
+Rigged T-Pose Human Male w 50 Face Blendshapes by Mike Alger
+Scan by Doob. Original optimization and rig by High Fidelity.
+https://sketchfab.com/3d-models/rigged-t-pose-human-male-w-50-face-blendshapes-cc7e4596bcd145208a6992c757854c07
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Source conversion: Taz33m/FlyFireFighter, public/actors/occupant.glb
+https://github.com/Taz33m/FlyFireFighter/blob/e440c9f384cb97f30b1d7196dceb504aeb0a0dbd/public/actors/occupant.provenance.json
+Pinewatch modifications: removed animation clips, fitted the scanned mesh to the
+existing player skeleton and repacked the skin weights. Original color texture retained.

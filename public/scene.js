@@ -74,6 +74,7 @@ import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSm
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
+import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
@@ -840,9 +841,15 @@ function characterLabel(root, name) {
 }
 
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name) {
+function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=false) {
   const rig=createRangerRig(), {root,body,upper,limbs}=rig;
   scene.add(root);
+  if(scanned) {
+    fitPlayerScan(rig);
+    rig.tools=carriedEquipment(upper,scene,Batch);
+    rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
+    return finishAvatar(scene,rig,material,shadowMap,name);
+  }
   const identity=rangerIdentity(id);
   const coat=color(tint ?? jacketColor(id)).lerp(color(0xf0ece1),.88);
   const pants=0xdad8c3, binding=0x585745;
@@ -1092,6 +1099,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 
 import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas) {
+  preloadPlayerScan();
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
@@ -1429,9 +1437,11 @@ export function createScene(canvas) {
         }
         continue;
       }
+      const scanned=usePlayerScan(state);
+      if(a && Boolean(a.scanned)!==scanned){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }

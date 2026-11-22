@@ -197,6 +197,8 @@ const types = {
   '.webp': 'image/webp',
   '.ogg': 'audio/ogg',
   '.mp3': 'audio/mpeg',
+  '.glb': 'model/gltf-binary',
+  '.txt': 'text/plain; charset=utf-8',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
@@ -217,6 +219,8 @@ async function serve(request, response) {
   let file;
   if (vendorFiles.includes(pathname)) {
     file = join(threeBuild, pathname.slice('/vendor/'.length));
+  } else if (pathname === '/vendor/loaders/GLTFLoader.js' || pathname === '/vendor/utils/BufferGeometryUtils.js') {
+    file = join(threeBuild, '../examples/jsm', pathname.slice('/vendor/'.length));
   } else {
     file = resolve(publicDir, '.' + (pathname === '/' ? '/index.html' : pathname));
     if (!file.startsWith(publicDir + sep) || pathname.includes('\0')) {
