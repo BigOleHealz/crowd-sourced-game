@@ -1,3 +1,4 @@
+import {jetPassage} from './water-monitor.js';
 import {roadway} from './brickell-map.js';
 import {hydrants,repairTicks} from './hydrants.js';
 import {CITY,MAP,blocked,groundHeight,insideTravelArea,stepPlayer} from './world.js';
@@ -7,6 +8,7 @@ const cues={
   gunfire:{rank:4},
   horn:{radius:10,retreat:1.6,speed:.42,duration:42,rank:1},
   spray:{radius:9,retreat:2.8,speed:.65,duration:69,rank:2},
+  drenched:{retreat:1.8,speed:.47,duration:77,rank:2},
   collapse:{radius:25,retreat:5.1,speed:.88,duration:95,rank:3},
 };
 const seenFalls=new WeakSet();
@@ -47,6 +49,30 @@ export function signalPedestrians(world,npcs,type,source,tick){
     const end=retreatPoint(world,s,away,cue.retreat);
     n.reaction={type,since:tick,until:tick+cue.duration,...end,look:away+Math.PI};
     n.reactAfter=tick+cue.duration+50;
+  }
+}
+
+// The hydrant has an ambient cue; the monitor only annoys someone whose
+// body actually intersects the authoritative stream before its first wall.
+function drench(world,npcs,car,tick){
+  let nearest=Infinity;
+  for(const n of npcs){
+    const s=n.state;
+    if(!n.life.hp || n.life.fall || !s.grounded || s.swimming || n.partyEvac)continue;
+    const p=jetPassage(car,car.water,s.x,s.z);
+    if(!p || p.side>.43 || p.height<s.y+.06 || p.height>s.y+1.86 ||
+        world.traffic.some(v=>v.npcDriver===n.id || v.takeover?.npcId===n.id))continue;
+    const distance=(s.x-car.x)**2+(s.z-car.z)**2;
+    if(distance<nearest){
+      nearest=distance;
+      car.water.splash={x:s.x,y:Math.round(p.height*100)/100,z:s.z};
+    }
+    if(n.officer || (n.lastDrenched!=null && tick-n.lastDrenched<135) ||
+        n.reaction?.type==='gunfire' || n.reaction?.type==='collapse')continue;
+    const away=Math.atan2(s.x-car.x,car.z-s.z);
+    const end=retreatPoint(world,s,away,cues.drenched.retreat);
+    n.reaction={type:'drenched',since:tick,until:tick+cues.drenched.duration,...end,look:away+Math.PI};
+    n.lastDrenched=tick;n.reactAfter=tick+cues.drenched.duration+38;
   }
 }
 
@@ -141,6 +167,7 @@ export function localWorldReactions(world,npcs,tick,players){
   if(players)for(const player of players.values())witnessInjury(player.life,player.state,player.id);
   for(const dog of world.dogs??[])witnessInjury(dog,dog,dog.id);
   for(const car of world.traffic??[]){
+    if(tick%3===0 && car.model==='engine' && car.water)drench(world,npcs,car,tick);
     if(!car.takeover || witnessedTakeovers.has(car.takeover))continue;
     witnessedTakeovers.add(car.takeover);
     panicAt(world,npcs,tick,car,48,'takeover-'+car.id+'-'+tick);

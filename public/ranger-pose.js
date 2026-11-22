@@ -312,6 +312,10 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       const pump=side*swing*weight;
       arm.rotation.set(shield?1.00+.19*pump:.39+.81*pump,side*.08,side*(shield?.31:.15));
       forearm.rotation.set(shield?1.68-.20*pump:1.08+.34*pump,0,shield?-side*.28:0);
+    } else if(state.reaction==='drenched' && !seated && !station){
+      // Wipe the brow with one sleeve and turn the other palm toward the driver.
+      arm.rotation.set(side===1?1.10:.81,side*.16,side*(side===1?.28:.57));
+      forearm.rotation.set(side===1?1.89:1.16,0,side===1?-.84:.12);
     } else if(state.reaction && !seated && !station){
       const shield=state.reaction!=='horn';
       arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));
