@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {courts,sandHeight} from './beach-layout.js';
 import {civilianLooks} from './civilian-style.js';
-import {ballRadius,sampleVolleyball,sideSign,slotSide,volleyballMember,volleyballServiceSpot,
+import {ballRadius,sampleVolleyball,sideSign,slotSide,spikeRecovery,spikeWindup,volleyballMember,volleyballServiceSpot,
   volleyballTeams} from './volleyball-court.js';
 
 const profiles=['rival-maia','rival-diego','rival-rafi','rival-ana','rival-mei','rival-jules','rival-iman','rival-santi'];
@@ -149,8 +149,11 @@ const mix=THREE.MathUtils.lerp,clamp=THREE.MathUtils.clamp;
 export function poseVolleyball(avatar,actor,member,tick){
   const {state:game,court,slot}=member;
   for(const tool of avatar.tools)tool.visible=false;
-  const swing=game.swings[slot],age=(tick-swing?.tick)/30;
-  const activity=age>=0 && age<.54?Math.sin(Math.PI*clamp(age/.54+.10,0,1))**.7:0;
+  const swing=game.swings[slot],elapsed=tick-swing?.tick,age=elapsed/30;
+  const spike=swing?.kind==='spike' && elapsed>=0 && elapsed<spikeWindup+spikeRecovery;
+  const arc=spike ? elapsed<spikeWindup ? (elapsed-spikeWindup)/spikeWindup : (elapsed-spikeWindup)/spikeRecovery : 1;
+  const jump=Math.max(0,1-arc*arc);
+  const activity=spike?jump:age>=0 && age<.54?Math.sin(Math.PI*clamp(age/.54+.10,0,1))**.7:0;
   const serving=game.phase==='serve' && game.server===slot;
   const moving=actor.moving && activity<.2;
   const {x,z,y}=game.flight?sampleVolleyball(game.flight,tick):{x:court.x,z:court.z,y:actor.y+1.48};
@@ -164,13 +167,34 @@ export function poseVolleyball(avatar,actor,member,tick){
   const ready=moving?.52:1;
   avatar.spine.rotation.x+=ready*(-.12+.10*activity);
   avatar.spine.rotation.y+=swing?.kind==='serve'?activity*.37:0;
-  for(const {arm, forearm, side} of avatar.limbs){
+  const dig=swing?.kind==='dig' ? activity : 0;
+  const hit=spike ? clamp((elapsed-spikeWindup)/spikeRecovery,0,1):0;
+  if(dig){avatar.body.position.y-=.31*dig;avatar.spine.rotation.x-=.30*dig;}
+  if(spike){
+    avatar.root.position.y+=.76*jump;
+    avatar.spine.rotation.x+=(.16-.68*hit)*jump;
+    avatar.spine.rotation.y+=(.34-.86*hit)*jump;
+  }
+  for(const {arm,forearm,leg,knee,ankle,side} of avatar.limbs){
     let raise=serving?1.10:.60,spread=side*(serving?-.21:.10),elbow=serving?.87:.49;
     if(activity){
       if(swing.kind==='serve'){
         raise=mix(raise,side===1?2.87:1.41,activity);
         spread=mix(spread,side===1?.30:-.24,activity);
         elbow=mix(elbow,.20,activity);
+      }else if(dig){
+        raise=mix(raise,.86,dig);spread=mix(spread,-side*.31,dig);elbow=mix(elbow,.03,dig);
+        leg.rotation.x=mix(leg.rotation.x,.84+side*.12,dig);
+        leg.rotation.z=mix(leg.rotation.z,side*.18,dig);
+        knee.rotation.x=mix(knee.rotation.x,-1.45,dig);
+        ankle.rotation.x=-leg.rotation.x-knee.rotation.x;
+      }else if(spike){
+        const hittingArm=side===1;
+        raise=mix(raise,hittingArm?3.08-2.24*hit:2.16-1.20*hit,jump);
+        spread=mix(spread,hittingArm?.24-.48*hit:-.32,jump);
+        elbow=mix(elbow,hittingArm?Math.abs(arc)*1.08:.44,jump);
+        leg.rotation.x=mix(leg.rotation.x,hittingArm?.44:.25,jump);
+        knee.rotation.x=mix(knee.rotation.x,hittingArm?-1.03:-.62,jump);
       }else{
         raise=mix(raise,1.82,activity);spread=mix(spread,-side*.36,activity);
         elbow=mix(elbow,.11,activity);

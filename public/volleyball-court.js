@@ -6,6 +6,7 @@ export const volleyballTeams=[
 ];
 export const courtHalfWidth=4,courtHalfLength=8,ballRadius=.125;
 export const returnCueLead=5;
+export const spikeWindup=6,spikeRecovery=11;
 export const courtSide=(court,z)=>z<court.z?0:1;
 export const slotSide=slot=>Math.floor(slot/2);
 export const sideSign=side=>side===0?-1:1;
@@ -53,8 +54,25 @@ export function sampleVolleyball(flight,tick){
   };
 }
 
-export function canReturnVolleyball(court,side,feet,ball){
-  return ball.descending && courtSide(court,feet.z)===side && courtSide(court,ball.z)===side &&
-    atVolleyballCourt(feet,court,1.65) && ball.y-feet.y>=.40 && ball.y-feet.y<=3.04 &&
-    Math.hypot(feet.x-ball.x,feet.z-ball.z)<1.74;
+export function volleyballStrikeKind(court,side,feet,ball){
+  if(!ball.descending || courtSide(court,feet.z)!==side || courtSide(court,ball.z)!==side ||
+    !atVolleyballCourt(feet,court,1.65) || ball.y<=sandHeight(ball.x,ball.z)+ballRadius+.02)return null;
+  const height=ball.y-feet.y,gap=Math.hypot(feet.x-ball.x,feet.z-ball.z);
+  if(height>=2.72 && height<=3.28 && gap<1.38 && Math.abs(ball.z-court.z)<=2.65)return 'spike';
+  if(height>=1.02 && height<=3.04 && gap<1.74)return 'return';
+  if(height>=.19 && height<1.02 && gap<1.88)return 'dig';
+  return null;
+}
+
+export function volleyballRallyContact(court,side,feet,flight,tick){
+  const spike=sampleVolleyball(flight,tick+spikeWindup);
+  if(volleyballStrikeKind(court,side,feet,spike)==='spike')return {kind:'spike',ball:spike};
+  let first=null;
+  for(let lead=0;lead<=returnCueLead;lead++){
+    const ball=sampleVolleyball(flight,tick+lead);
+    const kind=volleyballStrikeKind(court,side,feet,ball);
+    if(kind==='dig')return {kind,ball};
+    if(kind==='return' && !first)first={kind,ball};
+  }
+  return first;
 }

@@ -1,6 +1,8 @@
 import {courtTally,setScoreText} from './court-tally.js';
-import {canReturnVolleyball,canServeVolleyball,courtSide,nearbyVolleyballCourt,returnCueLead,sampleVolleyball,
-  slotSide,volleyballMember,volleyballTeams} from './volleyball-court.js';
+import {canServeVolleyball,courtSide,nearbyVolleyballCourt,slotSide,spikeWindup,volleyballMember,volleyballRallyContact,
+  volleyballTeams} from './volleyball-court.js';
+
+const rallyActions={return:'Return',dig:'Dig',spike:'Spike'};
 
 export function volleyballHud(world,feet,id,available){
   if(!world?.volleyball || !feet)return null;
@@ -28,11 +30,15 @@ export function volleyballHud(world,feet,id,available){
   }else if(game.phase==='rally'){
     const receiving=1-slotSide(game.flight.slot);
     if(receiving===side){
-      result.action='Return';
       const now=world.simTick??game.flight.tick;
-      const ball=sampleVolleyball(game.flight,now);
-      const incoming=sampleVolleyball(game.flight,now+returnCueLead);
-      if(canReturnVolleyball(court,side,feet,ball) || canReturnVolleyball(court,side,feet,incoming))result.detail='Return now';
+      const swing=game.swings[slot];
+      if(swing?.kind==='spike' && now>=swing.tick && now<swing.tick+spikeWindup){
+        result.detail='Jumping for the spike';
+        return result;
+      }
+      const contact=volleyballRallyContact(court,side,feet,game.flight,now);
+      result.action=rallyActions[contact?.kind]??'Return';
+      if(contact)result.detail=result.action+' now';
       else result.detail=courtSide(court,feet.z)!==side?'Return to your half':'Watch the landing marker';
     }else result.detail='Ball across the net';
   }
