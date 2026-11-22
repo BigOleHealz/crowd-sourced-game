@@ -31,15 +31,16 @@ function sharkGeometry(part){
     for(let i=0;i<base.length;i++)ix.push(peak,base[i],base[(i+1)%base.length]);
   }
   if(part==='jaw'){
-    // The hinge sits under the gills. The darker inner jaw and pale tooth
-    // line become visible as the lower jaw swings down during the bite.
-    loft([[-.59,.009,.009,0],[-.49,.119,.032,-.019],[-.29,.192,.052,-.034],
-      [-.10,.217,.057,-.020],[.03,.178,.062,.013]],14,[0,0,0],belly);
+    // The upper lip meets the snout at rest. The thick rear of the jaw extends
+    // behind the pivot into the cheek and stays embedded through the bite.
+    loft([[-.612,0,0,.060],[-.54,.099,.031,.040],[-.40,.156,.047,.019],
+      [-.24,.199,.060,-.010],[-.09,.224,.077,.006],[.08,.247,.100,.029],
+      [.22,.216,.089,.060],[.29,0,0,.069]],16,[0,0,0],belly);
     const gum=new THREE.Color(0x613f42),tooth=new THREE.Color(0xdccfb7);
-    loft([[-.565,.01,.005,.002],[-.44,.115,.014,-.002],[-.23,.157,.019,-.001],
-      [-.085,.169,.017,.026],[.002,.124,.015,.045]],14,[0,0,0],gum);
+    loft([[-.578,.008,.004,.059],[-.46,.106,.011,.051],[-.27,.156,.013,.049],
+      [-.10,.171,.016,.069],[.075,.151,.018,.095]],16,[0,0,0],gum);
     for(const side of [-1,1])for(let i=0;i<5;i++){
-      const z=-.42+i*.078,x=side*(.119+.047*Math.sin((i+.6)*.45)),y=.014+i*.007;
+      const z=-.45+i*.072,x=side*(.101+i*.015),y=.057+Math.max(0,i-2)*.006;
       fin([[x,y,z],[x,y+.042,z+.026],[x,y,z+.052]],[x-side*.009,y+.007,z+.02],tooth);
     }
   }else if(part==='body'){
