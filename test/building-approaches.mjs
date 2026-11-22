@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {newExpedition}=await import('../public/expedition.js');
+const {groundHeight,stepPlayer}=await import('../public/world.js');
+const {interiorPlans,buildingAction}=await import('../public/building-interiors.js');
+const {galleryPlans,galleryRoomAt}=await import('../public/gallery-lobbies.js');
+const {stepHotelDoors}=await import('../public/maravela-hotel.js');
+const {club,inClub}=await import('../public/club-lucero.js');
+const {stations}=await import('../public/beach-layout.js');
+const {beachHut}=await import('../public/harbor-key-structures.js');
+const {requestInterior}=await import('../interior-actions.js');
+const dt=1/30;
+function approach(x,z){
+ const world=newExpedition();
+ let feet={x,z,y:groundHeight(x,z,2,world.doors),vy:0,grounded:true};
+ const player={id:1,life:{hp:100},inputs:[],lastSeq:0},players=new Map([[1,player]]);
+ let seq=0;
+ return {get feet(){return feet;},get doors(){return world.doors;},open(d){
+   player.state=feet;requestInterior(world,players,player,{door:d.id,seq:++seq,open:true},0);
+ },walk(x,z,label){
+   for(let i=0;i<160;i++){
+     const dx=x-feet.x,dz=z-feet.z,d=Math.hypot(dx,dz);
+     if(d<.11)return;
+     stepHotelDoors(world.doors,[feet],dt);
+     feet=stepPlayer(feet,{x:dx/d,z:dz/d},dt,world.hp,world);
+   }
+   assert.fail(label+' obstructed at '+[feet.x,feet.y,feet.z]+' toward '+[x,z]);
+ }};
+}
+for(const g of galleryPlans){
+ const p=interiorPlans.find(p=>p.b===g.b),e=g.ends[0],outside=e.z-1.65,walker=approach(e.x,outside);
+ if(g.b.housing){
+   const lobby=p.panels[0];
+   walker.walk(lobby.exitX,lobby.exitZ,p.name+' sidewalk to lobby elevator');
+   assert.equal(buildingAction(walker.feet,walker.doors)?.s,lobby,p.name+' elevator controls');
+ }else{
+   walker.walk(e.x,e.z+1.4,p.name+' gallery frontage');
+   assert(galleryRoomAt(walker.feet.x,walker.feet.y,walker.feet.z));
+ }
+ walker.walk(e.x,outside,p.name+' return to pavement');
+}
+for(const station of stations){
+ const west=station.x-3.4,walker=approach(west,station.z+.15);
+ walker.walk(station.x-.60,station.z+.15,'Rescue '+station.number+' gate');
+ assert(walker.feet.y>1.95 && walker.feet.grounded);
+ walker.walk(west,station.z+.15,'Rescue '+station.number+' stair exit');
+}
+{
+ const x=beachHut.x,z=beachHut.z,walker=approach(x-4,z);
+ walker.walk(x,z,'shade hut');walker.walk(x+4,z,'hut east exit');
+}
+{
+ const x=club.x,z=club.z+club.d/2,walker=approach(x,z+1.5);
+ walker.walk(x,z-2.3,'Club Lucero');assert(inClub(walker.feet));
+ walker.walk(x,z+1.5,'club exit');assert(!inClub(walker.feet));
+}
+const bank=interiorPlans.find(p=>p.type==='bank');
+for(const d of bank.doors.filter(d=>d.axis==='z')){
+ const side=Math.sign(d.x-bank.x),x=d.x+side*1.5,walker=approach(x,d.z);
+ walker.walk(d.x+side*.82,d.z,d.label+' approach');
+ assert.equal(buildingAction(walker.feet,walker.doors)?.d,d);
+ walker.open(d);
+ walker.walk(d.x-side*1.55,d.z,d.label);walker.walk(x,d.z,d.label+' exterior exit');
+}
+console.log('PASS all 21 Brickell footprints approached from outside, plus both bank offices, Club Lucero, both lifeguard houses and the beach hut, with walk-in and return paths.');

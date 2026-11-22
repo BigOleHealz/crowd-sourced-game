@@ -202,7 +202,9 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   const p=byBuilding.get(b);
   if(!p || !Number.isFinite(probe) || !isInside(b,x,z,pad))return;
   if(p.type==='bank' && probe<3.77 && (Math.abs(x-b.x)>=2.66 || z>b.z+2.25)){
-    let top=.824;
+    // Walls meet the player's radius before their feet cross the threshold.
+    // The office floor supports the centre of the capsule only.
+    let top=isInside(b,x,z) ? .824 : -Infinity;
     for(const s of bankServiceParts)if(probe>=s.bottom-.001 && isInside(s,x,z,pad))top=Math.max(top,s.bottom+s.h);
     if(Math.abs(Math.abs(x-b.x)-2.57)<.11+pad && z<b.z+2.25+pad ||
       Math.abs(x-b.x)<2.66+pad && Math.abs(z-(b.z+2.25-.073))<.075+pad)return 3.77;
