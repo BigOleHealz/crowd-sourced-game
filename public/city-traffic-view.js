@@ -2,7 +2,7 @@ import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
 import {poseRoadBoarding} from './ranger-pose.js';
 import {roadCabin,boardingDoorAngle} from './road-cabin.js';
-import {fireAppliance} from './fire-engine-view.js';
+import {buildPumper} from './fire-engine-view.js';
 import {markPatrolSedan} from './patrol-livery.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale,roadWreckFinish} from './vehicle-wreck-view.js';
@@ -18,7 +18,7 @@ import {alpineGlass} from './landscape.js';
 const fleet={
   sedan:{paint:0x56748b,roofEnd:.55,cabinEnd:1.29,topFront:-.42},
   hatchback:{paint:0x287f76,roofEnd:.84,cabinEnd:1.47,topFront:-.40},
-  van:{paint:0xdacfb8,roofEnd:1.91,cabinEnd:2.16,topFront:-.64},
+  van:{paint:0xdacfb8,roofEnd:1.91,cabinEnd:2.16,topFront:-.43},
 };
 const cube=new THREE.BoxGeometry(), roller=new THREE.CylinderGeometry(1,1,1,20),bore=new THREE.CylinderGeometry(1,1,1,10);
 const seatPad=new THREE.SphereGeometry(1,10,6),ring=new THREE.TorusGeometry(.145,.018,7,20);
@@ -41,7 +41,7 @@ function pane(batch,tint,a,b,c,d){skin(batch,tint,[[a,b],[d,c]]);}
 function run(batch,color,points,width,depth=width){
   for(let i=1;i<points.length;i++)batch.beam(color,points[i-1],points[i],width,depth);
 }
-function wheelModel(Batch,tire,depth,van){
+function wheelModel(Batch,tire,depth,van,patrol){
   const b=new Batch();
   const profile=[[.62,-.68],[.72,-1],[.91,-.96],[.99,-.72],[1,-.40],[1,.40],[.99,.72],[.91,.96],[.72,1],[.62,.68]];
   const rubberSkin=new THREE.LatheGeometry(profile.map(([r,x])=>new THREE.Vector2(r*tire,x*depth)),24).rotateZ(Math.PI/2);
@@ -50,8 +50,8 @@ function wheelModel(Batch,tire,depth,van){
   b.add(roller,0xa9b0b2,depth*.87,0,0,tire*.68,.018,tire*.68,0,0,Math.PI/2);
   b.add(roller,0x2d3237,depth,0,0,tire*.56,.017,tire*.56,0,0,Math.PI/2);
   const disc=(depth+.014);
-  if(van){
-    b.add(roller,0x92999a,disc,0,0,tire*.43,.024,tire*.43,0,0,Math.PI/2);
+  if(van || patrol){
+    b.add(roller,patrol?0x393e42:0x92999a,disc,0,0,tire*.43,.024,tire*.43,0,0,Math.PI/2);
     for(let j=0;j<8;j++){
       const a=j*Math.PI/4;
       b.add(bore,0x252b30,disc+.013,tire*.33*Math.cos(a),tire*.33*Math.sin(a),.025,.004,.025,0,0,Math.PI/2);
@@ -72,16 +72,16 @@ function model(Batch,type,materials,patrol=false){
     const car=valetSportBody(Batch,type,{skin,pane,run,box});
     return finishTrafficModel(Batch,type,materials,car);
   }
-  const engine=type==='engine';
-  const {roofEnd,cabinEnd,topFront}=engine?{roofEnd:.34,cabinEnd:.41,topFront:-.72}:fleet[type];
-  const paint=engine?0xaf322e:patrol?0x253747:fleet[type].paint;
+  if(type==='engine')return finishTrafficModel(Batch,type,materials,buildPumper(Batch,materials,{skin,pane,run,box}));
+  const {roofEnd,cabinEnd,topFront}=fleet[type];
+  const paint=patrol?0x20292e:fleet[type].paint;
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire}=civilianProfiles[type];
-  const van=type==='van' || engine,hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
+  const van=type==='van',hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
   const body=new Batch(),leaf=new Batch(),glass=new Batch(),lamps=new Batch();
   const front=van?-1.07:-1.02,post=van?.28:.26,hinge=-w+.025;
-  const belt=van?1.025:.965,bottom=van?.325:.27,topW=w-(van?.075:.185);
+  const belt=van?1.025:.965,bottom=van?.325:.27,topW=w-(van?.19:.185);
   const sideGlassBottom=van?1.033:.964,topRear=roofEnd;
   door.position.set(hinge,0,front);
   // Samples include every fender edge, door seam and bumper taper.
@@ -212,6 +212,27 @@ function model(Batch,type,materials,patrol=false){
   box(body,0x222b30,0,.592,nose-.065,.316,.111,.017);
   box(body,0xc9c9bc,0,.592,nose-.076,.283,.083,.006);
   box(body,0x293138,0,.615,tail+.049,.314,.12,.021);
+  if(van || patrol){
+    // Deep commercial intake / broad interceptor grille. Follow the bowed
+    // nose so the outer edge tucks into the sheet metal below the lights.
+    const h=van?.776:.731,low=van?.505:.595,span=van?.54:.49;
+    const grilleRow=(half,y,depth)=>[-1,-.67,0,.67,1].map(f=>{
+      const [x,yy,z]=fasciaPoint(f*half,y);return [x,yy,z-depth];
+    });
+    const rows=[[span*.75,low],[span*.94,low+.028],[span,h-.041],[span*.90,h]];
+    skin(body,0x838a89,rows.map(([w,y])=>grilleRow(w,y,.020)));
+    skin(body,0x242a30,rows.map(([w,y])=>grilleRow(w-.023,y*.92+.08*(h+low)/2,.033)));
+    for(const t of [.2,.42,.64,.84])run(body,0x687172,grilleRow(span*(.70+.20*t),mix(low,h,t),.047),.015,.012);
+    if(van)for(const side of [-1,1]){
+      // The lamps climb up the shoulder of the short hood on a high-roof van.
+      const low=level(nose)-.04;
+      const a=[side*.59,low-.013,nose-.037],b=[side*.71,low-.010,nose-.032];
+      const c=[side*(width(nose+.37)-.051),level(nose+.36)-.006,nose+.36];
+      const d=[side*(width(nose+.22)-.053),level(nose+.22)+.010,nose+.22];
+      pane(body,0x778993,a,b,c,d);run(body,0xd0d6d4,[a,d,c],.024);
+      run(body,0x3b4246,[[side*.82,.548,nose+.05],[side*.835,.524,nose+.27],[side*.89,.54,nose+.47]],.085,.062);
+    }
+  }
   const signals=[];
   box(body,0xd2cfb8,0,.615,tail+.064,.28,.083,.010);
   for(const side of [-1,1]){
@@ -268,29 +289,38 @@ function model(Batch,type,materials,patrol=false){
   for(const x of [-.40,.20]){
     body.beam(rubber,[x,belt+.065,front-.017],[x+.30,belt+.099,front+.016],.014,.018);
   }
-  if(van && !engine){
+  if(van){
     pane(body,0x53565a,[-w+.09,belt,.256],[w-.09,belt,.256],[topW-.03,roof-.099,.256],[-topW+.03,roof-.099,.256]);
     // Raised cargo flanks curve inward across the roof and carry a recessed
     // sliding-door panel, steel rail, rear-door shutline and loading step.
-    const zs=[.25,.34,1.55,1.84,2.06,cabinEnd];
+    const zs=[.25,.34,.52,1.55,1.84,2.06,cabinEnd];
     for(const side of [-1,1]){
       skin(body,paint,zs.map(z=>{
         const end=smooth(z,1.91,cabinEnd),span=w-.045-end*.050;
-        return [[side*(w-.069),belt,z],[side*span,belt+.065,z],[side*(span+.014),1.64,z],
-          [side*(span-.008),roof-.15,z],[side*(topW-.02),roof-.072-end*.070,z]];
+        return [[side*(w-.069),belt,z],[side*span,belt+.065,z],[side*(span+.005),1.36,z],
+          [side*(span-.026),1.67,z],[side*(span-.072),roof-.23,z],[side*(topW+.033),roof-.137-end*.045,z],
+          [side*(topW-.02),roof-.072-end*.070,z]];
       }));
-      const x=side*(w-.024);
-      run(body,0x89908b,[[x,1.10,.38],[x,1.81,.38],[x,1.87,.45],[x,1.86,1.55],[x,1.78,1.66],[x,1.10,1.66]],.016);
-      box(body,0x555f64,side*(w-.013),1.13,.99,.017,.024,1.34);
-      box(body,0x39726e,x,1.36,1.11,.021,.050,1.40);
-      box(body,0xb28450,x,1.312,1.11,.023,.018,1.40);
-      box(body,trim,x,1.04,.48,.025,.068,.117);
+      // Pressed-in panel follows the inward tumblehome of the cargo body.
+      const px=y=>side*(w-.041-Math.max(0,y-1.36)*.14);
+      const panel=[[.42,1.30],[.42,1.67],[.49,1.75],[1.71,1.75],[1.81,1.66],[1.81,1.31],[1.74,1.26],[.50,1.26],[.42,1.30]];
+      run(body,0xafaa98,panel.map(([z,y])=>[px(y),y,z]),.022,.028);
+      for(const y of [.70,.75])run(body,0x4f5759,[[side*(w-.015),y,.30],[side*(w-.018),y,1.08]],.034,.045);
+      box(body,0x475155,side*(w-.029),1.13,1.18,.028,.033,1.52);
+      box(body,trim,side*(w-.025),1.07,.47,.032,.052,.14);
       const zx=cabinEnd+.009;
       pane(body,paint,[side*.012,.93,zx],[side*(w-.10),.93,zx],[side*(w-.11),1.84,zx],[side*.012,1.89,zx]);
       pane(glass,0x29404e,[side*.075,1.39,zx+.012],[side*(w-.158),1.39,zx+.012],[side*(w-.171),1.82,zx+.012],[side*.075,1.84,zx+.012]);
       box(body,trim,side*.116,1.20,zx+.02,.105,.032,.026);
     }
     box(body,rubber,0,.39,tail+.075,1.55,.115,.17);
+    for(const side of [-1,1]){
+      const x=side*(w-.152);
+      box(body,0x41474b,x,1.30,cabinEnd+.027,.105,.59,.042);
+      box(body,0x912f33,x,1.42,cabinEnd+.054,.076,.27,.018);
+      box(body,0xbb8458,x,1.22,cabinEnd+.055,.075,.078,.018);
+      box(body,0xc9cbc2,x,1.125,cabinEnd+.055,.073,.064,.018);
+    }
   }else{
     pane(glass,0x54717f,[-topW+.025,roof-.082,topRear],[topW-.025,roof-.082,topRear],
       [w-.061,belt+.022,cabinEnd],[-w+.061,belt+.022,cabinEnd]);
@@ -314,9 +344,8 @@ function model(Batch,type,materials,patrol=false){
   box(body,trim,0,.715,-.24,.24,.15,.65);
   body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
-  const appliance=engine && fireAppliance(root,chassis,body,box,Batch,materials);
   const beacon=patrol && markPatrolSedan(chassis,door,body,box);
-  return finishTrafficModel(Batch,type,materials,{root,chassis,door,body,leaf,glass,lamps,signals,beacon,appliance});
+  return finishTrafficModel(Batch,type,materials,{root,chassis,door,body,leaf,glass,lamps,signals,beacon});
 }
 function finishTrafficModel(Batch,type,materials,car){
   const {root,chassis,door,body,leaf,glass,doorGlass,head,lamps,signals=[],beacon,appliance}=car;
@@ -326,7 +355,7 @@ function finishTrafficModel(Batch,type,materials,car){
   if(doorGlass)doorGlass.mesh(door,materials.glass,false);
   const runningLights=head?.mesh(chassis,materials.lights,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
-  const wheelGeometry=wheelModel(Batch,tire,halfTread,type==='engine'||type==='van'),wheels=[];
+  const wheelGeometry=wheelModel(Batch,tire,halfTread,type==='engine'||type==='van',!!beacon),wheels=[];
   for(const [x,z] of wheelsFor({model:type})){
     const finish=materials.wheel.clone(),patch=tireContactPatch(finish,tire);
     const wheel=new THREE.Mesh(wheelGeometry,finish);
@@ -406,7 +435,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       const t=car.takeover?.progress??car.boarding?.progress??0;
       door.rotation.y=boardingDoorAngle(t);
-      view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && car.blink && car.turnSignal===(i?1:-1);});
+      view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && !!car.blink && car.turnSignal===(i?1:-1);});
       if(view.runningLights)view.runningLights.visible=!car.wrecked;
       brake.visible=!car.wrecked && (!!car.takeover || (car.npcDriver!=null && (car.braking || Math.abs(car.speed)<1)) ||
         (!!view.runningLights && car.driver!=null && car.braking));
