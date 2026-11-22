@@ -1,3 +1,4 @@
+import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
@@ -276,6 +277,12 @@ function acceptInput(player, data, binary) {
   try {
     input = JSON.parse(data);
   } catch {
+    return;
+  }
+  if(input?.type==='dog'){
+    if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
+      player.state.liftTravel || world.casino?.player===player.id || world.volleyballActivity?.member(player.id))return;
+    requestDogAction(world,player,input,ticks);
     return;
   }
   if(input?.type==='blackjack'){

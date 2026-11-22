@@ -201,7 +201,7 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,dogAction,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(role==='diving'){
@@ -210,6 +210,7 @@ export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,sta
     return {active,role,axis:gestures.diving.axis,quick,tools:[]};
   }
   if(use)quick.push(['KeyE',use]);
+  if(foot && dogAction)quick.push(['KeyX',dogAction]);
   if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);
   if((foot || role==='volleyball') && jump)quick.push(['Space',jump]);
