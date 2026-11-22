@@ -22,6 +22,7 @@ function play(bridge,position,yaw,{underDeck=false,shore=false,pitch=0,warm=0,re
   world.dogs=newDogs([owner]);
   const [dog]=world.dogs;
   let tick=1,removals=0,waterEntry,firstStrike,groupTick,sharedBite=false,engaged=false,rescued=false;
+  let strikeContact,contactAfterRemoval=false;
   const participants=new Set();
   for(;tick<=warm;tick++)patrol.step(dt,players,tick,()=>false);
   const action=(p,action)=>requestDogAction(world,p,{action,target:dog.id,yaw,pitch},tick);
@@ -47,13 +48,25 @@ function play(bridge,position,yaw,{underDeck=false,shore=false,pitch=0,warm=0,re
       }
     }
     if(underDeck && waterEntry)world.doors.bridgeLifts[bridge.north]=Math.max(0,world.doors.bridgeLifts[bridge.north]-maxLift*dt/5);
-    stepSharkDogEncounters(world,dt,d=>{assert(removeDog(world,d));removals++;});
+    stepSharkDogEncounters(world,dt,d=>{assert(removeDog(world,d));removals++;},tick);
     stepSharkScavenging(world,players,[owner],tick,dt);
     const lead=world.sharks.find(s=>s.dogEncounter);
     engaged ||= !!lead;
     for(const [i,s] of world.sharks.entries())assert(Math.hypot(s.x-previous[i].x,s.z-previous[i].z)<.25,
       `continuous approach at ${tick}, shark ${i}, ${s.phase}, ${JSON.stringify([previous[i],s.x,s.z])}`);
-    if(lead?.phase==='dog-strike'){firstStrike??=tick;participants.add(lead);}
+    if(lead?.phase==='dog-strike'){
+      if(firstStrike==null){
+        firstStrike=tick;
+        assert.equal(dog.sharkBite?.tick,tick);
+        assert(Math.hypot(dog.sharkBite.x-dog.x,dog.sharkBite.y-dog.y,dog.sharkBite.z-dog.z)<.01);
+        strikeContact={...dog.sharkBite};
+      }
+      participants.add(lead);
+    }
+    if(dog.sharkBite){
+      assert.deepEqual(dog.sharkBite,strikeContact,'the helpers share one contact event');
+      contactAfterRemoval ||= dog.mode==='removed';
+    }
     const feeding=world.sharks.filter(s=>s.phase==='scavenging' && s.scavenge?.key.startsWith('toss-'));
     for(const helper of feeding)participants.add(helper);
     if(lead?.phase==='dog-strike' && dog.mode==='swimming' && feeding.length)sharedBite=true;
@@ -69,6 +82,7 @@ function play(bridge,position,yaw,{underDeck=false,shore=false,pitch=0,warm=0,re
     }
   }
   assert(world.sharks.every(s=>!s.dogEncounter && !s.scavenge),'all patrols released');
+  assert.equal(dog.sharkBite,undefined,'expired contacts leave the world snapshot');
   if(rescue){assert(rescued && !removals && !groupTick);return;}
   if(!group){
     if(pool)assert(waterEntry && waterEntry.y>.2 && dog.tossBridge==null,'The pool has its own unaffected waterline');
@@ -78,6 +92,7 @@ function play(bridge,position,yaw,{underDeck=false,shore=false,pitch=0,warm=0,re
   }
   assert(waterEntry && firstStrike && groupTick,`natural patrols reach the same thrown dog, ${JSON.stringify({waterEntry,firstStrike,groupTick,sharedBite})}`);
   assert(sharedBite,'the companions feed while the struck dog is still visible');
+  assert(contactAfterRemoval,'the surface contact survives removal of the dog');
   assert.equal(removals,1);
   if(shore)assert([...participants].every(s=>clearSharkCourse(s,s)),`The feeding group leaves the narrow shelf for regular patrol water: ${JSON.stringify([...participants].map(s=>[s.x,s.z,s.yaw,clearSharkCourse(s,s)]))}`);
   console.log('Bridge',z,'splash',waterEntry,'strike tick',firstStrike,'group feeding tick',groupTick);

@@ -1,6 +1,6 @@
 import {frontWheelAngle} from './road-steering.js';
 import {roadEngineIdle} from './road-engine-idle.js';
-import {shapedBodywork,paintedFinish} from './rover-bodywork.js';
+import {shapedBodywork} from './rover-bodywork.js';
 import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
@@ -206,7 +206,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   }
   eye.dispose();
   const paint=fieldPaint();
-  paintedFinish(paint,panorama,pickup);
+  paint.specular.setHex(pickup?0:0x292c26);
   const body=chassis.mesh(root,paint,false);
   Object.assign(body.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
   const trimMesh=brightwork.mesh(root,facingMaterial,false);

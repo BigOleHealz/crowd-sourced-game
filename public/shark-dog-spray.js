@@ -1,10 +1,13 @@
 import * as THREE from 'three';
+import {dogStrikePlumeTicks} from './shark-dog-feedback.js';
+import {strikeWaterFilm} from './shark-strike-water.js';
 
 // One foam ring and a small fan of drops at each visible contact. Both players
 // phase the spray from the same encounter age, including after a late join.
 export function sharkDogSpray(scene,water){
-  let droplets,foam;
+  let droplets,foam,plume;
   const dummy=new THREE.Object3D(),slots=3,drops=12;
+  const {smoothstep}=THREE.MathUtils,plumeLife=dogStrikePlumeTicks/30;
   function allocate(){
     const mat=new THREE.MeshBasicMaterial({color:0xe4f4e8,transparent:true,opacity:.70,depthWrite:false});
     droplets=new THREE.InstancedMesh(new THREE.SphereGeometry(1,5,4),mat,slots*drops);
@@ -14,7 +17,7 @@ export function sharkDogSpray(scene,water){
       scene.add(mesh);
     }
   }
-  return (sharks,local)=>{
+  return (sharks,local,dogs,tick)=>{
     let n=0,cloud=0;
     for(const s of sharks??[]){
       const e=s.dogEncounter;
@@ -37,5 +40,19 @@ export function sharkDogSpray(scene,water){
       if(n)foam.instanceMatrix.needsUpdate=true;
       if(cloud)droplets.instanceMatrix.needsUpdate=true;
     }
+    // Anchor a single expanding surface stain to each confirmed bite, even
+    // when the dog disappears or several sharks continue feeding nearby.
+    let stains=0;
+    for(const dog of dogs??[]){
+      if(stains===slots)break;
+      const contact=dog.sharkBite;
+      if(!contact)continue;
+      const age=(tick-contact.tick)/30,distance=Math.hypot(contact.x-local.x,contact.z-local.z,water-(local.y??water));
+      if(!(age>=0 && age<plumeLife) || distance>=42)continue;
+      const fade=smoothstep(age+.065,0,.19)*(1-smoothstep(age,1.30,plumeLife))*(1-smoothstep(distance,27,42));
+      plume??=strikeWaterFilm(scene,water,slots,false,'Dog feeding surface plume');
+      plume.mark(stains++,contact.x,contact.z,(contact.tick%313)*.17,age,fade,2.18*dog.size,contact.yaw);
+    }
+    plume?.finish(stains);
   };
 }

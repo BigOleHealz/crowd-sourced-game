@@ -1,12 +1,16 @@
 // Compare authoritative snapshots. A cold join starts with the current state,
 // so a listener never hears an older encounter merely by entering the district.
+const lastImpact=dog=>Math.max(dog.lastShotTick??-1,dog.lastKickTick??-1);
+const fresh=(event,tick)=>event>=0 && event<=tick && tick-event<=15;
 export function dogWhimpers(previous,current,tick,play){
   if(!previous || !current || previous===current)return;
   for(const dog of current){
-    const event=Math.max(dog.lastShotTick??-1,dog.lastKickTick??-1);
-    if(event<0 || tick<event || tick-event>15)continue;
+    const impact=lastImpact(dog),bite=dog.sharkBite;
+    if(!fresh(impact,tick) && !fresh(bite?.tick,tick))continue;
     const before=previous.find(d=>d.id===dog.id);
-    if(before && event>Math.max(before.lastShotTick??-1,before.lastKickTick??-1))play(dog,event);
+    if(!before)continue;
+    if(fresh(bite?.tick,tick) && bite.tick>(before.sharkBite?.tick??-1))play(dog,bite.tick,bite);
+    else if(fresh(impact,tick) && impact>lastImpact(before))play(dog,impact);
   }
 }
 

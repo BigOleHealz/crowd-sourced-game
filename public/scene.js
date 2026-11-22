@@ -1656,7 +1656,7 @@ export function createScene(canvas) {
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
-    updateDogSpray?.(world.sharks,local);
+    updateDogSpray?.(world.sharks,local,world.dogs,attackTick);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);

@@ -1,5 +1,6 @@
 import {damageActor} from './rivals.js';
 import {bridgeDogSplash} from './bridge-shark-water.js';
+import {dogStrikePlumeTicks} from './shark-dog-feedback.js';
 import {drivenRoad} from './rover.js';
 import {CITY,blocked,groundHeight,insideTravelArea,waterSurfaceAt} from './world.js';
 
@@ -168,6 +169,7 @@ export function aboardDogCarrier(world,p){
 
 function stepDog(dog,owner,world,players,dt,tick){
   const m=motion.get(dog);m.time+=dt;
+  if(dog.sharkBite && tick-dog.sharkBite.tick>=dogStrikePlumeTicks)delete dog.sharkBite;
   if(dog.tossSplashTick!=null && (dog.mode!=='swimming' || tick-dog.tossSplashTick>600)){
     delete dog.tossSplashTick;delete dog.tossBridge;
   }

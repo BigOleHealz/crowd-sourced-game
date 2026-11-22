@@ -775,7 +775,11 @@ function tick() {
   const playingVolleyball=!!inVolleyball();
   const fire = !self.dive && !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && canUseWeaponInWater(self) && !self.climb && !vitals.dead && !vitals.fall && trigger;
   const gunner=gunnerRole();
-  const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && (fire || gunner || (!lookPaused && canAim())) &&
+  // Ordinary movement sends camera angles. Only interactions that consume a
+  // muzzle-to-target bearing need to raycast the world on this input tick.
+  const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
+  const needsAim=fire || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
+  const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
@@ -791,7 +795,7 @@ function tick() {
     throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?stickOutput(stickX):(driving || self.ride)?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
     lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
-    tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
+    tracking,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
   queuedSkateTrick=undefined;

@@ -368,29 +368,8 @@ function finishTrafficModel(Batch,type,materials,car){
   return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings,runningLights,wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
-  const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
-  if(panorama)paint.onBeforeCompile=shader=>{
-    shader.uniforms.bodySky={value:panorama};
-    const colors=[...Object.values(fleet).map(({paint})=>paint),...Object.values(valetPaints)];
-    shader.uniforms.fleetPaint={value:colors.map(color=>new THREE.Color(color))};
-    shader.fragmentShader=`uniform sampler2D bodySky; uniform vec3 fleetPaint[${colors.length}];\n`+shader.fragmentShader.replace('#include <specularmap_fragment>',`
-      #include <specularmap_fragment>
-      float paintDistance=1.;
-      for(int i=0;i<${colors.length};i++)paintDistance=min(paintDistance,distance(vColor,fleetPaint[i]));
-      float painted=1.-step(.006,paintDistance);
-      specularStrength*=mix(.12,1.,max(painted,smoothstep(.23,.56,max(vColor.r,max(vColor.g,vColor.b)))));
-    `).replace('#include <opaque_fragment>',`
-      if(paintDistance<.006){
-        vec3 eye=normalize(vViewPosition), ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
-        vec2 skyUV=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
-        float edge=pow(1.-clamp(dot(normal,eye),0.,1.),2.);
-        float horizon=exp(-pow((ray.y-.09)*5.5,2.));
-        outgoingLight+=texture2D(bodySky,skyUV).rgb*(.028+.14*edge+.095*horizon);
-      }
-      #include <opaque_fragment>`);
-  };
   const materials={
-    paint,
+    paint:new THREE.MeshPhongMaterial({vertexColors:true,shininess:24,specular:0x232728,side:THREE.DoubleSide}),
     wheel:new THREE.MeshPhongMaterial({vertexColors:true,shininess:32,specular:0x52585b,side:THREE.DoubleSide}),
     glass:panorama ? alpineGlass(panorama,{transparent:true,opacity:.64,depthWrite:false,side:THREE.DoubleSide}) :
       new THREE.MeshPhongMaterial({vertexColors:true,transparent:true,opacity:.64,depthWrite:false,side:THREE.DoubleSide,shininess:100}),
