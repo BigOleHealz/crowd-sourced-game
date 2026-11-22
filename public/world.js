@@ -1,10 +1,13 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {wingSurface} from './waterfront-wing.js';
-import {towerFloor,towerRail} from './marina-platform.js';
+import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
+import {advanceRideLanding} from './skate-touchdown.js';
+import {isBoardTrick,stepSkateJam} from './skate-jam.js';
+import {inSkatePark,rideParkRail} from './skate-park.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
 import {ruinedHouseAt,houseRubbleHeight} from './residential-sites.js';
@@ -376,6 +379,12 @@ export function stepPlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
+  if(CITY && (state.climb?.kind==='platformLadder' || input.jump)){
+    const ladder=stepPlatformLadder(state,input,dt);
+    if(ladder)return ladder;
+  }
+  const parkBoard=CITY && state.ride?.kind==='board' && inSkatePark(state.x,state.z);
+  if(parkBoard && state.grounded && isBoardTrick(input.skateTrick))input={...input,jump:true};
   if(CITY && (state.dive || input.jump || input.flipDive)){
     const dive=stepDive(state,input,dt);
     if(dive)return dive;
@@ -417,7 +426,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     vx=oldX+(vx-oldX)*blend;vz=oldZ+(vz-oldZ)*blend;
   }
   let { x, y, z, vy = 0, grounded = false } = state;
-  if (input.jump && grounded && ride?.kind!=='bike') {
+  if (input.jump && grounded && (ride?.kind!=='bike' || CITY && inSkatePark(x,z))) {
     grounded = false;
     vy = ride ? 4.7 : JUMP_SPEED;
   }
@@ -496,6 +505,9 @@ export function stepPlayer(state, input, dt, hp, world) {
   if (y < -8 && insideTravelArea(x,z)) return spawn();
   const next = { x, y, z, vx, vy, vz, grounded };
   if(ride)next.ride={...ride,speed:Math.hypot(vx,vz)};
+  if(CITY && ride && (ride.grind || inSkatePark(x,z)))rideParkRail(state,next,input);
+  if(CITY && ride && (ride.landing || inSkatePark(x,z)))advanceRideLanding(state,next,dt);
+  if(next.ride && (parkBoard || ride.run))stepSkateJam(state,next,input,dt);
   if(grab?.left>dt && !grounded)next.grab={y:grab.y,left:grab.left-dt};
   const yachtSurface=yachtFloorAt(world?.yacht,x,y,z);
   if(Number.isFinite(yachtSurface) && (grounded && Math.abs(y-yachtSurface)<.27 || !grounded && state.onYacht && y>=yachtSurface-.04))next.onYacht=true;

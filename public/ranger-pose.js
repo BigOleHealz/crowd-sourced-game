@@ -1,4 +1,5 @@
 import {diveMotion} from './estate-diving.js';
+import {rungPitch} from './marina-platform.js';
 import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {boatHelm,helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
@@ -90,6 +91,27 @@ export function poseRoadBoarding(avatar,car,action){
 
 export function poseBasketball(avatar,state,action) {
   for(const tool of avatar.tools)tool.visible=false;
+  if(action.reach){
+    const {ball,lift}=action.reach;
+    avatar.spine.rotation.x-=.26*lift;
+    for(const {arm,forearm,leg,knee,side} of avatar.limbs){
+      leg.rotation.x+=.16*lift;knee.rotation.x-=.38*lift;
+      if(side===1)holdWorld(avatar,arm,forearm,side,ball,lift);
+      else {arm.rotation.set(.42*lift,0,-.54*lift);forearm.rotation.x=.48;}
+    }
+    return;
+  }
+  if(action.dunk){
+    const {feet,hand,yaw,lift}=action.dunk;
+    avatar.root.position.copy(feet);avatar.root.rotation.set(0,-yaw,0);
+    avatar.body.position.set(0,0,0);avatar.spine.rotation.set(-.035*lift,0,0);
+    for(const {arm,forearm,leg,knee,side} of avatar.limbs){
+      leg.rotation.set(lift*(side===1?.74:.32),0,side*.08);
+      knee.rotation.set(-lift*(side===1?1.26:.80),0,0);
+      holdWorld(avatar,arm,forearm,side,{x:hand.x+side*.08*Math.cos(yaw),y:hand.y-.055,z:hand.z+side*.08*Math.sin(yaw)});
+    }
+    return;
+  }
   if(state.stance || state.grounded===false)return;
   const {charge,dribble,height,forward,lateral,hasBall,release}=action;
   if(hasBall || release){
@@ -232,7 +254,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.spine.rotation.x = -.13*collapse + .19*flail;
     avatar.spine.rotation.y = .12*collapse;
   }
-  if(climb){
+  const onLadder=climb?.kind==='platformLadder';
+  if(onLadder){
+    avatar.root.rotation.y=0;
+    avatar.spine.rotation.x=-.12;
+  }else if(climb){
     avatar.root.rotation.y=-climb.yaw;
     const tuck=Math.sin(Math.PI*climb.t);
     const contact=THREE.MathUtils.smoothstep(climb.t,.04,.22)*(1-THREE.MathUtils.smoothstep(climb.t,.55,.78));
@@ -253,6 +279,15 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0);});
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
+    if(onLadder){
+      const reach=side*Math.cos(Math.PI*state.y/rungPitch);
+      leg.rotation.set(.62+.40*reach,0,side*.04);
+      knee.rotation.set(-.86-.46*reach,0,0);
+      ankle.rotation.set(.20,0,0);
+      arm.rotation.set(2.13-.52*reach,0,side*.07);
+      forearm.rotation.set(.68+.32*reach,0,0);
+      continue;
+    }
     if(state.dive){
       const {tuck}=diveMotion(state.dive);
       leg.rotation.set(1.86*tuck,0,side*.025);

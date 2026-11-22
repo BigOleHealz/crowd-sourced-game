@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {berthDeckY} from './marina-docks.js';
-import {marinaPlatform as p,towerSlabs} from './marina-platform.js';
+import {marinaPlatform as p,rungPitch} from './marina-platform.js';
 
 export function addDivingTower(scene,batch){
   const stone=0xc4cec7,teal=0x255b63,rail=0xa2b9b5,cream=0xe7dfc5,gold=0xdda94d;
@@ -8,41 +8,31 @@ export function addDivingTower(scene,batch){
   const box=(color,x,y,z,w,h,d)=>batch.add(cube,color,x,y,z,w,h,d);
   const beam=(color,start,end,r)=>batch.beam(color,start,end,r);
   const {x,width,exitX,exitZ,exitEnd}=p;
-  for(const [i,s] of towerSlabs.entries()){
-    const z=(s.south+s.north)/2,length=s.south-s.north;
-    box(stone,x,s.top-.112,z,width,.224,length+.002);
-    box(s.tread?0xa2b4ae:teal,x,s.top+.002,z,width-.12,.008,length-.025);
-    if(i%4===0 && s.tread)box(cream,x,s.top+.009,s.south-.043,width-.20,.008,.045);
-    if(!s.tread || i%8===5){
-      // V frames carry the intermediate landings and the cantilever over open water.
-      box(teal,x,s.top-.258,z,width+.10,.17,.28);
-      if(s.tread)continue;
-      const postZ=i===towerSlabs.length-1?p.near+.39:z;
-      const high=s.top-.24;
-      for(const side of [-1,1]){
-        const px=x+side*.70;
-        box(stone,px,(high-2.5)/2,postZ,.25,high+2.5,.46);
-        beam(teal,[px,high-2.38,postZ],[px,high,z-.83],.089);
-      }
-    }
-  }
+  const approach=p.startZ-p.near,mid=(p.startZ+p.near)/2,deckMid=(p.tip+p.near)/2;
+  box(teal,x,berthDeckY-.13,mid,width,.26,approach);
+  box(0xa4896e,x,berthDeckY-.014,mid,width-.04,.028,approach);
+  for(let z=p.near+.07;z<p.startZ;z+=.34)box(0x7f6a54,x,berthDeckY+.004,z,width-.06,.008,.012);
+  box(stone,x,p.deck-.12,deckMid,width,.24,p.apron);
+  box(0x729b96,x,p.deck-.006,deckMid,width-.11,.024,p.apron-.03);
+  const ladderFace=p.near+.06;
   for(const side of [-1,1]){
-    const px=x+side*(width/2-.04);
-    let prev;
-    for(const [i,slab] of towerSlabs.entries()){
-      if(slab.tread && i%3!==0)continue;
-      const z=slab.tread?(slab.south+slab.north)/2:slab.south-.04;
-      const y=slab.top;
-      const up=[px,y+.96,z],mid=[px,y+.50,z];
-      beam(rail,[px,y,z],up,.035);
-      if(prev){beam(rail,prev.up,up,.043);beam(rail,prev.mid,mid,.024);}
-      prev={up,mid};
+    const edge=x+side*width/2,post=x+side*.77,stile=x+side*.43;
+    box(teal,post,(p.deck-2.5)/2,p.near-.33,.25,p.deck+2.5,.28);
+    beam(teal,[post,p.deck-2.03,p.near-.33],[post,p.deck-.20,p.tip+.64],.13);
+    beam(rail,[stile,berthDeckY,ladderFace],[stile,p.deck+.98,ladderFace],.058);
+    beam(rail,[stile,p.deck+.98,ladderFace],[edge,p.deck+.98,p.near-.12],.05);
+    for(const h of [.48,.98]){
+      beam(rail,[edge,p.deck+h,p.near-.12],[edge,p.deck+h,p.near-1.5],.044);
+      beam(rail,[edge,berthDeckY+h,p.startZ],[edge,berthDeckY+h,p.near+.10],.041);
     }
-    const end=p.near-1.5;
-    beam(rail,prev.up,[px,p.deck+.96,end],.043);
-    beam(rail,[px,p.deck,end],[px,p.deck+.96,end],.035);
-    box(gold,px,p.deck-.055,(p.tip+p.near)/2,.083,.072,p.apron);
-    box(teal,px,p.deck-.18,p.tip+1.7,.13,.24,3.4);
+    for(const z of [p.near-.12,p.near-1.5])beam(rail,[edge,p.deck,z],[edge,p.deck+.98,z],.045);
+    for(let z=p.near+.12;z<p.startZ;z+=2.2)beam(rail,[edge,berthDeckY,z],[edge,berthDeckY+.98,z],.04);
+    for(const z of [p.startZ,-457,p.near+.22])box(teal,post,(berthDeckY-2.1)/2,z,.17,berthDeckY+2.1,.19);
+    box(gold,edge,p.deck-.055,deckMid,.083,.072,p.apron);
+  }
+  for(let i=1;i<=p.rungs;i++){
+    const y=berthDeckY+i*rungPitch;
+    beam(i%5===0?gold:rail,[x-.43,y,ladderFace],[x+.43,y,ladderFace],.057);
   }
   for(let i=0;i<5;i++)box(cream,x,p.deck+.015,p.tip+.12+i*.13,width-.28,.008,.045);
   const returnLength=p.startZ+1.2-exitZ,returnCenter=exitZ+returnLength/2;
@@ -76,7 +66,7 @@ export function addDivingTower(scene,batch){
   // Wayfinding remains legible from the main guest ramp and from the water.
   const canvas=document.createElement('canvas');canvas.width=768;canvas.height=384;
   const ctx=canvas.getContext('2d');
-  for(const [i,[a,b]] of [['10 M   DIVING','NORTH END   •   PIER A'],['10 M   PLATFORM','EAST QUAY   /   DIVING'],['SWIM EXIT','STAIRS   ↑']].entries()){
+  for(const [i,[a,b]] of [['10 M   DIVING','NORTH END   •   PIER A'],['10 M   PLATFORM','CLIMB THE LADDER'],['SWIM EXIT','STAIRS   ↑']].entries()){
     const v=i*128;ctx.fillStyle='#1f474c';ctx.fillRect(0,v,768,128);
     ctx.strokeStyle='#cca957';ctx.lineWidth=5;ctx.strokeRect(7,v+7,754,114);
     ctx.fillStyle='#f6edd7';ctx.textAlign='center';ctx.font='bold 56px sans-serif';ctx.fillText(a,384,v+66);
@@ -91,7 +81,8 @@ export function addDivingTower(scene,batch){
   }
   sign(0,2.72,.45,62.62,1.14,-422.2,-Math.PI/2);
   sign(1,2.18,.48,x,p.deck-.43,p.tip-.015,Math.PI);
-  sign(1,1.68,.34,x,3.05,p.startZ+.02,0);
+  sign(1,1.68,.34,x,3.05,p.startZ+.055,0);
+  box(teal,x,3.05,p.startZ,1.74,.39,.08);
   // Keep the base entrance open below the overhead sign.
   for(const dx of [-1,1])box(teal,x+dx,1.80,p.startZ,.09,2.48,.10);
   sign(2,1.48,.39,exitX,.70,exitEnd+.12,Math.PI);

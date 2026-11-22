@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {stepPlayer,groundHeight,blocked,waterSurfaceAt}=await import('../public/world.js');
 const {takeoffBoard}=await import('../public/estate-diving.js');
-const {marinaPlatform:p,towerSlabs,inDivingLane}=await import('../public/marina-platform.js');
+const {marinaPlatform:p,platformLadderAt,inDivingLane}=await import('../public/marina-platform.js');
 const world={doors:{},hp:{}};
 let player={x:68,z:-419,y:groundHeight(68,-419),grounded:true,vy:0};
 const move=cmd=>player=stepPlayer(player,cmd,1/30,world.hp,world);
@@ -17,6 +17,23 @@ function walk(x,z){
 }
 walk(p.x,-419);walk(p.x,p.startZ+.5);
 for(const flip of [false,true]){
+  walk(p.x,p.near+.8);
+  assert.equal(platformLadderAt(player),'up');
+  assert.equal(groundHeight(p.x,(p.startZ+p.near)/2),.56,'flat dock approach');
+  move({jump:true});
+  assert.equal(player.climb?.kind,'platformLadder');
+  const startY=player.y;
+  for(let i=0;i<75;i++)move({});
+  assert(player.climb && player.y>startY+3 && player.y<p.deck-2,'ascends rungs over time');
+  while(player.climb)move({});
+  assert.equal(platformLadderAt(player),'down');
+  if(!flip){
+    move({jump:true});
+    assert(player.climb?.down);
+    while(player.climb)move({});
+    assert.equal(platformLadderAt(player),'up');
+    move({jump:true});while(player.climb)move({});
+  }
   walk(p.x,p.tip+.58);
   assert.equal(takeoffBoard(player),p);
   assert.ok(Math.abs(player.y-waterSurfaceAt(p.x,p.tip,player.y)-10)<.001);
@@ -36,5 +53,9 @@ for(const flip of [false,true]){
   assert.ok(player.grounded && !player.swimming,'swimmer climbs out normally');
   walk(p.exitX,p.startZ+.6);walk(p.x,p.startZ+.6);
 }
-assert.equal(towerSlabs.filter(s=>s.tread).length,48);
-console.log('PASS dock approach, three stair flights, rail contact, ten metres above bay, straight/flip northward entries, swim lane, independent exit and repeat.');
+assert.ok(blocked(p.x+p.width/2,.56,p.near+4,{},{}),'lower handrail has collision');
+assert(!blocked(p.x+p.width/2,4,p.near+4,{},{}),'handrail stops at its tier');
+assert(!blocked(p.x,.56,p.near+.6,{},{}),'ladder foot open');
+assert.equal(groundHeight(p.x,p.near-1,2)<.56,true,'water underneath diving deck');
+
+console.log('PASS dock approach, up/down ladder travel, rail contact, ten metres above bay, straight/flip northward entries, swim lane, independent exit and repeat.');

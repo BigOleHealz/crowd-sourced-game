@@ -14,7 +14,7 @@ const gestures={
   jet:{name:'Jet pilot',axis:'Throttle',up:'Faster',down:'Slower',look:'Drag to fly',tip:'Push up for throttle. Drag up or down to pitch and sideways to bank.',help:'Hold Cannon for guns, tap Missile to launch, and tap Bomb to drop. Release the right thumb to center the flight stick.'},
   turret:{name:'Gunner',look:'Drag to aim',tip:'Drag the open right side to turn the turret. Hold Fire turret to shoot.',help:'You can aim while holding Fire turret by dragging that same thumb.'},
   seat:{name:'Seated',look:'Drag to look',tip:'Swipe the right side to look around. Tap Leave dance to stand.',help:'Your movement and equipment controls return when you stand.'},
-  volleyball:{name:'Beach volleyball',axis:'Move',look:'Drag to look',tip:'Use the joystick to reach the landing marker. Tap Return as the ball comes down.',help:'Serve from behind your back line. Tap Leave volleyball to exit the game.'},
+  volleyball:{name:'Beach volleyball',axis:'Move',look:'Drag to look',tip:'Follow the landing marker. Tap Dig for a low ball or Spike for a high ball near the net.',help:'Serve from behind your back line. Tap Leave volleyball to exit the game.'},
 };
 export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,blocked,releaseMouse}){
   const byId=id=>document.getElementById(id);
@@ -201,7 +201,7 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,dogAction,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,jamBoard,onBoard,canOpen,throwable,shoot,use,dogAction,stance,canAim,swimmingGear,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(role==='diving'){
@@ -211,6 +211,7 @@ export function touchLayout({role,active,onBoard,canOpen,throwable,shoot,use,dog
   }
   if(use)quick.push(['KeyE',use]);
   if(foot && dogAction)quick.push(['KeyX',dogAction]);
+  if(jamBoard)quick.push(['KeyF','Kickflip'],['KeyX','Shove-it']);
   if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim)quick.push(['aim',sighted?'Lower sight':'Aim']);
   if((foot || role==='volleyball') && jump)quick.push(['Space',jump]);

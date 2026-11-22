@@ -1,7 +1,7 @@
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
 import {diveScorecard} from './dive-scorecard.js';
-import {marinaPlatform} from './marina-platform.js';
+import {marinaPlatform,platformLadderAt} from './marina-platform.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
@@ -20,6 +20,7 @@ import {marketPanel} from './market-panel.js';
 import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
+import {inSkatePark} from './skate-park.js';
 import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
 import {basketballHud} from './basketball-hud.js';
 import {nearbySpeaker,conversations} from './brickell-conversations.js';
@@ -214,6 +215,7 @@ let handleCase=false;
 let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let queuedFlip=false;
+let queuedSkateTrick;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
@@ -274,6 +276,7 @@ function clearInput() {
   queuedSeat=queuedSeatKind=null;
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
+  queuedSkateTrick=undefined;
   queuedFlip = queuedJump = queuedInteract = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
@@ -411,6 +414,9 @@ function pressAction(code){
     if(code==='KeyE')queuedInteract=vitals.use;
     if(code==='KeyF')queuedFire=true;
     return;
+  }
+  if(self?.ride?.kind==='board' && inSkatePark(self.x,self.z) && (code==='KeyF' || code==='KeyX')){
+    queuedSkateTrick=code==='KeyF'?'kickflip':'shove';return;
   }
   if(code==='KeyE' || code==='KeyX'){
     const target=dogInteraction();
@@ -761,7 +767,7 @@ function tick() {
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
-  const cmd = { flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     sprint: sprint && !pilot, weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -772,6 +778,7 @@ function tick() {
     tracking:weapon===4 && camera.sighted && canAim() && !lookPaused,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = false;
+  queuedSkateTrick=undefined;
   queuedFlip = queuedJump = queuedInteract = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
@@ -915,6 +922,9 @@ const divingScores=diveScorecard(byId('dive-result'));
 function updateEquipment(local) {
   const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
   const diving=local.dive;
+  const ladderDirection=CITY && platformLadderAt(local);
+  const ladderLabel=ladderDirection && (ladderDirection==='up'?'Climb ladder':'Descend ladder');
+  const climbingLadder=local.climb?.kind==='platformLadder';
   const gauge=byId('dive-meter'),report=byId('dive-result');
   let mark=vitals.lastDive,spectatorName='';
   divingScores.observe(mark);
@@ -1037,9 +1047,20 @@ function updateEquipment(local) {
   if(beachAction)prompt.textContent='E  ·  '+beachHint(beachAction);
   else if(clubUse)prompt.textContent='E  ·  '+clubUse;
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
+  const jamBoard=local.ride?.kind==='board' && inSkatePark(local.x,local.z);
+  const jamCard=byId('skate-score');jamCard.hidden=!jamBoard;
+  if(jamBoard){
+    const run=local.ride.run;
+    byId('skate-clock').textContent=run?Math.ceil(run.left)+'s · '+run.score+' pts':'45-second run';
+    byId('skate-result').textContent=run?(run.left?run.last+(run.award?' +'+run.award:''):'Time · Best '+run.best+' · Trick to restart'):'Land tricks and grinds to score';
+  }
   if(local.ride){
     prompt.textContent=local.ride.kind==='bike' ? 'Bicycle · W pedal · S brake · A/D steer · E dismount' : 'Skateboard · W push · S brake · A/D carve · Space ollie · E step off';
-    byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike';byId('space-action').textContent='Ollie';canvas.classList.remove('armed');
+    const bikeHop=local.ride.kind==='bike' && inSkatePark(local.x,local.z);
+    if(bikeHop)prompt.textContent='Bicycle · W pedal · A/D steer · Space hop · Align with a rail to grind';
+    if(jamBoard)prompt.textContent='Skate park · Space ollie · F kickflip · X shove-it · Ride onto rails';
+    if(local.ride.grind)prompt.textContent='Grinding · Space hop off';
+    byId('kit').textContent=local.ride.kind==='bike'?'Bicycle':'Skateboard';byId('space-action').parentElement.hidden=local.ride.kind==='bike' && !bikeHop;byId('space-action').textContent=bikeHop?'Bunny hop':'Ollie';canvas.classList.remove('armed');
   }
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
@@ -1072,11 +1093,17 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
-      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
+    touch.render(touchLayout({role,active,jamBoard,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+      shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
     if(dogInfo)prompt.textContent=dogInfo;
+  }
+  if(climbingLadder){
+    prompt.textContent=local.climb.down?'Descending ladder…':'Climbing ladder…';
+  }else if(ladderLabel){
+    prompt.textContent=(touch.active?'Tap ':'Space · ')+ladderLabel;
+    byId('space-action').textContent=ladderLabel;
   }
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');

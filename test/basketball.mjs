@@ -93,3 +93,74 @@ function gameFixture() {
 }
 
 console.log('Basketball possession, scoring and NPC pickup passed');
+
+const {hoop}=await import('../public/basketball-layout.js');
+const {dunkRelease}=await import('../public/basketball-dunk.js');
+const {basketballPose}=await import('../public/basketball-pose.js');
+const {createRangerRig,poseBasketball}=await import('../public/ranger-pose.js');
+const THREE=await import('three');
+for(const timing of ['gold','early','late','step out']){
+  const {game,advance,player}=gameFixture(),a=player(1);
+  game.interact(a,'join');
+  const launch={x:hoop.x+.30,y:court.y,z:hoop.z+1.52};
+  const ticks=timing==='early'?1:timing==='late'?42:Math.round(shotWindow(launch).center/basketballChargeRate/dt);
+  // The release location selects the move even when the hold began farther away.
+  advance(ticks,()=>game.input(a,{hoopShot:true}));
+  Object.assign(a.state,launch);
+  if(timing==='step out')a.state.z+=.75;
+  game.input(a,{hoopShot:false});advance(1);
+  if(timing==='step out'){assert.equal(game.state.shot.kind,undefined);continue;}
+  assert.equal(game.state.shot.kind,'dunk');
+  assert.equal(game.state.result,null,'scoring waits for the downward rim crossing');
+  const avatar=createRangerRig();
+  advance(13);
+  const snap=JSON.parse(JSON.stringify(game.state));
+  const action=basketballPose(snap,{...a.state,id:a.id},0);
+  const otherViewer=basketballPose(snap,{...a.state,id:a.id},120);
+  assert.deepEqual(action,otherViewer,'the shot age synchronizes spectators independently of their clock');
+  poseBasketball(avatar,a.state,action);
+  assert(avatar.root.position.y>court.y+1.1,'feet leave the court');
+  assert(snap.shot.age<dunkRelease && snap.ball.y>hoop.y,'ball rises above the hoop while held');
+  assert(Math.hypot(snap.ball.x-action.dunk.hand.x,snap.ball.y-action.dunk.hand.y,snap.ball.z-action.dunk.hand.z)<.001);
+  for(const limb of avatar.limbs){
+    const palm=limb.forearm.localToWorld(new THREE.Vector3(0,-.265,0));
+    assert(palm.distanceTo(snap.ball)<.18,'both visible hands follow the ball');
+  }
+  advance(18);
+  assert.equal(game.state.result.kind,'dunk');
+  assert.equal(game.state.result.points,timing==='gold'?2:0);
+  assert.equal(game.state.result.timing,timing==='gold'?'Perfect':timing==='early'?'Early':'Late');
+  advance(65);
+  assert.equal(game.state.turn,1);assert.deepEqual(game.state.scores,[timing==='gold'?2:0,0]);
+}
+console.log('Close releases dunk, gold scores two, early and late rim out, both hands rise with the ball, normal shots resume outside the lane.');
+
+for(const response of ['idle','drive','shoot','other player joins']){
+  const {game,advance,player}=gameFixture(),a=player(1),guard=game.state.npcs[1];
+  game.interact(a,'join');
+  const initially=Math.hypot(guard.x-a.state.x,guard.z-a.state.z);
+  let ticks=0;
+  while(!game.state.reach && ticks++<160)advance(1);
+  const reach=game.state.reach;assert(reach,'NPC closes to attempt a steal');
+  assert.equal(reach.target,a.id);assert.equal(reach.side,1);
+  assert(Math.hypot(guard.x-a.state.x,guard.z-a.state.z)<initially-1);
+  const pose=basketballPose(JSON.parse(JSON.stringify(game.state)),guard,0);
+  assert(pose.reach && pose.reach.lift>0);
+  if(response==='drive')advance(22,()=>{a.state.x+=.14;});
+  else if(response==='shoot'){
+    advance(3,()=>game.input(a,{hoopShot:true}));game.input(a,{hoopShot:false});advance(18);
+    assert.equal(game.state.phase,'flight');
+  }else if(response==='other player joins'){
+    game.interact(player(2),'join');advance(24);
+  }else{
+    advance(18);
+    assert.deepEqual(game.state.steal,{side:1,from:a.id});
+    assert.equal(game.state.turn,1);assert.deepEqual(game.state.scores,[0,0]);
+    assert.equal(game.state.charge,0);assert.equal(game.state.reach,undefined);
+    advance(1);assert(Math.hypot(game.state.ball.x-guard.x,game.state.ball.z-guard.z)<.50);
+    advance(220);assert(game.state.result?.side===1,'after stealing the NPC can take its own shot');
+    continue;
+  }
+  assert.equal(game.state.reach,undefined);assert.equal(game.state.steal,undefined);assert.equal(game.state.turn,0);
+}
+console.log('NPC closes, visibly reaches and steals from an idle carrier. Driving away, releasing a shot and a second human joining interrupt the steal.');

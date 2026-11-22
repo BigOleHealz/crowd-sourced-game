@@ -5,6 +5,8 @@ import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
 import {storefrontFaces} from './public/frontage-glass.js';
+import {recordWheelContact} from './public/skate-touchdown.js';
+import {parkRides} from './public/skate-park.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
@@ -107,7 +109,7 @@ function freshWorld(){
   const w=newExpedition({civilianMarina:!mode});
   w.traffic=newCityTraffic({resort:!mode});w.traffic.push(fireEngine());
   if(CITY){
-    w.rides=[...(mode?[]:boardRacks(groundHeight)),...shopBicycles(storefrontFaces)];
+    w.rides=[...(mode?[]:[...boardRacks(groundHeight),...parkRides(groundHeight)]),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
@@ -377,6 +379,7 @@ function acceptInput(player, data, binary) {
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
     aimYaw: Number.isFinite(input.aimYaw) ? input.aimYaw % (Math.PI * 2) : input.yaw % (Math.PI * 2),
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
+    skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
@@ -730,7 +733,7 @@ function tick() {
       if(!player.state.ride)parkRide(world,player,true);
       else {
         const {x,y,z,ride}=player.state;
-        Object.assign(item,{x,y,z,yaw:ride.yaw});player.yaw=ride.yaw;
+        Object.assign(item,{x,y,z,yaw:ride.yaw});recordWheelContact(item,player.state,ticks);player.yaw=ride.yaw;
       }
       player.moving=player.sprint=false;
       continue;

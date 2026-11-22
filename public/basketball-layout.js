@@ -37,6 +37,10 @@ export function basketballFloor(x,z) {
 export function hoopHeading(feet) {
   return Math.atan2(hoop.x-feet.x,feet.z-hoop.z);
 }
+export function inDunkRange(feet){
+  return feet.grounded!==false && !feet.stance && Math.abs(feet.y-court.y)<.45 &&
+    feet.z>hoop.boardZ+.15 && Math.hypot(feet.x-hoop.x,feet.z-hoop.z)<=1.85;
+}
 export function shotWindow(feet) {
   const distance=Math.hypot(hoop.x-feet.x,hoop.z-feet.z);
   const center=Math.max(.28,Math.min(.81,.29+distance*.040));

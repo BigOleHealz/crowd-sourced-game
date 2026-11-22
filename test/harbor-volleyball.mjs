@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createVolleyball} from '../harbor-volleyball.js';
 import {courts,sandHeight} from '../public/beach-layout.js';
-import {canReturnVolleyball,netTop,sampleVolleyball,volleyballServiceSpot} from '../public/volleyball-court.js';
+import {ballRadius,netTop,sampleVolleyball,spikeWindup,volleyballServiceSpot,volleyballStrikeKind} from '../public/volleyball-court.js';
 import {volleyballHud} from '../public/volleyball-hud.js';
 import {touchLayout} from '../public/touch-controls.js';
 
@@ -67,7 +67,7 @@ function fixture(){
   assert.equal(volleyballHud(world,second.player.state,7,true).action,'Return');
   second.move({x,z});
   until(()=>volleyballHud(world,second.player.state,7,true).detail==='Return now');
-  assert(!canReturnVolleyball(courts[0],1,second.player.state,sampleVolleyball(serve,world.simTick)),'cue gives reaction time');
+  assert(!volleyballStrikeKind(courts[0],1,second.player.state,sampleVolleyball(serve,world.simTick)),'cue gives reaction time');
   second.request('strike');
   until(()=>gameOne.flight?.slot===3,10);
   assert.equal(gameOne.flight.slot,3,'human return');
@@ -96,4 +96,43 @@ function fixture(){
   extra.request('join');assert.equal(game.member(5),null,'downed net prevents entry');
 }
 
-console.log('PASS pickup volleyball NPC rallies, independent courts, human serve and return, scoring, touch actions, roster limits, departures, and net failure.');
+for(const kind of ['Dig','Spike']){
+  const {game,world,step,until,player}=fixture();
+  const server=player(1),receiver=player(2,0,2),court=courts[0],match=game.state[0];
+  server.request('join');receiver.request('join');
+  server.request('strike');step();
+  const x=court.x-1,toZ=court.z+(kind==='Spike'?2.7:6.65),fromZ=court.z-3.0;
+  const flight=match.flight={tick:world.simTick,duration:55,
+    from:[x,sandHeight(x,fromZ)+2.92,fromZ],to:[x,sandHeight(x,toZ)+ballRadius,toZ],lift:2.6,slot:0};
+  receiver.move({x,z:kind==='Spike'?court.z+1.4:toZ});
+  const hud=()=>volleyballHud(world,receiver.player.state,2,true);
+  until(()=>hud().detail===kind+' now',54);
+  assert.equal(hud().action,kind);
+  assert.deepEqual(touchLayout({role:'volleyball',active:true,jump:hud().action}).quick,[['Space',kind]]);
+  receiver.request('strike');
+  if(kind==='Spike'){
+    assert.equal(match.flight,flight,'The jump winds up before contact');
+    assert.equal(hud().detail,'Jumping for the spike');
+    for(let i=1;i<spikeWindup;i++){step();assert.equal(match.flight,flight);}
+  }
+  until(()=>match.flight?.slot===2,10);
+  const shot=match.flight;
+  assert.equal(match.swings[2].kind,kind.toLowerCase());
+  assert(kind==='Dig' ? shot.duration>flight.duration : shot.duration<flight.duration);
+  const net=sampleVolleyball(shot,shot.tick+shot.duration*(court.z-shot.from[2])/(shot.to[2]-shot.from[2]));
+  assert(net.y-ballRadius>netTop(court,net.x),'Both successful contacts clear the net');
+  if(kind==='Dig')assert(shot.from[1]-sandHeight(shot.from[0],shot.from[2])<1.02);
+  else assert(net.descending,'The spike comes down quickly across the net');
+}
+
+{
+  const {game,world,until}=fixture(),moves=new Set();
+  until(()=>{
+    for(const match of game.state){
+      if(match.flight?.tick===world.simTick)moves.add(match.swings[match.flight.slot]?.kind);
+    }
+    return moves.has('dig') && moves.has('spike');
+  },5000);
+}
+
+console.log('PASS NPC rallies, independent courts, human serves, returns, digs and spikes, scoring, touch actions, roster limits, departures, and net failure.');
