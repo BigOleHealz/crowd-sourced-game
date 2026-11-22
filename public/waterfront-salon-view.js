@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import {salonTables,salonSeats,salonLowTables,salonBanquettes,salonBar,salonBarSeats,salonChandeliers} from './waterfront-salon-layout.js';
 
 const tau=2*Math.PI,champagne=0xc7a069,bronze=0x74503c,onyx=0x2d2632,port=0x653142;
-const green=0x195751,walnut=0x533537,cream=0xf0ddba,opal=0xffefc8,honey=0xffc16e,ice=0x92e0da;
+const green=0x336c61,walnut=0x533537,cream=0xf0ddba,opal=0xffefc8,honey=0xffc16e,ice=0x92e0da;
 
 // One small illustrated atlas supplies floor textiles, table markings and the upstairs bar sign.
 function salonAtlas(){
   const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=1024;
   const g=canvas.getContext('2d');
-  const sections={carpet:[0,0,768,512],felt:[0,532,768,228],bar:[0,790,768,200]};
+  const sections={carpet:[0,0,768,512],felt:[0,532,768,228],bar:[0,790,768,200],promenade:[784,0,240,1024]};
   g.fillStyle='#4a2339';g.fillRect(0,0,768,512);
   g.save();g.beginPath();g.rect(4,4,760,504);g.clip();
   for(let row=-1;row<9;row++)for(let col=-1;col<11;col++){
@@ -34,6 +34,27 @@ function salonAtlas(){
   for(const m of [7,16]){g.strokeStyle='#cfaf7c';g.lineWidth=2;g.strokeRect(m,790+m,768-m*2,200-m*2);}
   g.fillStyle='#ffe6b4';g.font='48px Georgia, serif';g.fillText('CHAMPAGNE',384,892);
   g.font='19px sans-serif';g.fillText('A U R O R A     •     S A L O N',384,943);
+  // Bookmatched green marble and brass fan inlays lead in from the terrace.
+  g.save();g.beginPath();g.rect(784,0,240,1024);g.clip();g.translate(784,0);
+  g.fillStyle='#37514d';g.fillRect(0,0,240,1024);
+  for(let i=0;i<24;i++){
+    const y=i*53-92;
+    g.strokeStyle=i%3?'#4a625a':'#68766a';g.lineWidth=i%4===0?1.7:.8;g.beginPath();
+    g.moveTo(0,y);g.bezierCurveTo(40,y+4,72,y+49,120,y+55);g.bezierCurveTo(168,y+49,200,y+4,240,y);g.stroke();
+  }
+  for(const [a,w,c] of [[4,6,'#b79965'],[13,2,'#d2b88a'],[22,3,'#232f36']]){
+    g.strokeStyle=c;g.lineWidth=w;g.beginPath();g.moveTo(a,0);g.lineTo(a,1024);g.moveTo(240-a,0);g.lineTo(240-a,1024);g.stroke();
+  }
+  for(let row=-1;row<6;row++){
+    g.save();g.translate(120,128+row*256);
+    g.strokeStyle='#bda278';g.lineWidth=2.5;
+    for(const side of [1,-1]){
+      g.scale(1,side);
+      for(let i=-3;i<=3;i++){g.beginPath();g.moveTo(0,0);g.lineTo(i*22,-59+Math.abs(i)*6);g.lineTo(i*13,-74+Math.abs(i)*7);g.stroke();}
+    }
+    g.fillStyle='#cfaf76';g.rotate(Math.PI/4);g.fillRect(-3,-3,6,6);g.restore();
+  }
+  g.restore();
   const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=4;
   const planes={};
   for(const [id,[x,y,w,h]] of Object.entries(sections)){
@@ -63,6 +84,9 @@ export function addWaterfrontSalon(scene,Batch){
   const box=(batch,c,x,y,z,w,h,d,yaw=0)=>batch.add(cube,c,x,y,z,w,h,d,0,yaw,0);
   const round=(batch,c,x,y,z,w,h,d=w)=>batch.add(w<=.18?smallCyl:cyl,c,x,y,z,w,h,d);
   const hoop=(batch,c,x,y,z,r,depth=r)=>batch.add(ring,c,x,y,z,r,1,depth);
+  for(let i=0;i<3;i++)prints.add(planes.promenade,0xffffff,-80.4,.812,35.81+i*9.97,2.55,1,9.97);
+  prints.add(planes.promenade,0xffffff,-75.57,.813,46.5,1.84,1,6.88,0,Math.PI/2);
+  prints.add(planes.promenade,0xffffff,-75.57,.813,58.75,1.84,1,6.88,0,Math.PI/2);
   for(const {x,z,y,n} of salonTables){
     prints.add(planes.carpet,0xffffff,x,y+.016,z+.12,5.12,1,4.13);
     for(const dx of [-.82,.82]){
@@ -84,6 +108,11 @@ export function addWaterfrontSalon(scene,Batch){
       const px=x-.46+i*.31;box(stone,cream,px,y+1.014,z-.16,.096,.008,.147,i*.09);
       box(stone,i===1?0xa72e3f:onyx,px,y+1.020,z-.16,.02,.007,.028,i*.09);
     }
+    // A small reading lamp lights the dealer side without a real-time point light.
+    round(metal,champagne,x+1.28,y+1.025,z-.39,.19,.04);
+    round(metal,champagne,x+1.28,y+1.18,z-.39,.036,.28);
+    light.add(halfSphere,opal,x+1.28,y+1.29,z-.39,.37,.26,.28);
+    hoop(metal,champagne,x+1.28,y+1.289,z-.39,.19,.145);
     for(const side of [-1,1])round(metal,champagne,x+side*1.62,y+.996,z+.08,.10,.015);
   }
   for(const {x,z,y,yaw,n} of salonSeats){
@@ -126,6 +155,12 @@ export function addWaterfrontSalon(scene,Batch){
     round(stone,c,px,by+1.26,bz-.25,.108,.31);
     round(stone,c,px,by+1.46,bz-.25,.052,.12);round(metal,champagne,px,by+1.526,bz-.25,.055,.032);
   }
+  for(let i=0;i<6;i++){
+    const px=bx+.22+i*.18,pz=bz+.21-(i%2)*.23;
+    round(metal,champagne,px,by+1.106,pz,.094,.012);
+    round(metal,champagne,px,by+1.17,pz,.016,.12);
+    stone.add(gem,0xe7be83,px,by+1.276,pz,.11,.16,.11);
+  }
   for(const {x,z,y} of salonBarSeats){
     round(metal,bronze,x,y+.04,z,.47,.075);round(metal,champagne,x,y+.39,z,.082,.67);
     hoop(metal,champagne,x,y+.28,z,.19);
@@ -157,7 +192,14 @@ export function addWaterfrontSalon(scene,Batch){
     light.add(halfSphere,opal,x,y-drop*.82,z,r*.22,drop*.25,r*.22);
   }
   const group=new THREE.Group();group.name='Aurora Salon interior';scene.add(group);
-  stone.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.77}),false);
+  // A baked diffuse contribution represents the nearby practical lights after dusk.
+  // It follows each vertex tint, preserving both dark walnut and bright upholstery.
+  const furnishings=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.77});
+  furnishings.onBeforeCompile=shader=>{
+    shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * 0.26;');
+  };
+  stone.mesh(group,furnishings,false);
   metal.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,metalness:.38,roughness:.35}),false);
   light.mesh(group,new THREE.MeshBasicMaterial({vertexColors:true,toneMapped:false}),false);
   prints.mesh(group,new THREE.MeshLambertMaterial({vertexColors:true,map,alphaTest:.16,polygonOffset:true,polygonOffsetFactor:-1}),false);
