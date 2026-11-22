@@ -265,20 +265,7 @@ export function createGameAudio(button,slider,level,caption) {
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;
-    const bank=world.bank;
-    if(bank){
-      const near=Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<30;
-      if(bank.serial!==bankSerial){
-        bankSerial=bank.serial;
-        pendingBankClip=bank.phase==='alarm' && near && audible();
-      }
-      if(bank.phase!=='alarm' || !near || !audible())pendingBankClip=false;
-      if(near && audible())loadMusic('bank-robbery','bank-robbery.mp3');
-      if(pendingBankClip && buffers.has('bank-robbery') && burst('bank-robbery',bankDesk,listener,yaw,1,bank.serial)){
-        bankVoiceUntil=context.currentTime+buffers.get('bank-robbery').duration;
-        pendingBankClip=false;
-      }
-    }
+
     listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -294,6 +281,20 @@ export function createGameAudio(button,slider,level,caption) {
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
+    const bank=world.bank;
+    if(bank){
+      const near=Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<30;
+      if(bank.serial!==bankSerial){
+        bankSerial=bank.serial;
+        pendingBankClip=bank.phase==='alarm' && near && audible();
+      }
+      if(bank.phase!=='alarm' || !near || !audible())pendingBankClip=false;
+      if(near && audible())loadMusic('bank-robbery','bank-robbery.mp3');
+      if(pendingBankClip && buffers.has('bank-robbery') && burst('bank-robbery',bankDesk,listener,yaw,1,bank.serial)){
+        bankVoiceUntil=context.currentTime+buffers.get('bank-robbery').duration;
+        pendingBankClip=false;
+      }
+    }
     dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
     previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
