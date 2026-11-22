@@ -30,7 +30,7 @@ export function healthView(actor, tick) {
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
   const lostParts=life.lostParts && Object.fromEntries(Object.entries(life.lostParts).map(
     ([part,hit])=>[part,{...hit,age:Math.min(8,(tick-hit.tick)/30)}]));
-  return { fall, lostParts, lastShotTick:life.lastShotTick,hitSector:life.hitSector, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  return { fall, lostParts, lastShotTick:life.lastShotTick,lastBiteTick:life.lastBiteTick,hitSector:life.hitSector, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 

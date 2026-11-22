@@ -32,6 +32,16 @@ function atBearing(start,bearing,range){
   return {x:start.x+Math.sin(bearing)*range,z:start.z-Math.cos(bearing)*range};
 }
 
+// Plan the turn before leaving the bite. At the world edge the natural
+// straight-ahead runout can be dry land or outside the simulation.
+function retreatGoal(s){
+  for(const offset of [0,.8,-.8,1.6,-1.6,2.4,-2.4,Math.PI]){
+    const end=atBearing(s,s.yaw+offset,5.5);
+    if(openWater(end.x,end.z,1.5) && clearCourse(s,end))return end;
+  }
+  return {x:s.x,z:s.z};
+}
+
 function initial(i){
   const [x,z]=homes[i],maxHp=Math.round(120*sharkSizes[i]);
   return {x,y:water-.9,z,yaw:i,stroke:i,size:sharkSizes[i],hp:maxHp,maxHp,
@@ -196,7 +206,7 @@ export function createSharks(){
     const swimmers=new Map(),observers=[...players.values()];
     for(const p of observers){
       const {x,z}=p.state;
-      if(!p.life.hp || p.life.fall || !p.state.swimming || !openWater(x,z,5,0)){
+      if(!p.life.hp || p.life.fall || !p.state.swimming || !openWater(x,z,2.2,0)){
         exposure.delete(p);continue;
       }
       const began=exposure.get(p)??time;
@@ -227,27 +237,35 @@ export function createSharks(){
         depth=.41+.04*Math.sin(time*2);
         if(s.phase==='retreat' && time>=mind.pass)s.phase='approach';
         if(s.phase==='retreat'){
-          goal=atBearing(s,s.yaw,5);speed=2.60;
+          goal=mind.runout;speed=Math.min(3.7,distance(s,goal)*2);
         }else{
-          goal=prey.state;speed=3.85;
+          goal=prey.state;speed=6.6;
           const nose=atBearing(s,s.yaw,1.48*s.size);
           if(time>=mind.pass && distance(nose,goal)<.84 && clearCourse(s,goal)){
             const {x,y,z}=prey.state;
-            if(hurt(prey,Math.round(19*s.size),tick,{x:Math.sin(s.yaw),z:-Math.cos(s.yaw)})){
+            const previousHp=prey.life.hp;
+            if(hurt(prey,34,tick,{x:Math.sin(s.yaw),z:-Math.cos(s.yaw)})){
               const event={id:nextDefeatId++,playerId:prey.id,sharkIndex:i,tick,
                 x:round(x),y:round(y),z:round(z),yaw:s.yaw,size:s.size,arrivals:[]};
+              const end=atBearing(event,event.yaw,3.6);
+              if(!openWater(end.x,end.z,1.5) || !clearCourse(event,end)){
+                const exit=retreatGoal(event);
+                event.towYaw=Math.atan2(exit.x-event.x,event.z-exit.z);
+              }
+              prey.life.lastBiteTick=tick;
               if(defeats.length>=12)defeats.shift();
               defeats.push(event);
               mind.feeding=event;mind.biteYaw=s.yaw;s.target=null;s.phase='feeding';
               inviteNearby(event);stepFeeding(s,i,dt,tick,players);continue;
             }else{
-              s.phase='retreat';mind.pass=time+3.4;
+              if(prey.life.hp<previousHp)prey.life.lastBiteTick=tick;
+              s.phase='retreat';mind.runout=retreatGoal(s);mind.pass=time+2.65;
             }
           }else if(time>=mind.pass && distance(s,goal)<1.7*s.size &&
               Math.cos(Math.atan2(goal.x-s.x,s.z-goal.z)-s.yaw)<.38){
             // A near miss leaves too little room for the snout to turn. Circle
             // out for a fresh pass instead of orbiting a stationary swimmer.
-            s.phase='retreat';mind.pass=time+1.5;
+            s.phase='retreat';mind.runout=retreatGoal(s);mind.pass=time+1.5;
           }
         }
       }
@@ -258,8 +276,11 @@ export function createSharks(){
       if(s.phase==='approach')speed*=clamp(.38+.62*Math.cos(diff),.38,1);
       const yaw=s.yaw+clamp(diff,-dt*1.7,dt*1.7);
       const next=atBearing(s,yaw,speed*dt);
-      if(openWater(next.x,next.z,1.5)){
+      if(openWater(next.x,next.z,1.5,0)){
         s.x=round(next.x);s.z=round(next.z);s.yaw=round(Math.atan2(Math.sin(yaw),Math.cos(yaw)));
+      }else if(prey && (s.phase==='retreat' || clearCourse(s,prey.state))){
+        // Keep steering even when the next step would leave the water.
+        s.yaw=yaw;
       }else{
         // Turn back out to sea before the body can clip a shoal or dock.
         s.yaw+=dt*2.2;
