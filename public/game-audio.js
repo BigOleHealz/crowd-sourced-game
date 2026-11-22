@@ -1,4 +1,4 @@
-import {crowdPanicAudio,crowdRecordings} from './crowd-panic-audio.js';
+import {crowdPanicAudio} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
@@ -143,10 +143,14 @@ export function createGameAudio(button,slider,level) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle',...crowdRecordings}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
-        if(res.ok)buffers.set(name,await context.decodeAudioData(await res.arrayBuffer()));
+        if(!res.ok)return;
+        // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
+        const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const decoder=name==='crowd-reactions' && Offline ? new Offline(1,1,24000) : context;
+        buffers.set(name,await decoder.decodeAudioData(await res.arrayBuffer()));
       }catch{/* Keep synthesized playback available on browsers without Opus. */}
     }));
   }
@@ -212,13 +216,14 @@ export function createGameAudio(button,slider,level) {
     }
     return .42+.58*voice.transmission;
   }
-  function burst(name,point,listener,yaw,volume,eventId=0) {
+  function burst(name,point,listener,yaw,volume,eventId=0,segment=null) {
     if(!audible() || !point || voices.size>=32)return;
     const place=placement(listener,yaw,point);
     if(place.gain<.006)return;
     const v=voice(name,false,eventId%3);
     v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
-    v.source.start();
+    if(segment)v.source.start(0,segment.start,segment.duration);
+    else v.source.start();
   }
   function reset(world) {
     collapse.reset();
@@ -283,8 +288,8 @@ export function createGameAudio(button,slider,level) {
       if(distance<range){nearest=f;range=distance;}
     }
     motor('district-fire',nearest,!!nearest,1,.73,listener,yaw);
-    civilianVoices.step(world.npcs,world.simTick,listener,(name,mouth,gain,id)=>{
-      if(buffers.has(name))burst(name,mouth,listener,yaw,gain,id);
+    civilianVoices.step(world.npcs,world.simTick,listener,(cue,mouth,gain,id)=>{
+      if(buffers.has('crowd-reactions'))burst('crowd-reactions',mouth,listener,yaw,gain,id,cue);
     });
     const impacts=[];
     for(const shot of shots) {
