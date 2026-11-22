@@ -78,7 +78,7 @@ costume.onchange=()=>{
   try{localStorage.setItem('pinewatch.paradeCostume',costume.checked?'on':'off');}catch{}
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'paradeCostume',enabled:costume.checked}));
 };
-const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'));
+const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'),byId('owner-caption'));
 window.addEventListener('pointerdown',audio.unlock,{capture:true});
 window.addEventListener('keydown',audio.unlock,{capture:true});
 window.addEventListener('pagehide',()=>audio.reset());
