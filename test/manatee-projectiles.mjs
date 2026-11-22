@@ -51,7 +51,7 @@ function aim(muzzle,target){
 
 {
   const {world,p,peers,muzzle,animal}=setup(4);
-  const adjacent=world.manatees[4],distant=world.manatees[2];
+  const adjacent=world.manatees[4],distant=world.manatees[0];
   Object.assign(adjacent,{x:animal.x+1.4,y:animal.y,z:animal.z+1.4});
   fire(world,p,aim(muzzle,animal).input,0,peers,[]);
   for(let i=1;i<=30 && world.missiles.length;i++)advanceMissiles(world,peers,[],i);
