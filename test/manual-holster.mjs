@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {createRangerRig,poseRig} from '../public/ranger-pose.js';
+import {newExpedition,updateHandheldGear,trackLauncher,fire} from '../public/expedition.js';
+import {newLife} from '../public/rivals.js';
+import {touchLayout} from '../public/touch-controls.js';
+import {spawn,CITY} from '../public/world.js';
+import {nextUse} from '../public/use-target.js';
+
+const w=newExpedition(),p={id:1,state:spawn(),life:newLife(0,false),yaw:0,fireReady:0,weapon:4};
+const players=new Map([[p.id,p]]),rig=createRangerRig(),step=(input,wasWet=false)=>updateHandheldGear(p,input,wasWet,w);
+const held={fire:true,tracking:true,aimYaw:0,aimPitch:0};
+const fireHeld=tick=>{fire(w,p,held,tick,players,[]);trackLauncher(w,p,held,tick,players,[]);};
+for(let slot=1;slot<=8;slot++){
+  step({weapon:slot});
+  p.meleeSwing={};p.launcherLock={};
+  assert.equal(step({holster:true,...held}),false);
+  assert(p.holstered && p.weapon===slot && !p.launcherLock && !p.meleeSwing);
+  assert.equal(step({weapon:slot%8+1,...held}),false);
+  assert.equal(p.weapon,slot,'suppressed loadout packets must preserve the selection');
+  fireHeld(200);
+  assert.equal(p.fireReady,0);assert(!p.launcherLock && !p.meleeSwing);
+  poseRig(rig,{...p.state,holstered:true,weapon:slot,yaw:0},1/30);
+  assert(rig.tools.every(tool=>!tool.visible));
+  assert(!step({holster:false,...held}),'drawing under a held trigger keeps it gated');
+  fireHeld(201);assert.equal(p.fireReady,0);assert.equal(p.weapon,slot);
+  assert(!step({handheldHeld:true}),'client-suppressed but physically held input stays gated');
+  assert(step({fire:false,tracking:false}));
+  assert(step({fire:true}),'fresh input can fire the remembered selection');
+}
+step({weapon:7});step({holster:true});
+p.state.swimming=true;
+assert(!step({holster:false,weapon:1,fire:true}));
+p.state.swimming=false;
+assert(!step({holster:false,weapon:1,fire:true},true));
+assert(!step({}) && p.holstered && p.weapon===7,'leaving water preserves manual holster');
+p.state.ride={kind:'bike'};
+assert(!step({holster:false}));delete p.state.ride;
+w.jet.pilot=p.id;assert(!step({holster:false}));w.jet.pilot=null;
+p.state={...w.jet,x:w.jet.x+2.65,grounded:true};assert.equal(nextUse(w,p.state,p.id,'jet').role,'drive');
+assert(step({holster:false,weapon:8}) && p.weapon===8 && !p.holstered);
+const mobile=touchLayout({role:'foot',active:true,canAim:false,holsterLabel:'Draw',use:'Enter'});
+assert(mobile.quick.some(([key,label])=>key==='Digit0' && label==='Draw'));
+assert(mobile.quick.some(([key])=>key==='KeyE') && !mobile.quick.some(([key])=>key==='KeyF' || key==='aim'));
+assert(mobile.tools.some(([key])=>key==='tool'));
+console.log('PASS',CITY?'Brickell':'Outpost','all eight holsters, remembered loadout, held input, pose, touch, interaction, shore and mounting.');

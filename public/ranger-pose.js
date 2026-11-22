@@ -276,7 +276,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
     avatar.spine.rotation.set(-.04,0,0);
   }
   const toolIndex=(state.weapon ?? 1)-1;
-  const carrying=!state.dive && !climb && !fall && !swimming && !state.dead && !seated && !station;
+  const carrying=!state.holstered && !state.dive && !climb && !fall && !swimming && !state.dead && !seated && !station;
   const melee=isArcadeMelee(state.weapon),fit=carryFits[toolIndex];
   const meleeReady=carrying && !state.parachute && !(state.lostParts?.leftArm && state.lostParts.rightArm);
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0) && (!melee || meleeReady);});
@@ -369,6 +369,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       const travel=(gait ? foot.forwardOffset : 0)*person.swing*(bag?.36:1);
       arm.rotation.set(.025+travel,side*.04,side*(bag?.145:.092));
       forearm.rotation.x=(bag?.39:.15)+Math.max(0,travel)*.48;
+    } else if(state.holstered && !seated && !station && !state.parachute && !swimming){
+      arm.rotation.set(-side*swing*.52*weight,0,side*.10);
+      forearm.rotation.set(.13+Math.max(0,side*swing)*.27*weight,0,0);
     } else if(toolIndex===5 && carrying && avatar.throwSwing>0){
       const reach=Math.sin(avatar.throwSwing*Math.PI*.70);
       arm.rotation.set(side===1?1.03+reach*1.44:.28,side*.05,side*(.11+.09*reach));

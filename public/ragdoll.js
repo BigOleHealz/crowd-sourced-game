@@ -39,7 +39,7 @@ export function sampleRanger(actor,dt,world,tick=0) {
   }
   const swap=state.last;state.last=state.now;state.now=swap;
   const vehicle=crewBoat(world,actor.id)??world?.rover;
-  poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,moving:actor.moving,sprint:actor.sprint},dt,
+  poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,holstered:actor.holstered,moving:actor.moving,sprint:actor.sprint},dt,
     vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null,world?.doors);
   if(actor.onDuty && !actor.reaction){
     if(actor.program.performer)poseCabaret(state.rig,actor.program,tick/30);

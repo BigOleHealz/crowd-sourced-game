@@ -1611,7 +1611,7 @@ export function createScene(canvas) {
     }
     const localBody=avatars.get(local.id)?.root;
     if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
-    const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming && !isArcadeMelee(local.weapon);
+    const sighted = onFoot && !local.holstered && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming && !isArcadeMelee(local.weapon);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
     sightModels[5].visible=sighted && local.weapon===6 && !avatars.get(local.id)?.throwSwing;

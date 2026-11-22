@@ -230,15 +230,27 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 
 // A queued command may cross the shoreline between receipt and simulation.
 // Keep the last land selection and require a release after a held swim input.
-export function updateHandheldGear(player,input,wasSwimming){
+export function updateHandheldGear(player,input,wasSwimming,world){
+  const held=input?.fire || input?.tracking || input?.handheldHeld;
   if(wasSwimming || player.state.swimming || input?.fromSwimming){
     player.launcherLock=null;
     delete player.meleeSwing;
-    if(input)player.releaseSwimTrigger=input.fire || input.tracking;
+    if(input)player.releaseSwimTrigger=!!held;
+    return false;
+  }
+  if(typeof input?.holster==='boolean' && input.holster!==!!player.holstered && canUseHandheld(world,player)){
+    player.holstered=input.holster;
+    player.launcherLock=null;
+    delete player.meleeSwing;
+    player.releaseSwimTrigger=!!held;
+    if(!player.holstered && validEquipment(input.weapon))player.weapon=input.weapon;
+  }
+  if(player.holstered){
+    if(input)player.releaseSwimTrigger=!!held;
     return false;
   }
   if(input){
-    if(!input.fire && !input.tracking)player.releaseSwimTrigger=false;
+    if(!held)player.releaseSwimTrigger=false;
     if(validEquipment(input.weapon) && !player.releaseSwimTrigger){
       if(player.weapon!==input.weapon)delete player.meleeSwing;
       player.weapon=input.weapon;
@@ -248,13 +260,14 @@ export function updateHandheldGear(player,input,wasSwimming){
 }
 
 export function trackLauncher(world,player,input,tick,players,npcs){
+  if(player.holstered || player.releaseSwimTrigger){player.launcherLock=null;return;}
   const p=player.state;
   updateLock(world,player,{...input,from:{x:p.x,y:p.y+stanceMuzzleHeight(p),z:p.z}},tick,(w,from,dir,range)=>tracePulse(w,targets(w,player.id,players,npcs),from,dir,range,false,'handLauncher'));
 }
 
-function canSwing(world,player){
+function canUseHandheld(world,player){
   const s=player.state,id=player.id;
-  return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute &&
+  return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute && !s.liftTravel &&
     player.clubSince==null && world.casino?.player!==id && !world.volleyballActivity?.member(id) &&
     !world.basketball?.players.includes(id) && world.yacht?.driver!==id && world.yacht?.gunner!==id &&
     world.tank?.driver!==id && world.jet?.pilot!==id && world.heli.pilot!==id && world.heli.gunner!==id &&
@@ -268,7 +281,7 @@ export function advanceMelee(world,player,tick,players,npcs){
   if(!swing || tick!==swing.hitTick || !Number.isFinite(player.meleeHeading))return;
   const yaw=player.meleeHeading,pitch=player.meleePitch??0;
   delete player.meleeHeading;delete player.meleePitch;
-  if(!canSwing(world,player) || player.weapon!==swing.weapon)return;
+  if(player.holstered || !canUseHandheld(world,player) || player.weapon!==swing.weapon)return;
   const spec=meleeItems[swing.weapon],s=player.state;
   const from={x:s.x,y:s.y+(spec.posedContact?stanceMuzzleHeight(s):1.03-stanceDrop(s)),z:s.z,shooter:player.id};
   const aheadX=Math.sin(yaw),aheadZ=-Math.cos(yaw);
@@ -310,10 +323,10 @@ export function advanceMelee(world,player,tick,players,npcs){
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (player.holstered || player.releaseSwimTrigger || player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
   const melee=meleeItems[player.weapon];
   if(melee){
-    if(!canSwing(world,player) || !Number.isFinite(input.aimYaw) || input.interact || input.seat)return;
+    if(!canUseHandheld(world,player) || !Number.isFinite(input.aimYaw) || input.interact || input.seat)return;
     player.fireReady=tick+melee.cooldown;
     player.meleeHeading=input.aimYaw;
     if(melee.posedContact)player.meleePitch=Number.isFinite(input.aimPitch)?input.aimPitch:0;

@@ -73,6 +73,30 @@ for(const map of ['outpost','brickell']){
     send(235,false);
     await waitFor(()=>actor(b,a.id).ack===a.seq,'invalid selection acknowledged');
     assert.equal(actor(b,a.id).weapon,Number(Object.keys(meleeItems).at(-1)));
+
+    const both=predicate=>guests.every(g=>predicate(actor(g,a.id)));
+    for(let slot=1;slot<=8;slot++){
+      send(slot,false);
+      await waitFor(()=>both(p=>p.weapon===slot && p.ack===a.seq),'both loadouts');
+      send(slot,true,{holster:true,tracking:true});
+      await waitFor(()=>both(p=>p.holstered && !p.meleeSwing && !p.launcherLock),'both holsters');
+      send(slot%8+1,true,{tracking:true});
+      await waitFor(()=>both(p=>p.ack===a.seq && p.holstered && p.weapon===slot),'preserved selection');
+      send(slot,true,{holster:false,tracking:true});
+      await waitFor(()=>both(p=>p.ack===a.seq && !p.holstered && !p.meleeSwing && !p.launcherLock),'draw with trigger held');
+      send(slot,true);
+      await waitFor(()=>both(p=>p.ack===a.seq && !p.meleeSwing),'held trigger stays gated');
+      assert(!b.snapshot.world.shots.some(s=>s.shooter===a.id));
+      assert(!b.snapshot.world.bullets.some(s=>s.shooter===a.id));
+      assert(!b.snapshot.world.missiles.some(s=>s.shooter===a.id));
+      assert(!b.snapshot.world.throwables?.some(s=>s.shooter===a.id));
+      send(slot,false);
+      await waitFor(()=>both(p=>p.ack===a.seq),'trigger release');
+    }
+    send(8,true,{aimYaw:-Math.PI/2});
+    await waitFor(()=>both(p=>p.meleeSwing?.weapon===8),'fresh swing after release');
+    assert.equal(actor(b,b.id).hp,8);
+    console.log(map,'two clients confirmed put away/draw for slots 1–8, blocked held fire and resumed after release');
   }finally{
     for(const guest of guests)guest.ws.terminate();
     server.kill();await closed;
