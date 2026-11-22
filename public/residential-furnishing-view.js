@@ -1,7 +1,8 @@
+import {estatePrints} from './estate-prints.js';
 import * as THREE from 'three';
 import {collectionMap} from './estate-collection.js';
 
-const tiles={linen:0,wood:1,stone:2,velvet:3,abstract:4,harbor:5};
+const tiles={linen:0,wood:1,stone:2,velvet:3,abstract:4,harbor:5,botanical:6,compass:7,shell:8};
 const cream=0xf5e9d6,ceramic=0xd9cbb0,dark=0x4f4036;
 
 export function residentialFurnishingView(scene,Batch){
@@ -30,12 +31,14 @@ export function residentialFurnishingView(scene,Batch){
   const texture=collectionMap();
   const roomMat=new THREE.MeshLambertMaterial({vertexColors:true,map:texture,emissive:0x4b3b27,emissiveIntensity:.22});
   roomMat.onBeforeCompile=s=>{
+    s.uniforms.printAtlas={value:estatePrints()};
     s.vertexShader='varying vec3 roomPosition,roomNormal;\n'+s.vertexShader.replace('#include <begin_vertex>',
       '#include <begin_vertex>\nroomPosition=position;roomNormal=normal;');
-    s.fragmentShader='varying vec3 roomPosition,roomNormal;\n'+s.fragmentShader.replace('#include <map_fragment>',`
+    s.fragmentShader='uniform sampler2D printAtlas;varying vec3 roomPosition,roomNormal;\n'+s.fragmentShader.replace('#include <map_fragment>',`
       vec2 grid=vec2(3.,2.),tile=floor(vMapUv*grid);
       vec3 sampleColor=texture2D(map,vMapUv).rgb;
-      if(tile.x<.5){
+      if(vMapUv.y<0.)sampleColor=texture2D(printAtlas,vec2(vMapUv.x,1.+2.*vMapUv.y)).rgb;
+      else if(tile.x<.5){
         vec3 n=abs(roomNormal);
         vec2 grain=(n.y>n.x && n.y>n.z?roomPosition.xz:n.x>n.z?roomPosition.zy:roomPosition.xy)*2.6;
         vec2 uv=(tile+.018+.96*fract(grain))/grid;
@@ -121,6 +124,8 @@ export function residentialFurnishingView(scene,Batch){
             round('linen',accent,u,h+.004,a*d*.282,.25,.012,.25);
             round('stone',cream,u,h+.027,a*d*.282,.185,.031,.185);
             round('stone',0x94aba1,u+.16,h+.060,a*d*.18,.065,.125,.065);
+            box('linen',cloth,u,h+.051,a*d*.28,.068,.012,.098,0,.18*a);
+            box('stone',trim,u-.128,h+.009,a*d*.28,.013,.009,.101);
           }
           shape(sphere,'stone',accent,0,h+.092,0,.20,.185,.20);
           round('stone',ceramic,0,h+.182,0,.075,.081,.075);

@@ -1,14 +1,14 @@
 import {hasApartmentBalconies} from './tower-glass.js';
 
 const profiles={
-  blue:{timber:0xcab497,stone:0xf6ead8,cloth:0xf1e4cc,accent:0x547e83,trim:0xb09b72,rug:0x8faaa2,art:'harbor'},
+  blue:{timber:0xcab497,stone:0xf6ead8,cloth:0xf1e4cc,accent:0x547e83,trim:0xb09b72,rug:0x8faaa2,art:'compass'},
   sand:{timber:0xa37955,stone:0xf8e8d1,cloth:0xe6cca8,accent:0xa07343,trim:0x907349,rug:0xbc9979,art:'abstract'},
-  coral:{timber:0xae8869,stone:0xf2ddc9,cloth:0xf1d6c4,accent:0xad654f,trim:0xbb935a,rug:0xd4a693,art:'abstract'},
-  sage:{timber:0xb7a278,stone:0xe5dbc3,cloth:0xd6d5b4,accent:0x62785c,trim:0x978559,rug:0x9daa88,art:'harbor'},
+  coral:{timber:0xae8869,stone:0xf2ddc9,cloth:0xf1d6c4,accent:0xad654f,trim:0xbb935a,rug:0xd4a693,art:'shell'},
+  sage:{timber:0xb7a278,stone:0xe5dbc3,cloth:0xd6d5b4,accent:0x62785c,trim:0x978559,rug:0x9daa88,art:'botanical'},
   city:{timber:0x8e6a55,stone:0xece4d4,cloth:0xdacaba,accent:0x3e6561,trim:0xb0915d,rug:0x909886,art:'abstract'},
   deco:{timber:0x6e5143,stone:0xebe4d9,cloth:0xd8cab5,accent:0x73595b,trim:0xc19d5e,rug:0xa18b81,art:'abstract'},
   lodge:{timber:0xa77c59,stone:0xcdc4ae,cloth:0xe1cfaf,accent:0x7f563d,trim:0x8a7151,rug:0x9c8771,art:'harbor'},
-  cabin:{timber:0x995f47,stone:0xd7cbb5,cloth:0xdfcba9,accent:0x586b55,trim:0x8d764c,rug:0x8c9b79,art:'abstract'},
+  cabin:{timber:0x995f47,stone:0xd7cbb5,cloth:0xdfcba9,accent:0x586b55,trim:0x8d764c,rug:0x8c9b79,art:'botanical'},
 };
 const island=['blue','sand','coral','sage'];
 

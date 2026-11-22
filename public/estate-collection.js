@@ -1,10 +1,12 @@
+import {estatePrints} from './estate-prints.js';
+import {lidoPieces} from './lido-house.js';
 import * as THREE from 'three';
 import {casaFurniture} from './casa-luma.js';
 import {mareFurniture} from './palazzo-mare.js';
 import {estateCondition,collectionPiece,furnishingSupported} from './estate-damage.js';
 
-const linen=0,walnut=1,marble=2,velvet=3,abstract=4,harbor=5;
-const ivory=0xfff6e6,gold=0xaa8256,teal=0xa9cfbd;
+const linen=0,walnut=1,marble=2,velvet=3,abstract=4,harbor=5,botanical=6,compass=7,shell=8;
+const ivory=0xfff6e6,gold=0xaa8256,darkMetal=0x394343,teal=0x648e7d;
 let atlas;
 export function collectionMap(){
   if(!atlas){
@@ -79,7 +81,7 @@ export function estateCollection(scene,Batch,refreshShadows){
     shape.setAttribute('batchUv',attrs.get(tile));return shape;
   }
 
-  const groups=Object.fromEntries(['casa','mare'].map(home=>[home,{batch:new Batch(true),ranges:[],rugShadows:[]}]));
+  const groups=Object.fromEntries(['casa','mare','lido'].map(home=>[home,{batch:new Batch(true),ranges:[],rugShadows:[]}]));
   function item(home,x,y,z,build,wall=false){
     const {batch,ranges,rugShadows}=groups[home],start=batch.indices.length;
     const put=(shape,tile,color,u,v,t,w,h,d,rx=0,ry=0,rz=0)=>
@@ -97,7 +99,7 @@ export function estateCollection(scene,Batch,refreshShadows){
       const metal=(...a)=>put(pin,marble,gold,...a);
       const ceramic=(shape,color,...a)=>put(shape,marble,color,...a);
       if(kind==='sofa'){
-        const tile=casa||bottom>3&&bottom<6?linen:velvet,body=casa?ivory:tile===velvet?teal:0xdfd1bb;
+        const tile=casa||home==='lido'||bottom>3&&bottom<6?linen:velvet,body=casa?ivory:home==='lido'?0xd3c1a4:tile===velvet?teal:0xdfd1bb;
         const n=casa?2:Math.max(2,Math.round(w/.78)),cw=(w-.41)/n;
         wood(0,.135,0,w-.25,.15,d-.22);
         cloth(tile,body,0,.25,0,w-.02,.24,d-.02);
@@ -108,7 +110,7 @@ export function estateCollection(scene,Batch,refreshShadows){
         }
         for(const a of [-1,1]){
           cloth(tile,body,a*(w/2-.105),.49,0,.22,.46,d);
-          cloth(linen,a<0?(casa?0xb17050:0xd6b983):0xe5cdb5,a*(w*.31),.65,-sg*.12,.45,.40,.18,-sg*.22,.05*a,a*.2);
+          cloth(linen,a<0?(casa?0xb17050:home==='lido'?0x698879:0xd6b983):0xe5cdb5,a*(w*.31),.65,-sg*.12,.45,.40,.18,-sg*.22,.05*a,a*.2);
         }
       }else if(kind==='chair'){
         const back=casa?p.facing:sg;
@@ -199,6 +201,11 @@ export function estateCollection(scene,Batch,refreshShadows){
       inset(marble,gold,.045,w-.07,h-.07,.019);
       inset(linen,ivory,.058,w-.095,h-.095,.016);
       inset(tile,0xfffcf5,.073,w-.21,h-.21,.014);
+      // A bronze gallery bar grazes the print from the top of its frame.
+      if(tile>=botanical){
+        for(const u of [-.24,.24])put(pin,marble,gold,u*w*Math.cos(yaw)+Math.sin(yaw)*side*.12,h*.5+.025,-u*w*Math.sin(yaw)+Math.cos(yaw)*side*.12,.026,.13,.026);
+        put(box,marble,0xbe9b62,Math.sin(yaw)*side*.16,h*.5+.09,Math.cos(yaw)*side*.16,w*.65,.051,.075,0,yaw);
+      }
     },true);
   }
   function tabletop(home,p){
@@ -219,14 +226,54 @@ export function estateCollection(scene,Batch,refreshShadows){
       }
     });
   }
+  function objets(home,p,kind){
+    const {x,z,h,w,d}=p,wide=w>=d;
+    item(home,x,p.bottom??.27,z,put=>{
+      const H=h-(p.bottom??.27),offset=kind==='orchid'?.22:-.28;
+      const cx=wide?w*offset:0,cz=wide?0:d*offset;
+      const prop=(g,t,c,u,y,v,...size)=>put(g,t,c,cx+u,H+y,cz+v,...size);
+      if(kind==='orchid'){
+        prop(vase,marble,0x6c8c83,0,0,0,.25,.30,.25);
+        for(const s of [-1,1]){
+          prop(leaf,velvet,0x425d45,s*.039,.24,0,.084,.24,.13,1.01,s*.86);
+          prop(pin,walnut,0x77704f,s*.035,.43,0,.012,.36,.012,0,0,-s*.18);
+          for(let j=0;j<4;j++){
+            const a=s*(.053+j*.035),y=.54+j*.037;
+            for(let k=0;k<4;k++){
+              const t=Math.PI*k/2;
+              prop(orb,linen,0xffecd9,a+Math.cos(t)*.029,y+Math.sin(t)*.026,.014*j,.055,.047,.028,.16,s*.34);
+            }
+            prop(orb,marble,0xc57c51,a,y,.014*j+.020,.025,.018,.013);
+          }
+        }
+      }else if(kind==='turntable'){
+        prop(stone,walnut,0xd8b28b,0,.060,0,.64,.105,.39);
+        prop(drum,marble,0x3f4243,-.074,.126,0,.315,.017,.315);
+        prop(drum,linen,0xba9a63,-.074,.140,0,.105,.012,.105);
+        prop(pin,marble,gold,-.074,.151,0,.014,.027,.014);
+        prop(drum,marble,0x777676,.20,.149,-.10,.056,.076,.056);
+        prop(box,marble,0xc4b69d,.150,.190,-.015,.018,.016,.215,0,-.47);
+        prop(box,marble,darkMetal,.107,.177,.077,.036,.022,.048,0,-.47);
+      }else{
+        const jackets=home==='mare'?[compass,harbor]:[shell,botanical];
+        for(let i=0;i<2;i++){
+          const angle=.11-i*.21,y=.031+i*.060,u=.040*i;
+          prop(box,linen,i?0x607a71:0x985d44,u,y,0,.385,.062,.302,0,angle);
+          prop(box,linen,ivory,u,y+.001,.004,.366,.039,.297,0,angle);
+          prop(box,jackets[i],0xfbf4de,u,y+.033,0,.385,.006,.303,0,angle);
+        }
+        prop(bowl,marble,0xa88a5e,.23,.005,.029,.127,.064,.127);
+      }
+    });
+  }
   function carpet(home,x,y,z,w,d,field,border){
     item(home,x,y,z,(put,batch,rugShadows)=>{
       const strip=(tint,u,v,width,depth,h=.025,angle=0)=>
         put(box,linen,tint,u,h,v,width,.008,depth,0,angle);
       // Sample the static room plan once. Low furniture casts a soft, broad
       // contact shadow onto the woven field without another projected shadow.
-      const pieces=(home==='casa'?casaFurniture:mareFurniture).filter(p=>
-        Math.abs(p.bottom-y)<.04 && Math.abs(p.x-x)<(w+p.w)/2+.5 && Math.abs(p.z-z)<(d+p.d)/2+.5);
+      const pieces=(home==='casa'?casaFurniture:home==='lido'?lidoPieces:mareFurniture).filter(p=>
+        Math.abs((p.bottom??.27)-y)<.04 && Math.abs(p.x-x)<(w+p.w)/2+.5 && Math.abs(p.z-z)<(d+p.d)/2+.5);
       const weave=new THREE.PlaneGeometry(1,1,Math.ceil(w/.16),Math.ceil(d/.16)).rotateX(-Math.PI/2);
       const start=batch.colors.length;
       put(weave,linen,field,0,.018,0,w,1,d);
@@ -273,17 +320,20 @@ export function estateCollection(scene,Batch,refreshShadows){
     const material=new THREE.MeshPhongMaterial({map:collectionMap(),vertexColors:true,shininess:18,specular:0x292621});
     // Keep textile grain at upholstery scale on broad seats and tiny cushions alike.
     material.onBeforeCompile=s=>{
+      s.uniforms.printAtlas={value:estatePrints()};
       s.vertexShader='varying vec3 estateSurface,estateNormal;\n'+s.vertexShader.replace('#include <begin_vertex>',
         '#include <begin_vertex>\n estateSurface=position;estateNormal=normal;');
-      s.fragmentShader='varying vec3 estateSurface,estateNormal;\n'+s.fragmentShader.replace('#include <map_fragment>',`
+      s.fragmentShader='uniform sampler2D printAtlas;varying vec3 estateSurface,estateNormal;\n'+s.fragmentShader.replace('#include <map_fragment>',`
         vec2 grid=vec2(3.,2.),tile=floor(vMapUv*grid);
         vec3 texel=texture2D(map,vMapUv).rgb;
-        if(tile.x<.5){
+        if(vMapUv.y<0.){
+          texel=texture2D(printAtlas,vec2(vMapUv.x,1.+2.*vMapUv.y)).rgb;
+        }else if(tile.x<.5){
           vec3 n=abs(estateNormal);
           vec2 fabric=(n.y>n.x && n.y>n.z?estateSurface.xz:n.x>n.z?estateSurface.zy:estateSurface.xy)*2.4;
           vec2 uv=(tile+.016+.968*fract(fabric))/grid;
           texel=textureGrad(map,uv,dFdx(fabric)*.968/grid,dFdy(fabric)*.968/grid).rgb;
-          texel=tile.y>.5?mix(vec3(.84,.78,.69),texel,.37):mix(vec3(.060,.205,.144),texel,.48);
+          texel=tile.y>.5?mix(vec3(.84,.78,.69),texel,.37):vec3(.66+.44*dot(texel,vec3(.24,.64,.12)));
         }
         diffuseColor.rgb*=texel;
       `);
@@ -291,7 +341,7 @@ export function estateCollection(scene,Batch,refreshShadows){
     for(const [home,g] of Object.entries(groups)){
       // Furniture lives in its own estate's culling bounds. Beyond a block the
       // exterior glazing and walls supply the silhouette; room details subtend pixels.
-      const lod=new THREE.LOD(),cx=home==='casa'?-25:25,cz=home==='casa'?-396:-444;
+      const lod=new THREE.LOD(),cx=home==='casa'?-25:25,cz=home==='mare'?-444:-395;
       lod.position.set(cx,4,cz);
       const mesh=g.batch.mesh(lod,material);mesh.position.set(-cx,-4,-cz);
       mesh.name='Commissioned furnishings '+home;mesh.userData.impactSurface='solid';
@@ -304,7 +354,7 @@ export function estateCollection(scene,Batch,refreshShadows){
     function updateGroup(g,doors,state){
       const {rugShadows,ranges,mesh,index,original}=g;
       for(const rug of rugShadows){
-        const supported=rug.samples.filter(({p})=>furnishingSupported(rug.home,p.x,.8+p.bottom,p.z,doors,state.falls));
+        const supported=rug.samples.filter(({p})=>furnishingSupported(rug.home,p.x,.8+(p.bottom??.27),p.z,doors,state.falls));
         const signature=supported.map(s=>s.p.x+','+s.p.z).join('|');
         if(signature===rug.previous)continue;
         rug.previous=signature;
@@ -331,5 +381,5 @@ export function estateCollection(scene,Batch,refreshShadows){
       previous=key;for(const group of Object.values(groups))updateGroup(group,doors,state);
     };
   }
-  return {furnish,picture,tabletop,carpet,brassMobile,finish,abstract,harbor};
+  return {furnish,picture,tabletop,objets,carpet,brassMobile,finish,abstract,harbor,botanical,compass,shell};
 }

@@ -172,7 +172,7 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   // Rounded navy club fascia and a brass-lined breezeway look toward Solana.
   const club=clubSalon;
   glazing(club.x,club.z,club.w,club.d,0,3.99,'villa');
-  furnishLido({box,cyl,leaf,beam,masonry});
+  furnishLido({collection,box,cyl,beam});
   deck(25,-384.5,30,11.0);
   const rounded=(c,x,y,z,w,h,d)=>{
     box(c,x,y,z,w-d,h,d);

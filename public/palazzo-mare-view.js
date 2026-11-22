@@ -27,9 +27,9 @@ export function furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,pane,
     }
   }
   finishUpperFloors(scene);
-  collection.picture('mare',35.4,2.03,-444.985,2.95,1.93,1,collection.harbor);
+  collection.picture('mare',35.4,2.03,-444.985,2.95,1.93,1,collection.compass);
   collection.brassMobile('mare',33.4,3.86,-443.12,3.3);
-  collection.picture('mare',28.34,5.82,-448.35,1.76,1.04,1,collection.abstract,Math.PI/2);
+  collection.picture('mare',28.34,5.82,-448.35,1.76,1.04,1,collection.botanical,Math.PI/2);
   collection.picture('mare',18.37,9.40,-443.0,1.28,.88,1,collection.harbor,Math.PI/2);
   // Two long, shallow flights turn around a shared landing. The rail posts are
   // placed on the noses and the timber handrails follow their exact pitch.
@@ -66,6 +66,9 @@ export function furnishPalazzo({collection,scene,box,masonry,cyl,beam,leaf,pane,
     cyl(0xf2d4a0,x,y+.54,z,.40,.32);cyl(brass,x,y+.714,z,.09,.036);
   }
   for(const p of mareFurniture){
+    if(p.kind==='console' && p.bottom<1)collection.objets('mare',p,'turntable');
+    if(p.kind==='island')collection.objets('mare',p,'orchid');
+    if(p.kind==='desk')collection.objets('mare',p,'editions');
     if(collection.furnish(p,'mare'))continue;
     if(p.kind==='console' || p.kind==='desk')collection.tabletop('mare',p);
     const {x,z,w,d,bottom:y,kind}=p,H=p.h-y;

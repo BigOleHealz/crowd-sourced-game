@@ -56,6 +56,9 @@ export function addCasaLuma({collection,box,masonry,pane,cyl,beam,leaf,railing,s
   collection.carpet('casa',-31.6,.27,-404.17,4.8,3.38,0xb57859,0xe0bb8c);
   collection.carpet('casa',-34.1,3.97,-405.00,4.8,3.38,0x819485,0xe0c8a9);
   for(const p of casaFurniture){
+    if(p.kind==='console' && p.bottom<1)collection.objets('casa',p,'turntable');
+    if(p.kind==='desk')collection.objets('casa',p,'editions');
+    if(p.kind==='island')collection.objets('casa',p,'orchid');
     if(collection.furnish(p,'casa'))continue;
     if(p.kind==='console' || p.kind==='desk')collection.tabletop('casa',p);
     const {kind,x,z,w,d,bottom}=p,h=p.h-bottom;
@@ -112,8 +115,8 @@ export function addCasaLuma({collection,box,masonry,pane,cyl,beam,leaf,railing,s
   // Commissioned art hangs on the gallery spine and the suite end walls.
   box(walnut,artScreen.x,(artScreen.bottom+artScreen.h)/2,artScreen.z,artScreen.w,artScreen.h-artScreen.bottom,artScreen.d);
   collection.picture('casa',artScreen.x,5.8,artScreen.z-.09,2.45,1.47,-1,collection.abstract);
-  collection.picture('casa',-35.1,1.99,-408.82,2.18,1.66,1,collection.abstract);
+  collection.picture('casa',-35.1,1.99,-408.82,2.18,1.66,1,collection.botanical);
   for(const [i,b] of villaWings.slice(1).entries())
-    collection.picture('casa',b.x,2.17,-384.54,2.18,1.59,-1,i===0?collection.harbor:collection.abstract);
+    collection.picture('casa',b.x,2.17,-384.54,2.18,1.59,-1,i===0?collection.shell:collection.botanical);
   collection.brassMobile('casa',-13.75,3.82,-388.4,2.1);
 }
