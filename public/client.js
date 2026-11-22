@@ -529,7 +529,7 @@ function pressButton(e) {
   if(inVolleyball())return;
   if(playingHoops()){mouseFire=queuedFire=true;return;}
   if(self?.swimming && !isDriving() && !isPilot() && !gunnerRole())return;
-  if (self && (!meleeItems[weapon] || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
+  if (self && (!meleeItems[weapon] || meleeItems[weapon].posedContact || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
@@ -787,7 +787,7 @@ function tick() {
   // Ordinary movement sends camera angles. Only interactions that consume a
   // muzzle-to-target bearing need to raycast the world on this input tick.
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
-  const needsAim=(fire && !meleeItems[weapon]) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
+  const needsAim=(fire && (!meleeItems[weapon] || meleeItems[weapon].posedContact)) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;

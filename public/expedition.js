@@ -266,11 +266,11 @@ function canSwing(world,player){
 export function advanceMelee(world,player,tick,players,npcs){
   const swing=player.meleeSwing;
   if(!swing || tick!==swing.hitTick || !Number.isFinite(player.meleeHeading))return;
-  const yaw=player.meleeHeading;
-  delete player.meleeHeading;
+  const yaw=player.meleeHeading,pitch=player.meleePitch??0;
+  delete player.meleeHeading;delete player.meleePitch;
   if(!canSwing(world,player) || player.weapon!==swing.weapon)return;
   const spec=meleeItems[swing.weapon],s=player.state;
-  const from={x:s.x,y:s.y+1.03-stanceDrop(s),z:s.z,shooter:player.id};
+  const from={x:s.x,y:s.y+(spec.posedContact?stanceMuzzleHeight(s):1.03-stanceDrop(s)),z:s.z,shooter:player.id};
   const aheadX=Math.sin(yaw),aheadZ=-Math.cos(yaw);
   const close=p=>Math.abs(p.x-s.x)<=spec.range && Math.abs(p.z-s.z)<=spec.range;
   const near=[];
@@ -282,14 +282,29 @@ export function advanceMelee(world,player,tick,players,npcs){
     near.push({actor,distance,delta:{x:dx,y:dy,z:dz}});
   }
   near.sort((a,b)=>a.distance-b.distance);
-  for(const {actor,delta,distance} of near){
-    const hit=segmentContact(world,from,delta,[actor],new Map(),actorIntersection);
+  // On the closest reachable actor, prefer the exact aim through the posed
+  // model; the wider sweep can still catch an actor off the centre line.
+  const flat=Math.cos(pitch)*spec.range;
+  const aimDelta=spec.posedContact?{x:aheadX*flat,y:Math.sin(pitch)*spec.range,z:aheadZ*flat}:null;
+  for(const entry of near){
+    const {actor,distance}=entry;
+    let delta=entry.delta,hit;
+    if(aimDelta){
+      hit=segmentContact(world,from,aimDelta,[actor],new Map(),actorIntersection);
+      if(hit.target===actor)delta=aimDelta;
+    }
+    if(hit?.target!==actor)hit=segmentContact(world,from,delta,[actor],new Map(),actorIntersection);
     if(hit.target!==actor)continue;
     if(tick<actor.life.immuneUntil || (player.team && player.team===actor.team))return;
-    const contact={x:from.x+delta.x*hit.t,y:from.y+delta.y*hit.t,z:from.z+delta.z*hit.t};
+    const fraction=spec.posedContact?Math.min(1,hit.visualT):hit.t;
+    const contact={x:from.x+delta.x*fraction,y:from.y+delta.y*fraction,z:from.z+delta.z*fraction};
     const direction={x:delta.x/(distance || 1),y:0,z:delta.z/(distance || 1)};
-    applyHit(world,{target:actor,hitKind:hit.hitKind,to:contact},[actor],players,player.id,tick,spec.damage,0,false,'melee',direction,0,spec.damage,player.score,world.wanted?.session(player));
+    const hitPart=spec.posedContact?hit.hitPart:undefined;
+    const limb=actor.hitPose && (hitPart==='leftArm' || hitPart==='rightArm' || hitPart==='leftLeg' || hitPart==='rightLeg')?hitPart:undefined;
+    const injury=applyHit(world,{target:actor,hitKind:hit.hitKind,to:contact,hitPart:limb},[actor],players,player.id,tick,spec.damage,0,false,'melee',direction,0,spec.damage,player.score,world.wanted?.session(player));
     swing.hit=true;swing.contact=contact;
+    if(hitPart){swing.hitPart=hitPart;swing.victim=actor.id;}
+    if(limb && injury===limb)swing.severed=true;
     return;
   }
 }
@@ -301,6 +316,7 @@ export function fire(world, player, input, tick, players, npcs) {
     if(!canSwing(world,player) || !Number.isFinite(input.aimYaw) || input.interact || input.seat)return;
     player.fireReady=tick+melee.cooldown;
     player.meleeHeading=input.aimYaw;
+    if(melee.posedContact)player.meleePitch=Number.isFinite(input.aimPitch)?input.aimPitch:0;
     player.meleeSwing={seq:tick,weapon:player.weapon,tick,hitTick:tick+melee.windup,endTick:player.fireReady,hit:false};
     return;
   }

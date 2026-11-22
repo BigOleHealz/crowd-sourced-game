@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import {meleeItems,validEquipment,nextEquipment,equipmentKeys} from '../public/arcade-melee.js';
 import {newExpedition,fire,advanceMelee,updateHandheldGear} from '../public/expedition.js';
-import {CITY,spawn} from '../public/world.js';
+import {sampleRanger,J} from '../public/ragdoll.js';
+import {CITY,spawn,stanceMuzzleHeight} from '../public/world.js';
 import {newLife} from '../public/rivals.js';
 import {touchLayout} from '../public/touch-controls.js';
 
@@ -11,7 +12,7 @@ const controls=touchLayout({role:'foot',active:true,canAim:true,melee:true});
 assert(controls.quick.some(([key,label])=>key==='KeyF' && label==='Swing'));
 assert(controls.tools.some(([key])=>key==='tool') && !controls.quick.some(([key])=>key==='aim'));
 assert(!validEquipment(99) && !validEquipment('7') && nextEquipment(6)===7);
-assert.equal(nextEquipment(Number(Object.keys(meleeItems).at(-1))),1);
+assert.equal(nextEquipment(7),8);assert.equal(nextEquipment(8),1);
 
 for(const [key,item] of Object.entries(meleeItems)){
   const slot=Number(key);
@@ -77,4 +78,26 @@ for(const [key,item] of Object.entries(meleeItems)){
   assert.equal(attempt(),true);
   assert.equal(far.life.hp,0);assert.equal(far.score.deaths,1);assert.equal(p.score.kills,1);
 }
-console.log('PASS',CITY?'Brickell':'Outpost','arcade melee input, finite arc, obstruction, single contact, health/score and holster');
+
+// Aim at joints sampled from the same hierarchy used by the player mesh.
+for(const [joint,expected] of [['back','torso'],['kneeL','leftLeg'],['elbowR','rightArm']]){
+  const w=newExpedition(),p=person(1,0,0),v=person(2,0,-1.35),players=new Map([[1,p],[2,v]]);
+  p.weapon=8;v.weapon=1;
+  sampleRanger(p,1/30,w);sampleRanger(v,1/30,w);
+  const point=v.hitPose.joints[J[joint]];
+  const dx=point.x-feet.x,dy=point.y-feet.y-stanceMuzzleHeight(feet),dz=point.z-feet.z;
+  const input={aimYaw:Math.atan2(dx,-dz),aimPitch:Math.atan2(dy,Math.hypot(dx,dz))};
+  fire(w,p,input,100,players,[]);advanceMelee(w,p,104,players,[]);
+  assert.equal(p.meleeSwing.victim,v.id);assert.equal(p.meleeSwing.hitPart,expected);
+  if(expected==='torso'){
+    assert.equal(v.life.lostParts,undefined);assert.equal(p.meleeSwing.severed,undefined);
+  }else{
+    assert.equal(p.meleeSwing.severed,true);
+    const {tick,x,y,z}=v.life.lostParts[expected];
+    assert.equal(tick,104);assert.deepEqual({x,y,z},p.meleeSwing.contact);
+    fire(w,p,input,120,players,[]);advanceMelee(w,p,124,players,[]);
+    assert.equal(p.meleeSwing.severed,undefined,'an already detached limb cannot detach twice');
+    assert.equal(v.life.lostParts[expected].tick,104);
+  }
+}
+console.log('PASS',CITY?'Brickell':'Outpost','arcade melee input, range, facing, obstruction, holster, health/score and posed sword contacts');
