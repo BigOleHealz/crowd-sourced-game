@@ -27,3 +27,24 @@ use(c,{slot:station.slot},10);assert.equal(c.slotResult.reels.length,3);
 const first=c.slotResult;use(c,{slot:station.slot},11);assert.equal(c.slotResult,first);
 c.state.x+=10;use(c,{slot:station.slot},100);assert.equal(c.slotResult,first);
 console.log('PASS guest keys, shared lift occupancy, public hotel stops, local practice slots and cooldown.');
+
+// Check the height index against the physical geometry around real edges.
+const {grandTopAt,resortLevels}=await import('../public/grand-resort-layout.js');
+const {inside}=await import('../public/palma-site.js');
+const parts=resortLevels.flatMap(l=>l.parts);
+const brokenPanes=Object.fromEntries(parts.filter(p=>p.paneId).map(p=>[p.paneId,true]));
+for(let i=0;i<parts.length;i+=23){
+  const subject=parts[i],x=subject.x+subject.w/2,z=subject.z;
+  const doors=i%2?{brokenPanes}:undefined;
+  for(const probe of [subject.base-.00100001,subject.base-.001,subject.base+subject.h,Infinity]){
+    const pad=i%3?.32:0;
+    let expected=-Infinity;
+    for(const p of parts){
+      if(probe<p.base-.001 || doors?.brokenPanes?.[p.paneId])continue;
+      const radius=['slab','tread','poolBed'].includes(p.kind)?0:pad;
+      if(inside(p,x,z,radius))expected=Math.max(expected,p.base+p.h);
+    }
+    assert.equal(grandTopAt(x,z,pad,probe,doors),expected);
+  }
+}
+console.log('PASS indexed resort surfaces against all floors, including broken glazing and slab edges.');

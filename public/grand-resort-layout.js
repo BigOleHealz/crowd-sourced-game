@@ -261,6 +261,17 @@ for(const l of resortLevels)for(const p of l.parts){
       const k=key(i,j);if(!cells.has(k))cells.set(k,[]);cells.get(k).push(p);
     }
 }
+// Walking and sight rays ask for the highest reachable surface at one point.
+// Floor bases exclude everything upstairs; the cumulative tops let a hit
+// exclude lower floors even when a tall part spans several storeys.
+const heightCells=new Map();
+for(const [k,parts] of cells){
+  const byBase=[...parts].sort((a,b)=>a.base-b.base);
+  const highest=new Float64Array(byBase.length);
+  let top=-Infinity;
+  for(let i=0;i<byBase.length;i++)highest[i]=top=Math.max(top,byBase[i].base+byBase[i].h);
+  heightCells.set(k,{byBase,highest});
+}
 // Bounds limit a sweep to the affected structural bays, including raised hotel windows.
 export function visitResortSolids(a,d,broken,visit){
   if(Math.max(a.x,a.x+d.x)<-90 || Math.min(a.x,a.x+d.x)>-8 ||
@@ -277,10 +288,20 @@ export function visitResortSolids(a,d,broken,visit){
 export function grandTopAt(x,z,pad,probe,doors){
   let top=-Infinity;
   for(let i=Math.floor((x-pad)/6);i<=Math.floor((x+pad)/6);i++)
-    for(let j=Math.floor((z-pad)/6);j<=Math.floor((z+pad)/6);j++)
-      for(const p of cells.get(key(i,j))??[]){
-        if(doors?.brokenPanes?.[p.paneId])continue;
-        if(probe>=p.base-.001 && inside(p,x,z,p.kind==='slab'||p.kind==='tread'||p.kind==='poolBed'?0:pad))top=Math.max(top,p.base+p.h);
+    for(let j=Math.floor((z-pad)/6);j<=Math.floor((z+pad)/6);j++){
+      const cell=heightCells.get(key(i,j));
+      if(!cell)continue;
+      const {byBase,highest}=cell;
+      let lo=0,hi=byBase.length;
+      while(lo<hi){
+        const mid=(lo+hi)>>>1;
+        if(probe>=byBase[mid].base-.001)lo=mid+1;else hi=mid;
       }
+      for(let k=lo-1;k>=0 && highest[k]>top;k--){
+        const p=byBase[k];
+        if(doors?.brokenPanes?.[p.paneId])continue;
+        if(inside(p,x,z,p.kind==='slab'||p.kind==='tread'||p.kind==='poolBed'?0:pad))top=Math.max(top,p.base+p.h);
+      }
+    }
   return top;
 }
