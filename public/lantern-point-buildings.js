@@ -1,4 +1,6 @@
 import {furnishLido} from './lido-house.js';
+import {footprint,estatePoolHoles,poolTreadHeight} from './swimming-pools.js';
+import {verges} from './waterfront-roads.js';
 import {addEstateSafes} from './estate-safe-view.js';
 import {estateCollection} from './estate-collection.js';
 import {breezeMaterial,addClubBurgees} from './waterfront-breeze.js';
@@ -41,9 +43,13 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     box(teak,x,y-edge/2-.023,z,w-.24,.053,d-.24);
   }
   function deck(x,z,w,d,c=cream){
-    box(c,x,.034,z,w,.063,d);
-    for(let u=-w/2+1.5;u<w/2-.2;u+=1.5)box(0xc3bba8,x+u,.068,z,.018,.009,d);
-    for(let v=-d/2+2.5;v<d/2-.2;v+=2.5)box(0xc3bba8,x,.068,z+v,w,.009,.018);
+    for(const piece of verges(footprint({x,z,w,d}),estatePoolHoles)){
+      const cx=(piece.west+piece.east)/2,cz=(piece.south+piece.north)/2;
+      const width=piece.east-piece.west,depth=piece.south-piece.north;
+      box(c,cx,.034,cz,width,.063,depth);
+      for(let u=piece.west+1.5;u<piece.east-.2;u+=1.5)box(0xc3bba8,u,.068,cz,.018,.009,depth);
+      for(let v=piece.north+2.5;v<piece.south-.2;v+=2.5)box(0xc3bba8,cx,.068,v,width,.009,.018);
+    }
   }
   // Freestanding panes show the actual shaded floor, curtains and furnishings
   // behind them, with an inexpensive reflection of the Brickell skyline.
@@ -200,12 +206,26 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   for(const p of pools){
     const {x,z,w,d}=p;
     if(p.reflecting)deck(x,z,w+2.6,d+2.3);
-    box(limestone,x,.108,z,w+.48,.11,d+.48);
-    box(0x408781,x,.164,z,w+.05,.025,d+.05);
+    const bottom=p.waterY-p.depth-floor,wallH=-bottom;
+    box(0x55998e,x,bottom-.055,z,w,.11,d);
+    for(const side of [-1,1]){
+      box(0x75b7ad,x+side*(w/2+.035),bottom+wallH/2,z,.07,wallH,d);
+      box(0x75b7ad,x,bottom+wallH/2,z+side*(d/2+.035),w+.14,wallH,.07);
+      box(limestone,x+side*(w/2+.11),.021,z,.22,.09,d+.44);
+      box(limestone,x,.021,z+side*(d/2+.11),w,.09,.22);
+      box(0x277c80,x+side*w/2,-.13,z,.025,.075,d);
+      box(0x277c80,x,-.13,z+side*d/2,w,.075,.025);
+    }
+    for(let i=0;i<p.steps;i++){
+      const west=p.entry==='west',far=(i+.5)*p.run,height=poolTreadHeight(p,i)-floor-bottom;
+      const cx=west?x-w/2+far:x,cz=west?z:z+d/2-far;
+      box(0x8dcac0,cx,bottom+height/2,cz,west?p.run:w,height,west?d:p.run);
+      box(0x548781,west?cx+p.run/2-.02:cx,bottom+height+.002,west?cz:cz-p.run/2+.02,west?.04:w,.005,west?d:.04);
+    }
     const uv=ripples.attributes.uv.clone();
     for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*w/4,uv.getY(i)*d/4);
     ripples.setAttribute('batchUv',uv);
-    water.add(ripples,p.color,x,floor+.185,z,w,1,d);
+    water.add(ripples,p.color,x,p.waterY,z,w,1,d);
     if(!p.reflecting){
       const edge=x+w*.5;
       for(const offset of [-.30,.30]){
@@ -216,6 +236,7 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
     }
   }
   // Two folded bronze sails terminate the axial view of the west parterre.
+  cyl(0x627d77,-25,-.73,-443,1.48,1.70);
   cyl(0xb6ac96,-25,.29,-443,1.61,.37);
   for(const [color,pts] of [[0xb09462,[[-25.6,.44,-443.8],[-25.14,3.85,-443.5],[-24.8,.44,-442.3]]],
     [0x4e7a73,[[-25.3,.46,-443.7],[-24.45,3.12,-442.85],[-24.22,.46,-442.0]]]]){
@@ -276,7 +297,7 @@ export function addLanternBuildings(scene,Batch,sky,refreshShadows){
   const trimMesh=main.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));trimMesh.userData.impactSurface='solid';
   const stoneMesh=stone.mesh(scene,new THREE.MeshStandardMaterial({map:stoneMap,vertexColors:true,roughness:.84}));stoneMesh.userData.impactSurface='solid';
   const updateGlass=panes.bind(glass.mesh(scene,alpineGlass(sky,{transparent:true,opacity:.62,depthWrite:false,side:THREE.DoubleSide}),false));
-  water.mesh(scene,new THREE.MeshPhongMaterial({map:waterMap,vertexColors:true,shininess:90,specular:0xa6cac0}),false);
+  water.mesh(scene,new THREE.MeshPhongMaterial({map:waterMap,vertexColors:true,shininess:90,specular:0xa6cac0,transparent:true,opacity:.46,depthWrite:false}),false);
   for(const g of [cube,plane,drum,sphere,pot,ripples])g.dispose();
   const updateSafes=addEstateSafes(scene,Batch);
   const updateCollection=collection.finish();

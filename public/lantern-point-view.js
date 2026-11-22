@@ -1,3 +1,4 @@
+import {estatePoolHoles} from './swimming-pools.js';
 import {addMarinaDocks} from './marina-dock-view.js';
 import * as THREE from 'three';
 import {verges} from './waterfront-roads.js';
@@ -7,7 +8,7 @@ export function addLanternPoint(scene,solids,ground,patch,posts) {
   const box=new THREE.BoxGeometry(),post=new THREE.CylinderGeometry(.5,.5,1,12);
   addMarinaDocks(scene,solids);
   const paved=[];
-  for(const strip of lanternLand){
+  for(const strip of lanternLand.flatMap(r=>verges(r,estatePoolHoles))){
     const [x,,z,w,d]=patch(strip,.8);
     solids.add(box,0x9e9786,x,-.42,z,w,2.20,d);
     for(const lot of verges(strip,lanternRoads)){
@@ -17,7 +18,7 @@ export function addLanternPoint(scene,solids,ground,patch,posts) {
     }
   }
   ground('pavers',paved.map(l=>patch(l,.80)),3);
-  ground('lawn',gardens.map(l=>patch(l,.806)),2.8);
+  ground('lawn',gardens.flatMap(r=>verges(r,estatePoolHoles)).map(l=>patch(l,.806)),2.8);
   const paint=(x,z,w,d,tint)=>solids.add(box,tint,x,.715,z,w,.012,d);
   for(const x of [-49,0,49]){
     const end=x===0?-352:-370;

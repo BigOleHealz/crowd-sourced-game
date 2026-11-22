@@ -92,7 +92,7 @@ import { flightRounds } from './round-view.js';
 import { missileCloud } from './missile-cloud.js';
 import { surfacePicker } from './surface-hits.js';
 import { buildStacks, buildOutpost, meadow } from './outpost.js';
-import { CITY, MAP, BREAKABLES, HELIPAD, waterBlend, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
+import { CITY, MAP, BREAKABLES, HELIPAD, waterBlend, waterSurfaceAt, stanceDrop, stanceMuzzleHeight, terrainHeight, sceneryHeight, groundHeight, buildingTopAt } from './world.js';
 
 // Static scenery gets merged by material so a forest costs the same number of
 // draw calls as a single tree. All placements use the simulation's map.
@@ -960,7 +960,7 @@ function updateSwimRipples(avatar,state) {
     if(beat!==avatar.ripples.beat) {
       const ring=rings[beat%2];
       ring.userData.beat=beat;
-      ring.position.set(state.x,MAP.waterY+.019,state.z);
+      ring.position.set(state.x,waterSurfaceAt(state.x,state.z,state.y)+.019,state.z);
       avatar.ripples.beat=beat;
     }
     for(const ring of rings) {
@@ -1484,7 +1484,8 @@ export function createScene(canvas) {
     footBoom=onFoot ? Math.min(clearance,THREE.MathUtils.damp(footBoom??clearance,clearance,nearInterior?5.5:10,dt)) : null;
     const distance=roverBoom ?? footBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
-    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<MAP.waterY) camera.position.y=Math.max(camera.position.y,MAP.waterY+.27);
+    const cameraWater=waterSurfaceAt(camera.position.x,camera.position.z,camera.position.y);
+    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<cameraWater)camera.position.y=Math.max(camera.position.y,cameraWater+.27);
     // At steep angles transition from the ground-limited chase boom to an
     // unobstructed vertical sightline directly above the person or station.
     const overhead=flyingJet?0:THREE.MathUtils.smoothstep(pitch,.79,zenith);

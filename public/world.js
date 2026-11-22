@@ -1,5 +1,6 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {garageSurface} from './resort-parking.js';
+import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
@@ -262,6 +263,8 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(villa!==undefined)return villa<=limit+.001 ? villa : cityGround(x,z,probe,doors);
     const palace=mareFloor(x,z,probe);
     if(Number.isFinite(palace))return palace;
+    const pool=swimmingPoolAt(x,z,probe);
+    if(pool)return poolFloorAt(pool,x,z);
     const interior=furnishedSupport(x,z,probe,doors);
     if(interior!==undefined)return interior;
     if(galleryRoomAt(x,galleryFloor,z))return galleryFloor;
@@ -320,11 +323,13 @@ export function blocked(x, y, z, hp, doors, height=1.7) {
 
 // Weight only grounded characters in the shallows. Falling, climbing and
 // deck occupants keep their own movement until the buoyancy model takes over.
+export function waterSurfaceAt(x,z,feetY){
+  return CITY ? (poolSurface(x,feetY,z)??swimmingPoolAt(x,z,feetY)?.waterY??MAP.waterY) : MAP.waterY;
+}
 export function waterBlend(state){
   if(state.swimming)return 1;
   if(!state.grounded || state.onYacht || state.climb || state.parachute)return 0;
-  const water=CITY?poolSurface(state.x,state.y,state.z)??MAP.waterY:MAP.waterY;
-  return smoothstep(.08,.72,water-state.y);
+  return smoothstep(.08,.72,waterSurfaceAt(state.x,state.z,state.y)-state.y);
 }
 
 export function stanceBodyHeight(stance) {
@@ -412,7 +417,7 @@ export function stepPlayer(state, input, dt, hp, world) {
   let floor = Math.max(groundHeight(x, z,y+height,doors),contact.floor);
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top) floor = Math.max(floor,top);
-  const draft=.72, water=CITY?poolSurface(x,y,z)??MAP.waterY:MAP.waterY, floatY=water-draft;
+  const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
   const deep=floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
     // Damp the last part of a fall on entry, then converge to surface height.

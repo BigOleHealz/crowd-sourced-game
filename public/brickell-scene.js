@@ -1,4 +1,5 @@
 import {addResortParking} from './resort-parking-view.js';
+import {estatePoolHoles} from './swimming-pools.js';
 import {addOfficeWindows} from './office-window-view.js';
 import {bankSite} from './bank-site.js';
 import {addFuelStop} from './pelican-fuel-view.js';
@@ -64,10 +65,10 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     return mesh;
   }
   const {west,east,north,south}=coast, w=east-west,d=south-north,cx=(west+east)/2,cz=(north+south)/2;
-  const bay=ground('water',[[0,MAP.waterY,-102,1500,1600]],14,{roughness:.30});
-  lightBaySurface(bay.material,panorama);
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
-  ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.map(r=>patch(r,.70))],5);
+  const bay=ground('water',verges({west:-750,east:750,north:-902,south:698},estatePoolHoles).map(r=>patch(r,MAP.waterY)),14,{roughness:.30});
+  lightBaySurface(bay.material,panorama);
+  ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.flatMap(r=>verges(r,estatePoolHoles)).map(r=>patch(r,.70))],5);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
   for(const lot of [...lots,...lawns]) {
     const [x,,z,w,d]=patch(lot,.80);
