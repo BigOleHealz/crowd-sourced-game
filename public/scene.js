@@ -14,7 +14,7 @@ import {carriedEquipment,scopedEyepiece} from './carried-equipment.js';
 import {inClub} from './club-lucero.js';
 import {bankPresentation} from './bank-presentation.js';
 import {buildingInteriorView} from './building-interior-view.js';
-import {roomAtFeet} from './building-interiors.js';
+import {roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
@@ -1280,7 +1280,7 @@ export function createScene(canvas) {
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
-    updateInteriors(local,world.doors,dt);
+    updateInteriors(local,world.doors,dt,remotes);
     const bankVisual=CITY?bankPresentation(world.bank,world.simTick??0,reducedMotion?.matches):null;
     updateDoors?.(world.doors,dt,local,remotes,world.simTick,bankVisual);
     updateRuralGlass?.(world.doors?.brokenPanes);
@@ -1568,6 +1568,11 @@ export function createScene(canvas) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       avatars.get(local.id).root.visible = false;
+    }
+    if(ridingHotelShaft(local)){
+      camera.position.set(local.x,local.y+1.59,local.z);
+      camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
+      avatars.get(local.id).root.visible=false;
     }
     if(local.clubSince!=null){
       // From the booth the camera sits at eye height. Spectators still see

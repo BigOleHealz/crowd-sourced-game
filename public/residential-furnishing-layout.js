@@ -10,12 +10,14 @@ const profiles={
   lodge:{timber:0xa77c59,stone:0xcdc4ae,cloth:0xe1cfaf,accent:0x7f563d,trim:0x8a7151,rug:0x9c8771,art:'harbor'},
   cabin:{timber:0x995f47,stone:0xd7cbb5,cloth:0xdfcba9,accent:0x586b55,trim:0x8d764c,rug:0x8c9b79,art:'botanical'},
 };
+export const grandHotelPalette=n=>n>=17?profiles.sand:n%2?profiles.city:profiles.deco;
 const island=['blue','sand','coral','sage'];
 
 export function residentialProfile(plan){
   if(plan.home?.startsWith('harbor-'))return profiles[island[Number(plan.home.slice(7))]];
   const b=plan.b;
   if(plan.type==='outpost' && !b.garage)return profiles[plan.id===0?'lodge':'cabin'];
+  if(b.resortWing)return profiles[b.towerId===12?'city':'deco'];
   if(b.housing && hasApartmentBalconies(b.facade) && plan.name!=='Hotel Maravela')return profiles[b.facade===0?'city':'deco'];
 }
 

@@ -16,10 +16,10 @@ import {clearRoadExit,driveRover,interactRover,stopRover} from './rover.js';
 import {roadContact} from './road-contact.js';
 
 const path=new WeakMap();
-// Each display car can pull forward into the street from its own building's side.
+// Angled bays outside the fountain circuit give each display car a clear forward exit.
 const valetBays=[
-  ['falco',-65.5,67.25,0,200],
-  ['veloce',-45.5,56.35,Math.PI/2,195],
+  ['falco',-69.6,96.75,.28,200],
+  ['veloce',-45.10,96.75,-.28,195],
 ];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 

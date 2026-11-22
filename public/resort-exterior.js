@@ -1,3 +1,4 @@
+import {addPalaceArrival} from './palace-arrival-view.js';
 import {centaurFountain} from './centaur-fountain-view.js';
 import * as THREE from 'three';
 import {grandResortTower,grandRooms} from './grand-resort-view.js';
@@ -478,6 +479,7 @@ function wing(parts, {x, z, w, d, roof, sign, accent}) {
 }
 
 export function resortExterior(scene, Batch) {
+  addPalaceArrival(scene,Batch);
   const cube = new THREE.BoxGeometry(), plane = new THREE.PlaneGeometry();
   const round = new THREE.CylinderGeometry(.5, .5, 1, 16);
   const materials = {

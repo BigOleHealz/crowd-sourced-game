@@ -14,7 +14,7 @@ export const resortConversations={
     greeting:'Evening. I’m Mateus, on valet tonight. You can take either of the display cars for a spin.',
     topics:[
       ['Which one would you drive?','The green Lamborghini. You sit so low you see your own reflection in the puddles. The red Ferrari sounds better off the line, though.'],
-      ['Where are the cars?','The Lamborghini’s across the street by the suites. You’ll find the Ferrari beside the fountain.'],
+      ['Where are the cars?','Take the avenue south to the raised fountain court. The Lamborghini and Ferrari are parked on either side of the seawall.'],
       ['Where’s the lounge?','Through the doors and to your left. There’s a sofa along the west wall if you need a break from the floor.'],
     ],
   },

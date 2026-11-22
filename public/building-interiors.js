@@ -1,6 +1,8 @@
+import {resortWingShaft,shaftContains} from './hotel-lifts.js';
 import {lidoHouse} from './lido-house.js';
-import {GRAND_STEP,grandLift,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
+import {GRAND_STEP,grandShaft,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
 import {spiralForHouse,outsideWell,spiralWell,spiralSupport} from './residential-spirals.js';
+import {courtRoom,promenades,westArcades} from './palace-arrival.js';
 import {inWaterfrontSalon,wingGallery,wingPlan,wingCeiling} from './waterfront-wing.js';
 import {casinoHall,casinoName,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
@@ -35,6 +37,10 @@ function door(p,x,y,z,axis,width,label,initial=true,level=-1){
 }
 function panel(p,x,y,z,angle,exitX,exitZ){
   p.panels.push({x,y,z,angle,exitX,exitZ,index:p.panels.length,p});
+}
+function shaftLanding(p,y){
+  const shaft=p.shaft;
+  panel(p,shaft.frontX,y,shaft.frontZ,shaft.angle,shaft.exitX,shaft.exitZ);
 }
 function floorPlan(p,y,height,n){
   const {b}=p,level={p,n,y,height,parts:[],rooms:[],doors:[]},residential=residentialProfile(p);
@@ -73,7 +79,8 @@ function floorPlan(p,y,height,n){
     });
   }
   p.levels.push(level);
-  if(!p.stair)panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
+  if(p.shaft)shaftLanding(p,y);
+  else if(!p.stair)panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
 }
 export function initializeBuildingInteriors(buildings,city,terrain){
   if(interiorPlans.length)return;
@@ -89,7 +96,8 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       if(!b.housing && !b.finish)continue;
       p.stair=spiralForHouse(b);
       const lobbyZ=b.z-b.d/2+Math.min(3.36,b.d*.48);
-      if(!p.stair)panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
+      if(b.resortWing){p.shaft=resortWingShaft(b);shaftLanding(p,.824);}
+      else if(!p.stair)panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
       const {floors,story}=b.finish?{floors:1,story:Math.max(2.50,b.base+b.eave-floorY)}:towerStories(b,3.9);
       for(let n=0;n<floors;n++)floorPlan(p,floorY+n*story,story,n);
     }else{
@@ -129,6 +137,7 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     [39.5,.87,-441,'z',2.6,'Dining entrance'],[32.6,4.9,-439.5,'x',2.6,'Library terrace'],[30.05,8.7,-444.9,'z',2.6,'Suite terrace'],
     [31.2,.87,-442.32,'z',3.1,'Kitchen'],[28.2,4.9,-444.6,'z',3.85,'Writing room'],[18.25,8.7,-445.25,'z',2.82,'Dressing room']])door(mare,x,y,z,axis,w,label);
 
+  for(const [i,r] of [...promenades,...westArcades].entries())plan(140+i,{x:(r.west+r.east)/2,z:(r.north+r.south)/2,w:r.east-r.west,d:r.south-r.north},'palace-arrival',r.name);
   plan(26,wingPlan,'waterfront-salon','Aurora Waterfront Salon');
   // Append rear controls so existing saved door bits keep their original IDs.
   for(const g of galleryPlans)if(g.passage){
@@ -139,9 +148,9 @@ export function initializeBuildingInteriors(buildings,city,terrain){
   door(resort,casinoEntrance.x,casinoHall.floor,casinoEntrance.z,'x',4,'Casino entrance');
   door(resort,casinoSideDoor.x,casinoHall.floor,casinoSideDoor.z,'z',3,'Casino east entrance');
   door(resort,grandLobbyOpening.x,casinoHall.floor,grandLobbyOpening.z,'z',grandLobbyOpening.width,'Casino west entrance');
+  resort.shaft=grandShaft;
   resort.grandDoors=resortLevels.map(l=>{
-    const {x,z,exitX,exitZ}=grandLift;
-    panel(resort,x,l.y,z,0,exitX,exitZ);
+    shaftLanding(resort,l.y);
     resort.panels.at(-1).label=(l.n+1)+' · '+l.name;
     if(l.n<5 || l.n===17 || l.n===19)return [];
     const rooms=l.n===18?skyRooms(l.n).filter(r=>r.side):skyRooms(l.n);
@@ -163,6 +172,10 @@ export function operableDoorAt(p,feet,range=1.57){
 function intact(p,doors,x,y,z){
   return !doors?.beachWood?.[p.wood] && !(p.b.towerId!=null && doors?.collapsedTowers?.includes(p.b.towerId)) &&
     (!p.home || furnishingSupported(p.home,x,y,z,doors));
+}
+export function ridingHotelShaft(feet){
+  if(!feet?.liftTravel)return;
+  return near(feet.x,feet.z).find(p=>p.shaft && shaftContains(p.shaft,feet.x,feet.z,.83))?.shaft;
 }
 export function buildingAction(feet,state){
   if(!feet?.grounded)return null;
@@ -197,6 +210,9 @@ export function roomDoorTop(x,z,pad,probe,doors){
   let top=-Infinity;
   for(const p of near(x,z)){
     if(!intact(p,doors,x,probe,z))continue;
+    if(p.shaft && probe>=p.panels[0].y-.04 && probe<p.panels.at(-1).y+2.65 && shaftContains(p.shaft,x,z,pad)){
+      top=Math.max(top,p.panels.at(-1).y+2.65);
+    }
     const extra=p.grandDoors?.[Math.floor((probe-.80)/GRAND_STEP)];
     for(const d of extra?[...p.entrances,...extra]:p.entrances){
       if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
@@ -252,6 +268,7 @@ export function furnishedSupport(x,z,probe,doors){
 export function roomAtFeet(feet,doors){
   for(const p of near(feet.x,feet.z)){
     if(!isInside(p,feet.x,feet.z) || !intact(p,doors,feet.x,feet.y,feet.z))continue;
+    if(p.type==='palace-arrival' && courtRoom(feet.x,feet.y,feet.z))return {p,label:p.name};
     if(p.type==='waterfront-salon' && inWaterfrontSalon(feet.x,feet.y,feet.z)){
       return {p,label:feet.y>=wingGallery-.08?p.name+' · Gallery':p.name};
     }
@@ -276,6 +293,7 @@ export function approachRamp(x,z){
 }
 export function interiorCeiling(feet,doors){
   const room=roomAtFeet(feet,doors);
+  if(room?.p.type==='palace-arrival')return room.p.name==='Aurora Colonnade'?5.95:8.48;
   if(room?.p.type==='waterfront-salon')return wingCeiling(feet.y,feet.z);
   return room?.l ? room.l.y+room.l.height-.14 : room?.p.type==='casino' ? resortRoofAbove(feet.x,feet.z,room.casinoStorey) : room?.p.type==='villa-lido' ? 4.53 : room?.p.type==='bank' ? 3.77 : room?.p.type==='outpost' ? room.p.b.base+room.p.b.eave-.12 : Infinity;
 }

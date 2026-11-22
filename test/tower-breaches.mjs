@@ -39,7 +39,11 @@ for(const b of MAP.buildings.filter(b=>b.housing)){
   for(let line=0;line<4;line++){
     const z=b.z+b.d*((line+.5)/4-.5);
     for(let col=0;col<4;col++){
-      w.missiles.push({id:100+line*4+col,x:b.x-b.w/2-2.8,y:height,z,source:'rover',shooter:9,yaw:Math.PI/2,pitch:0,remaining:60});
+      // The real hotel lift crosses the north row of both resort towers. Each facade
+      // remains reachable from its adjoining street without firing through the lift.
+      const east=[11,12].includes(b.towerId) && line===0 && col>=2;
+      const side=east?1:-1;
+      w.missiles.push({id:100+line*4+col,x:b.x+side*(b.w/2+2.8),y:height,z,source:'rover',shooter:9,yaw:-side*Math.PI/2,pitch:0,remaining:60});
       for(let tick=0;w.missiles.length && tick<60;tick++)advanceMissiles(w,new Map(),[],tick);
       if(line*4+col<15)assert(!w.doors.collapsedTowers?.includes(b.towerId),'partial floor still stands');
     }

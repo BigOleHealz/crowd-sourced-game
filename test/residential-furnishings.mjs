@@ -27,7 +27,8 @@ if(!process.env.RESIDENTIAL_TEST_MAP){
   if(CITY){
     const residential=interiorPlans.filter(p=>p.levels[0]?.residential);
     assert.equal(residential.filter(p=>p.home?.startsWith('harbor-')).length,4);
-    assert.equal(residential.filter(p=>!p.home).length,8);
+    assert.equal(residential.filter(p=>!p.home).length,9);
+    assert.equal(residential.filter(p=>p.b.resortWing).length,3);
     assert(!interiorPlans.find(p=>p.name==='Hotel Maravela').levels[0].residential);
     assert.equal(new Set(residential.filter(p=>p.home).map(p=>p.levels[0].residential.profile)).size,4);
     for(const p of residential)for(const l of p.levels){
