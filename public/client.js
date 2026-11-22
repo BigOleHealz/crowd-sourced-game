@@ -1,5 +1,6 @@
 import {footStickPace} from './foot-stick.js';
 import {platformReport} from './platform-judges.js';
+import {marinaPlatform} from './marina-platform.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
@@ -1060,6 +1061,12 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
       ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
+    if(Math.hypot(player.x-marinaPlatform.x,player.z-marinaPlatform.near)<102){
+      const px=sx(marinaPlatform.x),py=sy(marinaPlatform.near);
+      ctx.fillStyle='#e9c978';ctx.fillRect(px-1.5,py-3,3,9);
+      ctx.save();ctx.font='bold 9px sans-serif';ctx.textAlign='right';ctx.strokeStyle='#203e46';ctx.lineWidth=2;
+      ctx.strokeText('10m Dive',px-3,py);ctx.fillText('10m Dive',px-3,py);ctx.restore();
+    }
     if(racing){
       const next=vitals.race?.phase==='racing'?sprintGates[vitals.race.next]:sprintStart;
       ctx.fillStyle='#6affdc';ctx.beginPath();ctx.arc(sx(next.x),sy(next.z),4,0,Math.PI*2);ctx.fill();

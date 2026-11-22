@@ -1,5 +1,6 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {garageSurface} from './resort-parking.js';
+import {towerFloor,towerRail} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
 import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
@@ -270,6 +271,8 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(pile)return rubbleHeight(pile,x,z,doors);
     const limit=estateSupportLimit(doors,x,z);
     const probe=Math.min(limit,maxBottom);
+    const tower=towerFloor(x,z,probe);
+    if(tower!==undefined)return tower;
     const board=boardAt(x,z);
     if(board && probe>=boardHeight(board,x)-.01)return boardHeight(board,x);
     const villa=casaFloor(x,z,probe);
@@ -325,6 +328,7 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,ro
 }
 
 export function blocked(x, y, z, hp, doors, height=1.7) {
+  if(CITY && towerRail(x,y,z))return true;
   const floor=groundHeight(x,z,y+1.7,doors);
   if (floor > y + 0.3) return true;
   const bridge = MAP.bridge;

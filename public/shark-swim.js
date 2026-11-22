@@ -1,5 +1,6 @@
 import {floatingBody} from './marine-float.js';
 import {brickellMap,cityGround} from './brickell-map.js';
+import {inDivingLane} from './marina-platform.js';
 import {sharkDefeatPose} from './shark-defeat.js';
 
 const water=brickellMap.waterY;
@@ -15,6 +16,7 @@ export const sharkSizes=[.88,1.16,1.03,.97,1.29];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
 
 function openWater(x,z,padding,edgePadding=padding){
+  if(inDivingLane(x,z))return false;
   if(x-edgePadding<brickellMap.westBound || x+edgePadding>brickellMap.bounds ||
      z-edgePadding<brickellMap.northBound || z+edgePadding>brickellMap.bounds)return false;
   return water-cityGround(x,z)>=deep && water-cityGround(x-padding,z)>=deep &&

@@ -695,7 +695,7 @@ function tick() {
       player.lastDive={...player.state.entryMark,tick:ticks};
       delete player.state.entryMark;
     }
-    if(player.state.dive){player.yaw=-Math.PI/2;player.sprint=player.moving=false;continue;}
+    if(player.state.dive){player.yaw=player.state.dive.kind==='platform'?0:-Math.PI/2;player.sprint=player.moving=false;continue;}
     if(falling.ride){
       const item=world.rides.find(r=>r.id===falling.ride.id);
       if(!player.state.ride)parkRide(world,player,true);

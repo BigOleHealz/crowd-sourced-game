@@ -241,7 +241,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
   }
   if(state.dive){
     const {angle}=diveMotion(state.dive);
-    avatar.root.rotation.y=Math.PI/2;
+    avatar.root.rotation.y=state.dive.kind==='platform'?0:Math.PI/2;
     avatar.body.rotation.set(angle,0,0);
     // Rotate around the hips so the athlete stays over the physical trajectory.
     avatar.body.position.y+=.83*(1-Math.cos(angle));
