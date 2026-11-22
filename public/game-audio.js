@@ -16,7 +16,7 @@ import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 
-import {fatalBiteCalls,sharkDefeatSound} from './shark-defeat-audio.js';
+import {fatalBiteCalls,sharkDefeatSound,sharkStrikeWaterSound} from './shark-defeat-audio.js';
 import {dolphinCalls,dolphinSound} from './dolphin-audio.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
@@ -28,6 +28,7 @@ const shapes={
 function synth(context,name) {
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
+  if(name==='shark-strike-water')return sharkStrikeWaterSound(context);
   if(name==='shark-defeat')return sharkDefeatSound(context);
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
@@ -276,11 +277,16 @@ export function createGameAudio(button,slider,level) {
       for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
     }
     const impact=s=>burst('marine-impact',{x:s.hitX,y:s.hitY,z:s.hitZ},listener,yaw,.88,s.hitSeq);
+    marineBlastCalls(previousDolphins,world.dolphins,impact);
     marineBlastCalls(priorSharks,world.sharks,impact);
     marineBlastCalls(priorManatees,world.manatees,impact);
     priorSharks=world.sharks;priorManatees=world.manatees;
     fatalBiteCalls(previousSharkDefeats,world.sharkDefeats,world.simTick,listener,
-      event=>burst('shark-defeat',event,listener,yaw,.86,event.tick+event.sharkIndex));
+      event=>{
+        const variant=event.tick+event.sharkIndex;
+        burst('shark-defeat',event,listener,yaw,.86,variant);
+        burst('shark-strike-water',event,listener,yaw,.51,variant);
+      });
     previousSharkDefeats=world.sharkDefeats;
     dolphinCalls(previousDolphins,world.dolphins,listener,(kind,point,gain,id)=>
       burst('dolphin/'+kind,point,listener,yaw,gain,id));

@@ -1,3 +1,5 @@
+import {dolphinSizes} from './dolphin-swim.js';
+import {aquaticImpactView} from './aquatic-impact-view.js';
 import * as THREE from 'three';
 import {manateeMaterial} from './manatee-model.js';
 
@@ -99,7 +101,7 @@ function dolphinSkin(water,clock,stroke){
 }
 
 export function dolphinView(scene,water){
-  const clock={value:0},models=[];
+  const clock={value:0},models=[],impacts=aquaticImpactView(scene,water,dolphinSizes);
   let nearShape,farShape,ring;
   function model(){
     nearShape??=dolphinGeometry(true);farShape??=dolphinGeometry(false);
@@ -113,6 +115,7 @@ export function dolphinView(scene,water){
   }
   const approach=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
   return (states,local,tick,dt)=>{
+    impacts(states,local,dt);
     clock.value=(tick??0)/30;
     const count=Math.max(models.length,states?.length??0),k=-Math.expm1(-17*dt);
     const nearest=(states??[]).map((p,i)=>({i,d:Math.hypot(p.x-local.x,p.y-local.y,p.z-local.z)}))
@@ -129,7 +132,7 @@ export function dolphinView(scene,water){
       body.position.x=THREE.MathUtils.lerp(body.position.x,p.x,alpha);
       body.position.y=THREE.MathUtils.lerp(body.position.y,p.y,alpha);
       body.position.z=THREE.MathUtils.lerp(body.position.z,p.z,alpha);
-      body.rotation.set(approach(body.rotation.x,p.pitch,alpha),approach(body.rotation.y,-p.yaw,alpha),
+      body.rotation.set(approach(body.rotation.x,p.hp===0?p.pitch*Math.exp(-p.ageSinceHit):p.pitch,alpha),approach(body.rotation.y,-p.yaw,alpha),
         approach(body.rotation.z,p.roll,alpha),'YXZ');
       body.scale.setScalar(p.size);body.geometry=distance<(body.geometry===nearShape?21:18)?nearShape:farShape;
       stroke.value=approach(stroke.value,p.stroke,alpha);body.visible=true;

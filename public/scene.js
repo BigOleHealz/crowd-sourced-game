@@ -67,7 +67,7 @@ import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
-import {sharkDefeatPose,poseBittenSwimmer} from './shark-defeat.js';
+import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
@@ -716,7 +716,7 @@ function fieldEffects(scene) {
     }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
-    if(s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
+    if(s.hitKind==='dolphin' || s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
@@ -1084,6 +1084,7 @@ export function createScene(canvas) {
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
+  let framedBite=null,biteSide=1;
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1579,15 +1580,14 @@ export function createScene(canvas) {
     }
     if(localDefeat){
       const age=Math.max(0,(attackTick-localDefeat.tick)/30);
-      const victim=sharkDefeatPose(localDefeat,age);
-      const foreX=Math.sin(localDefeat.yaw),foreZ=-Math.cos(localDefeat.yaw);
-      const side=Math.cos(view.yaw-localDefeat.yaw)>=0 ? 1 : -1;
-      // Frame the crossing shark broadside and keep the struggle visible even
-      // when the defeated swimmer was sighting straight up or down.
-      const dive=THREE.MathUtils.smoothstep(age,1.25,2.35);
-      desired.set(victim.x-foreZ*3.7*side-foreX*.85,MAP.waterY+1.65-2.66*dive,victim.z+foreX*3.7*side-foreZ*.85);
-      camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.25));
-      camera.lookAt(victim.x,victim.y+.74,victim.z);
+      if(framedBite!==localDefeat.id){
+        framedBite=localDefeat.id;
+        biteSide=Math.cos(view.yaw-(localDefeat.towYaw??localDefeat.yaw))>=0?1:-1;
+      }
+      const shot=sharkDefeatCamera(localDefeat,age,biteSide,reducedMotion?.matches,MAP.waterY);
+      desired.set(shot.x,shot.y,shot.z);
+      camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.36));
+      camera.lookAt(shot.lookX,shot.lookY,shot.lookZ);
       avatars.get(local.id).root.visible=true;
     }
     if(world.casino?.player===local.id && !local.dead){
@@ -1596,7 +1596,7 @@ export function createScene(canvas) {
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
-    updateSharks?.(world.sharks,local,world.simTick,dt);
+    updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
     updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);

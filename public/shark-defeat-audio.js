@@ -50,6 +50,29 @@ export function sharkDefeatSound(context){
   return buffer;
 }
 
+// Surface slap, the water closing overhead, then the quieter churn of the tow.
+export function sharkStrikeWaterSound(context){
+  const rate=context.sampleRate,buffer=context.createBuffer(1,Math.ceil(rate*2.55),rate);
+  const data=buffer.getChannelData(0);
+  let seed=40839,wash=0,low=0;
+  const impacts=[[.030,.78,380],[.37,.48,270],[.77,.37,205],[1.26,.36,130],[1.81,.22,90]];
+  for(let i=0;i<data.length;i++){
+    const t=i/rate,noise=2*((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296)-1;
+    let body=0,air=0;
+    for(const [at,gain,hz] of impacts){
+      const age=t-at;if(age<0||age>.64)continue;
+      const env=(1-Math.exp(-age*115))*Math.exp(-age*7.5)*gain;
+      body+=env*Math.sin(tau*(48*age+1.5*(1-Math.exp(-age*17))));
+      air+=env*(hz/380);
+    }
+    wash+=(noise-wash)*(1-Math.exp(-tau*(1250-720*clamp(t/1.5))/rate));
+    low+=(noise-low)*(1-Math.exp(-tau*240/rate));
+    const bubbles=Math.max(0,Math.sin(t*33+Math.sin(t*13)*1.6));
+    data[i]=.83*Math.tanh(.76*body+2.1*air*wash+.72*low*bubbles*clamp((t-.79)/.35)*clamp((2.52-t)/.55));
+  }
+  return buffer;
+}
+
 export function fatalBiteCalls(previous,current,tick,listener,emit){
   if(!current?.length)return;
   for(const event of current){

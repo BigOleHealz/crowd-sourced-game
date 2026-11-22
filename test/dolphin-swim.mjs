@@ -43,10 +43,19 @@ for(const kind of ['patrol','launch','cruiser','motorYacht','superyacht']){
   assert.equal(breaths.size,2);
   assert.deepEqual(calls,new Set(['whistle','clicks']));
   const first=[...seen][0],point={x:first.x,y:first.y,z:first.z};
-  const previous=structuredClone(swimmers.state);
-  assert.equal(marineContact(world,{...point,y:point.y+2},{...point,y:point.y-2}),null);
-  hitMarineWildlife(world,first,point,25,0);hitMarineWildlife(world,null,point,500,5);
-  assert.deepEqual(swimmers.state,previous,'Shots and blasts leave dolphins swimming');
+  assert.equal(marineContact(world,{...point,y:point.y+2},{...point,y:point.y-2}).target,first);
+  hitMarineWildlife(world,first,point,25,0);
+  assert.equal(first.hp,first.maxHp-25);
+  assert.equal(first.hitSeq,1);
+  hitMarineWildlife(world,null,point,500,5);
+  assert.equal(first.hp,0);assert.equal(first.deathKind,'blast');assert.equal(first.bowId,null);
+  const {callSeq,x,z}=first;
+  for(let i=0;i<150;i++)swimmers.step(dt);
+  assert.equal(first.x,x);assert.equal(first.z,z);assert.equal(first.callSeq,callSeq);
+  assert.ok(Math.abs(first.y-water)<.16 && first.roll>3,'Settles at the surface');
+  for(let i=0;i<150*30 && !first.hp;i++)swimmers.step(dt);
+  assert.equal(first.hp,Math.round(120*first.size));assert.equal(first.deathKind,null);
+
 }
 for(const exit of ['stop','reverse','wreck','sling']){
   const boat={id:'local',x:62,z:24,yaw:0,speed:4};

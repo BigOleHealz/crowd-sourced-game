@@ -2,7 +2,10 @@ import {gullContact,damageGull} from './gull-flight.js';
 import {manateeContact,damageManatee} from './manatee-swim.js';
 import {sharkContact,damageShark} from './shark-swim.js';
 
+import {dolphinContact,damageDolphin} from './dolphin-swim.js';
+
 const swimmers=[
+  {kind:'dolphin',key:'dolphins',contact:dolphinContact,damage:damageDolphin},
   {kind:'shark',key:'sharks',contact:sharkContact,damage:damageShark},
   {kind:'manatee',key:'manatees',contact:manateeContact,damage:damageManatee},
 ];

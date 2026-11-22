@@ -132,3 +132,15 @@ for(const [x,z,dx,dz] of [[44,-6,1,0],[65,-211,1,0],[0,82,0,1],[-80,70,-1,0],
   assert(pose.x>=-94 && pose.x<=109 && pose.z>=-518 && pose.z<=109);
   assert.equal(victim.score.deaths,1);
 }
+
+const {sharkDefeatCamera}=await import('../public/shark-defeat.js');
+const quiet=sharkDefeatCamera(event,0,1,true,-.14);
+let prior=sharkDefeatCamera(event,0,1,false,-.14);
+for(let frame=1;frame<=90;frame++){
+  const age=frame/30;
+  assert.deepEqual(sharkDefeatCamera(event,age,1,true,-.14),quiet);
+  const shot=sharkDefeatCamera(event,age,1,false,-.14);
+  assert(Math.hypot(shot.x-prior.x,shot.z-prior.z)<.09 && Math.abs(shot.y-prior.y)<.11);
+  prior=shot;
+}
+assert(prior.y<-.14 && quiet.y>-.14);

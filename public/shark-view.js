@@ -46,6 +46,14 @@ function sharkGeometry(part){
     loft([[-1.70,.008,.009,.02],[-1.56,.142,.055,.044],[-1.32,.236,.124,.072],
       [-.98,.309,.251,.021],[-.55,.359,.328,.007],[-.07,.369,.349,0],[.38,.320,.296,.004],
       [.71,.237,.224,.008],[1.03,.141,.128,.01]],20);
+    // A recessed upper palette and scalloped tooth line remain visible when the hinged jaw opens.
+    const palate=new THREE.Color(0x592f36),tooth=new THREE.Color(0xe3d5bc);
+    loft([[-1.56,.064,.006,-.017],[-1.43,.151,.011,-.030],[-1.24,.206,.011,-.048],
+      [-1.10,.198,.012,-.062]],14,[0,0,0],palate);
+    for(const side of [-1,1])for(let i=0;i<6;i++){
+      const z=-1.48+i*.057,x=side*(.131+.061*Math.sin((i+.4)*.36)),y=-.029-i*.005;
+      fin([[x,y,z],[x-side*.007,y-.049,z+.024],[x,y,z+.047]],[x+side*.006,y-.012,z+.023],tooth);
+    }
     const dorsal=[[-.052,.29,-.45],[-.014,.77,-.05],[0,.79,.031],[.015,.51,.067],[.052,.26,.28]];
     fin(dorsal,[.069,.38,-.12]);
     for(const side of [-1,1]){
@@ -93,7 +101,7 @@ export function sharkView(scene,waterline){
     root.renderOrder=1;hull.add(body,tail);tail.position.z=1.02;scene.add(root);
     return {root,tail,jaw,grip};
   }
-  return (states,local,tick,dt)=>{
+  return (states,local,tick,dt,defeats)=>{
     impacts(states,local,dt);clock.value=(tick??0)/30;
     for(let i=0;i<sharkSizes.length;i++){
       const s=states?.[i];
@@ -107,6 +115,11 @@ export function sharkView(scene,waterline){
       }
       root.visible=true;
       const mix=-Math.expm1(-17*dt);
+      const event=s.phase==='feeding' && defeats?.find(e=>e.sharkIndex===i || e.arrivals?.some(p=>p.sharkIndex===i));
+      const contact=event && (event.sharkIndex===i ? event.tick : event.arrivals.find(p=>p.sharkIndex===i).tick);
+      const elapsed=event ? Math.max(0,(tick-contact)/30) : 0;
+      const recoil=event ? Math.sin(elapsed*9.7)*(.14+.28*Math.exp(-elapsed*1.8)) : 0;
+      grip.rotation.z+=(recoil-grip.rotation.z)*mix;
       const diveAngle=s.phase==='feeding' ? Math.max(-.58,Math.min(.22,(s.y-root.position.y)*4)) : 0;
       grip.rotation.x+=(diveAngle-grip.rotation.x)*mix;
       root.position.x+=(s.x-root.position.x)*mix;
@@ -114,7 +127,7 @@ export function sharkView(scene,waterline){
       root.position.z+=(s.z-root.position.z)*mix;
       root.rotation.y+=Math.atan2(Math.sin(-s.yaw-root.rotation.y),Math.cos(-s.yaw-root.rotation.y))*mix;
       root.rotation.z=s.hp ? .055*Math.sin(s.stroke):floatingBody(s.deathY,waterline,s.size,s.ageSinceHit).roll;
-      const bite=s.phase==='feeding' ? .27+.23*Math.sin(clock.value*8.4+i) : 0;
+      const bite=s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
       jaw.rotation.x=-bite;
       tail.rotation.y=s.hp ? .26*Math.sin(s.stroke):0;
     }
