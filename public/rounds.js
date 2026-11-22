@@ -272,10 +272,10 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const dog of world.dogs??[]){
     if(!dog.hp || dog.mode==='removed' || dog.carrier===round.shooter)continue;
     const scale=dog.size;
-    accept(box(round,d,{x:dog.x,y:dog.y+.23*scale,z:dog.z},.32*scale,.45*scale,.83*scale,dog.yaw),dog,'dog');
+    accept(box(round,d,{x:dog.x,y:dog.y+.23*scale,z:dog.z},.32*scale,.45*scale,.83*scale,dog.yaw),dog,'dog',false,'torso');
     const nose=.4*scale;
     accept(box(round,d,{x:dog.x+Math.sin(dog.yaw)*nose,y:dog.y+.55*scale,z:dog.z-Math.cos(dog.yaw)*nose},
-      .27*scale,.35*scale,.36*scale,dog.yaw),dog,'dog');
+      .27*scale,.35*scale,.36*scale,dog.yaw),dog,'dog',true,'head');
   }
   for(const actor of actors){
     const now=actor.state, prev=previous.get(actor)??now;

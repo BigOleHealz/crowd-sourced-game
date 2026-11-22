@@ -1,3 +1,4 @@
+import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
 import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
 import {marineBlastCalls,marineImpactSound} from './marine-float.js';
@@ -27,6 +28,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
   if(name==='shark-strike-water')return sharkStrikeWaterSound(context);
@@ -236,14 +238,18 @@ export function createGameAudio(button,slider,level,caption) {
     if(segment)v.source.start(0,segment.start,segment.duration);
     else v.source.start();
   }
+  let previousDogs;
   function reset(world) {
+    previousDogs=world?.dogs;
     thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
     if(caption)caption.hidden=true;
     collapse.reset();flameEmitters.clear();
     priorSharks=world?.sharks;priorManatees=world?.manatees;
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
-    environmentWorld=world;listenerSpace=acousticSpace(null,null);
+    environmentWorld=world;
+    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
+    previousDogs=world.dogs;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
@@ -257,6 +263,8 @@ export function createGameAudio(button,slider,level,caption) {
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
+    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
+    previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
     thefts.step(world,listener,(line,owner,mouth,fade,tick)=>{
       if(document.hidden)return;

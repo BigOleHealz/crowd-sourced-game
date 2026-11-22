@@ -26,7 +26,7 @@ import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
-import {alertWalkersDogs,damageDog} from './dog-walkers.js';
+import {alertWalkersDogs,damageDog,projectileDogHit} from './dog-walkers.js';
 import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
@@ -293,7 +293,10 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
     hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0);
     for(const dog of world.dogs??[]){
-      if(dog===target || (areaImpact && withinBurst(center,dog,.34*dog.size)))damageDog(dog,damage,tick);
+      if(dog===target && !areaImpact){
+        if(projectileDogHit(dog,headshot?headshotDamage:damage,tick,direction,headshot))
+          injury=dog.headInjury?'dogHead':'torso';
+      }else if(dog===target || (areaImpact && withinBurst(center,dog,.34*dog.size)))damageDog(dog,damage,tick);
     }
     if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
     for (const crystal of BREAKABLES) {
