@@ -1,3 +1,4 @@
+import {meleeItems,validEquipment} from './arcade-melee.js';
 import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
@@ -232,12 +233,16 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
 export function updateHandheldGear(player,input,wasSwimming){
   if(wasSwimming || player.state.swimming || input?.fromSwimming){
     player.launcherLock=null;
+    delete player.meleeSwing;
     if(input)player.releaseSwimTrigger=input.fire || input.tracking;
     return false;
   }
   if(input){
     if(!input.fire && !input.tracking)player.releaseSwimTrigger=false;
-    if(input.weapon && !player.releaseSwimTrigger)player.weapon=input.weapon;
+    if(validEquipment(input.weapon) && !player.releaseSwimTrigger){
+      if(player.weapon!==input.weapon)delete player.meleeSwing;
+      player.weapon=input.weapon;
+    }
   }
   return !player.releaseSwimTrigger;
 }
@@ -247,9 +252,60 @@ export function trackLauncher(world,player,input,tick,players,npcs){
   updateLock(world,player,{...input,from:{x:p.x,y:p.y+stanceMuzzleHeight(p),z:p.z}},tick,(w,from,dir,range)=>tracePulse(w,targets(w,player.id,players,npcs),from,dir,range,false,'handLauncher'));
 }
 
+function canSwing(world,player){
+  const s=player.state,id=player.id;
+  return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute &&
+    player.clubSince==null && world.casino?.player!==id && !world.volleyballActivity?.member(id) &&
+    !world.basketball?.players.includes(id) && world.yacht?.driver!==id && world.yacht?.gunner!==id &&
+    world.tank?.driver!==id && world.jet?.pilot!==id && world.heli.pilot!==id && world.heli.gunner!==id &&
+    world.rover.gunner!==id && !drivenRoad(world,id) && !crewBoat(world,id);
+}
+
+// Resolve once, on the contact frame. The server owns the facing at windup,
+// the positions at contact, and the first reachable actor in the forward arc.
+export function advanceMelee(world,player,tick,players,npcs){
+  const swing=player.meleeSwing;
+  if(!swing || tick!==swing.hitTick || !Number.isFinite(player.meleeHeading))return;
+  const yaw=player.meleeHeading;
+  delete player.meleeHeading;
+  if(!canSwing(world,player) || player.weapon!==swing.weapon)return;
+  const spec=meleeItems[swing.weapon],s=player.state;
+  const from={x:s.x,y:s.y+1.03-stanceDrop(s),z:s.z,shooter:player.id};
+  const aheadX=Math.sin(yaw),aheadZ=-Math.cos(yaw);
+  const close=p=>Math.abs(p.x-s.x)<=spec.range && Math.abs(p.z-s.z)<=spec.range;
+  const near=[];
+  for(const actor of targets(world,player.id,players,npcs,null,null,close)){
+    const p=actor.state;
+    const dx=p.x-s.x,dz=p.z-s.z,dy=p.y+.98-stanceDrop(p)-from.y;
+    const distance=Math.hypot(dx,dy,dz);
+    if(distance>spec.range || dx*aheadX+dz*aheadZ<Math.hypot(dx,dz)*Math.cos(spec.halfArc))continue;
+    near.push({actor,distance,delta:{x:dx,y:dy,z:dz}});
+  }
+  near.sort((a,b)=>a.distance-b.distance);
+  for(const {actor,delta,distance} of near){
+    const hit=segmentContact(world,from,delta,[actor],new Map(),actorIntersection);
+    if(hit.target!==actor)continue;
+    if(tick<actor.life.immuneUntil || (player.team && player.team===actor.team))return;
+    const contact={x:from.x+delta.x*hit.t,y:from.y+delta.y*hit.t,z:from.z+delta.z*hit.t};
+    const direction={x:delta.x/(distance || 1),y:0,z:delta.z/(distance || 1)};
+    applyHit(world,{target:actor,hitKind:hit.hitKind,to:contact},[actor],players,player.id,tick,spec.damage,0,false,'melee',direction,0,spec.damage,player.score,world.wanted?.session(player));
+    swing.hit=true;swing.contact=contact;
+    return;
+  }
+}
+
 export function fire(world, player, input, tick, players, npcs) {
   if (player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  const melee=meleeItems[player.weapon];
+  if(melee){
+    if(!canSwing(world,player) || !Number.isFinite(input.aimYaw) || input.interact || input.seat)return;
+    player.fireReady=tick+melee.cooldown;
+    player.meleeHeading=input.aimYaw;
+    player.meleeSwing={seq:tick,weapon:player.weapon,tick,hitTick:tick+melee.windup,endTick:player.fireReady,hit:false};
+    return;
+  }
   const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
+  if(!spec)return;
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   if(player.weapon===6){

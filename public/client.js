@@ -1,3 +1,4 @@
+import {equipmentKeys,meleeItems,nextEquipment} from './arcade-melee.js';
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
 import {diveScorecard} from './dive-scorecard.js';
@@ -53,7 +54,7 @@ import { createGameAudio } from './game-audio.js';
 import {firearmSpecs} from './rounds.js';
 import {arcadeMolotov} from './arcade-molotov.js';
 import {flameProjector} from './fire-sites.js';
-const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov};
+const equipmentSpecs={...firearmSpecs,4:launcherSpec,5:flameProjector,6:arcadeMolotov,...meleeItems};
 import {seatVehicle,seatChoices} from './seat-selection.js';
 import { onBeach, beach, courts } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
@@ -229,7 +230,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR',...equipmentKeys,'KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -266,9 +267,9 @@ const touch=createTouchControls(canvas,{
   },
   endLook(){if(jetPilot()){stickX=stickY=0;byId('flight-cursor').style.transform='';}},
   action(code){
-    if(code==='aim'){if(canAim())showSight(!camera.sighted);return;}
+    if(code==='aim'){if(canAim() && !meleeItems[weapon])showSight(!camera.sighted);return;}
     if(code==='run'){touchSprint=!touchSprint;return;}
-    if(code==='tool')code='Digit'+(weapon%6+1);
+    if(code==='tool')code='KeyQ';
     if(code==='KeyT'){startMarinaSprint();return;}
     pressAction(code);
   },
@@ -490,13 +491,14 @@ function pressAction(code){
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
-  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && !inTank() && ['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6'].includes(code)) {
+  if(code==='KeyQ' && canAim())code='Digit'+nextEquipment(weapon);
+  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && !inTank() && equipmentKeys.includes(code)) {
     const number=Number(code.at(-1));
     const kind=seatVehicle(world,id);
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
     if(kind) {
       if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
-    } else if(!self?.swimming && !vitals.swimming){weapon=number;if(camera.sighted)showSight(true);}
+    } else if(!self?.swimming && !vitals.swimming && !self?.ride){weapon=number;if(camera.sighted)showSight(!meleeItems[number]);}
   }
 }
 window.addEventListener('keyup', e => held.delete(e.code));
@@ -517,7 +519,7 @@ function pressButton(e) {
     try{canvas.requestPointerLock()?.catch(()=>{});}catch{}
   }
   if (e.button === 2) {
-    if (canAim()) {
+    if (canAim() && !meleeItems[weapon]) {
       canvas.focus({ preventScroll: true });
       showSight(!camera.sighted);
     }
@@ -527,7 +529,7 @@ function pressButton(e) {
   if(inVolleyball())return;
   if(playingHoops()){mouseFire=queuedFire=true;return;}
   if(self?.swimming && !isDriving() && !isPilot() && !gunnerRole())return;
-  if (self && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
+  if (self && (!meleeItems[weapon] || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
@@ -714,6 +716,7 @@ function connect() {
       lastGlass=world.doors?.glassSeq??0;
       scene.showShots(shots,m.simTick);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
+      audio.melee?.(m.players,m.simTick,authoritative,roverView?.yaw ?? camera.yaw);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
@@ -784,7 +787,7 @@ function tick() {
   // Ordinary movement sends camera angles. Only interactions that consume a
   // muzzle-to-target bearing need to raycast the world on this input tick.
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
-  const needsAim=fire || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
+  const needsAim=(fire && !meleeItems[weapon]) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
   const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
@@ -915,7 +918,7 @@ function remoteFrame(time) {
   const volleyball=b.volleyball?.map((court,index)=>({...court,
     athletes:interpolateActors(a.volleyball?.[index]?.athletes??[],court.athletes),
   }));
-  return { players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
+  return { sim:mix(a.sim,b.sim,t),players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -1014,7 +1017,7 @@ function updateEquipment(local) {
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
   byId('fire-shortcut').hidden = (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
-  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':'Fire';
+  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':meleeItems[weapon] && !kind?'Swing':'Fire';
   const sharkNearby=local.swimming && world.sharks?.some(s=>s.target===id);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
@@ -1121,7 +1124,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,jamBoard,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,jamBoard,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
@@ -1301,6 +1304,7 @@ function frame(time) {
     const cars=traffic.traffic??[];
     const road=inTank()?tank:myRoad()?.model ? cars.find(c=>c.driver===id)??myRoad() : inGT() ? supercar : rover;
     local.weapon = weapon;
+    local.meleeSwing=vitals.meleeSwing;
     if (isPilot()) Object.assign(local, { x: aircraft.x, y: aircraft.y, z: aircraft.z, yaw: aircraft.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
     else if (atYachtHelm() && yacht)Object.assign(local,yachtHelmFeet(yacht),{yaw:yacht.yaw});
@@ -1319,7 +1323,7 @@ function frame(time) {
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
-    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,frameTick:volleyballTick });
+    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
     if (time >= nextHud) {
       nextHud = time + 80;
       hoopsHud.update(world.basketball,local,view.yaw,touch.active);

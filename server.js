@@ -68,7 +68,8 @@ import { fileURLToPath } from 'node:url';
 import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
-import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import {validEquipment} from './public/arcade-melee.js';
+import { advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -277,7 +278,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -393,7 +394,7 @@ function acceptInput(player, data, binary) {
     aimPitch: Number.isFinite(input.aimPitch) ? Math.max(-Math.PI/2, Math.min(Math.PI/2, input.aimPitch)) : 0,
     skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
-    fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: [1,2,3,4,5,6].includes(input.weapon) ? input.weapon : null,
+    fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: validEquipment(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
@@ -580,6 +581,8 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(player.meleeSwing && (ticks>=player.meleeSwing.endTick || input?.interact || input?.seat ||
+      player.life.fall || !player.life.hp))delete player.meleeSwing;
     if(player.beachPose || player.beachOrder)updateBeachVisit(player,input,ticks);
     if(input && world.volleyballActivity?.member(player.id)){
       input.fire=input.tracking=input.interact=input.jump=input.deploy=false;
@@ -786,6 +789,7 @@ function tick() {
         if (input.fire) fire(world, player, input, ticks, players, npcs);
       }
     }
+    if(handheld && !wasPlayingHoops && player.meleeSwing)advanceMelee(world,player,ticks,players,npcs);
   }
   stepCargoHook(world,hookInput,step,v=>{
     if(v.model && !v.patrol)finishTrafficDelivery(world,v,npcs);
