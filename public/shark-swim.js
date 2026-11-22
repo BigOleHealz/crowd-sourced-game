@@ -18,7 +18,6 @@ const huntingHomes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
 const channelHomes=bridges.flatMap(b=>[[b.west-5,bridgeMiddle(b)-3],[b.east+5,bridgeMiddle(b)+3]]);
 const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292],...channelHomes];
 export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98,...bridges.flatMap(()=>[.94,1.06])];
-export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
 
 // Sample at fin height so an overhead bridge leaves the channel navigable,
 // while low approaches and shallow shoreline still block the shark.

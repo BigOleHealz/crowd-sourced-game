@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {createSharks,sharkContact,damageShark,sharkSizes}=await import('../public/shark-swim.js');
-const {newExpedition,fire}=await import('../public/expedition.js');
+const {newExpedition,fire,updateHandheldGear}=await import('../public/expedition.js');
 const {damageActor,newLife}=await import('../public/rivals.js');
 const {brickellMap,cityGround}=await import('../public/brickell-map.js');
 const {touchLayout}=await import('../public/touch-controls.js');
@@ -66,14 +66,34 @@ const swimmer=player(32,86,-214),players=new Map([[swimmer.id,swimmer]]);
 const aim={aimYaw:0,aimPitch:-.18};
 for(const weapon of [1,2,3,4,5,6]){
   swimmer.weapon=weapon;swimmer.fireReady=0;
-  const before=world.bullets.length+world.missiles.length;
+  const before=JSON.stringify([world.bullets,world.missiles,world.throwables,world.shots]);
   fire(world,swimmer,aim,70,players,[]);
-  assert.equal(world.bullets.length+world.missiles.length-before,weapon<=4?1:0);
+  assert.equal(swimmer.fireReady,0);
+  assert.equal(JSON.stringify([world.bullets,world.missiles,world.throwables,world.shots]),before);
 }
-delete world.sharks;
-swimmer.weapon=1;swimmer.fireReady=0;const before=world.bullets.length;
-fire(world,swimmer,aim,80,players,[]);assert.equal(world.bullets.length,before);
-const controls=touchLayout({role:'foot',active:true,canAim:true,swimmingGear:true});
-assert(controls.quick.some(action=>action[0]==='KeyF'));
-assert(touchLayout({role:'foot',active:true,canAim:false,swimmingGear:true}).tools.some(action=>action[0]==='tool'));
-console.log('Deep-water grace, pursuit, multiple bites, swimmer escape, dock immunity, wildlife contacts and respawn, and swim weapon controls passed.');
+swimmer.weapon=3;swimmer.launcherLock={key:'test'};
+const held={weapon:4,fire:true,tracking:true};
+assert(!updateHandheldGear(swimmer,held,false),'enter water while holding');
+assert.equal(swimmer.weapon,3);assert.equal(swimmer.launcherLock,null);
+assert(!updateHandheldGear(swimmer,undefined,true),'no input while swimming');
+swimmer.state.swimming=false;
+assert(!updateHandheldGear(swimmer,held,true),'movement command exits water');
+assert(!updateHandheldGear(swimmer,{...held,fromSwimming:true},false),'queued wet command on shore');
+assert.equal(swimmer.weapon,3);
+assert(!updateHandheldGear(swimmer,held,false),'held trigger and stale selection remain suppressed');
+assert(updateHandheldGear(swimmer,{fire:false,tracking:false},false),'release on shore');
+assert.equal(swimmer.weapon,3,'last dry gear resumes');
+assert(updateHandheldGear(swimmer,{weapon:2,fire:true},false));assert.equal(swimmer.weapon,2);
+fire(world,swimmer,aim,80,players,[]);assert(world.bullets.length>0);
+const controls=touchLayout({role:'foot',active:true,canAim:false,jump:'Climb out'});
+assert(![...controls.quick,...controls.tools].some(([key])=>['KeyF','tool','aim'].includes(key)));
+assert(controls.quick.some(([key])=>key==='Space'));
+const {createRangerRig,poseRig}=await import('../public/ranger-pose.js');
+const rig=createRangerRig();
+for(const swimArmed of [false,true]){
+  poseRig(rig,{...swimmer.state,swimming:true,swimArmed,weapon:3,grounded:false,yaw:0},1/30);
+  assert(rig.tools.every(tool=>!tool.visible),'swimmers always holster even with stale pose state');
+}
+poseRig(rig,{...swimmer.state,weapon:3,grounded:true,yaw:0},1/30);
+assert(rig.tools[2].visible,'selected gear returns on shore');
+console.log('Shark encounters, swimming holster, held inputs, mobile controls and shore recovery passed.');
