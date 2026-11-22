@@ -20,6 +20,7 @@ import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
 import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
+import {beachClubFixtures,beachClubFloor} from './beach-club.js';
 import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
 // A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
@@ -61,7 +62,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
   }
-  return onBeach(x,z) ? (basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
+  return onBeach(x,z) ? (beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? keyGround(x,z) : roadway(x,z) ? .70 : .80;
 }
 
 export function parapetTop(x,z,padding,maxBottom,doors) {
@@ -97,7 +98,7 @@ for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-
   palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...arrivalSolids,...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  barriers:[...arrivalSolids,...atriumFixtures,...wingSolids,...salonFurniture,...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

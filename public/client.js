@@ -17,6 +17,7 @@ import {bankConversation,bankBulletin} from './bank-conversation.js';
 import {atBankDesk,bankPrompt} from './bank-rules.js';
 import {atMarketCounter} from './market-goods.js';
 import {marketPanel} from './market-panel.js';
+import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
 import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
@@ -366,6 +367,26 @@ function startMarinaSprint(){
   if(racing && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
     socket.send(JSON.stringify({type:'marinaSprint'}));
 }
+function beachUse(){
+  if(!CITY || mode || !canChangeStance(self) || inVolleyball() || atTable())return null;
+  return beachClubAction(self);
+}
+function beachHint(action){
+  const drink=barMenu.find(d=>d.id===action);
+  if(drink){
+    const order=vitals.beachOrder;
+    if(order){
+      if(world.simTick<order.tick)return 'Marisol has your order';
+      const label=barMenu.find(d=>d.id===order.drink).label;
+      if(world.simTick-order.tick<pourTicks)return 'Marisol is pouring your '+label;
+      return 'Marisol · Your '+label+' is ready';
+    }
+    if(samples.at(-1)?.players.some(p=>p.beachOrder?.drink===action))return 'Marisol · This spot is serving another guest';
+  }
+  if(vitals.beachPose===action)return action==='dance'?'Stop dancing':'Stand up';
+  if(action.startsWith('seat') && samples.at(-1)?.players.some(p=>p.beachPose===action))return 'Seat occupied';
+  return beachClubLabel(action);
+}
 function clubInteraction(){
   if(!CITY || mode || !self || vitals.dead || vitals.fall)return '';
   if(vitals.clubSince!=null)return 'Leave dance';
@@ -432,6 +453,8 @@ function pressAction(code){
       else if(bank.action==='collect')bankAction('collect',world.bank.serial);
       return;
     }
+    const beachAction=beachUse();
+    if(beachAction){socket?.send(JSON.stringify({type:'beachClub',action:beachAction}));return;}
     const clubUse=clubInteraction();
     if(clubUse){socket?.send(JSON.stringify({type:'clubSeat',action:vitals.clubSince!=null?'leave':'join'}));return;}
     const building=interiorAction();
@@ -1010,7 +1033,9 @@ function updateEquipment(local) {
   if(local.liftTravel)byId('elevator-status').textContent='Elevator · '+(local.liftTravel===1?'Ground lobby':'Floor '+local.liftTravel);
   if(building && !bank && !shop)prompt.textContent='E  ·  '+building.label;
   const clubUse=clubInteraction();
-  if(clubUse)prompt.textContent='E  ·  '+clubUse;
+  const beachAction=beachUse();
+  if(beachAction)prompt.textContent='E  ·  '+beachHint(beachAction);
+  else if(clubUse)prompt.textContent='E  ·  '+clubUse;
   else if(CITY && !mode && nearClubDoor(local))prompt.textContent='Club Lucero · Live cabaret · Walk in';
   if(local.ride){
     prompt.textContent=local.ride.kind==='bike' ? 'Bicycle · W pedal · S brake · A/D steer · E dismount' : 'Skateboard · W push · S brake · A/D carve · Space ollie · E step off';
@@ -1042,7 +1067,7 @@ function updateEquipment(local) {
   if(touch.active){
     const role=board || diving?'diving':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
-    const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
+    const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','tank','supercar','superyacht'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
@@ -1194,7 +1219,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -1251,7 +1276,7 @@ function frame(time) {
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
       const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : atBeachClub(local) ? 'Harbor Key Beach Club' : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);

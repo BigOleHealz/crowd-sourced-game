@@ -18,6 +18,7 @@ import {buildingInteriorView} from './building-interior-view.js';
 import {roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
+import {beachClubCast,poseBeachClub} from './beach-club-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
@@ -52,7 +53,7 @@ import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
-import {civilianLooks,cabaretLooks} from './civilian-style.js';
+import {civilianLooks,cabaretLooks,beachStaffLooks} from './civilian-style.js';
 import {patrolProfile} from './patrol-uniform.js';
 import {dressPerson} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
@@ -1196,7 +1197,7 @@ export function createScene(canvas) {
   const volleyballShirts=new Map();
   function resident(id,name,officer=false,lookId=id){
     const athlete=volleyballLooks[id];
-    const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
+    const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??beachStaffLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
@@ -1360,7 +1361,7 @@ export function createScene(canvas) {
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
-    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
+    for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...(CITY?beachClubCast(local,[local,...remotes],attackTick,skyDarkness.value>0):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
       let a=avatars.get(state.id);
       if(state.dead && state.deathKind==='blast'){
@@ -1384,7 +1385,7 @@ export function createScene(canvas) {
         if(a){a.root.visible=a.shadow.visible=a.label.sprite.visible=false;}
         continue;
       }
-      if(!state.volleyball && !state.performer && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
+      if(!state.beachRole && !state.volleyball && !state.performer && !state.bankRole && !state.casinoDealer && !entering && !inTraffic && typeof state.id==='string' && distant?.add(state,local,detailScale,clock)){
         if(a){
           a.root.visible=false;a.shadow.visible=false;a.label.sprite.visible=false;
           if(a.detached?.size)applyLostParts(a,state,scene,world.hp,dt);
@@ -1394,7 +1395,7 @@ export function createScene(canvas) {
       }
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
+        a=state.officer || (CITY && rival && (state.beachRole || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1404,7 +1405,7 @@ export function createScene(canvas) {
         if(flight && a.lastThrow!==flight.id){a.lastThrow=flight.id;a.throwSwing=.40;}
       }
       a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
-      a.label.sprite.visible = !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
+      a.label.sprite.visible = (!state.beachRole || state.beachRole==='bar') && !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
@@ -1428,6 +1429,7 @@ export function createScene(canvas) {
         if(volley && !state.dead && !state.fall)poseVolleyball(a,state,volley,world.volleyballTick);
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
+        if(state.beachPose || state.beachRole)poseBeachClub(a,state,attackTick);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
         if(typeof state.id==='string' && !state.dead && !state.fall &&
           (state.casinoDealer || state.bankRole || state.performer || state.volleyball || basketballLooks[state.id])){

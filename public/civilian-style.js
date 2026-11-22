@@ -35,6 +35,10 @@ export const civilianLooks = {
   'rival-della': {...look(21,0x905f49,0x454040,'coils','jacket',0x788a80,'skirt',0x765749,'satchel',1.04,1.02,.78),outfit:8},
 };
 
+export const beachStaffLooks={
+  'beach-marisol': {...look(2,0xdc987d,0x493729,'bun','linen',0x42948a,'slacks',0x384e50,'hoops',.98,1.01,.65),outfit:0,bartender:true},
+};
+
 export const cabaretLooks={
   'lucero-luz': {...look(10,0xc68b74,0x35242b,'wave','dress',0xa24565,'skirt',0xa24565,'hoops',1.0,1.03,.75),outfit:6},
   'lucero-daniel': {...look(9,0xb68262,0x302522,'crop','jacket',0x695986,'slacks',0x343041,'watch',1.06,1.02,.8),outfit:11},
