@@ -66,7 +66,7 @@ export function manateeView(scene,waterline){
         stroke:nearby(a.stroke,b.stroke,blend),air:b.air<0 || a.air<0?b.air:mix(a.air,b.air,blend)};
     });
     const closest=shown.map((p,i)=>({i,d:Math.hypot(local.x-p.x,local.y-p.y,local.z-p.z)}))
-      .filter(p=>p.d<limit).sort((a,b)=>a.d-b.d).slice(0,cap);
+      .filter(p=>p.d<limit && states[p.i].deathKind!=='blast').sort((a,b)=>a.d-b.d).slice(0,cap);
     for(let i=0;i<shown.length;i++){
       const near=closest.find(p=>p.i===i);
       if(!near){

@@ -119,7 +119,7 @@ export function dolphinView(scene,water){
     clock.value=(tick??0)/30;
     const count=Math.max(models.length,states?.length??0),k=-Math.expm1(-17*dt);
     const nearest=(states??[]).map((p,i)=>({i,d:Math.hypot(p.x-local.x,p.y-local.y,p.z-local.z)}))
-      .filter(entry=>entry.d<=52).sort((a,b)=>a.d-b.d).slice(0,4);
+      .filter(entry=>entry.d<=52 && states[entry.i].deathKind!=='blast').sort((a,b)=>a.d-b.d).slice(0,4);
     for(let i=0;i<count;i++){
       const visible=nearest.find(entry=>entry.i===i);
       if(!visible){

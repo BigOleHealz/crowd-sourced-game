@@ -25,7 +25,7 @@ export function dogView(scene,Batch){
   return (dogs,avatars,local,dt,clock,tick)=>{
     const live=new Set();
     for(const dog of dogs??[]){
-      if(dog.mode==='removed' || Math.hypot(dog.x-local.x,dog.z-local.z)>65)continue;
+      if(dog.mode==='removed' || (!dog.hp && dog.deathKind==='blast') || Math.hypot(dog.x-local.x,dog.z-local.z)>65)continue;
       live.add(dog.id);
       let rig=models.get(dog.id);if(!rig){rig=dogRig(scene,Batch,dog);models.set(dog.id,rig);}
       const {root,body,neck,tail,legs,ears,jaw,leash,points}=rig,held=dog.mode==='carried',swim=dog.mode==='swimming';

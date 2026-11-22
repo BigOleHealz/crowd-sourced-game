@@ -173,7 +173,7 @@ function stepDog(dog,owner,world,players,dt,tick){
     return;
   }
   if(dog.mode==='removed'){
-    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.headInjury;delete dog.lastShotTick;delete dog.lastKickTick;delete dog.lastThief;delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
+    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.deathKind;delete dog.headInjury;delete dog.lastShotTick;delete dog.lastKickTick;delete dog.lastThief;delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
     return;
   }
   if(dog.mode==='carried'){

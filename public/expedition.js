@@ -298,13 +298,20 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
-    hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0);
+    const blastRemains=(p,height,size)=>{
+      const at={x:p.x,y:p.y+height,z:p.z};
+      world.shots.push({id:nextShotId++,weapon:'bodyBlast',from:at,to:at,size,tick});
+    };
+    hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0,(gull)=>blastRemains(gull,0,gull.size*.45));
     for(const dog of world.dogs??[]){
       if(dog!==target && !(areaImpact && withinBurst(center,dog,.34*dog.size)))continue;
       const water=dog.mode==='swimming'?immersedSurface(dog,world.doors):undefined;
       const hurt=areaImpact?damageDog(dog,damage,tick):projectileDogHit(dog,headshot?headshotDamage:damage,tick,direction,headshot);
       if(!hurt)continue;
       if(!areaImpact)injury=dog.headInjury?'dogHead':'torso';
+      if(areaImpact && !dog.hp){
+        dog.deathKind='blast';blastRemains(dog,.3*dog.size,.7*dog.size);
+      }
       reportWaterHit(world,dog.id,dog,water,dog===target?to:null,!dog.hp,areaImpact,dog.size*.69,tick);
     }
     if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
@@ -319,6 +326,9 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
         const priorHP=actor.life.hp;
         const water=immersedSurface(actor.state,world.doors);
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
+        if(defeated && areaImpact){
+          actor.life.deathKind='blast';blastRemains(actor.state,.7,.95);
+        }
         if(actor.id!==shooter && actor.life.hp<priorHP){
           actor.life.lastShotTick=tick;
           reportWaterHit(world,actor.id,actor.state,water,actor===target?injuryPoint??to:null,defeated,areaImpact,.88,tick);

@@ -1188,7 +1188,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){

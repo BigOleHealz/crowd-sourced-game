@@ -105,7 +105,7 @@ export function sharkView(scene,waterline){
     impacts(states,local,dt);clock.value=(tick??0)/30;
     for(let i=0;i<sharkSizes.length;i++){
       const s=states?.[i];
-      if(!s || Math.hypot(local.x-s.x,local.z-s.z)>52){
+      if(!s || (!s.hp && s.deathKind==='blast') || Math.hypot(local.x-s.x,local.z-s.z)>52){
         if(models[i])models[i].root.visible=false;
         continue;
       }

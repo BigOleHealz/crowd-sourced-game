@@ -701,6 +701,19 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='bodyBlast'){
+      const center=new THREE.Vector3().copy(s.to);
+      const size=s.size;
+      for(let i=0;i<28;i++){
+        const angle=i*2.4+rng()*.42,speed=(1.4+3.2*rng())*size;
+        const velocity=new THREE.Vector3(Math.cos(angle)*speed,(1.4+rng()*3.6)*size,Math.sin(angle)*speed);
+        const chunk=i%3===0,radius=(chunk?.07+rng()*.09:.027+rng()*.04)*size;
+        particle(center.clone(),velocity,new THREE.Vector3(radius,radius*(chunk?.62:1.35),radius*1.4),
+          chunk?(i%2?0x822b38:0xbb606b):0xa51d30,chunk?3.5+rng()*1.7:.35+rng()*.4);
+        if(chunk)particles.at(-1).settleY=groundHeight(center.x,center.z,center.y)+radius*.45;
+      }
+      return;
+    }
     if(s.weapon==='ember'){fireView.pulse(s);return;}
     if(s.weapon==='molotov'){
       const at=new THREE.Vector3().copy(s.to);at.y+=.075;
@@ -742,7 +755,9 @@ function fieldEffects(scene) {
       p.remaining-=dt;
       if(p.remaining<=0) continue;
       p.pos.addScaledVector(p.vel,dt);
-      if(p.vel.lengthSq()) p.vel.y-=dt*5.8;
+      if(p.settleY!==undefined && p.pos.y<=p.settleY){
+        p.pos.y=p.settleY;p.vel.set(0,0,0);
+      }else if(p.vel.lengthSq())p.vel.y-=dt*5.8;
       dummy.position.copy(p.pos);dummy.scale.copy(p.scale).multiplyScalar(Math.min(1,p.remaining/.13));
       if(p.rotation) dummy.quaternion.copy(p.rotation); else dummy.quaternion.identity();
       dummy.updateMatrix();cloud.setMatrixAt(write,dummy.matrix);
@@ -1347,6 +1362,14 @@ export function createScene(canvas) {
     for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
       let a=avatars.get(state.id);
+      if(state.dead && state.deathKind==='blast'){
+        if(a){
+          a.root.visible=a.shadow.visible=a.label.sprite.visible=false;
+          clearLostParts(a);
+          for(const ring of a.ripples?.rings??[])ring.visible=false;
+        }
+        continue;
+      }
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
       const inTraffic=state.cruiserId?world.patrolCars?.find(car=>car.id===state.cruiserId):cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
       if(state.evacLook && Math.hypot(state.x-local.x,state.z-local.z)>115*detailScale){
