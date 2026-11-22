@@ -1,3 +1,4 @@
+import {addResortParking} from './resort-parking-view.js';
 import {addOfficeWindows} from './office-window-view.js';
 import {bankSite} from './bank-site.js';
 import {addFuelStop} from './pelican-fuel-view.js';
@@ -74,6 +75,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addQuayMasonry(scene,solids,renderer);
+  addResortParking(scene,Batch);
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
   addLanternPoint(scene,solids,ground,patch,posts);

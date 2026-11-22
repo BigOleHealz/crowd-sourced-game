@@ -1,4 +1,5 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
+import {garageSurface} from './resort-parking.js';
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
@@ -249,6 +250,8 @@ export function sceneryHeight(x,z) {
 
 export function groundHeight(x, z, maxBottom=Infinity, doors) {
   if(CITY) {
+    const parking=garageSurface(x,z,maxBottom);
+    if(parking!==undefined)return parking;
     const ruin=ruinedHouseAt(doors,x,z);
     if(ruin)return houseRubbleHeight(ruin,x,z,doors.houseRuins[ruin.id]);
     const pile=collapsedLot(MAP.buildings,doors,x,z);
