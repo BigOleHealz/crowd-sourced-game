@@ -11,8 +11,10 @@ const clamp=(n,lo,hi)=>Math.max(lo,Math.min(n,hi));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 
 // Patrols cover the bay, Harbor Key, Lantern Point and the west channel.
-const homes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
-export const sharkSizes=[.88,1.16,1.03,.97,1.29];
+const huntingHomes=[[63,8],[85,-212],[97,-436],[-83,-181],[-83,-405]];
+// These four ambient sharks patrol continuously. Only the original five hunt swimmers.
+const homes=[...huntingHomes,[72,24],[87,-241],[96,-373],[-85,-292]];
+export const sharkSizes=[.88,1.16,1.03,.97,1.29,.92,1.08,.95,.98];
 export const swimWeapon=weapon=>Number.isInteger(weapon) && weapon>=1 && weapon<=4;
 
 function openWater(x,z,padding,edgePadding=padding){
@@ -48,7 +50,7 @@ function retreatGoal(s){
 
 function initial(i){
   const [x,z]=homes[i],maxHp=Math.round(120*sharkSizes[i]);
-  return {x,y:water-.9,z,yaw:i,stroke:i,size:sharkSizes[i],hp:maxHp,maxHp,
+  return {...(i>=huntingHomes.length && {scavenger:true}),x,y:water-.9,z,yaw:i,stroke:i,size:sharkSizes[i],hp:maxHp,maxHp,
     target:null,phase:'patrol',deathY:null,hitSeq:0,ageSinceHit:null,deathKind:null};
 }
 
@@ -107,7 +109,7 @@ export function createSharks(){
   const exposure=new WeakMap();
   let time=0,nextSearch=0;
   function assign(swimmers,observers){
-    const free=state.map((s,i)=>({s,i})).filter(({s})=>s.hp>0 && s.phase==='patrol');
+    const free=state.map((s,i)=>({s,i})).filter(({s})=>s.hp>0 && !s.scavenger && s.phase==='patrol');
     for(const p of swimmers.values()){
       if(state.some(s=>s.target===p.id) || !free.length)continue;
       free.sort((a,b)=>distance(a.s,p.state)-distance(b.s,p.state));
@@ -138,7 +140,7 @@ export function createSharks(){
   function inviteNearby(event){
     let visitors=0;
     for(const [i,other] of state.entries()){
-      if(visitors>=2 || i===event.sharkIndex || !other.hp || other.phase!=='patrol')continue;
+      if(visitors>=2 || i===event.sharkIndex || other.scavenger || !other.hp || other.phase!=='patrol')continue;
       if(distance(other,event)>11)continue;
       for(const horizon of [.45,.9,1.4,1.85]){
         const intercept=sharkDefeatPose(event,horizon);

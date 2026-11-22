@@ -14,7 +14,7 @@ function choose(world,sharks,dogs){
   const taken=new Set(sharks.map(s=>s.dogEncounter?.dogId));
   const pairs=[];
   for(const s of sharks){
-    if(!s.hp || s.phase!=='patrol' || s.target!=null || s.dogEncounter)continue;
+    if(!s.hp || s.scavenger || s.phase!=='patrol' || s.target!=null || s.dogEncounter)continue;
     for(const d of dogs){
       if(d.mode!=='swimming' || taken.has(d.id) || Math.abs(d.y-water)>.85)continue;
       const distance=gap(s,d);

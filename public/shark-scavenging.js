@@ -4,12 +4,16 @@ import {inDivingLane} from './marina-platform.js';
 import {immersedSurface} from './water-impact.js';
 
 const sea=brickellMap.waterY,states=new WeakMap(),tau=Math.PI*2;
+const approachOffsets=Array.from({length:24},(_,i)=>(i%2?1:-1)*Math.ceil(i/2)*tau/24);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const angleDiff=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const snap=n=>Math.round(n*1000)/1000;
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+export function inFeedingDepth(y,floor){
+  return y<=sea+.20 && y>=floor-.20 && sea-floor>1.5;
+}
 function safeWater(p){
-  return Math.abs(p.y-sea)<3 && !inDivingLane(p.x,p.z) && sea-cityGround(p.x,p.z)>2.05;
+  return !inDivingLane(p.x,p.z) && inFeedingDepth(p.y,cityGround(p.x,p.z));
 }
 function release(shark){
   if(shark.phase==='scavenge-approach' || shark.phase==='scavenging')shark.phase='patrol';
@@ -17,8 +21,11 @@ function release(shark){
 }
 function addSite(memory,key,point,blast,tick,body){
   if(!safeWater(point) || memory.sites.has(key))return;
+  // A missile may defeat several swimmers in the same burst. Keep one shared
+  // patch for that impact instead of reserving several feeding rings on top of it.
+  if(blast && [...memory.sites.values()].some(site=>site.blast && Math.abs(site.created-tick)<5 && distance(site,point)<=7))return;
   if(memory.sites.size>=12)memory.sites.delete(memory.sites.keys().next().value);
-  memory.sites.set(key,{key,x:point.x,y:sea-.24,z:point.z,expires:tick+(blast?540:330),blast,body});
+  memory.sites.set(key,{key,x:point.x,y:sea-.24,z:point.z,created:tick,expires:tick+(blast?540:330),blast,body});
 }
 function observe(world,memory,players,npcs,tick){
   const subjects=[...players.values(),...npcs];
@@ -57,21 +64,25 @@ function observe(world,memory,players,npcs,tick){
   for(const [key,site] of memory.sites)if(tick>=site.expires || site.body && (site.body.hp || site.body.mode==='removed' || !present.has(site.body)))memory.sites.delete(key);
 }
 function assign(world,sites){
+  const pairs=[];
   for(const s of world.sharks){
     if(!s.hp || s.phase!=='patrol' || s.target!=null || s.dogEncounter || s.scavenge)continue;
-    let site,nearest=Infinity;
-    for(const candidate of sites.values()){
-      const d=distance(s,candidate);
-      if(d>=nearest || d>(candidate.blast?32:18) || !clearSharkCourse(s,candidate))continue;
-      if(world.sharks.filter(other=>other.scavenge?.key===candidate.key).length>=3)continue;
-      nearest=d;site=candidate;
+    for(const site of sites.values()){
+      const d=distance(s,site);
+      if(d<=(site.blast?124:18))pairs.push({s,site,d});
     }
-    if(!site)continue;
+  }
+  for(const {s,site} of pairs.sort((a,b)=>a.d-b.d)){
+    if(s.scavenge)continue;
+    const others=world.sharks.filter(o=>o.scavenge?.key===site.key);
+    if(others.length>=3)continue;
     const approach=Math.atan2(s.x-site.x,site.z-s.z);
-    const others=world.sharks.filter(other=>other.scavenge?.key===site.key);
-    // Reserve different edges of the same feeding area as each shark approaches.
-    const bearing=[0,1,-1,2,-2,3].map(i=>approach+i*tau/6)
-      .find(a=>others.every(other=>Math.abs(angleDiff(a,other.scavenge.bearing))>1.25));
+    const nose=1.47*s.size+.52;
+    const bearing=approachOffsets.map(offset=>approach+offset).find(a=>{
+      if(others.some(o=>Math.abs(angleDiff(a,o.scavenge.bearing))<=.73))return false;
+      const stand={x:site.x+Math.sin(a)*nose,z:site.z-Math.cos(a)*nose};
+      return clearSharkCourse(s,stand);
+    });
     if(bearing===undefined)continue;
     s.scavenge={key:site.key,bearing:snap(bearing)};s.phase='scavenge-approach';
   }
@@ -94,7 +105,7 @@ export function stepSharkScavenging(world,players,npcs,tick,dt){
     const arc=range>.5?Math.atan2(x-s.x,s.z-z):e.bearing+Math.PI;
     const turn=angleDiff(arc,s.yaw);
     s.yaw=snap(s.yaw+clamp(turn,-2.6*dt,2.6*dt));
-    const move=Math.min(range,dt*(biting?1.9:4.6)*clamp(Math.cos(turn),.15,1));
+    const move=Math.min(range,dt*(biting?1.9:site.blast && range>9?8.4:4.6)*clamp(Math.cos(turn),.15,1));
     const next={x:s.x+(x-s.x)*move/(range||1),z:s.z+(z-s.z)*move/(range||1)};
     if(!clearSharkCourse(s,next)){release(s);continue;}
     s.x=snap(next.x);s.z=snap(next.z);
