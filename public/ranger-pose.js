@@ -90,6 +90,17 @@ export function poseRoadBoarding(avatar,car,action){
 
 export function poseBasketball(avatar,state,action) {
   for(const tool of avatar.tools)tool.visible=false;
+  if(action.dunk){
+    const {feet,hand,yaw,lift}=action.dunk;
+    avatar.root.position.copy(feet);avatar.root.rotation.set(0,-yaw,0);
+    avatar.body.position.set(0,0,0);avatar.spine.rotation.set(-.035*lift,0,0);
+    for(const {arm,forearm,leg,knee,side} of avatar.limbs){
+      leg.rotation.set(lift*(side===1?.74:.32),0,side*.08);
+      knee.rotation.set(-lift*(side===1?1.26:.80),0,0);
+      holdWorld(avatar,arm,forearm,side,{x:hand.x+side*.08*Math.cos(yaw),y:hand.y-.055,z:hand.z+side*.08*Math.sin(yaw)});
+    }
+    return;
+  }
   if(state.stance || state.grounded===false)return;
   const {charge,dribble,height,forward,lateral,hasBall,release}=action;
   if(hasBall || release){

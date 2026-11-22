@@ -1,5 +1,5 @@
 import {courtTally} from './court-tally.js';
-import {basketballCourt as court,basketballTeams,hoopHeading,onBasketballCourt,shotWindow} from './basketball-layout.js';
+import {basketballCourt as court,basketballTeams,hoopHeading,onBasketballCourt,shotWindow,inDunkRange} from './basketball-layout.js';
 
 export function basketballHud(panel){
   const status=panel.querySelector('output'),meter=panel.querySelector('[role=meter]');
@@ -21,12 +21,15 @@ export function basketballHud(panel){
     if(!joined){
       line=game.players.includes(null)?(touch?'Tap Join basketball to play':'Press E at the court to join'):'Both sides are playing';
     }else if(result && performance.now()<noticeUntil && game.phase==='flight'){
-      line=result.points?basketballTeams[result.side].name+' basket · +'+result.points:'Miss · Next possession soon';
+      if(result.kind==='dunk')line=result.points?'Dunk · +2':'Missed dunk · '+result.timing;
+      else line=result.points?basketballTeams[result.side].name+' basket · +'+result.points:'Miss · Next possession soon';
     }else if(ball){
       const hoopYaw=hoopHeading(feet);
       const deviation=Math.atan2(Math.sin(yaw-hoopYaw),Math.cos(yaw-hoopYaw));
-      line=Math.abs(deviation)>.20?'Face the hoop':touch?'Hold Shoot, release in gold':'Hold F or click, release in gold';
-    }else line=game.phase==='flight'?'Ball in the air':game.players[game.turn]==null?team.player+' has the ball':'Opponent has the ball';
+      if(inDunkRange(feet))line=touch?'Dunk · Hold Shoot, release in gold':'Dunk · Hold F or click, release in gold';
+      else line=Math.abs(deviation)>.20?'Face the hoop':touch?'Hold Shoot, release in gold':'Hold F or click, release in gold';
+    }else if(game.shot?.kind==='dunk')line='Dunk attempt';
+    else line=game.phase==='flight'?'Ball in the air':game.players[game.turn]==null?team.player+' has the ball':'Opponent has the ball';
     if(status.textContent!==line)status.textContent=line;
     meter.hidden=!ball;
     if(!ball)return;

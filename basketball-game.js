@@ -1,7 +1,9 @@
 import {
   basketballCourt as court,basketballTeams,basketballUse,basketballRadius as radius,
-  basketballChargeRate as chargeRate,hoop,hoopHeading,longShotDistance,onBasketballCourt,shotWindow,
+  basketballChargeRate as chargeRate,hoop,hoopHeading,longShotDistance,onBasketballCourt,shotWindow,inDunkRange,
 } from './public/basketball-layout.js';
+
+import {dunkFrame,dunkRelease} from './public/basketball-dunk.js';
 
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 const gravity=11.8;
@@ -60,6 +62,16 @@ export function createBasketball(world,players) {
     const forward=hoopHeading(feet);
     const angle=assist?0:Math.atan2(Math.sin(yaw-forward),Math.cos(yaw-forward));
     const aimError=Math.max(0,Math.abs(angle)-.19)*Math.sign(angle);
+    elapsed=0;holding=false;resolved=false;state.charge=0;
+    state.phase='flight';state.shot={side:state.turn,age:0};
+    if(inDunkRange(feet)){
+      // Outside the gold window, the ball catches the side of the rim.
+      const offset=rate<=1?error*.40:Math.sign(error)*Math.min(.32,.18+(rate-1)*.065);
+      Object.assign(state.shot,{kind:'dunk',actorId:state.players[state.turn]??npcs[state.turn].id,
+        x:feet.x,y:feet.y,z:feet.z,yaw:forward,offset,timing:rate<=1?'In gold':error<0?'Early':'Late'});
+      Object.assign(ball,dunkFrame(state.shot,0).hand);
+      vx=0;vy=-3.9;vz=0;shotPoints=2;return;
+    }
     // This parabola crosses rim height on its way down.
     const dist=Math.hypot(hoop.x-feet.x,hoop.z-feet.z),flight=1.08+dist*.055;
     ballInHand(ball,feet,forward+angle);
@@ -70,8 +82,6 @@ export function createBasketball(world,players) {
     vx=(hoop.x+missX-ball.x)/flight;
     vz=(hoop.z+missZ-ball.z)/flight;
     vy=(hoop.y-ball.y)/flight+gravity*flight*.5;
-    elapsed=0;holding=false;resolved=false;state.charge=0;
-    state.phase='flight';state.shot={side:state.turn,age:0};
     shotPoints=dist>=longShotDistance?3:2;
   }
 
@@ -80,9 +90,17 @@ export function createBasketball(world,players) {
     const points=made?shotPoints:0;
     state.scores[state.turn]+=points;
     state.result={serial:attempt,side:state.turn,points};
+    if(state.shot.kind==='dunk')Object.assign(state.result,{kind:'dunk',timing:state.shot.timing});
   }
 
   function stepBall(dt) {
+    const shot=state.shot;
+    shot.age=elapsed;
+    if(shot.kind==='dunk' && elapsed-dt<dunkRelease){
+      Object.assign(ball,dunkFrame(shot,Math.min(elapsed,dunkRelease)).hand);
+      if(elapsed<=dunkRelease)return;
+      dt=elapsed-dunkRelease;
+    }
     const {x,y,z}=ball;
     ball.x+=vx*dt;ball.z+=vz*dt;
     ball.y+=vy*dt-gravity*dt*dt*.5;vy-=gravity*dt;
@@ -109,7 +127,6 @@ export function createBasketball(world,players) {
       if(vy<-1.1){vy*=-.58;vx*=.77;vz*=.77;}
       else {vy=0;vx*=Math.exp(-3*dt);vz*=Math.exp(-3*dt);}
     }
-    state.shot.age=elapsed;
     if(!resolved && elapsed>2)resolve(false);
     if(elapsed>2.75 || !onBasketballCourt(ball,1.2) && elapsed>1.4){
       if(!resolved)resolve(false);

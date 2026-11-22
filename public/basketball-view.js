@@ -4,6 +4,7 @@ import {
   longShotDistance,onBasketballCourt,basketballBackstop,
 } from './basketball-layout.js';
 import {civilianLooks} from './civilian-style.js';
+import {dunkRelease} from './basketball-dunk.js';
 import {basketballPose} from './basketball-pose.js';
 
 export const basketballLooks={
@@ -211,7 +212,8 @@ export function addBasketballCourt(scene,Batch){
       ball.rotation.set(clock*2.4,0,-clock*1.1);
     }else{
       // Smooth consecutive server ball positions while resetting on possession.
-      const weight=displayedSerial===point.serial?-Math.expm1(-24*dt):1;
+      const gripped=game.shot?.kind==='dunk' && game.shot.age<=dunkRelease;
+      const weight=!gripped && displayedSerial===point.serial?-Math.expm1(-24*dt):1;
       ball.position.x+=weight*(point.x-ball.position.x);
       ball.position.y+=weight*(point.y-ball.position.y);
       ball.position.z+=weight*(point.z-ball.position.z);

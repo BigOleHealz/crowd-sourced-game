@@ -1,9 +1,12 @@
+import {dunkFrame,dunkLanding} from './basketball-dunk.js';
 import {basketballTeams} from './basketball-layout.js';
 
 export function basketballPose(game,actor,clock){
   if(!game)return null;
   const side=game.players.findIndex((id,i)=>(id??basketballTeams[i].npc)===actor.id);
   if(side<0 || actor.dead || actor.fall)return null;
+  if(game.shot?.kind==='dunk' && game.shot.actorId===actor.id && game.shot.age<dunkLanding)
+    return {dunk:dunkFrame(game.shot,game.shot.age,actor)};
   const hasBall=game.turn===side && game.phase==='held';
   const charge=hasBall?Math.min(1,game.charge*1.65):0;
   const dribble=hasBall && !charge && actor.moving;
