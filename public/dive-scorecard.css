@@ -1,0 +1,31 @@
+#dive-result:not([hidden]),#dive-meter:not([hidden]){box-sizing:border-box;width:min(320px,100%);padding:11px 14px;border:1px solid #78c9cd72;border-top:2px solid #8de6df;border-radius:7px;background:linear-gradient(120deg,#0f3b47f7,#102a40f5 66%,#163c47ef);color:#f5f5e8;box-shadow:0 4px 18px #07161e44;font-variant-numeric:tabular-nums;white-space:normal}
+#dive-result:not([hidden]){display:grid;grid-template-columns:1fr auto;gap:2px 8px;animation:dive-reveal .26s ease-out}
+.dive-headline,.dive-judges,.dive-math,.dive-record{grid-column:1/-1}
+.dive-headline{font-size:11px;font-weight:700;letter-spacing:.04em;color:#b6e8e6}
+.dive-points{font-size:30px;line-height:1.18;font-weight:800;letter-spacing:-.04em}.dive-points small{font-size:12px;letter-spacing:0;color:#c4cfcf}
+.dive-entry-note{align-self:center;color:#ffde85;font-size:12px}
+.dive-judges{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:4px}
+.dive-judges span{text-align:center;padding:3px 0;border-radius:2px;background:#28454c;font:600 12px/1.2 system-ui;color:#bdc6c8}
+.dive-judges .trimmed{text-decoration:line-through;text-decoration-color:#84999c}
+.dive-judges .counted{background:#f2d78d;color:#16323a}.dive-math{font-size:10px;color:#c9d3d9}
+.dive-record{border-top:1px solid #95c8c340;margin-top:4px;padding-top:3px;font-size:11px;color:#9debdb}
+#dive-meter .dive-track{height:8px;margin:8px 1px 2px;border-radius:8px}
+#dive-meter[data-in-zone=true]{border-color:#ffe095;box-shadow:0 0 12px #d4b45e66}
+@keyframes dive-reveal{from{transform:translateY(4px);opacity:.78}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){#dive-result:not([hidden]){animation:none}}
+.dive-spectator{grid-column:1/-1;color:#c5dcd9;font-size:11px}
+.touch-play .location:has(#dive-result:not([hidden]),#dive-meter:not([hidden])){
+  display:grid;grid-template-columns:auto 1fr;align-items:center;gap:3px 7px;
+  width:min(66vw,270px);box-sizing:border-box;
+}
+.touch-play .location:has(#dive-result:not([hidden]),#dive-meter:not([hidden])) :is(.kit-row,#wallet,#field-prompt){display:none}
+.touch-play .location:has(#dive-result:not([hidden]),#dive-meter:not([hidden])) .health-readout{justify-self:end;font-size:10px;margin:0;gap:4px}
+.touch-play .location:has(#dive-result:not([hidden]),#dive-meter:not([hidden])) .health-readout meter{width:35px}
+.touch-play #dive-result:not([hidden]),.touch-play #dive-meter:not([hidden]){min-width:0;padding:6px 8px;box-shadow:none}
+.touch-play #dive-result .dive-points{font-size:24px}
+.touch-play #dive-result .dive-entry-note{font-size:11px}
+.touch-play #dive-result .dive-judges{gap:2px;margin-top:1px}
+.touch-play #dive-result .dive-judges span{padding:2px 0}
+@media(max-height:430px){
+  .touch-play #dive-result .dive-record,.touch-play #dive-result .dive-spectator{margin-top:0;padding-top:1px}
+}

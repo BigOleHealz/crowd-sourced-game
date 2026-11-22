@@ -1,6 +1,6 @@
 import {nearDog,carriedDog} from './dog-walkers.js';
 import {footStickPace} from './foot-stick.js';
-import {platformReport} from './platform-judges.js';
+import {diveScorecard} from './dive-scorecard.js';
 import {marinaPlatform} from './marina-platform.js';
 import {takeoffBoard,entryBeat} from './estate-diving.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -65,7 +65,7 @@ import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
-import {volleyballHud} from './volleyball-hud.js';
+import {volleyballHud,volleyballScoreboard} from './volleyball-hud.js';
 import {marinaMode,sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
 const byId = id => document.getElementById(id);
@@ -136,6 +136,7 @@ function volleyballAction(action){
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'volleyball',action}));
 }
 const playingHoops=()=>id!=null && Boolean(world?.basketball?.players.includes(id));
+const showVolleyScore=volleyballScoreboard(byId('volleyball-score'));
 const hoopsHud=basketballHud(byId('basketball-score'));
 const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
@@ -666,7 +667,7 @@ function connect() {
       const shots=readShots(world.shots);
       for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)scene.glassBurst(e);
       lastGlass=world.doors?.glassSeq??0;
-      scene.showShots(shots);
+      scene.showShots(shots,m.simTick);
       audio.events(world,authoritative,roverView?.yaw ?? camera.yaw,shots,lighting.value);
       const arrival=performance.now(),sim=Number.isFinite(m.simTick)?m.simTick*step*1000:arrival;
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
@@ -685,7 +686,7 @@ function connect() {
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
-    byId('marina-card').hidden=true;hoopsHud.hide();
+    byId('marina-card').hidden=true;byId('touch-race-tally').hidden=true;hoopsHud.hide();showVolleyScore(null);
     byId('match-card').hidden=true;
     byId('flight-cursor').hidden=true;
     wantedHud();id = null; self = null; world = null; pending = []; samples = [];
@@ -886,29 +887,28 @@ function drivingView(rover, dt, wheeled) {
   return roverView.rearAngle>.0001 ? {...roverView,yaw:roverView.yaw+roverView.rearAngle} : roverView;
 }
 
+const divingScores=diveScorecard(byId('dive-result'));
+
 function updateEquipment(local) {
   const board=CITY && !local.dead && !local.fall && !isDriving() && !isPilot() && !gunnerRole() && takeoffBoard(local);
   const diving=local.dive;
   const gauge=byId('dive-meter'),report=byId('dive-result');
-  let mark=vitals.lastDive,spectator=false;
+  let mark=vitals.lastDive,spectatorName='';
+  divingScores.observe(mark);
   if(CITY && local.z< -385 && local.z> -490){
     for(const athlete of samples.at(-1)?.players??[]){
       const entry=athlete.lastDive;
       if(entry && (!mark || entry.tick>mark.tick) && Math.hypot(local.x-entry.x,local.z-entry.z)<(entry.judging?32:14)){
-        mark=entry;spectator=true;
+        mark=entry;spectatorName=athlete.name || 'Hiker '+athlete.id;
       }
     }
   }
-  report.hidden=!mark || !!diving || (!!board && !spectator);
-  if(!report.hidden){
-    const text=mark.judging ? platformReport(mark) :
-      (mark.flip?'Front flip':'Straight dive')+'   '+mark.score.toFixed(1)+' / 10   ·   '+mark.note;
-    const label=(spectator?(mark.judging?'Marina · ':'Poolside · '):'')+text;
-    if(report.textContent!==label)report.textContent=label;
-  }
+  report.hidden=!mark || !!diving || (!!board && !spectatorName);
+  if(!report.hidden)divingScores.show(mark,spectatorName);
   gauge.hidden=!diving;
   if(diving){
     const progress=diving.time/diving.duration;
+    gauge.dataset.inZone=String(diving.release==null && Math.abs(progress-entryBeat)<=.065);
     gauge.style.setProperty('--progress',Math.min(100,(diving.release??diving.time)/diving.duration*100)+'%');
     byId('dive-call').textContent=diving.release!=null?'Entry set':progress<entryBeat-.065?'Wait for the gold zone':progress<=entryBeat+.065?'Open now':'Open for entry';
   }
@@ -1019,8 +1019,10 @@ function updateEquipment(local) {
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
-  if(volleyball && !bankDialog.open && !market.current && !talk.current){
-    const labels=[volleyball.score,volleyball.detail];
+  const volleyballVisible=volleyball && !vitals.dead && !bankDialog.open && !market.current && !talk.current;
+  showVolleyScore(volleyballVisible?volleyball:null);
+  if(volleyballVisible){
+    const labels=[];
     if(!touch.active){
       if(volleyball.action)labels.push('Space  ·  '+volleyball.action);
       if(volleyball.use)labels.push('E  ·  '+volleyball.use);
@@ -1054,6 +1056,10 @@ function updateEquipment(local) {
   if(board || diving){
     prompt.textContent=board?(touch.active?'Choose your dive':'Springboard · Space for straight dive · C for front flip'):(touch.active?'Tap Open for entry in the gold zone':'Press Space in the gold zone to open for entry');
     if(board?.kind==='platform')prompt.textContent=(touch.active?'Choose your dive':'Space · Straight dive   C · Front flip')+'   101A straight ×1.6   /   103C tuck ×1.5';
+    if(board){
+      const target=divingScores.targets(board.kind==='platform');
+      if(target)prompt.textContent+=' · '+target;
+    }
     byId('space-action').textContent=board?'Straight dive':'Open for entry';
     byId('crouch-action').textContent=board?'Front flip':'Crouch';
   }
@@ -1188,7 +1194,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){
@@ -1248,7 +1254,7 @@ function frame(time) {
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
-      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
+      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id,touch.active);

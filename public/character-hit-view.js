@@ -16,14 +16,16 @@ export function characterBurst(part,point,from,particle,random) {
     return;
   }
   const forward=point.clone().sub(from).normalize();
-  const count=part==='torso' ? 11 : 16;
+  const fatalDogHit=part==='dogHead';
+  const count=fatalDogHit?20:part==='torso'?11:16;
   for(let i=0;i<count;i++) {
     const direction=new THREE.Vector3(random()-.5,random()-.36,random()-.5);
     direction.addScaledVector(forward,.48).normalize();
     const speed=1.4+random()*2.5;
     const width=.025*(1+random()*.8);
-    const color=i%3 ? 0xb52736 : 0x701723;
-    particle(point.clone(),direction.multiplyScalar(speed),new THREE.Vector3(width,width*1.85,width*.78),
+    const fragment=fatalDogHit && i%3===0;
+    const color=fragment?0xd68b91:i%3?0xb52736:0x701723;
+    particle(point.clone(),direction.multiplyScalar(speed),new THREE.Vector3(width*(fragment?1.6:1),width*1.85,width*(fragment?1.4:.78)),
       color,.18+random()*.27);
   }
 }

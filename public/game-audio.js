@@ -1,7 +1,8 @@
+import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
 import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
 import {marineBlastCalls,marineImpactSound} from './marine-float.js';
-import {crowdPanicAudio} from './crowd-panic-audio.js';
+import {crowdPanicAudio,crowdVoices} from './crowd-panic-audio.js';
 import {bankDesk} from './bank-rules.js';
 import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
@@ -27,6 +28,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
   if(name==='shark-strike-water')return sharkStrikeWaterSound(context);
@@ -137,6 +139,7 @@ export function createGameAudio(button,slider,level,caption) {
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const civilianVoices=crowdPanicAudio(),thefts=dogOwnerDialogue(),ownerLine=ownerSpeech();
   let captionTimer;
+  const sprayLines=new Map();
   const collapse=fallAudioTracker(MAP.buildings);
   let clubTrackLoading=false;
   async function loadClubTrack(){
@@ -236,19 +239,24 @@ export function createGameAudio(button,slider,level,caption) {
     if(segment)v.source.start(0,segment.start,segment.duration);
     else v.source.start();
   }
+  let previousDogs;
   function reset(world) {
+    previousDogs=world?.dogs;
     thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
     if(caption)caption.hidden=true;
     collapse.reset();flameEmitters.clear();
     priorSharks=world?.sharks;priorManatees=world?.manatees;
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
-    environmentWorld=world;listenerSpace=acousticSpace(null,null);
+    environmentWorld=world;
+    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
+    previousDogs=world.dogs;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
     previousVehicles={};
+    sprayLines.clear();
     civilianVoices.reset(world?.npcs);
     if(world)for(const [key,v] of roadAndAirVehicles(world))previousVehicles[key]=v;
   }
@@ -257,7 +265,24 @@ export function createGameAudio(button,slider,level,caption) {
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
+    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
+    previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
+    for(const npc of world.npcs??[]){
+      const time=npc.drenchedAt;
+      if(time==null || time===sprayLines.get(npc.id) || world.simTick-time>18 || npc.dead)continue;
+      sprayLines.set(npc.id,time);
+      const mouth={x:npc.x,y:npc.y+1.5,z:npc.z};
+      if(Math.hypot(listener.x-mouth.x,listener.z-mouth.z)>30 || document.hidden)continue;
+      const index=(time+npc.id.length)%3,clip=[3,6,11][index];
+      if(caption){
+        clearTimeout(captionTimer);caption.hidden=false;
+        caption.textContent=npc.name+' · “'+['Stop it!','Go away!','What are you doing?'][index]+'”';
+        captionTimer=setTimeout(()=>{caption.hidden=true;},2400);
+      }
+      if(audible() && buffers.has('crowd-reactions'))
+        burst('crowd-reactions',mouth,listener,yaw,1.18,time,crowdVoices[5][clip]);
+    }
     thefts.step(world,listener,(line,owner,mouth,fade,tick)=>{
       if(document.hidden)return;
       const show=text=>{
@@ -427,6 +452,16 @@ export function createGameAudio(button,slider,level,caption) {
       sounding.add(key);
       const mix=civilianEngineMix(car);
       motor('civilian/'+car.model,car,true,mix.rate,mix.gain,listener,yaw,key);
+      if(car.model==='engine' && car.water){
+        const jetKey=key+'/water',end=car.water;
+        const charged=Math.min(1,Math.max(0,((environmentWorld?.simTick??end.since)-end.since)/11));
+        sounding.add(jetKey);
+        motor('wake',car,true,1.6+.85*charged,.23+.26*charged,listener,yaw,jetKey);
+        if(end.ny!=null){
+          const splashKey=key+'/splash';sounding.add(splashKey);
+          motor('wake',end,true,.90,.26,listener,yaw,splashKey);
+        }
+      }
     }
     for(const key of loops.keys())if(key.startsWith('traffic/') && !sounding.has(key))stopMotor(key);
   }

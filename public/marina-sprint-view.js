@@ -71,25 +71,39 @@ export function createSprintGate(scene,Batch){
   };
 }
 
-export function sprintHud(panel,race,car,local,board){
+export function sprintHud(panel,race,car,local,board,touch=false){
   panel.hidden=false;
   const gate=sprintGates[race?.next]??sprintStart;
+  const clock=panel.querySelector('.sprint-clock');
+  clock.hidden=!race;
+  const compact=document.getElementById('touch-race-tally');
+  compact.hidden=!race || !touch;
+  if(race){
+    clock.querySelector('[data-time]').textContent=race.phase==='countdown'?'0:00.00':raceClock(race.elapsed);
+    const progress=race.phase==='finished'?'Finished':race.next+' / '+sprintGates.length+' gates';
+    clock.querySelector('[data-gates]').textContent=progress;
+    if(touch)compact.textContent=raceClock(race.elapsed)+' · '+progress;
+  }
+  const best=board.find(row=>row.driver===race?.driver),personal=panel.querySelector('[data-best]');
+  const time=race?.best??best?.time;
+  personal.hidden=time==null;
+  if(time!=null)personal.textContent='Your best '+raceClock(time)+(best?' · Rank '+(board.indexOf(best)+1):'');
   let message='Start at Mangle Café in a road vehicle.';
-  if(car && atGrid(car))message='Stop under the banner and press T to start.';
+  if(car && atGrid(car))message=touch?'Stop under the banner and tap Marina Sprint in Gear.':'Stop under the banner and press T to start.';
   if(race?.phase==='countdown')message='Hold at the grid · '+Math.max(1,Math.ceil(-race.elapsed/1000));
   if(race?.phase==='racing'){
     const distance=Math.round(Math.hypot(local.x-gate.x,local.z-gate.z));
     const directions=['N','NE','E','SE','S','SW','W','NW'];
     const bearing=(Math.round(Math.atan2(gate.x-local.x,local.z-gate.z)/(Math.PI/4))+8)%8;
-    message=raceClock(race.elapsed)+' · '+(race.next+1)+'/'+sprintGates.length+' '+gate.name+' · '+directions[bearing]+' '+distance+' m';
+    message='Next · '+gate.name+' · '+directions[bearing]+' '+distance+' m';
   }
-  if(race?.phase==='finished')message='Driver '+race.driver+' · Finish '+raceClock(race.elapsed)+' · '+(race.message??'Press T at the quay to race again.');
+  if(race?.phase==='finished')message=race.message??(touch?'At the quay, tap Marina Sprint in Gear to retry.':'Press T at the quay to race again.');
   panel.querySelector('output').textContent=message;
-  const list=panel.querySelector('ol'),signature=board.map(row=>row.driver+'-'+row.time).join(',');
+  const list=panel.querySelector('ol'),signature=(race?.driver??'')+'/'+board.map(row=>row.driver+'-'+row.time).join(',');
   if(list.dataset.times!==signature){
     list.dataset.times=signature;
     list.replaceChildren(...board.map(row=>{
-      const li=document.createElement('li');li.textContent='Driver '+row.driver+' · '+raceClock(row.time);return li;
+      const li=document.createElement('li');li.textContent=(row.driver===race?.driver?'You':'Driver '+row.driver)+' · '+raceClock(row.time);return li;
     }));
   }
   panel.querySelector('summary').textContent=board.length?'Session best · '+raceClock(board[0].time)+' · Driver '+board[0].driver:'Session best · No finishes yet';

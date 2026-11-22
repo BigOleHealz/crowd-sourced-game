@@ -98,7 +98,26 @@ export function damageDog(dog,amount,tick){
   if(!dog?.hp || dog.mode==='removed' || !Number.isFinite(amount) || amount<=0)return false;
   dog.hp=Math.max(0,dog.hp-amount);dog.lastHurtTick=tick;
   if(!dog.hp){
-    dog.mode='down';dog.carrier=null;dog.speed=0;delete dog.attacker;motion.get(dog).time=0;
+    dog.mode='down';dog.carrier=null;dog.speed=0;delete dog.attacker;Object.assign(motion.get(dog),{time:0,vx:0,vy:0,vz:0});
+  }
+  return true;
+}
+
+export function projectileDogHit(dog,amount,tick,direction,headshot){
+  if(!damageDog(dog,amount,tick))return false;
+  dog.lastShotTick=tick;
+  if(!dog.hp && headshot)dog.headInjury=true;
+  if(direction && dog.mode!=='carried'){
+    const impulse=Math.min(2.7,1.25/dog.size+.012*amount);
+    const m=motion.get(dog);
+    if(!dog.hp){
+      m.vx=direction.x*impulse;m.vz=direction.z*impulse;
+      m.vy=Math.max(.25,(direction.y??0)*impulse);
+    }else{
+      // Preserve the facing direction during a short, collision-checked stagger.
+      dog.mode='startled';dog.speed=impulse;
+      Object.assign(m,{time:0,vx:direction.x*impulse,vz:direction.z*impulse,vy:1.15});
+    }
   }
   return true;
 }
@@ -146,12 +165,15 @@ export function aboardDogCarrier(world,p){
 function stepDog(dog,owner,world,players,dt,tick){
   const m=motion.get(dog);m.time+=dt;
   if(dog.mode==='down'){
-    const floor=surface(dog,world);dog.y=Math.max(floor.y,dog.y-5*dt);
+    move(dog,m.vx*dt,m.vz*dt,world);
+    const floor=surface(dog,world);
+    m.vy-=13*dt;dog.y=Math.max(floor.y,dog.y+m.vy*dt);
+    if(dog.y===floor.y){m.vy=0;const drag=Math.exp(-9*dt);m.vx*=drag;m.vz*=drag;}
     if(m.time>=6)removeDog(world,dog);
     return;
   }
   if(dog.mode==='removed'){
-    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.lastThief;delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
+    if(m.time>=35 && owner?.life.hp){Object.assign(dog,heel(owner),{mode:'leashed',yaw:owner.yaw,hp:dog.maxHp});delete dog.deathKind;delete dog.headInjury;delete dog.lastShotTick;delete dog.lastKickTick;delete dog.lastThief;delete dog.lastHurtTick;delete dog.lastBiteTick;delete dog.attacker;m.time=0;}
     return;
   }
   if(dog.mode==='carried'){

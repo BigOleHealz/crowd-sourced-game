@@ -28,14 +28,15 @@ export function marineContact(world,start,end){
 }
 
 // A direct missile hit and its area effect belong to the same damage event.
-export function hitMarineWildlife(world,target,to,damage,blastRadius){
+export function hitMarineWildlife(world,target,to,damage,blastRadius,onBirdBlast){
   for(const entry of species){
     const animals=world[entry.key];
     if(!animals)continue;
     for(const [index,animal] of animals.entries()){
       const direct=target===animal;
       if(!direct && (!blastRadius || Math.hypot(animal.x-to.x,animal.y-to.y,animal.z-to.z)>blastRadius))continue;
-      entry.damage(animals,index,blastRadius ? animal.maxHp : damage,blastRadius ? 'blast' : 'shot',direct ? to : undefined);
+      const hit=entry.damage(animals,index,blastRadius ? animal.maxHp : damage,blastRadius ? 'blast' : 'shot',direct ? to : undefined);
+      if(hit && blastRadius && !animal.hp && entry.kind==='gull')onBirdBlast?.(animal);
     }
   }
 }

@@ -1,3 +1,4 @@
+import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
 import {casinoHall,casinoSeat} from './casino-layout.js';
 import {resortFloorView} from './resort-floor-view.js';
@@ -700,6 +701,19 @@ function fieldEffects(scene) {
     }
   }
   function shot(s,sourceVehicle) {
+    if(s.weapon==='bodyBlast'){
+      const center=new THREE.Vector3().copy(s.to);
+      const size=s.size;
+      for(let i=0;i<28;i++){
+        const angle=i*2.4+rng()*.42,speed=(1.4+3.2*rng())*size;
+        const velocity=new THREE.Vector3(Math.cos(angle)*speed,(1.4+rng()*3.6)*size,Math.sin(angle)*speed);
+        const chunk=i%3===0,radius=(chunk?.07+rng()*.09:.027+rng()*.04)*size;
+        particle(center.clone(),velocity,new THREE.Vector3(radius,radius*(chunk?.62:1.35),radius*1.4),
+          chunk?(i%2?0x822b38:0xbb606b):0xa51d30,chunk?3.5+rng()*1.7:.35+rng()*.4);
+        if(chunk)particles.at(-1).settleY=groundHeight(center.x,center.z,center.y)+radius*.45;
+      }
+      return;
+    }
     if(s.weapon==='ember'){fireView.pulse(s);return;}
     if(s.weapon==='molotov'){
       const at=new THREE.Vector3().copy(s.to);at.y+=.075;
@@ -741,7 +755,9 @@ function fieldEffects(scene) {
       p.remaining-=dt;
       if(p.remaining<=0) continue;
       p.pos.addScaledVector(p.vel,dt);
-      if(p.vel.lengthSq()) p.vel.y-=dt*5.8;
+      if(p.settleY!==undefined && p.pos.y<=p.settleY){
+        p.pos.y=p.settleY;p.vel.set(0,0,0);
+      }else if(p.vel.lengthSq())p.vel.y-=dt*5.8;
       dummy.position.copy(p.pos);dummy.scale.copy(p.scale).multiplyScalar(Math.min(1,p.remaining/.13));
       if(p.rotation) dummy.quaternion.copy(p.rotation); else dummy.quaternion.identity();
       dummy.updateMatrix();cloud.setMatrixAt(write,dummy.matrix);
@@ -1089,6 +1105,7 @@ export function createScene(canvas) {
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
   let framedBite=null,biteSide=1;
   const updateDogSpray=CITY?sharkDogSpray(scene,MAP.waterY):null;
+  const swimmerImpacts=aquaticImpactView(scene,MAP.waterY,[]);
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1340,11 +1357,20 @@ export function createScene(canvas) {
       updateResortFloor=resortFloorView(scene,Batch);
     updateResortFloor?.(dt,local);
     const attackTick=world.frameTick??world.simTick;
-    const localDefeat=local.dead && world.sharkDefeats?.find(e=>e.playerId===local.id);
+    const blastDeath=local.dead && local.deathKind==='blast';
+    const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
     for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
       let a=avatars.get(state.id);
+      if(state.dead && state.deathKind==='blast'){
+        if(a){
+          a.root.visible=a.shadow.visible=a.label.sprite.visible=false;
+          clearLostParts(a);
+          for(const ring of a.ripples?.rings??[])ring.visible=false;
+        }
+        continue;
+      }
       const entering=cars.find(car=>car.takeover && (car.takeover.npcId===state.id || car.takeover.playerId===state.id));
       const inTraffic=state.cruiserId?world.patrolCars?.find(car=>car.id===state.cruiserId):cars.find(car=>car.driver===state.id || car.npcDriver===state.id);
       if(state.evacLook && Math.hypot(state.x-local.x,state.z-local.z)>115*detailScale){
@@ -1549,7 +1575,8 @@ export function createScene(canvas) {
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
       camera.position.lerp(overheadEye,overhead);
     }
-    avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
+    const localBody=avatars.get(local.id)?.root;
+    if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && (!local.swimming || local.swimArmed);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
@@ -1567,7 +1594,7 @@ export function createScene(canvas) {
     if (sighted) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
-      avatars.get(local.id).root.visible = false;
+      if(localBody)localBody.visible=false;
     }
     if(ridingHotelShaft(local)){
       camera.position.set(local.x,local.y+1.59,local.z);
@@ -1579,14 +1606,14 @@ export function createScene(canvas) {
       // the guest seated against the backrest and can look around freely.
       camera.position.set(local.x+.10,local.y+1.13,local.z);
       camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
-      avatars.get(local.id).root.visible=false;
+      if(localBody)localBody.visible=false;
     }
     if(bowSight){
       const pivot=mountPosition(world.yacht,mounts.superyacht.turret);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       camera.position.set(pivot.x,pivot.y,pivot.z);
       camera.translateZ(-1.12);
-      avatars.get(local.id).root.visible=false;
+      if(localBody)localBody.visible=false;
     }
     if(localDefeat){
       const age=Math.max(0,(attackTick-localDefeat.tick)/30);
@@ -1598,7 +1625,7 @@ export function createScene(canvas) {
       desired.set(shot.x,shot.y,shot.z);
       camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.36));
       camera.lookAt(shot.lookX,shot.lookY,shot.lookZ);
-      avatars.get(local.id).root.visible=true;
+      if(localBody)localBody.visible=true;
     }
     if(world.casino?.player===local.id && !local.dead){
       camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
@@ -1607,6 +1634,7 @@ export function createScene(canvas) {
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDogSpray?.(world.sharks,local);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
+    swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
     updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
@@ -1637,8 +1665,9 @@ export function createScene(canvas) {
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
   }
-  function showShots(shots) {
+  function showShots(shots,tick) {
     for(const shot of shots){
+      if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
       if(shot.weapon==='ember'){
         const tool=shot.shooter===localActorId && sightModels[4].visible ? sightModels[4] : avatars.get(shot.shooter)?.tools[4];
         if(tool){
@@ -1653,7 +1682,7 @@ export function createScene(canvas) {
       effects.shot(shot,shot.source);
     }
   }
-  return {resetSurfaceMarks:marks.reset,setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
+  return {resetSurfaceMarks(){marks.reset();swimmerImpacts.clear();},setLighting:lighting.setLevel,render,resize,aimAt,showShots,glassBurst:effects.glassBurst,dispose(){scene.traverse(node=>{
     if(node.isMesh){node.skeleton?.dispose();node.geometry.dispose();node.material.map?.dispose();node.material.dispose();}
   });shadowMap.dispose();renderer.dispose();}};
 }

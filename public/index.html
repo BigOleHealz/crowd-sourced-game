@@ -8,6 +8,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/style.css">
   <script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+  <link rel="stylesheet" href="./dive-scorecard.css">
 </head>
 <body>
   <canvas id="game" tabindex="0" aria-label="Pinewatch multiplayer hiking world"></canvas>
@@ -36,25 +37,33 @@
     <span id="supply-step" class="subhead"></span>
     <div class="supply-heading"><strong id="supply-name"></strong><span id="supply-bearing"></span></div>
     <span id="supply-action"></span><progress id="supply-hold" max="1" aria-label="Cargo handling" hidden></progress>
+    <div class="delivery-tally"><span>Team deliveries <b id="supply-delivered">0</b></span><span>Cases delivered <b id="supply-cases">0</b></span></div>
     <div class="match-score" aria-label="Your match score"><span>Kills <b id="match-kills">0</b></span><span>Deaths <b id="match-deaths">0</b></span></div>
   </aside>
   <aside id="marina-card" hidden aria-label="Marina Sprint">
-    <strong>Marina Sprint</strong><output></output><details><summary>Session best</summary><ol></ol></details>
+    <strong>Marina Sprint</strong><div class="sprint-clock" hidden><b data-time></b><span data-gates></span></div><output></output><small data-best hidden></small><details><summary>Session best</summary><ol></ol></details>
   </aside>
   <main class="hud">
     <div class="location"><span class="subhead">Current location</span><h2 id="location">Trailhead</h2>
       <div class="kit-row"><strong id="kit">Field carbine</strong><span id="progress"></span></div>
       <div class="health-readout"><label id="hp-label" for="hp-meter">Health</label><meter id="hp-meter" min="0" max="100" value="100"></meter><span id="life-status"></span></div>
       <button id="wallet" type="button" aria-label="Open wallet and inventory" aria-keyshortcuts="I" hidden>$0 · Bag</button>
+      <div id="touch-race-tally" aria-label="Marina Sprint progress" hidden></div>
       <div id="dive-meter" hidden><span id="dive-call"></span><div class="dive-track"><i></i></div></div>
-      <output id="dive-result" aria-live="polite" hidden></output>
+      <output id="dive-result" aria-live="polite" aria-atomic="true" hidden></output>
       <output id="owner-caption" aria-live="polite" hidden></output>
       <output id="bank-receipt" aria-live="polite" hidden></output>
       <output id="bank-event" role="status" hidden></output>
       <div id="wanted-status" role="status" hidden></div>
       <div id="launcher-status" hidden></div><div id="field-prompt"></div>
-      <section id="basketball-score" aria-label="Basketball scoreboard" hidden>
-        <div class="basketball-tally"><span>Tide <strong data-hoops-score>0</strong></span><span>Sunset <strong data-hoops-score>0</strong></span></div>
+      <section id="volleyball-score" class="court-score" aria-label="Volleyball scoreboard" hidden>
+        <div class="court-title"></div>
+        <div class="court-tally"><div><span>Surf</span><b>0</b><small></small></div><div><span>Coral</span><b>0</b><small></small></div></div>
+        <output aria-live="polite"></output>
+      </section>
+      <section id="basketball-score" class="court-score" aria-label="Basketball scoreboard" hidden>
+        <div class="court-title">Harbor Key · Basketball</div>
+        <div class="court-tally"><div><span>Tide</span><b>0</b><small></small></div><div><span>Sunset</span><b>0</b><small></small></div></div>
         <output aria-live="polite"></output>
         <div role="meter" aria-label="Shot power" aria-valuemin="0" aria-valuemax="100" hidden><b></b><i></i></div>
       </section>
@@ -77,9 +86,10 @@
   <output id="elevator-status" hidden role="status"></output>
   <dialog id="casino-dialog" aria-labelledby="casino-title">
     <header><p>Lantern Club Casino</p><h2 id="casino-title">Blackjack</h2><span data-funds></span></header>
-    <section><h3>Dealer</h3><div class="casino-cards" data-dealer></div></section>
-    <section><h3>Your hand</h3><div class="casino-cards" data-hand></div></section>
+    <section><h3>Dealer <b data-dealer-total></b></h3><div class="casino-cards" data-dealer></div></section>
+    <section><h3>Your hand <b data-hand-total></b></h3><div class="casino-cards" data-hand></div></section>
     <output aria-live="polite"></output>
+    <div class="hand-record" aria-label="Your blackjack record this session"><span>Wins <b data-wins>0</b></span><span>Losses <b data-losses>0</b></span><span>Pushes <b data-pushes>0</b></span></div>
     <div data-bets class="casino-actions"></div>
     <div data-moves class="casino-actions" hidden><button data-action="hit">Hit</button><button data-action="stand">Stand</button></div>
     <details><summary>Table rules</summary><p>Get closer to 21 than the dealer without going over. Aces count as 1 or 11. The dealer stands on all 17s. A two-card blackjack pays 3 to 2, other wins pay even money, and ties return your wager. Each hand uses a fresh shuffled deck. Use your in-game wallet or play for free. Leaving an unfinished hand or sitting idle for two minutes forfeits the wager.</p></details>

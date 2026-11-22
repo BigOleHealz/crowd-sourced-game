@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+process.env.PINEWATCH_MAP='brickell';
+const {newExpedition,advanceRounds,advanceMissiles,firePatrolShot}=await import('../public/expedition.js');
+const {newRivals,newLife}=await import('../public/rivals.js');
+const {newDogs}=await import('../public/dog-walkers.js');
+const {liveShots}=await import('../public/shot-events.js');
+const {immersedSurface}=await import('../public/water-impact.js');
+const {aquaticImpactView}=await import('../public/aquatic-impact-view.js');
+const world=newExpedition(),bay={x:86,y:-.86,z:-214,swimming:true},pool={x:-25,y:.06,z:-392.6,swimming:true},roof={x:-55.9,y:68.38,z:66.35,swimming:true};
+const swimmer={id:42,state:{...bay},life:newLife(0,false),yaw:0},people=new Map([[42,swimmer]]);
+const cues=()=>world.shots.filter(s=>s.weapon==='waterHit');
+const shoot=(p,height,npcs=[],x=p.x)=>{
+  world.bullets=[{id:906,weapon:1,shooter:7,x,y:p.y+height,z:p.z+1.15,vx:0,vy:0,vz:-56,left:20,age:0}];
+  advanceRounds(world,people,npcs,500);
+};
+for(const [location,line] of [[bay,-.14],[pool,.78],[roof,69.1]]){
+  swimmer.state={...location};shoot(swimmer.state,1.04);
+  assert(Math.abs(cues().at(-1).waterline-line)<.001);
+  assert.equal(cues().at(-1).dead,false);
+}
+const first=cues()[0],old=cues().length;
+swimmer.life.immuneUntil=999;shoot(swimmer.state,1.04);
+firePatrolShot(world,{id:17},swimmer,{direction:{x:0,y:0,z:-1},from:roof,to:roof},501,100);
+assert.equal(cues().length,old,'shielded shots including police cannot create effects');
+swimmer.life.immuneUntil=0;shoot(swimmer.state,1.04,[],swimmer.state.x+3);
+assert.equal(cues().length,old,'miss');
+swimmer.state={x:-59,y:.8,z:45};shoot(swimmer.state,1.04);assert.equal(cues().length,old,'ground');
+assert.equal(immersedSurface({...bay,onYacht:true}),undefined);
+const npcs=newRivals({resort:true}),ped=npcs[0];Object.assign(ped,{state:{...bay},life:newLife(0,false)});
+shoot(ped.state,1.04,[ped]);assert.equal(ped.life.hp,75);
+const [dog]=world.dogs=newDogs(npcs);Object.assign(dog,{...bay,y:-.14-.29*dog.size,mode:'swimming'});
+shoot(dog,.4*dog.size);assert(cues().at(-1).size<.88);
+swimmer.life=newLife(0,false);swimmer.state={...bay,x:bay.x+1.25};
+world.missiles=[{id:355,source:'tank',shooter:7,x:bay.x,y:bay.y+.35,z:bay.z+.62,pitch:0,yaw:0,remaining:4}];
+advanceMissiles(world,people,[ped],502);
+assert(cues().some(c=>c.dead && c.blast));
+const fresh=liveShots(world.shots);assert.equal(fresh(world.shots).length,0,'join baseline');
+const scene=new THREE.Scene(),view=aquaticImpactView(scene,-.14,[]);
+for(let i=0;i<50;i++)view.event({...first,id:i,to:roof,waterline:69.1,blast:true,dead:true},first.tick);
+view.frame(roof,.1);
+const mist=scene.getObjectByName('Suspended blood'),debris=scene.getObjectByName('Floating tissue and fragments');
+assert.equal(mist.count,12*9);assert.equal(debris.count,12*12);
+assert(Math.abs(mist.geometry.attributes.cloudState.getZ(0)-69.1)<.001);
+assert(Math.abs(debris.geometry.attributes.fragmentSurface.getX(0)-69.1)<.001);
+view.frame(roof,20);assert(!mist.visible && !debris.visible);
+console.log('PASS projectile & blast water effects across players, civilians and dogs, bay/estate/penthouse level, shield/miss/deck/dry suppression, join baseline and bounded mesh counts');

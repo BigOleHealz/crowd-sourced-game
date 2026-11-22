@@ -31,7 +31,7 @@ export function healthView(actor, tick) {
     settled: f.settled !== null, recovery: life.hp && f.settled !== null ? Math.min(1,(tick-f.settled)/16) : 0 } : null;
   const lostParts=life.lostParts && Object.fromEntries(Object.entries(life.lostParts).map(
     ([part,hit])=>[part,{...hit,age:Math.min(8,(tick-hit.tick)/30)}]));
-  return { fall, lostParts, lastShotTick:life.lastShotTick,lastBiteTick:life.lastBiteTick,hitSector:life.hitSector, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
+  return { fall, lostParts, deathKind:life.deathKind, lastShotTick:life.lastShotTick,lastBiteTick:life.lastBiteTick,hitSector:life.hitSector, hp: life.hp, maxHp: MAX_HP, dead: life.hp === 0,
     protected: tick < life.immuneUntil, respawnIn: Math.max(0, (life.returnAt - tick) / 30) };
 }
 
@@ -108,7 +108,7 @@ export function updateRival(actor, tick, dt, hp, world) {
 
 export function rivalView(actor, tick) {
   return { id: actor.id, name: actor.name, ...actor.state, yaw: actor.yaw,
-    moving: actor.moving,...(actor.pursuedDog && {pursuedDog:actor.pursuedDog,sprint:actor.sprint}),...(actor.checkingTraffic && {checkingTraffic:true}), weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}),...(actor.reaction?.type==='gunfire' && {sprint:actor.moving,panicCry:actor.panicCry}), ...(actor.partyEvac && {evacLook:actor.evacLook,reaction:'shipwreck',panicCry:actor.panicCry}), ...healthView(actor, tick) };
+    moving: actor.moving,...(actor.pursuedDog && {pursuedDog:actor.pursuedDog,sprint:actor.sprint}),...(actor.checkingTraffic && {checkingTraffic:true}), weapon: actor.weapon,...(actor.officer && {officer:true,searching:!actor.visible,targetId:actor.targetId,cruiserId:actor.cruiserId,sprint:actor.sprint}),...(actor.reaction && {reaction:actor.reaction.type}),...(actor.reaction?.type==='drenched' && {drenchedAt:actor.reaction.since}),...(actor.reaction?.type==='gunfire' && {sprint:actor.moving,panicCry:actor.panicCry}), ...(actor.partyEvac && {evacLook:actor.evacLook,reaction:'shipwreck',panicCry:actor.panicCry}), ...healthView(actor, tick) };
 }
 
 export function vehicleContacts(world, kind, before, actors, tick, dt) {

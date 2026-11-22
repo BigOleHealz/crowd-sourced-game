@@ -1,3 +1,4 @@
+import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
 import {swimWeapon} from './shark-swim.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
@@ -26,7 +27,7 @@ import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
 import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
-import {alertWalkersDogs,damageDog} from './dog-walkers.js';
+import {alertWalkersDogs,damageDog,projectileDogHit} from './dog-walkers.js';
 import { damageActor } from './rivals.js';
 import { damageHelicopter, parkedHelicopter } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
@@ -271,6 +272,12 @@ function targets(world,shooter,players,npcs,source=null,round) {
     actor.id !== shooter && (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id !== world.heli.pilot && actor.id !== world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner) && actor.life.hp > 0);
 }
 
+function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
+  if(waterline===undefined)return;
+  const to={x:impact?.x??body.x,y:Math.min(waterline-.06,impact?.y??body.y+.24),z:impact?.z??body.z};
+  world.shots.push({id:nextShotId++,weapon:'waterHit',victim,to,waterline,dead,blast,size,tick});
+}
+
 function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,wheel},actors,players,shooter,tick,damage,crystalDamage,areaImpact,source=null,direction,vehicleDamage=damage,headshotDamage=damage*3,score,owner) {
   let injury=null;
   if(hitKind==='insured')world.rules?.damageLot(score?.team,target,damage);
@@ -291,9 +298,21 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
   if (hitKind || (areaImpact && blocked)) {
     // Center a crystal burst on the formation so the visible cluster clears together.
     const center = hitKind === 'crystal' ? { x: target.x, y: groundHeight(target.x, target.z) + target.height / 2, z: target.z } : to;
-    hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0);
+    const blastRemains=(p,height,size)=>{
+      const at={x:p.x,y:p.y+height,z:p.z};
+      world.shots.push({id:nextShotId++,weapon:'bodyBlast',from:at,to:at,size,tick});
+    };
+    hitMarineWildlife(world,target,center,damage,areaImpact ? 3.5 : 0,(gull)=>blastRemains(gull,0,gull.size*.45));
     for(const dog of world.dogs??[]){
-      if(dog===target || (areaImpact && withinBurst(center,dog,.34*dog.size)))damageDog(dog,damage,tick);
+      if(dog!==target && !(areaImpact && withinBurst(center,dog,.34*dog.size)))continue;
+      const water=dog.mode==='swimming'?immersedSurface(dog,world.doors):undefined;
+      const hurt=areaImpact?damageDog(dog,damage,tick):projectileDogHit(dog,headshot?headshotDamage:damage,tick,direction,headshot);
+      if(!hurt)continue;
+      if(!areaImpact)injury=dog.headInjury?'dogHead':'torso';
+      if(areaImpact && !dog.hp){
+        dog.deathKind='blast';blastRemains(dog,.3*dog.size,.7*dog.size);
+      }
+      reportWaterHit(world,dog.id,dog,water,dog===target?to:null,!dog.hp,areaImpact,dog.size*.69,tick);
     }
     if(areaImpact)blastPosts(world,center,3.1,lampHP,score?.team);
     for (const crystal of BREAKABLES) {
@@ -305,9 +324,14 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if(score?.team && actor.team===score.team)continue;
       if (actor === target || (areaImpact && withinBurst(center, actor.state, Math.max(.25,.9-stanceDrop(actor.state))))) {
         const priorHP=actor.life.hp;
+        const water=immersedSurface(actor.state,world.doors);
         const defeated=damageActor(actor,actor===target && headshot ? headshotDamage : damage,tick,direction);
+        if(defeated && areaImpact){
+          actor.life.deathKind='blast';blastRemains(actor.state,.7,.95);
+        }
         if(actor.id!==shooter && actor.life.hp<priorHP){
           actor.life.lastShotTick=tick;
+          reportWaterHit(world,actor.id,actor.state,water,actor===target?injuryPoint??to:null,defeated,areaImpact,.88,tick);
           alertWalkersDogs(world,actor.id,shooter,players,tick);
           // One of eight incoming sectors is enough to shade the victim's HUD.
           // For splash damage use the blast centre rather than the launch path.
@@ -384,8 +408,12 @@ export function patrolSight(world,officer,player,players){
 }
 export function firePatrolShot(world,officer,player,sight,tick,damage){
   const {from,to,direction}=sight;
-  damageActor(player,damage,tick,direction);
-  player.life.lastShotTick=tick;
+  const hp=player.life.hp,water=immersedSurface(player.state,world.doors);
+  const defeated=damageActor(player,damage,tick,direction);
+  if(player.life.hp<hp){
+    player.life.lastShotTick=tick;
+    reportWaterHit(world,player.id,player.state,water,to,defeated,false,.88,tick);
+  }
   world.shots.push({id:nextShotId++,shooter:officer.id,weapon:'muzzle',firedWeapon:2,from,to:from,tick});
   world.shots.push({id:nextShotId++,shooter:officer.id,weapon:2,from,to,hit:true,targetId:player.id,tick});
 }

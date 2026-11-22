@@ -293,18 +293,28 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #elevator-dialog button:disabled{color:#343e37;background:#d6c698;cursor:default}
 #elevator-status:not([hidden]){position:fixed;z-index:12;inset:0;display:grid;place-items:center;pointer-events:none;color:#efd6a7;font-weight:bold;letter-spacing:.04em;background:linear-gradient(90deg,#334342 0%,#586361 48.8%,#293632 49.9%,#596360 50.3%,#344543 100%)}
 #elevator-status.hotel-ride:not([hidden]){inset:12% auto auto 50%;transform:translateX(-50%);border:1px solid #c8a66e;border-radius:.35rem;background:#272622df;padding:.55rem 1rem}
-#basketball-score { margin-top:7px; width:min(232px,64vw); padding:8px 10px; border:1px solid #bbd5ce63; border-radius:4px; background:#173337ed; font-size:12px; }
-.basketball-tally { display:flex; gap:14px; justify-content:space-between; font-weight:650; color:#81e5df; margin-bottom:4px; }
-.basketball-tally span+span { color:#ffbe7a; }
-.basketball-tally .you { text-decoration:underline; text-underline-offset:3px; }
-.basketball-tally strong { margin-left:4px; font-variant-numeric:tabular-nums; }
-#basketball-score output { display:block; color:#fff4d8; font-size:11px; }
+.court-score {margin-top:7px;width:min(238px,64vw);box-sizing:border-box;padding:8px 10px;border:1px solid #7d9c96a8;border-radius:6px;background:#142924f2;color:#fffaf1;text-shadow:none;}
+.court-title {color:#e4ecdf;font:650 10px/1.25 system-ui;letter-spacing:.06em;text-transform:uppercase;}
+.court-tally {display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:5px 0;}
+.court-tally > div {display:grid;grid-template-columns:1fr auto;align-items:baseline;column-gap:5px;border-top:2px solid #79dfd6;color:#88eee3;}
+.court-tally > div+div {border-color:#ffbd82;color:#ffcf9a;}
+.court-tally span,.delivery-tally,.hand-record {font:600 12px/1.3 system-ui;}
+.court-tally b,.sprint-clock b {font:700 23px/1.15 system-ui;font-variant-numeric:tabular-nums;color:#fffef6;}
+.court-tally small {grid-column:1/-1;min-height:1.1em;color:#eef7ed;font:600 10px/1.1 system-ui;}
+.court-score output {display:block;color:#fff5da;font-size:11px;}
+.delivery-tally,.hand-record {display:flex;justify-content:space-between;gap:8px;border-top:1px solid #74867b88;margin-top:5px;padding-top:5px;color:#d8e5d6;}
+.delivery-tally b,.hand-record b {color:#ffda96;font-variant-numeric:tabular-nums;}
+#touch-race-tally:not([hidden]) {display:inline-block;margin-top:5px;padding:3px 7px;border-left:2px solid #88dfca;background:#152822e8;color:#fff2cb;font:650 14px/1.3 system-ui;font-variant-numeric:tabular-nums;}
+.sprint-clock:not([hidden]) {display:flex;align-items:baseline;gap:9px;font-size:11px;color:#d8eade;}
+#marina-card [data-best]:not([hidden]) {display:block;margin:5px 0;color:#ffe7aa;}
+#casino-dialog h3 {display:flex;justify-content:space-between;align-items:baseline;}
+#casino-dialog h3 b {font:700 1.1rem/1.1 system-ui;color:#ffe4a8;font-variant-numeric:tabular-nums;}
 #basketball-score [role=meter] { position:relative; height:9px; isolation:isolate; margin-top:7px; background:#111c22; border-radius:2px; }
 #basketball-score [role=meter] b, #basketball-score [role=meter] i { position:absolute; inset-block:0; border-radius:2px; }
 #basketball-score [role=meter] b { z-index:1; background:#ffc97542; border-inline:1px solid #ffc975; }
 #basketball-score [role=meter] i { left:0; background:#8be2d4; transition:width 50ms linear; }
 #basketball-score .in-gold i { background:#ffcd78; }
-.touch-play #basketball-score { margin-top:5px; padding:5px 7px; }
+.touch-play .court-score { margin-top:5px; padding:5px 7px; }
 
 #casino-dialog {box-sizing:border-box;width:min(21rem,94vw);max-height:90dvh;overflow:auto;margin:auto 1.1rem 1.1rem auto;padding:1.1rem;color:#fff4d6;background:#14362f;border:1px solid #c39b58;border-top:3px solid #d7b976;border-radius:8px;box-shadow:0 8px 30px #07140e70}
 #casino-dialog::backdrop {background:#09171424}

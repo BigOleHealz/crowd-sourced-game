@@ -5,7 +5,7 @@ import {gapAhead,roadUsers} from './lane-clearance.js';
 import {fireSite} from './district-fire.js';
 import {newLife} from './rivals.js';
 
-import {waterRange,monitorHeight,engineBay} from './water-monitor.js';
+import {waterRange,monitorHeight,engineBay,waterDrop,nozzleLength,jetPassage} from './water-monitor.js';
 const jobs=new WeakMap(),trigger=new WeakMap();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const snap=x=>Math.round(x*100)/100;
@@ -20,22 +20,39 @@ export function fireEngine(id=0,at=engineBay,yaw=0){
 
 // Server and clients use the same roof pivot; the endpoint on the wire also
 // supplies the visible impact, so a stream ends at the same obstruction.
-export function waterEnd(world,car,yaw,pitch){
+export function waterEnd(world,car,yaw,pitch,maxRange=waterRange){
   const h=Math.cos(pitch),dx=Math.sin(yaw)*h,dy=Math.sin(pitch),dz=-Math.cos(yaw)*h;
-  const y0=car.y+monitorHeight;
-  let x=car.x,y=y0,z=car.z;
-  for(let d=.5;d<=waterRange;d+=.5){
-    x=car.x+d*dx;y=y0+d*dy;z=car.z+d*dz;
-    if(y<=groundHeight(x,z,y,world.doors) || buildingTopAt(x,z,0,y,world.doors)>=y)break;
+  const at=d=>({x:car.x+d*dx,y:car.y+monitorHeight+d*dy-waterDrop(d),z:car.z+d*dz});
+  const solid=p=>p.y<=Math.max(MAP.waterY,groundHeight(p.x,p.z,p.y,world.doors)) ||
+    buildingTopAt(p.x,p.z,0,p.y,world.doors)>=p.y;
+  let previous=nozzleLength;
+  for(let d=nozzleLength;d<maxRange+.5;d+=.5){
+    let distance=Math.min(d,maxRange),point=at(distance),nx=0,ny=0,nz=0;
+    const hit=solid(point);
+    if(hit){
+      // Refine a boundary so the foam bursts against the visible face.
+      let lo=previous,hi=distance;
+      for(let i=0;i<4;i++){
+        const mid=(lo+hi)*.5;
+        if(solid(at(mid)))hi=mid;else lo=mid;
+      }
+      distance=lo;point=at(distance);
+      if(solid({...point,y:point.y-.05}))ny=1;
+      else if(solid({...point,x:point.x+Math.sign(dx)*.05}))nx=-Math.sign(dx);
+      else nz=-Math.sign(dz);
+    }
+    if(hit || distance===maxRange)return {x:snap(point.x),y:snap(point.y),z:snap(point.z),d:snap(distance),
+      ...(hit && {nx,ny,nz})};
+    previous=distance;
   }
-  return {x:snap(x),y:snap(y),z:snap(z)};
 }
 
 function stream(world,car,tick){
+  const since=car.water?.since??tick;
   if(tick%3!==0 && car.water)return;
-  const end=waterEnd(world,car,car.monitorYaw,car.monitorPitch);
-  car.water=end;
-  const dx=end.x-car.x,dy=end.y-car.y-monitorHeight,dz=end.z-car.z,len=dx*dx+dy*dy+dz*dz;
+  const reach=Math.min(waterRange,nozzleLength+2.5*(tick-since+1));
+  const end=waterEnd(world,car,car.monitorYaw,car.monitorPitch,reach);
+  car.water={...end,since};
   for(const [key,f] of Object.entries(world.doors.fires??{})){
     if(f.stage!=='burning')continue;
     // Wet any of the visible flame columns, including the second pump and
@@ -43,9 +60,9 @@ function stream(world,car,tick){
     const site=fireSite(key),spread=f.level;
     const alongX=site.kind==='house' && Math.abs(f.z-site.z)/site.d>Math.abs(f.x-site.x)/site.w;
     function wets(x,y,z){
-      const fx=x-car.x,fy=y-car.y-monitorHeight,fz=z-car.z;
-      const t=clamp((dx*fx+dy*fy+dz*fz)/Math.max(.01,len),0,1);
-      return Math.hypot(fx-dx*t,fy-dy*t,fz-dz*t)<=1.27;
+      const hit=jetPassage(car,end,x,z);
+      if(hit && Math.hypot(hit.side,hit.height-y)<=1.27)return true;
+      return Math.hypot(end.x-x,end.y-y,end.z-z)<=1.27;
     }
     const base=site.kind==='station'?1:Math.max(.87,f.y-.63);
     const height=.6+spread*(site.kind==='house'?1.1:.9);
@@ -90,7 +107,7 @@ function staging(world,f,actors){
     const x=f.x+sideX*radius,z=f.z+sideZ*radius;
     const y=groundHeight(x,z);
     if(y<=MAP.waterY+.32 || !insideTravelArea(x,z,2,2))continue;
-    const targetYaw=Math.atan2(f.x-x,z-f.z),pitch=Math.atan2(f.y-y-monitorHeight,radius);
+    const targetYaw=Math.atan2(f.x-x,z-f.z),pitch=Math.atan2(f.y-y-monitorHeight+waterDrop(radius),radius);
     const end=waterEnd(world,{x,y,z},targetYaw,pitch);
     if(Math.hypot(end.x-x,end.y-y-monitorHeight,end.z-z)+1.45<Math.hypot(radius,f.y-y-monitorHeight))continue;
     for(const offset of [Math.PI/2,-Math.PI/2,Math.PI,0]){
@@ -169,7 +186,8 @@ export function stepFireEngines(world,players,npcs,tick,dt){
       car.speed=0;
       if(burning){
         car.response='spraying';car.monitorYaw=Math.atan2(f.x-car.x,car.z-f.z);
-        car.monitorPitch=Math.atan2(f.y-car.y-monitorHeight,Math.hypot(f.x-car.x,f.z-car.z));
+        const distance=Math.hypot(f.x-car.x,f.z-car.z);
+        car.monitorPitch=Math.atan2(f.y-car.y-monitorHeight+waterDrop(distance),distance);
         stream(world,car,tick);
       }else{
         world.traffic.splice(world.traffic.indexOf(car),1);npcs.splice(npcs.indexOf(npc),1);units.delete(slot);

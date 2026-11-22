@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {nozzleSpray} from './monitor-spray-view.js';
 import {monitorHeight} from './water-monitor.js';
 
 const silver=0xb2b7b6, dark=0x2b353b, red=0xaf2928, cream=0xece7d8;
@@ -226,30 +227,12 @@ function fitAppliance(root,chassis,body,box,Batch,materials){
     const batch=new Batch();box(batch,side<0?0xff5535:0xffe1bc,side*.44,2.43,pumperStation(-1.55),.44,.12,.25);
     return batch.mesh(chassis,materials.lights,false);
   });
-  const sprayMat=new THREE.MeshBasicMaterial({color:0xc9edff,transparent:true,opacity:.72,depthWrite:false});
-  const spray=new THREE.Mesh(new THREE.CylinderGeometry(.112,.061,1,8),sprayMat);root.add(spray);
-  const splash=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.10,0),sprayMat,12);root.add(splash);
-  splash.frustumCulled=false;
-  const dir=new THREE.Vector3(),up=new THREE.Vector3(0,1,0),end=new THREE.Vector3(),matrix=new THREE.Object3D();
+  const spray=nozzleSpray(root);
   function update(car,time){
     const yaw=car.monitorYaw??car.yaw,pitch=car.monitorPitch??0;
     swivel.rotation.set(pitch,car.yaw-yaw,0,'YXZ');
     for(let i=0;i<2;i++)lamps[i].visible=!!car.response && !car.wrecked && (Math.floor(time*6)%2===i);
-    spray.visible=splash.visible=!!car.water && !car.wrecked;
-    if(!spray.visible)return;
-    const dx=car.water.x-car.x,dz=car.water.z-car.z,c=Math.cos(car.yaw),s=Math.sin(car.yaw);
-    end.set(c*dx+s*dz,car.water.y-car.y,-s*dx+c*dz);
-    dir.copy(end);dir.y-=monitorHeight;const length=dir.length();
-    if(length<.01){spray.visible=splash.visible=false;return;}
-    dir.multiplyScalar(1/length);
-    spray.position.set(end.x/2,(end.y+monitorHeight)/2,end.z/2);
-    spray.scale.set(1,length,1);spray.quaternion.setFromUnitVectors(up,dir);
-    for(let i=0;i<12;i++){
-      const t=(time*2.6+i*.173)%1,a=i*2.4;
-      matrix.position.set(end.x+Math.cos(a)*t*.61,end.y+.55*t-.40*t*t,end.z+Math.sin(a)*t*.61);
-      matrix.scale.setScalar(.24+.64*(1-t));matrix.updateMatrix();splash.setMatrixAt(i,matrix.matrix);
-    }
-    splash.instanceMatrix.needsUpdate=true;
+    spray(car,time);
   }
   return update;
 }

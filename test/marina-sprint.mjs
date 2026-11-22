@@ -29,4 +29,12 @@ for(const [vehicle,player,interval] of [[sedan,b,600],[pickup,a,1500],[pickup,a,
   }
 }
 assert.deepEqual(race.board(),[{driver:1,time:2500},{driver:2,time:3000}]);
+for(let i=0;i<10;i++){
+  const p=racer(),v=car();
+  race.start(p,v,30000);race.update(p,v,33000);
+  for(const [j,g] of sprintGates.entries())race.update(p,Object.assign(v,g),33000+(j+1)*(300+i));
+}
+assert.equal(race.board().length,10);
+assert(!race.board().some(row=>row.driver===2));
+assert.equal(race.state(b).best,3000,'A personal best survives dropping out of the session top ten');
 console.log('PASS Marina Sprint countdown, false start, ordered checkpoints, independent drivers and session personal bests');
