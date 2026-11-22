@@ -1,3 +1,4 @@
+import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
 import {blackjack} from './casino-blackjack.js';
 import {shopBicycles} from './public/shop-bicycle-sites.js';
@@ -286,7 +287,8 @@ function acceptInput(player, data, binary) {
   if(input?.type==='dog'){
     if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
       player.state.liftTravel || world.casino?.player===player.id || world.volleyballActivity?.member(player.id))return;
-    requestDogAction(world,player,input,ticks);
+    const stolen=requestDogAction(world,player,input,ticks);
+    if(stolen)startDogPursuit(world,player,stolen,ticks,npcs);
     return;
   }
   if(input?.type==='blackjack'){
@@ -537,7 +539,10 @@ function tick() {
     stepFireEngines(world,players,npcs,ticks,step);
     stepCityTraffic(world,players,npcs,step,ticks);
     stepPartyEvacuation(world,npcs,ticks,step);
-    for (const npc of npcs) if(!npc.officer && !npc.partyEvac && !trafficDriverCar(world,npc.id))updateRival(npc, ticks, step, world.hp, world);
+    for(const npc of npcs){
+      if(npc.officer || npc.partyEvac || trafficDriverCar(world,npc.id))continue;
+      if(!stepDogPursuit(world,npc,players,ticks,step))updateRival(npc,ticks,step,world.hp,world);
+    }
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
