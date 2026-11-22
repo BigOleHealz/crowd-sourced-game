@@ -19,24 +19,7 @@ function sandTile(tx,tz,material) {
   const mesh=new THREE.Mesh(geo,material);mesh.position.set(cx,0,cz);return mesh;
 }
 
-export function reefChannelView(scene,Batch) {
-  const floorMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
-  const waterClock={value:0};
-  floorMaterial.onBeforeCompile=shader=>{
-    shader.uniforms.reefTime=waterClock;
-    shader.vertexShader='varying vec2 reefXZ;\n'+shader.vertexShader.replace('#include <worldpos_vertex>',
-      '#include <worldpos_vertex>\n reefXZ=(modelMatrix*vec4(transformed,1.)).xz;');
-    shader.fragmentShader='varying vec2 reefXZ; uniform float reefTime;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
-      #include <color_fragment>
-      vec2 p=reefXZ;
-      float ripple=sin(p.y*7.1+sin(p.x*.9)*1.8+sin(p.x*1.87+p.y*.37));
-      float shoal=sin(p.x*.7+p.y*.34)*sin(p.y*.63-p.x*.16);
-      float lace=sin(p.x*2.7+sin(p.y*2.1+reefTime*.4))+sin(p.y*2.3+sin(p.x*1.8-reefTime*.4));
-      float light=1.-smoothstep(.045,.28,abs(lace));
-      diffuseColor.rgb*=.95+.10*ripple+.08*shoal;
-      diffuseColor.rgb+=vec3(.06,.105,.088)*light;
-    `);
-  };
+function buildTrailPlants(scene,Batch) {
   const weedMaterial=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
   const vegetation=new Batch(),blade=new THREE.PlaneGeometry(.12,1,1,3),tube=new THREE.LatheGeometry([
     new THREE.Vector2(.12,-.28),new THREE.Vector2(.17,-.19),new THREE.Vector2(.15,.06),
@@ -80,14 +63,39 @@ export function reefChannelView(scene,Batch) {
     vegetation.add(fluke,iron,...anchorPoint(sign*1.45,-.71,.2),1,1,1,.91,yaw,sign*-.50);
   }
   loop.dispose();fluke.dispose();
-  const plants=vegetation.mesh(scene,weedMaterial,false);plants.visible=false;
+  const plants=vegetation.mesh(scene,weedMaterial,false);
   blade.dispose();tube.dispose();
+  return plants;
+}
+
+export function reefChannelView(scene,Batch) {
+  const floorMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
+  const waterClock={value:0};
+  floorMaterial.onBeforeCompile=shader=>{
+    shader.uniforms.reefTime=waterClock;
+    shader.vertexShader='varying vec2 reefXZ;\n'+shader.vertexShader.replace('#include <worldpos_vertex>',
+      '#include <worldpos_vertex>\n reefXZ=(modelMatrix*vec4(transformed,1.)).xz;');
+    shader.fragmentShader='varying vec2 reefXZ; uniform float reefTime;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
+      #include <color_fragment>
+      vec2 p=reefXZ;
+      float ripple=sin(p.y*7.1+sin(p.x*.9)*1.8+sin(p.x*1.87+p.y*.37));
+      float shoal=sin(p.x*.7+p.y*.34)*sin(p.y*.63-p.x*.16);
+      float lace=sin(p.x*2.7+sin(p.y*2.1+reefTime*.4))+sin(p.y*2.3+sin(p.x*1.8-reefTime*.4));
+      float light=1.-smoothstep(.045,.28,abs(lace));
+      diffuseColor.rgb*=.95+.10*ripple+.08*shoal;
+      diffuseColor.rgb+=vec3(.06,.105,.088)*light;
+    `);
+  };
+  let plants;
   const tiles=new Map();
   let lastX,lastZ,submerged=false;
   return function update(camera,waterY) {
     const under=camera.position.y<waterY-.04;
     if(!under && !submerged)return;
-    submerged=under;plants.visible=under;
+    submerged=under;
+    const nearTrail=under && camera.position.z>-450 && camera.position.z< -260 && camera.position.x>-77 && camera.position.x<135;
+    if(nearTrail && !plants)plants=buildTrailPlants(scene,Batch);
+    if(plants)plants.visible=nearTrail;
     if(under)waterClock.value=performance.now()*.001;
     const tx=Math.floor(camera.position.x/reefTileSize),tz=Math.floor(camera.position.z/reefTileSize);
     if(!under){for(const tile of tiles.values())tile.visible=false;lastX=lastZ=undefined;return;}
