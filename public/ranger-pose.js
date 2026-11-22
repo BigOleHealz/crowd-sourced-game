@@ -182,6 +182,12 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
     avatar.head.rotation.y+=state.checkingTraffic ? .56*Math.sin(avatar.cycle*1.45) : glance*(.06+.19*(1-weight));
     avatar.spine.rotation.x+=.025*avatar.civilian.swing;
   }
+  const fleeing=onFoot && state.reaction==='gunfire' && !climb && !state.swimming;
+  if(fleeing){
+    avatar.spine.rotation.x-=.20+.035*Math.abs(swing);
+    avatar.head.rotation.x-=.24;
+    avatar.head.rotation.y+=.16*Math.sin(avatar.cycle*1.55+(avatar.civilian?.face??0));
+  }
   if(state.officer && gait){
     const target=state.searching || state.sprint ? 1 : 0;
     avatar.officerCarry=(avatar.officerCarry??target)+(target-(avatar.officerCarry??target))*(-Math.expm1(-6*dt));
@@ -282,6 +288,11 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors) {
       arm.parent.worldToLocal(grip);
       gripPose(arm,forearm,THREE.MathUtils.lerp(side*.22,grip.x,hold),
         THREE.MathUtils.lerp(1.24,grip.y,hold),THREE.MathUtils.lerp(-.18,grip.z,hold),side);
+    } else if(fleeing){
+      const shield=side===((avatar.civilian?.face??0)%2 ? -1 : 1);
+      const pump=side*swing*weight;
+      arm.rotation.set(shield?1.00+.19*pump:.39+.81*pump,side*.08,side*(shield?.31:.15));
+      forearm.rotation.set(shield?1.68-.20*pump:1.08+.34*pump,0,shield?-side*.28:0);
     } else if(state.reaction && !seated && !station){
       const shield=state.reaction!=='horn';
       arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));

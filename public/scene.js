@@ -13,6 +13,7 @@ import {inClub} from './club-lucero.js';
 import {bankPresentation} from './bank-presentation.js';
 import {buildingInteriorView} from './building-interior-view.js';
 import {roomAtFeet} from './building-interiors.js';
+import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
 import {contactingFoot} from './footsteps.js';
@@ -1238,7 +1239,7 @@ export function createScene(canvas,onFootfall) {
     updateRuralGlass?.(world.doors?.brokenPanes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
-    updatePartyYachts?.(world.boats,dt,local,world.simTick);
+    updatePartyYachts?.(world.boats,dt,local,world.simTick,world.panicCues);
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
@@ -1347,6 +1348,11 @@ export function createScene(canvas,onFootfall) {
         const hoops=basketballPose(basketball,state,clock);
         if(hoops)poseBasketball(a,state,hoops);
         if(state.performer || state.clubSince!=null)poseCabaret(a,state,(world.simTick??clock*30)/30);
+        if(typeof state.id==='string' && !state.dead && !state.fall &&
+          (state.casinoDealer || state.bankRole || state.performer || state.volleyball || basketballLooks[state.id])){
+          const alarm=gunfireAlarm(world.panicCues,state,world.simTick);
+          poseBystanderCover(a,state,alarm,dt,clock,!!(state.volleyball || basketballLooks[state.id]));
+        }
         if(entering)poseTakeover(a,entering,state.id);
         else if(seated?.boarding)poseRoadBoarding(a,seated,seated.boarding);
         if(skipper){

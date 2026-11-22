@@ -33,8 +33,9 @@ export function distantResidents(scene){
         nearby.add(state.id);return false;
       }
       nearby.delete(state.id);
-      const swing=state.moving?Math.sin(time*4.8+p.face*2.4)*.26:0;
-      body.position.set(state.x,state.y,state.z);body.rotation.y=-state.yaw;
+      const fleeing=state.reaction==='gunfire';
+      const swing=state.moving?Math.sin(time*(fleeing?9.4:4.8)+p.face*2.4)*(fleeing?.50:.26):0;
+      body.position.set(state.x,state.y,state.z);body.rotation.set(fleeing?-.11:0,-state.yaw,0,'YXZ');
       body.scale.set(p.width,p.height,1);body.updateMatrix();
       const root=body.matrix;
       ellipsoid(root,p.top,0,1.26,0,.202,.263,.136);
@@ -54,7 +55,8 @@ export function distantResidents(scene){
         ellipsoid(leg,p.bottom==='skirt'?p.skin:p.pants,0,-.187,0,.093,.227,.09);
         ellipsoid(leg,bare?p.skin:p.pants,0,-.60,0,.066,.226,.072);
         ellipsoid(leg,0xc1b6a3,0,-.884,-.039,.066,.048,.126);
-        const arm=pivot(side*.203,1.437,-side*swing*p.swing);
+        const shield=fleeing && side===(p.face%2?-1:1);
+        const arm=pivot(side*.203,1.437,shield?1.93+.16*swing:-side*swing*p.swing+(fleeing?.38:0));
         const sleeveless=p.shirt==='tank'||p.shirt==='dress',jacket=p.shirt==='jacket';
         ellipsoid(arm,sleeveless?p.skin:p.top,0,-.074,0,.074,.111,.074);
         ellipsoid(arm,jacket?p.top:p.skin,0,-.267,0,.055,.124,.056);
