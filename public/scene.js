@@ -19,6 +19,8 @@ import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
+import {gullView} from './gull-view.js';
+import {dolphinView} from './dolphin-view.js';
 import {sharkView} from './shark-view.js';
 import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
@@ -66,6 +68,7 @@ import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
 import * as THREE from 'three';
 import { bootSole, bootUpper, rangerMaterial, rangerIdentity, hood, maskPanel, fieldBib, visorLens, visorRim, trouserSeat, capCrown, fieldJacket, fieldCollar, fieldPack, sleeve, trousers, pocket, jointGarment } from './ranger-surfaces.js';
 import { patrolBoatView } from './patrol-boat-view.js';
+import {partyYachtView} from './party-yacht-view.js';
 import {marinaFleetView} from './marina-fleet-view.js';
 import {marinaHullContains,marinaModel} from './marina-fleet-layout.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
@@ -709,7 +712,7 @@ function fieldEffects(scene) {
     }
     const a=new THREE.Vector3(s.from.x,s.from.y,s.from.z), b=new THREE.Vector3(s.to.x,s.to.y,s.to.z);
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
-    if(s.hitKind==='manatee' || s.hitKind==='shark')return;
+    if(s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
     const contact=pickSurface(s,a,b,sourceVehicle);
     if(contact) b.copy(contact.point);
@@ -1042,6 +1045,8 @@ export function createScene(canvas,onFootfall) {
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
   const updatePalms=CITY ? addPalms(scene) : null;
+  const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
+  const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1081,6 +1086,7 @@ export function createScene(canvas,onFootfall) {
   const contacts=contactShadows(scene);
   const updateTireDebris=tireDebris(scene,trailDistance);
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
+  const updatePartyYachts=CITY?partyYachtView(scene,Batch):null;
   const updateMarinaFleet=CITY?marinaFleetView(scene,Batch):null;
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
@@ -1232,6 +1238,7 @@ export function createScene(canvas,onFootfall) {
     updateRuralGlass?.(world.doors?.brokenPanes);
     updateChurch?.(world.doors?.brokenPanes);
     updatePatrolBoats(world?.boats,dt,local);
+    updatePartyYachts?.(world.boats,dt,local,world.simTick);
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
@@ -1517,6 +1524,8 @@ export function createScene(canvas,onFootfall) {
       camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
+    updateGulls?.(world.gulls,local,world.simTick,dt);
+    updateDolphins?.(world.dolphins,local,world.simTick,dt);
     updateSharks?.(world.sharks,local,world.simTick,dt);
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateCreek?.(clock);

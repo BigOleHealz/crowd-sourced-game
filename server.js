@@ -4,7 +4,9 @@ import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {createGulls} from './public/gull-flight.js';
 import {createSharks} from './public/shark-swim.js';
+import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
 import {createVolleyball} from './harbor-volleyball.js';
@@ -40,7 +42,7 @@ import {stepHotelDoors} from './public/maravela-hotel.js';
 import {stepRetailDoors} from './public/frontage-glass.js';
 import {stepStorefrontDoors} from './public/storefront-layout.js';
 import {sampleRanger} from './public/ragdoll.js';
-import {crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
+import {partyFleet,crewBoat,interactBoat,stepBoat,helmFeet} from './public/patrol-boats.js';
 import {selectSeat} from './public/seat-selection.js';
 import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
@@ -102,6 +104,7 @@ function freshWorld(){
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
   }
   if(CITY && !mode){
+    w.boats.push(...partyFleet());
     const table=blackjack();
     Object.defineProperty(w,'blackjack',{value:table});
     w.casino=table.state;
@@ -113,9 +116,15 @@ function freshWorld(){
     const volleyball=createVolleyball(canPlayVolleyball);
     Object.defineProperty(w,'volleyballActivity',{value:volleyball});
     w.volleyball=volleyball.state;
+    const gulls=createGulls();
+    w.gulls=gulls.state;
+    Object.defineProperty(w,'stepGulls',{value:gulls.step});
     const sharks=createSharks();
     w.sharks=sharks.state;
     Object.defineProperty(w,'stepSharks',{value:sharks.step});
+    const pod=createDolphins(w,MAP.waterY);
+    w.dolphins=pod.state;
+    Object.defineProperty(w,'stepDolphins',{value:pod.step});
     const wildlife=createManatees(w,MAP.waterY);
     w.manatees=wildlife.state;
     Object.defineProperty(w,'stepManatees',{value:wildlife.step});
@@ -758,6 +767,7 @@ function tick() {
     if(driver){driver.state={...helmFeet(b),vy:0,grounded:true};driver.yaw=b.yaw;driver.moving=driver.sprint=false;}
   }
   stepWakeCrossings(world,step);
+  world.stepDolphins?.(step);
   world.stepManatees?.(step);
   for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
@@ -766,6 +776,7 @@ function tick() {
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
+  world.stepGulls?.(step);
   world.stepSharks?.(step,players,ticks,damageActor);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);

@@ -31,7 +31,7 @@ assert(travelled.every(n=>n>40),'No animal gets stuck in the shallows');
 const {marinaModels}=await import('../public/marina-fleet-layout.js');
 for(const kind of ['patrol','superyacht',...Object.keys(marinaModels)]){
   const yacht=kind==='superyacht';
-  const boat={x:93,z:-396,yaw:0,speed:yacht?2.5:3.5,boatModel:kind};
+  const boat={x:98.5,z:-396,yaw:0,speed:yacht?2.5:3.5,boatModel:kind};
   const world=yacht?{yacht:boat}:{boats:[boat]};
   const game=createManatees(world,water);
   let nearby=false;
@@ -73,7 +73,7 @@ assert.equal(animal.deathKind,null);
 assert.equal(animal.hitX,Math.round(impact.x*1000)/1000);
 assert(damageManatee(sim.state,0,500,'blast'));
 assert.equal(animal.deathKind,'blast');
-assert.equal(manateeContact(sim.state,origin,end),null);
+assert.notEqual(manateeContact(sim.state,origin,end)?.index,0,'The defeated animal stops intercepting shots through the herd');
 assert.equal(damageManatee(sim.state,0,10,'shot'),false);
 assert.equal(animal.hitSeq,2);
 const stop=[animal.x,animal.y,animal.z,animal.stroke];
@@ -85,3 +85,42 @@ assert.equal(animal.hp,animal.maxHp);
 assert.equal(animal.ageSinceHit,null);
 assert.equal(animal.deathKind,null);
 assert.equal(animal.hitSeq,2);
+
+const quayMembers=[2,3,4];
+const separation=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+const yacht={x:98.5,z:-396,yaw:0,speed:2.5};
+const herd=createManatees({yacht},water);
+const aligned=[0,0,0,0],pairs=[[0,1],[2,3],[2,4],[3,4]];
+let widest=0;
+for(let tick=0;tick<4200;tick++){
+  yacht.z-=yacht.speed*dt;
+  herd.step(dt);
+  const span=Math.max(...quayMembers.flatMap(i=>quayMembers.map(j=>separation(herd.state[i],herd.state[j]))));
+  if(tick<600) widest=Math.max(widest,span);
+  if(tick>=900){
+    for(const [k,[i,j]] of pairs.entries()){
+      const first=herd.state[i],second=herd.state[j],d=separation(first,second);
+      assert(d>1.6 && d<7.1,'After a crossing each herd regroups with room between members');
+      aligned[k]+=Math.cos(first.yaw-second.yaw);
+    }
+  }
+}
+assert(widest>8,'The vessel actually separates the East Quay herd');
+assert(aligned.every(sum=>sum/3300>.82),'Herd members travel in the same direction through turns');
+
+const adultsOut=createManatees({},water);
+for(const i of [0,3])damageManatee(adultsOut.state,i,500,'blast');
+const track=adultsOut.state.map(()=>0);
+for(let tick=0;tick<4800;tick++){
+  const prev=adultsOut.state.map(s=>({x:s.x,z:s.z}));
+  adultsOut.step(dt);
+  for(const [i,s] of adultsOut.state.entries())track[i]+=separation(prev[i],s);
+  if(tick<4480)assert(separation(adultsOut.state[2],adultsOut.state[4])<7,
+    'Surviving members keep a shared route without their lead adult');
+}
+for(const i of [1,2,4])assert(track[i]>50,'Survivors keep swimming through the full recovery period');
+for(const [i,j] of pairs){
+  assert(adultsOut.state[i].hp>0 && adultsOut.state[j].hp>0);
+  assert(separation(adultsOut.state[i],adultsOut.state[j])<7.1,'Repopulated animals rejoin their herd');
+}
+console.log('Harbor Key and East Quay herds travel together, split for a yacht and reform after crossings or lead loss.');

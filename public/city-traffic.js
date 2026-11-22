@@ -18,6 +18,27 @@ import {stepSuspension} from './road-suspension.js';
 const path=new WeakMap();
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
+function chooseDestination(route,car){
+  if(!route.track.stops.length)return;
+  const next=route.track.stops.find(s=>s.at>route.distance+.01);
+  const first=route.track.onward.stops[0];
+  route.stopGap=next ? next.at-route.distance : route.track.length-route.distance+first.at;
+  route.dwell=0;
+  car.destination=(next??first).name;
+  delete car.atDestination;
+}
+
+function destinationGap(route,car,dt){
+  if(route.stopGap==null)return Infinity;
+  if(route.stopGap<.001){
+    car.atDestination=true;
+    route.dwell+=dt;
+    if(route.dwell<3.5)return 0;
+    chooseDestination(route,car);
+  }
+  return route.stopGap;
+}
+
 export function newCityTraffic(){
   const services=CITY?cityServices:outpostServices;
   return services.map(([route,offset,model,name,bay,cruise],i)=>{
@@ -26,7 +47,9 @@ export function newCityTraffic(){
     const car={id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed:cruise??civilianProfiles[model].cruise,
       lateralSpeed:0,engineLoad:.36,driver:null,npcDriver,takeover:null,hp:250,maxHp:250,
       wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
-    path.set(car,{track:route,bay,cruise,distance,wait:0});
+    const journey={track:route,bay,cruise,distance,wait:0};
+    chooseDestination(journey,car);
+    path.set(car,journey);
     return car;
   });
 }
@@ -81,6 +104,14 @@ function exitPoint(world,car){
   return {side,endX:exit.x,endZ:exit.z};
 }
 
+function releaseNpcSeat(car){
+  car.npcDriver=null;
+  car.blink=false;
+  car.turnSignal=0;
+  delete car.destination;
+  delete car.atDestination;
+}
+
 export function tryTrafficInteract(world,player,npcs){
   const occupied=drivenTraffic(world,player.id);
   if(occupied)return occupied.takeover?true:leaveTraffic(world,player);
@@ -93,7 +124,7 @@ export function tryTrafficInteract(world,player,npcs){
     if(!npc?.life.hp || !exit)return false;
     car.takeover={npcId:npc.id,playerId:player.id,progress:0,...exit,
       startX:player.state.x,startY:player.state.y,startZ:player.state.z};
-    car.npcDriver=null;car.blink=false;car.turnSignal=0;
+    releaseNpcSeat(car);
   }else beginRoadBoarding(car,player.state);
   car.driver=player.id;delete car.water;delete car.response;
   stopRover(car);
@@ -174,16 +205,17 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
         const exit=exitPoint(world,car);
         letDriverWalk(world,car,npc,exit?.endX??car.x,exit?.endZ??car.z);
       }
-      car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
+      releaseNpcSeat(car);stopRover(car);
     }
     if(car.model==='engine' && car.driver==null && !car.response)delete car.water;
     if(car.wrecked){if(!car.released)recoverTrafficCar(world,car,actors,dt);continue;}
     if(car.model==='engine'){if(npc)placeDriver(car,npc);continue;}
     if(!car.npcDriver)continue;
     const route=path.get(car),profile=civilianProfiles[car.model],brake=profile.brakeForce/profile.mass;
-    const gap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
-    if(gap<.07)route.wait=.75;
+    const trafficGap=Math.min(CITY?signalGap(car,tick,world.doors):Infinity,gapAhead(car,actors,vehicles,world.jet),bridgeGap(world,car),bendGap(car,route,actors,vehicles));
+    if(trafficGap<.07)route.wait=.75;
     else route.wait=Math.max(0,route.wait-dt);
+    const gap=Math.min(trafficGap,destinationGap(route,car,dt));
     const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);
     route.offset=passingOffset(world,car,route,actors,dt);
     signalLamps(car,route,dt);
@@ -194,7 +226,13 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
     car.speed=Math.min(car.speed+change,gap/dt);
     car.braking=change<-.01 || gap<.07;
     car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
-    route.distance=(route.distance+car.speed*dt)%route.track.length;
+    const travelled=car.speed*dt;
+    if(route.stopGap!=null)route.stopGap=Math.max(0,route.stopGap-travelled);
+    route.distance+=travelled;
+    if(route.distance>=route.track.length){
+      route.distance%=route.track.length;
+      route.track=route.track.onward??route.track;
+    }
     Object.assign(car,route.track.pose(route.distance));
     car.x+=Math.cos(car.yaw)*route.offset;car.z+=Math.sin(car.yaw)*route.offset;
     car.y=groundHeight(car.x,car.z,car.y+1,world.doors);
@@ -211,7 +249,7 @@ export function finishTrafficDelivery(world,car,npcs){
   if(!npc)return;
   const exit=exitPoint(world,car);
   letDriverWalk(world,car,npc,exit?.endX??car.x,exit?.endZ??car.z);
-  car.npcDriver=null;car.blink=false;car.turnSignal=0;stopRover(car);
+  releaseNpcSeat(car);stopRover(car);
 }
 export function driveTrafficCar(world,car,input,dt,players){
   if(car.takeover || car.wrecked || car.sling)return;

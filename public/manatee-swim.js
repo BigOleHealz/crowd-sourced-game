@@ -4,19 +4,23 @@ import {cityGround} from './brickell-map.js';
 const tau=2*Math.PI,clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const ease=(a,b,x)=>{const t=clamp((x-a)/(b-a),0,1);return t*t*(3-2*t);};
 
-// Open-water routes leave room for beach waders, the ferry ramp and boats
-// berthed alongside the East Quay fingers. The adults and juvenile vary in size.
+// Each herd follows a shared route. Members trail the turns by different
+// amounts and fan out across the direction of travel as they graze.
+const harbor={herd:'harbor',x:73.5,z:-244,rx:3.35,rz:9.4,turn:.077,heading:1.1,minX:66.8};
+const quay={herd:'quay',x:98.5,z:-430,rx:3.6,rz:10,turn:.074,heading:1.28,minX:91.1};
 export const manateeHabitats=[
-  {name:'Harbor Key shallows',x:71.9,z:-237.5,rx:2.5,rz:7.6,size:1.04,phase:1.4,turn:.105,breath:56,offset:47,tint:0x818784,minX:66.8},
-  {name:'Harbor Key north shore',x:75.5,z:-263.4,rx:2.1,rz:6.6,size:.79,phase:2.3,turn:.118,breath:49,offset:20,tint:0x79817e,minX:69.5},
-  {name:'Lantern Point ferry approach',x:82.8,z:-390.7,rx:3.4,rz:5.1,size:1,phase:3.55,turn:.111,breath:61,offset:51,tint:0x848985,minX:78.8},
-  {name:'East Quay south',x:95.9,z:-422.2,rx:3.9,rz:7.4,size:1.06,phase:2.35,turn:.102,breath:54,offset:38,tint:0x808884,minX:91.05},
-  {name:'East Quay north',x:98.0,z:-440.4,rx:3.6,rz:7.7,size:.91,phase:2.64,turn:.091,breath:63,offset:60,tint:0x7c8580,minX:91.05},
+  {...harbor,name:'Harbor Key adult',lane:0,lag:0,size:1.04,phase:1.4,breath:56,offset:47,tint:0x818784},
+  {...harbor,name:'Harbor Key calf',lane:2.1,lag:2.2,size:.79,phase:2.3,breath:49,offset:20,tint:0x79817e},
+  {...quay,name:'East Quay adult',lane:2.5,lag:2.7,size:1,phase:3.55,breath:61,offset:51,tint:0x848985},
+  {...quay,name:'East Quay lead adult',lane:0,lag:0,size:1.06,phase:2.35,breath:54,offset:38,tint:0x808884},
+  {...quay,name:'East Quay juvenile',lane:-2.2,lag:2.9,size:.91,phase:2.64,breath:63,offset:60,tint:0x7c8580},
 ];
 
-function orbit(h,t) {
-  const a=h.phase+t*h.turn+.15*Math.sin(t*.19+h.phase);
-  return {x:h.x+h.rx*Math.cos(a)+.40*Math.sin(a*2),z:h.z+h.rz*Math.sin(a)};
+function orbit(h,time) {
+  const t=time-h.lag,angle=h.heading+t*h.turn+.07*Math.sin(t*.12);
+  const sin=Math.sin(angle),cos=Math.cos(angle);
+  const lane=h.lane+.32*Math.sin(time*.17+h.phase);
+  return {x:h.x+(h.rx+lane)*cos,z:h.z+(h.rz+lane)*sin};
 }
 
 export function manateeFloor(h,x,z) {
@@ -133,8 +137,13 @@ export function createManatees(world,water) {
   });
   const state=motion.map((s,i)=>({maxHp:Math.round(120*manateeHabitats[i].size),hp:Math.round(120*manateeHabitats[i].size),
     hitSeq:0,ageSinceHit:null,deathKind:null,x:round(s.x),y:round(s.y),z:round(s.z),yaw:round(s.yaw),pitch:0,roll:0,stroke:round(s.stroke),air:-1}));
+  const neighbors=motion.map(()=>({}));
   function step(dt) {
     time+=dt;
+    // Read flockmates from the same tick, before any animal has moved.
+    for(const [i,p] of motion.entries()){
+      Object.assign(neighbors[i],{x:p.x,z:p.z,vx:p.vx,vz:p.vz,alive:state[i].hp>0});
+    }
     const vessels=[...(world.boats??[]),...(world.yacht?[world.yacht]:[])].filter(b=>!b.wrecked && !b.sling);
     for(const [i,p] of motion.entries()){
       const h=manateeHabitats[i],goal=orbit(h,time+1.9),breath=breathing(h,time),padding=1.92*h.size;
@@ -167,10 +176,22 @@ export function createManatees(world,water) {
           dive=Math.max(dive,(water-clearance)*urgency);
         }
       }
-      for(const other of motion){
-        if(other===p)continue;
+      for(const [j,other] of neighbors.entries()){
+        if(j===i || !other.alive)continue;
         const dx=p.x-other.x,dz=p.z-other.z,d=Math.hypot(dx,dz);
-        if(d>.02 && d<4){const f=(4-d)*.36/d;ax+=dx*f;az+=dz*f;}
+        if(d<.02)continue;
+        if(d<3.6){
+          const repel=(3.6-d)*.48/d;
+          ax+=dx*repel;az+=dz*repel;
+        }
+        if(manateeHabitats[j].herd===h.herd){
+          // Rejoin stragglers after a hull crosses, with boat clearance taking
+          // precedence. No individual leader is required to keep the route.
+          const pull=clamp((d-4.5)*.14,0,.55)*(1-pressure)/d;
+          ax-=dx*pull;az-=dz*pull;
+          ax+=(other.vx-p.vx)*.14*(1-pressure);
+          az+=(other.vz-p.vz)*.14*(1-pressure);
+        }
       }
       const cap=.97+.67*pressure,scale=Math.max(1,Math.hypot(ax,az)/cap),blend=-Math.expm1(-(1.45+pressure*2)*dt);
       p.vx+=(ax/scale-p.vx)*blend;p.vz+=(az/scale-p.vz)*blend;

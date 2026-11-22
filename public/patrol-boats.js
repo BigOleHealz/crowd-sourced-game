@@ -1,3 +1,4 @@
+import {partySites,cruisePartyYacht,resetCruise} from './party-cruises.js';
 import {waterHelm} from './water-helm.js';
 import {damageYacht} from './superyacht.js';
 import {yachtOverlap} from './yacht-layout.js';
@@ -23,6 +24,7 @@ function moored(site) {
     turretYaw:0,turretPitch:0,hp,maxHp:hp,wrecked:false,recoverySeconds:0};
 }
 export const patrolFleet=()=>CITY?berths.map(moored):[];
+export const partyFleet=()=>CITY?partySites.map(moored):[];
 export const marinaFleet=()=>CITY?marinaBerths.map(moored):[];
 export const crewBoat=(world,id)=>id==null?null:world?.boats?.find(b=>b.driver===id||b.gunner===id);
 // Keep delayed hull motion while local seat changes take effect on their first frame.
@@ -93,6 +95,7 @@ export function interactBoat(world,b,player) {
   }else if(nearBoat(world,player.state)===b){
     if(b.driver==null){
       b.driver=player.id;
+      if(b.partyYacht)b.cruising=false;
       if(marinaModel(b))world.wanted?.record(world.wanted.session(player),'theft');
     }else if(!marinaModel(b) && b.gunner==null){b.gunner=player.id;b.turretYaw=b.yaw;b.turretPitch=0;}
   }
@@ -155,12 +158,13 @@ export function stepBoat(world,b,input,dt,players){
     delete b.beached;
     b.recoverySeconds=Math.max(0,b.recoverySeconds-dt);
     if(b.recoverySeconds<.0001){
-      const site=berths.find(p=>p.id===b.id)??marinaBerths.find(p=>p.id===b.id);
+      const site=berths.find(p=>p.id===b.id)??marinaBerths.find(p=>p.id===b.id)??partySites.find(p=>p.id===b.id);
       // Hold recovery if another hull is occupying the berth.
-      if(site && canFloat(world,b,site.x,site.z,site.yaw??0))Object.assign(b,moored(site));
+      if(site && canFloat(world,b,site.x,site.z,site.yaw??0)){Object.assign(b,moored(site));if(b.partyYacht)resetCruise(b);}
     }
     return;
   }
+  if(cruisePartyYacht(world,b,dt,canFloat))return;
   const t=(waveClock.get(b)??0)+dt;waveClock.set(b,t);
   const model=marinaModel(b),own=footprint(b);
   const turn=waterHelm(b,input,dt);
