@@ -61,7 +61,7 @@ import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
 import {volleyballHud} from './volleyball-hud.js';
-import {sprintStart,sprintGates} from './marina-sprint.js';
+import {marinaMode,sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
 const byId = id => document.getElementById(id);
 const damageEdges=shotDamageVignette(byId('damage-edges'));
@@ -86,13 +86,14 @@ destinationsMenu.onchange=()=>{
 };
 const selector=byId('map-choice');
 const chosen=new URLSearchParams(location.search).get('mode');
+const racing=CITY && chosen===marinaMode;
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
 const modeGroup=document.createElement('optgroup');
 modeGroup.label='Brickell team games';
 for(const [key,rule] of Object.entries(modes))modeGroup.append(new Option(rule.name,key));
-selector.append(modeGroup);
-selector.value=mode ?? (CITY ? 'brickell' : 'outpost');
-selector.addEventListener('change',()=>{ const url=new URL(location.href);if(Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
+selector.append(new Option('Brickell · Marina Sprint',marinaMode),modeGroup);
+selector.value=racing?marinaMode:mode ?? (CITY ? 'brickell' : 'outpost');
+selector.addEventListener('change',()=>{ const url=new URL(location.href);if(selector.value===marinaMode || Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
 if(CITY) {
   document.title='Brickell · Pinewatch';
   document.querySelector('.map-title span').textContent='District map';
@@ -355,7 +356,7 @@ window.addEventListener('keydown', e => {
   if(!e.repeat)pressAction(e.code);
 });
 function startMarinaSprint(){
-  if(CITY && !mode && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
+  if(racing && !touchBlocked() && drivenRoad(world,id) && socket?.readyState===WebSocket.OPEN)
     socket.send(JSON.stringify({type:'marinaSprint'}));
 }
 function clubInteraction(){
@@ -523,7 +524,7 @@ const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpos
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(mode?'&mode='+mode:'') : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(racing?'&mode='+marinaMode:mode?'&mode='+mode:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -989,7 +990,7 @@ function updateEquipment(local) {
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,throwable:weapon===6,cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:useLabel,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),swimmingGear:local.swimming && !!world.sharks,sighted:camera.sighted,jump:volleyball?.member?volleyball.action:local.ride?.kind==='bike'?null:local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump',
-      sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:CITY && !mode && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
+      sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
   }
 }
@@ -1017,7 +1018,7 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle='#b1aba0';
     for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
       ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
-    if(!mode){
+    if(racing){
       const next=vitals.race?.phase==='racing'?sprintGates[vitals.race.next]:sprintStart;
       ctx.fillStyle='#6affdc';ctx.beginPath();ctx.arc(sx(next.x),sy(next.z),4,0,Math.PI*2);ctx.fill();
     }
@@ -1153,7 +1154,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:boat??(role==='rover' ? rover : heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
-    view.touch=touch.active;view.basketball=playingHoops();
+    view.marinaSprint=racing;view.touch=touch.active;view.basketball=playingHoops();
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
     const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
     audio.patrolSiren(local,view.yaw,roadTraffic,dt);
@@ -1177,7 +1178,7 @@ function frame(time) {
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
-      if(CITY && !mode)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
+      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id,touch.active);

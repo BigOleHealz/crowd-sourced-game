@@ -1,3 +1,4 @@
+export const marinaMode='marina-sprint';
 // The northbound avenue joins both island bridges. The only turn is east
 // at the yacht club, onto the road leading to the marina's east quay.
 export const sprintStart={x:-2,z:15,name:'Mangle Café'};

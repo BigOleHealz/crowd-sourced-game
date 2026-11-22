@@ -25,7 +25,7 @@ import {stepRoadBoarding} from './public/road-cabin.js';
 import {stepPatrolCruisers} from './public/patrol-cruisers.js';
 import {createWanted} from './public/wanted.js';
 import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
-import {createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
+import {marinaMode,createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
 import {stepStructuralFalls} from './public/structural-collapse.js';
 import {leaveTank,stepTank} from './public/tank.js';
@@ -82,7 +82,7 @@ const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
 const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
 const bank=CITY && !mode ? createBank() : null;
-const marina=CITY && !mode ? createMarinaSprint() : null;
+const marina=CITY && process.env.PINEWATCH_MODE===marinaMode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
@@ -224,7 +224,7 @@ const sockets = new WebSocketServer({
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
-const cityRoutes=new Map([['/world?map=brickell',''],...Object.keys(modes).map(key=>['/world?map=brickell&mode='+key,key])]);
+const cityRoutes=new Map([['/world?map=brickell',''],...[marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
 }

@@ -1209,7 +1209,7 @@ export function createScene(canvas) {
     localActorId=local?.id;
     if(local && world.rides)drawStreetRides(world.rides,local,remotes,dt);
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
-    if(CITY && !world.match){
+    if(view.marinaSprint && local){
       sprintGate??=createSprintGate(scene,Batch);
       sprintGate(local.race?.phase==='racing'?local.race.next:-1);
     }
