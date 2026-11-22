@@ -65,7 +65,7 @@ import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
-import {volleyballHud} from './volleyball-hud.js';
+import {volleyballHud,volleyballScoreboard} from './volleyball-hud.js';
 import {marinaMode,sprintStart,sprintGates} from './marina-sprint.js';
 let sprintBoard=[];
 const byId = id => document.getElementById(id);
@@ -136,6 +136,7 @@ function volleyballAction(action){
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'volleyball',action}));
 }
 const playingHoops=()=>id!=null && Boolean(world?.basketball?.players.includes(id));
+const showVolleyScore=volleyballScoreboard(byId('volleyball-score'));
 const hoopsHud=basketballHud(byId('basketball-score'));
 const myBoat=()=>crewBoat(world,id);
 const atYachtHelm=()=>id!=null && world?.yacht?.driver===id;
@@ -685,7 +686,7 @@ function connect() {
     canvas.classList.remove('armed');
     roverView = null;
     audio.reset();
-    byId('marina-card').hidden=true;hoopsHud.hide();
+    byId('marina-card').hidden=true;byId('touch-race-tally').hidden=true;hoopsHud.hide();showVolleyScore(null);
     byId('match-card').hidden=true;
     byId('flight-cursor').hidden=true;
     wantedHud();id = null; self = null; world = null; pending = []; samples = [];
@@ -1018,8 +1019,10 @@ function updateEquipment(local) {
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
   if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
-  if(volleyball && !bankDialog.open && !market.current && !talk.current){
-    const labels=[volleyball.score,volleyball.detail];
+  const volleyballVisible=volleyball && !vitals.dead && !bankDialog.open && !market.current && !talk.current;
+  showVolleyScore(volleyballVisible?volleyball:null);
+  if(volleyballVisible){
+    const labels=[];
     if(!touch.active){
       if(volleyball.action)labels.push('Space  ·  '+volleyball.action);
       if(volleyball.use)labels.push('E  ·  '+volleyball.use);
@@ -1251,7 +1254,7 @@ function frame(time) {
       byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY ? (lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
-      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard);
+      if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);
       updateEquipment(local);
       if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id,touch.active);

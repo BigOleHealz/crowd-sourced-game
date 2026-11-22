@@ -1,3 +1,4 @@
+import {courtTally,setScoreText} from './court-tally.js';
 import {canReturnVolleyball,canServeVolleyball,courtSide,nearbyVolleyballCourt,returnCueLead,sampleVolleyball,
   slotSide,volleyballMember,volleyballTeams} from './volleyball-court.js';
 
@@ -8,13 +9,14 @@ export function volleyballHud(world,feet,id,available){
   if(index<0)return null;
   const game=world.volleyball[index];
   const score=volleyballTeams.map(({name},i)=>name+' '+game.score[i]).join('  ·  ');
+  const courtInfo={score,index,game,side:member?.side??-1};
   if(!member){
-    if(game.phase==='closed')return {score,detail:'Net down'};
-    if(game.players.every(id=>id!=null))return {score,detail:'Court full'};
-    return {use:'Join volleyball',score,detail:''};
+    if(game.phase==='closed')return {...courtInfo,detail:'Net down'};
+    if(game.players.every(id=>id!=null))return {...courtInfo,detail:'Court full'};
+    return {...courtInfo,use:'Join volleyball',detail:''};
   }
   const {court,side,slot}=member;
-  const result={member:true,use:'Leave volleyball',score,detail:'Your team · '+volleyballTeams[side].name};
+  const result={...courtInfo,member:true,use:'Leave volleyball',detail:'Your team · '+volleyballTeams[side].name};
   if(game.phase==='game')result.detail=volleyballTeams[game.winner].name+' wins the game';
   else if(game.phase==='point')result.detail=game.reason+' · Point '+volleyballTeams[game.winner].name;
   else if(game.phase==='serve'){
@@ -35,4 +37,18 @@ export function volleyballHud(world,feet,id,available){
     }else result.detail='Ball across the net';
   }
   return result;
+}
+
+export function volleyballScoreboard(panel){
+  const title=panel.querySelector('.court-title'),detail=panel.querySelector('output'),tally=courtTally(panel);
+  return status=>{
+    panel.hidden=!status;
+    if(!status)return;
+    const {game,index,side}=status;
+    setScoreText(title,'Volleyball · Court '+(index+1));
+    const awarded=game.phase==='game' || game.phase==='point';
+    tally(game.score,side,awarded?game.winner:game.phase==='serve'?slotSide(game.server):-1,
+      game.phase==='game'?'Winner':awarded?'Point':'Serve');
+    setScoreText(detail,status.detail || (game.phase==='rally'?'Rally in play':'First to 11 · Win by 2 · Cap 15'));
+  };
 }

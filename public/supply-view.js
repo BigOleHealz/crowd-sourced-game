@@ -81,6 +81,8 @@ export function updateSupplyHud(world, local, id, touch=false) {
   card.hidden = !guide;
   if (!guide) return;
   const {stage, delivered, hold} = world.mission;
+  document.getElementById('supply-delivered').textContent=delivered;
+  document.getElementById('supply-cases').textContent=delivered*3;
   const turn = guide.point && Math.atan2(guide.point.x-local.x, local.z-guide.point.z);
   const dir = bearings[(Math.round(turn/(Math.PI/4))+8)%8];
   const distance = guide.point && Math.round(Math.hypot(guide.point.x-local.x,guide.point.z-local.z));

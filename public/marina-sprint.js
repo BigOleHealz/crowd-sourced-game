@@ -15,7 +15,7 @@ export function raceClock(ms){
   return Math.floor(cs/6000)+':'+String(Math.floor(cs/100)%60).padStart(2,'0')+'.'+String(cs%100).padStart(2,'0');
 }
 export function createMarinaSprint(){
-  const runs=new WeakMap(),drivers=new WeakMap();
+  const runs=new WeakMap(),drivers=new WeakMap(),bests=new WeakMap();
   let nextDriver=1,board=[];
   function start(player,car,now){
     if(!car || car.wrecked || car.bridgeFlight || !atGrid(car) || Math.abs(car.speed)>1 || !player.life.hp)return false;
@@ -39,15 +39,16 @@ export function createMarinaSprint(){
     if(Math.abs(car.x-gate.x)>(gate.east?3:5.5) || Math.abs(car.z-gate.z)>(gate.east?4.5:3))return;
     if(++run.next<sprintGates.length)return;
     run.phase='finished';
-    const driver=drivers.get(player),previous=board.find(row=>row.driver===driver);
-    if(!previous || previous.time>run.elapsed){
+    const driver=drivers.get(player),previous=bests.get(player);
+    if(previous===undefined || previous>run.elapsed){
+      bests.set(player,run.elapsed);
       board=[...board.filter(row=>row.driver!==driver),{driver,time:run.elapsed}].sort((a,b)=>a.time-b.time || a.driver-b.driver).slice(0,10);
       return true;
     }
   }
   function state(player){
     const run=runs.get(player);
-    return run && {phase:run.phase,next:run.next,elapsed:run.elapsed,driver:drivers.get(player),message:run.message};
+    return run && {phase:run.phase,next:run.next,elapsed:run.elapsed,driver:drivers.get(player),best:bests.get(player),message:run.message};
   }
   return {start,update,state,board:()=>board,run:player=>runs.get(player)};
 }

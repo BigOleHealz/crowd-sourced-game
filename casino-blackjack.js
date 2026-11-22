@@ -10,18 +10,21 @@ function shuffledDeck(){
   return cards;
 }
 export function blackjack(makeDeck=shuffledDeck){
-  const state={player:null,phase:'idle',revision:0,wager:0,hand:[],dealer:[],result:''};
+  const records=new WeakMap();
+  const state={player:null,record:null,phase:'idle',revision:0,wager:0,hand:[],dealer:[],result:''};
   let deck=[],dealer=[],lastAction=0;
   function settle(world,p,tick,message,multiplier){
     if(state.phase!=='play')return;
     state.phase='result';state.dealer=dealer.slice();
     const payout=state.wager*multiplier;
+    state.record[multiplier>1?'wins':multiplier===1?'pushes':'losses']++;
     state.result=message+(state.wager?(payout?' · $'+payout+' returned':' · wager lost'):' · practice');
     if(payout)world.trading.award(p,payout,tick,state.result);
   }
   function leave(p){
     if(!p || state.player!==p.id)return;
-    Object.assign(state,{player:null,phase:'idle',wager:0,hand:[],dealer:[],result:'',revision:state.revision+1});
+    if(state.phase==='play')state.record.losses++;
+    Object.assign(state,{player:null,record:null,phase:'idle',wager:0,hand:[],dealer:[],result:'',revision:state.revision+1});
     deck=[];dealer=[];
   }
   function request(world,p,msg,tick,eligible){
@@ -30,6 +33,8 @@ export function blackjack(makeDeck=shuffledDeck){
       if(state.player!==null || !eligible || !nearBlackjack(p.state))return;
       Object.assign(p.state,casinoSeat,{vx:0,vy:0,vz:0,grounded:true,stance:'stand'});
       p.moving=p.sprint=false;p.yaw=0;
+      if(!records.has(p))records.set(p,{wins:0,losses:0,pushes:0});
+      state.record=records.get(p);
       state.player=p.id;state.phase='bet';
     }else{
       if(state.player!==p.id)return;

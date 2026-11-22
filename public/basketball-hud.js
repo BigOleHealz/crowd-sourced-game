@@ -1,8 +1,9 @@
+import {courtTally} from './court-tally.js';
 import {basketballCourt as court,basketballTeams,hoopHeading,onBasketballCourt,shotWindow} from './basketball-layout.js';
 
 export function basketballHud(panel){
   const status=panel.querySelector('output'),meter=panel.querySelector('[role=meter]');
-  const scores=[...panel.querySelectorAll('[data-hoops-score]')];
+  const tally=courtTally(panel);
   const fill=meter.querySelector('i'),gold=meter.querySelector('b');
   let lastSerial,noticeUntil=0;
   function update(game,feet,yaw,touch){
@@ -10,11 +11,7 @@ export function basketballHud(panel){
     if(panel.hidden)return;
     const side=game.players.indexOf(feet.id),joined=side>=0;
     const ball=game.turn===side && game.phase==='held';
-    for(const [i,score] of scores.entries()){
-      const value=String(game.scores[i]);
-      if(score.textContent!==value)score.textContent=value;
-      score.parentElement.classList.toggle('you',side===i);
-    }
+    tally(game.scores,side,game.phase==='held'?game.turn:-1,'Ball');
     if(game.result?.serial!==lastSerial){
       lastSerial=game.result?.serial;
       noticeUntil=performance.now()+1800;
@@ -24,7 +21,7 @@ export function basketballHud(panel){
     if(!joined){
       line=game.players.includes(null)?(touch?'Tap Join basketball to play':'Press E at the court to join'):'Both sides are playing';
     }else if(result && performance.now()<noticeUntil && game.phase==='flight'){
-      line=result.points?(result.side===side?'Your basket':'Opponent basket')+' · +'+result.points:'Miss · Next possession soon';
+      line=result.points?basketballTeams[result.side].name+' basket · +'+result.points:'Miss · Next possession soon';
     }else if(ball){
       const hoopYaw=hoopHeading(feet);
       const deviation=Math.atan2(Math.sin(yaw-hoopYaw),Math.cos(yaw-hoopYaw));
