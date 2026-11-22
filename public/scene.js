@@ -1357,7 +1357,8 @@ export function createScene(canvas) {
       updateResortFloor=resortFloorView(scene,Batch);
     updateResortFloor?.(dt,local);
     const attackTick=world.frameTick??world.simTick;
-    const localDefeat=local.dead && world.sharkDefeats?.find(e=>e.playerId===local.id);
+    const blastDeath=local.dead && local.deathKind==='blast';
+    const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);
     for(const state of [local,...remotes,...(world?.npcs ?? []),...(CITY?castForAudience(local,remotes,world.simTick??0):[]),...(CITY?bankCast(local,world,bankVisual):[]),...(CITY?casinoCast(local,world.casino):[]),...athletes,...hoopPlayers]) {
       live.add(state.id);
@@ -1574,7 +1575,8 @@ export function createScene(canvas) {
       else overheadEye.set(local.x,local.y+stanceMuzzleHeight(local),local.z);
       camera.position.lerp(overheadEye,overhead);
     }
-    avatars.get(local.id).root.visible=!inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
+    const localBody=avatars.get(local.id)?.root;
+    if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
     const sighted = onFoot && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && (!local.swimming || local.swimArmed);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
@@ -1592,7 +1594,7 @@ export function createScene(canvas) {
     if (sighted) {
       camera.position.set(local.x, local.y + stanceMuzzleHeight(local), local.z);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
-      avatars.get(local.id).root.visible = false;
+      if(localBody)localBody.visible=false;
     }
     if(ridingHotelShaft(local)){
       camera.position.set(local.x,local.y+1.59,local.z);
@@ -1604,14 +1606,14 @@ export function createScene(canvas) {
       // the guest seated against the backrest and can look around freely.
       camera.position.set(local.x+.10,local.y+1.13,local.z);
       camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
-      avatars.get(local.id).root.visible=false;
+      if(localBody)localBody.visible=false;
     }
     if(bowSight){
       const pivot=mountPosition(world.yacht,mounts.superyacht.turret);
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       camera.position.set(pivot.x,pivot.y,pivot.z);
       camera.translateZ(-1.12);
-      avatars.get(local.id).root.visible=false;
+      if(localBody)localBody.visible=false;
     }
     if(localDefeat){
       const age=Math.max(0,(attackTick-localDefeat.tick)/30);
@@ -1623,7 +1625,7 @@ export function createScene(canvas) {
       desired.set(shot.x,shot.y,shot.z);
       camera.position.lerp(desired,THREE.MathUtils.smoothstep(age,0,.36));
       camera.lookAt(shot.lookX,shot.lookY,shot.lookZ);
-      avatars.get(local.id).root.visible=true;
+      if(localBody)localBody.visible=true;
     }
     if(world.casino?.player===local.id && !local.dead){
       camera.position.set(casinoSeat.x+1.13,casinoSeat.y+2.04,casinoSeat.z+.99);
