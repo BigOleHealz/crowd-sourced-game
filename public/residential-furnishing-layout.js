@@ -17,6 +17,7 @@ export function residentialProfile(plan){
   if(plan.home?.startsWith('harbor-'))return profiles[island[Number(plan.home.slice(7))]];
   const b=plan.b;
   if(plan.type==='outpost' && !b.garage)return profiles[plan.id===0?'lodge':'cabin'];
+  if(b.housing && b.facade===1)return profiles.city;
   if(b.resortWing)return profiles[b.towerId===12?'city':'deco'];
   if(b.housing && hasApartmentBalconies(b.facade) && plan.name!=='Hotel Maravela')return profiles[b.facade===0?'city':'deco'];
 }
