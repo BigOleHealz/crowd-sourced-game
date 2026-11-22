@@ -2,6 +2,7 @@
 // and radians. The caller restores the chassis suspension pose before each call.
 const engines={
   pickup:[5.7,.0046,.0022],jeep:[6.8,.0041,.0028],supercar:[8.3,.0025,.0013],
+  falco:[9.3,.0022,.0019],veloce:[8.7,.0027,.0021],
   engine:[4.2,.0057,.0026],sedan:[7.1,.0025,.0015],hatchback:[7.8,.0035,.0021],van:[5.1,.0052,.0027],
 };
 export function roadEngineIdle(model,id=model){

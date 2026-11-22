@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {brickellResidents} from '../public/brickell-residents.js';
+import {resortGuests} from '../public/resort-guests.js';
 import {civilianLooks} from '../public/civilian-style.js';
 import {patrolProfile} from '../public/patrol-uniform.js';
 import {dressCivilian} from '../public/civilian-view.js';
 import {distantResidents} from '../public/resident-distance-view.js';
 import {createRangerRig,poseRig} from '../public/ranger-pose.js';
 
-const ids=['rival-fern','rival-rowan',...brickellResidents.map(resident=>resident.id)];
+const residents=['rival-fern','rival-rowan',...brickellResidents.map(resident=>resident.id)];
+const ids=[...residents,...resortGuests.map(guest=>guest.id)];
 assert.deepEqual(new Set(Object.keys(civilianLooks)),new Set(ids));
-assert.equal(new Set(Object.values(civilianLooks).map(p=>p.face)).size,ids.length);
+assert.equal(new Set(residents.map(id=>civilianLooks[id].face)).size,residents.length);
+assert(resortGuests.every(({id})=>civilianLooks[id].evening));
 const material=new THREE.MeshLambertMaterial(), textiles={faces:material,shirts:material};
 // The complex art is baked by the scene batcher. Inspect the textured geometry
 // directly so a malformed cross-section cannot leave a hole across the face.

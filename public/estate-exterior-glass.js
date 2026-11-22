@@ -31,10 +31,5 @@ for(const side of [-1,1])for(const alongX of [true,false]){
 const {x,z,w,d}=clubSalon;
 export const clubBarriers=[...clubPanes,{x:x-8.5,z,w:3.15,d:.75,bottom:.22,h:1.15},
   ...[-5,0,5].flatMap(u=>[{x:x+u,z:z-2.9,w:2.22,d:.82,h:1.27},{x:x+u,z:z-1.65,w:1.13,d:.58,h:.84}]),
-  // Rounded table perimeter steps inward toward the player along the brass rail.
-  {x:33.5,z:-394.71,w:2.96,d:.50,bottom:.80,h:1.22},
-  {x:33.5,z:-394.29,w:2.62,d:.36,bottom:.80,h:1.22},
-  {x:33.5,z:-393.99,w:1.84,d:.25,bottom:.80,h:1.22},
-  {x:33.5,z:-399.63,w:5.20,d:.11,bottom:.37,h:3.19},
   {x,z,w:w+.30,d:d+.30,bottom:3.74,h:3.99}];
 export const estateGlassBarriers=[...estateRailBarriers,...skylights,...clubBarriers];

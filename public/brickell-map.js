@@ -1,4 +1,6 @@
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
+import {resortFurniture} from './resort-floor-layout.js';
+import {resortBarriers} from './casino-layout.js';
 import {bankSite} from './bank-site.js';
 import {stationBarriers} from './fire-sites.js';
 import {club,clubSolids} from './club-lucero.js';
@@ -62,26 +64,28 @@ export function parapetTop(x,z,padding,maxBottom,doors) {
 }
 
 const towers = [
-  [-59,-31,17,18,39,1],[-52,10,12,19,26,3],[-61,47,17,18,38,0],
+  [-59,-31,17,18,39,1],[-52,10,12,19,26,3],[-61,34.85,16,7,38,0],
   [-20,-31,13,16,37,1],[-17,7,15,18,24,0],[-19,43,16,19,46,3],
   [15,-30,14,17,34,0],[17,45,14,19,42,1],[-57,-53,15,7,18,3],
   [-16,-53,17,8,23,0],[17,-54,12,7,31,1],[-56,69,13,7,28,1],
   [-18,69,15,7,22,3],[17,69,16,7,27,0],
 ];
+const resortWings=new Map([[2,'Lantern Club Hotel'],[11,'Lantern Club Hotel & Suites'],[12,'Lantern Club Oasis Tower']]);
 const buildings=towers.map(([x,z,w,d,eave,facade],towerId)=>({
-  towerId,
+  towerId,resortWing:resortWings.get(towerId),
   x,z,w,d,eave,facade,rise:0,
   // Raised housing on the roof. Barrier heights are relative to the ground.
   housing:{x:x+w*.13,z,w:w*.45,d:d*.46,bottom:eave+.06,h:eave+1.24},
 }));
 const palms=[];
 for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
+  if(x===-45 && z===53)continue; // The fountain occupies this former planting bed.
   palms.push({x,z,height:6.4+1.1*Math.abs(Math.sin(x+z)), radius:.22});
 }
 for(const x of [-9,9]) for(const z of [-163,-182,-221,-243,-267]) palms.push({x,z,height:7.1,radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-94, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
+  barriers:[...resortFurniture,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...buildings.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

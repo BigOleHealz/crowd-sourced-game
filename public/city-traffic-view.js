@@ -11,6 +11,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {mountPosition} from './mounts.js';
+import {valetSportBody,valetPaints} from './valet-sport-view.js';
 
 import {alpineGlass} from './landscape.js';
 
@@ -67,10 +68,14 @@ function wheelModel(Batch,tire,depth,van){
 }
 
 function model(Batch,type,materials,patrol=false){
+  if(valetPaints[type]){
+    const car=valetSportBody(Batch,type,{skin,pane,run,box});
+    return finishTrafficModel(Batch,type,materials,car);
+  }
   const engine=type==='engine';
   const {roofEnd,cabinEnd,topFront}=engine?{roofEnd:.34,cabinEnd:.41,topFront:-.72}:fleet[type];
   const paint=engine?0xaf322e:patrol?0x253747:fleet[type].paint;
-  const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire,halfTread}=civilianProfiles[type];
+  const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire}=civilianProfiles[type];
   const van=type==='van' || engine,hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
@@ -311,9 +316,17 @@ function model(Batch,type,materials,patrol=false){
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
   const appliance=engine && fireAppliance(root,chassis,body,box,Batch,materials);
   const beacon=patrol && markPatrolSedan(chassis,door,body,box);
-  const sheet=body.mesh(chassis,materials.paint,false);leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
+  return finishTrafficModel(Batch,type,materials,{root,chassis,door,body,leaf,glass,lamps,signals,beacon,appliance});
+}
+function finishTrafficModel(Batch,type,materials,car){
+  const {root,chassis,door,body,leaf,glass,doorGlass,head,lamps,signals=[],beacon,appliance}=car;
+  const {nose,tail,bodyWidth:w,tire,halfTread}=civilianProfiles[type];
+  const sheet=body.mesh(chassis,materials.paint,false);
+  leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
+  if(doorGlass)doorGlass.mesh(door,materials.glass,false);
+  const runningLights=head?.mesh(chassis,materials.lights,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
-  const wheelGeometry=wheelModel(Batch,tire,halfTread,van),wheels=[];
+  const wheelGeometry=wheelModel(Batch,tire,halfTread,type==='engine'||type==='van'),wheels=[];
   for(const [x,z] of wheelsFor({model:type})){
     const finish=materials.wheel.clone(),patch=tireContactPatch(finish,tire);
     const wheel=new THREE.Mesh(wheelGeometry,finish);
@@ -322,19 +335,22 @@ function model(Batch,type,materials,patrol=false){
   }
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
-  return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings:damagedFittings([sheet,brake,...signals],nose,tail,w),wreckFinish:roadWreckFinish(chassis)};
+  const fittings=damagedFittings([sheet,brake,...(runningLights?[runningLights]:[]),...signals],nose,tail,w,runningLights ? .39 : .50);
+  return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings,runningLights,wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const paint=new THREE.MeshPhongMaterial({vertexColors:true,shininess:92,specular:0x6f777f,side:THREE.DoubleSide});
   if(panorama)paint.onBeforeCompile=shader=>{
     shader.uniforms.bodySky={value:panorama};
-    shader.uniforms.fleetPaint={value:Object.values(fleet).map(({paint})=>new THREE.Color(paint))};
-    shader.fragmentShader='uniform sampler2D bodySky; uniform vec3 fleetPaint[3];\n'+shader.fragmentShader.replace('#include <specularmap_fragment>',`
+    const colors=[...Object.values(fleet).map(({paint})=>paint),...Object.values(valetPaints)];
+    shader.uniforms.fleetPaint={value:colors.map(color=>new THREE.Color(color))};
+    shader.fragmentShader=`uniform sampler2D bodySky; uniform vec3 fleetPaint[${colors.length}];\n`+shader.fragmentShader.replace('#include <specularmap_fragment>',`
       #include <specularmap_fragment>
-      float painted=1.-step(.006,min(distance(vColor,fleetPaint[0]),min(distance(vColor,fleetPaint[1]),distance(vColor,fleetPaint[2]))));
+      float paintDistance=1.;
+      for(int i=0;i<${colors.length};i++)paintDistance=min(paintDistance,distance(vColor,fleetPaint[i]));
+      float painted=1.-step(.006,paintDistance);
       specularStrength*=mix(.12,1.,max(painted,smoothstep(.23,.56,max(vColor.r,max(vColor.g,vColor.b)))));
     `).replace('#include <opaque_fragment>',`
-      float paintDistance=min(distance(vColor,fleetPaint[0]),min(distance(vColor,fleetPaint[1]),distance(vColor,fleetPaint[2])));
       if(paintDistance<.006){
         vec3 eye=normalize(vViewPosition), ray=inverseTransformDirection(reflect(-eye,normal),viewMatrix);
         vec2 skyUV=vec2(atan(ray.x,-ray.z)*.46+.17,clamp((asin(clamp(ray.y,-1.,1.))+.44)/.98,0.,1.));
@@ -358,7 +374,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const patrolViews=[];
   return (cars,dt,local,patrolCars=[])=>{
     for(const view of patrolViews)if(view)view.root.visible=false;
-    for(const [id,view] of views)if(id.startsWith('fire-engine-'))view.root.visible=false;
+    for(const [id,view] of views)if(id.startsWith('fire-engine-') || id.startsWith('valet-'))view.root.visible=false;
     let slot=0;
     for(const car of patrolCars.length?[...cars,...patrolCars]:cars){
       const index=car.patrol?slot++:-1;
@@ -391,7 +407,9 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       const t=car.takeover?.progress??car.boarding?.progress??0;
       door.rotation.y=boardingDoorAngle(t);
       view.signals.forEach((lamp,i)=>{lamp.visible=!!car.npcDriver && car.blink && car.turnSignal===(i?1:-1);});
-      brake.visible=!car.wrecked && (!!car.takeover || (car.npcDriver!=null && (car.braking || Math.abs(car.speed)<1)));
+      if(view.runningLights)view.runningLights.visible=!car.wrecked;
+      brake.visible=!car.wrecked && (!!car.takeover || (car.npcDriver!=null && (car.braking || Math.abs(car.speed)<1)) ||
+        (!!view.runningLights && car.driver!=null && car.braking));
     }
   };
 }

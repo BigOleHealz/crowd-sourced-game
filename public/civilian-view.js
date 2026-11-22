@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 const oval = new THREE.SphereGeometry(1, 12, 9);
 const box = new THREE.BoxGeometry();
+const eveningFabrics=new Map();
 
 // Oval sections give collars, cuffs and hems a fitted edge. All pieces on
 // one bone are baked into one mesh by the same Batch used for the scenery.
@@ -202,13 +203,27 @@ export function dressPerson(rig,p,Batch,material,textiles) {
     const bare=p.shirt==='tank'||p.shirt==='dress';
     for(const side of [-1,1])b.add(oval,bare?p.skin:p.top,side*.161,1.427,.001,.080,.046,.073,0,0,-side*.22);
     if(p.officer)patrolShirtTrim(b,p.county);else addBag(b,p);
+    if(p.evening){
+      if(p.shirt==='jacket'){
+        b.add(oval,0xe4dbcb,0,1.368,-.126,.067,.112,.024);
+        for(const side of [-1,1]){
+          b.beam(0x262b38,[side*.108,1.455,-.091],[side*.018,1.313,-.151],.032,.018);
+          b.add(oval,0x212734,side*.026,1.433,-.143,.029,.019,.011,0,0,-side*.21);
+        }
+      }else{
+        for(const side of [-1,1])b.beam(0xd8af65,[side*.033,1.485,-.060],[0,1.425,-.111],.008);
+        b.add(oval,0xe4c080,0,1.415,-.112,.015,.022,.011);
+      }
+    }
     if(p.extra==='staff'){
       for(const side of [-1,1])b.beam(0x327c78,[side*.065,1.49,-.069],[.01,1.26,-.146],.017,.008);
       b.add(box,0xe5e1cb,.01,1.228,-.150,.080,.067,.010);
       b.add(box,0x426967,.01,1.251,-.157,.076,.012,.003);
     }
   });
-  const shirt=new THREE.Mesh(shirtGeometry(p),textiles.shirts);
+  if(p.evening && !eveningFabrics.has(p.top))
+    eveningFabrics.set(p.top,new THREE.MeshPhongMaterial({color:p.top,shininess:22,specular:0x34303a}));
+  const shirt=new THREE.Mesh(shirtGeometry(p),p.evening?eveningFabrics.get(p.top):textiles.shirts);
   shirt.receiveShadow=true;rig.upper.add(shirt);
   part(rig.body,b=>{
     if(p.officer)patrolBelt(b);
@@ -236,7 +251,7 @@ export function dressPerson(rig,p,Batch,material,textiles) {
     });
     part(knee,b=>b.add(bare?calf:slacks,bare?p.skin:p.pants,0,0,0));
     part(ankle,b=>{
-      const shoe=p.bottom==='slacks'?0x614e40:p.shirt==='dress'?0xbb8c6b:0xe0d6c2;
+      const shoe=p.evening?0x29282e:p.bottom==='slacks'?0x614e40:p.shirt==='dress'?0xbb8c6b:0xe0d6c2;
       b.add(oval,0x685e53,0,-.126,-.043,.067,.023,.130);
       b.add(oval,shoe,0,-.096,-.052,.065,.044,.118);
       b.add(oval,shoe,0,-.058,.003,.059,.059,.064);

@@ -18,8 +18,9 @@ const sport=[[supercarLayout.halfWidth,-2.32,2.32,.10,.73],[.71,-.74,1.11,.73,su
 const tracks=[[1.18,-2.09,2.09,.05,1.20],[.77,-.85,.95,1.20,1.91]];
 const boatHull=[[.57,-2.65,-1.87,-.60,.43],[1.04,-1.87,2.15,-.62,.50],[.86,2.15,2.65,-.50,.45]];
 const trafficShapes=Object.fromEntries(Object.entries(civilianProfiles).map(([model,p])=>[model,
-  [[p.halfWidth,-p.halfLength,p.halfLength,.10,.90],
-   [p.halfWidth*.89,-p.halfLength*.56,p.halfLength*(model==='van' ? .92 : .65),.90,p.roof]]]));
+  [[p.halfWidth,-p.halfLength,p.halfLength,.10,p.belt??.90],
+   [p.halfWidth*(p.cabin ? .72 : .89),p.cabin?.[0]??-p.halfLength*.56,
+     p.cabin?.[1]??p.halfLength*(model==='van'?.92:.65),p.belt??.90,p.roof]]]));
 const radius=.32;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 

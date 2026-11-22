@@ -10,6 +10,7 @@ const {wheelsFor,flatWheelDrop,flatMobility}=await import('../public/road-wheel-
 const {stanceMuzzleHeight}=await import('../public/world.js');
 const dt=1/30;
 const motorPool=()=>[...newCityTraffic(),fireEngine()];
+const serviceModels=new Set(motorPool().map(car=>car.model));
 function shot(world,car,side,z,height){
   const c=Math.cos(car.yaw),s=Math.sin(car.yaw);
   const local=(x,y,z)=>({x:car.x+c*x-s*z,y:car.y+y,z:car.z+s*x+c*z});
@@ -20,7 +21,7 @@ function shot(world,car,side,z,height){
   fire(world,player,{aimYaw:Math.atan2(dx,-dz),aimPitch:Math.atan2(target.y-state.y-stanceMuzzleHeight(state),Math.hypot(dx,dz))},50,players,[]);
   for(let t=0;t<6;t++)advanceRounds(world,players,[],50+t);
 }
-for(const model of Object.keys(civilianProfiles)){
+for(const model of serviceModels){
   const w=newExpedition(),cars=motorPool(),car=cars.find(c=>c.model===model);
   w.traffic=[car];const npcs=newRivals(),players=new Map(),profile=civilianProfiles[model];
   const home={x:car.x,y:car.y,z:car.z,yaw:car.yaw};
@@ -50,7 +51,7 @@ for(const model of Object.keys(civilianProfiles)){
 }
 // Hit the rear bumper of an unoccupied car with the pickup. Both panels
 // and both health meters react once, even with throttle held into contact.
-for(const model of Object.keys(civilianProfiles)){
+for(const model of serviceModels){
   const w=newExpedition(),r=w.rover,car=motorPool().find(c=>c.model===model);
   w.traffic=[car];
   Object.assign(car,{x:0,z:-190,y:.7,yaw:0,npcDriver:null,speed:0});

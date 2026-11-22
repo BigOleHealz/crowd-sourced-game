@@ -98,6 +98,17 @@ const sportBody=[
 // Each box starts at its lower surface. Tire centres match the visual axles.
 const trafficBodies=Object.fromEntries(Object.entries(civilianProfiles).map(([model,p])=>{
   const w=p.bodyWidth,l=p.tail-p.nose,center=(p.tail+p.nose)/2,[front,rear]=p.axles,t=p.tire,arch=t+.05;
+  if(p.cabin){
+    const [cabinFront,cabinRear]=p.cabin,belt=p.belt;
+    return [model,[
+      [0,.18,center,2*(w-.21),belt-.18,l],
+      [0,belt-.10,center,2*w,.10,l],
+      [0,.20,(front+rear)/2,2*w,belt-.20,rear-front-2*arch],
+      [0,.22,p.nose+.11,2*w-.34,belt-.22,.22],
+      [0,.22,p.tail-.11,2*w-.26,belt-.22,.22],
+      [0,belt,(cabinFront+cabinRear)/2,w*1.42,p.roof-belt,cabinRear-cabinFront],
+    ]];
+  }
   return [model,[
     [0,.25,center,2*(w-.23),.55,l],
     [0,2*t+.05,center,2*w,.24,l],

@@ -6,7 +6,7 @@ export const brickellResidents=[
   {id:'rival-omar',name:'Omar',points:[[-29,-40],[-23,-40],[-26,-42]]},
   {id:'rival-maia',name:'Maia',points:[[22.8,-14.6],[17,-14.6],[18.5,-16.2]]},
   {id:'rival-diego',name:'Diego',points:[[39.8,-31],[39.8,-25],[40.8,-26]]},
-  {id:'rival-rosa',name:'Rosa',points:[[-57,32.3],[-44.3,32.45],[-31.7,32.45],[-28.8,32.45],[-31.7,32.45],[-44.3,32.45]],crossing:{x:-38,z:27,legs:[2,5]}},
+  {id:'rival-rosa',name:'Rosa',points:[[-49,32.3],[-44.3,32.45],[-31.7,32.45],[-28.8,32.45],[-31.7,32.45],[-44.3,32.45]],crossing:{x:-38,z:27,legs:[2,5]}},
   {id:'rival-jules',name:'Jules',points:[[-26.8,20.9],[-21.8,20.9],[-22,22.1]]},
   {id:'rival-iman',name:'Iman',points:[[25.6,27],[25.6,34],[24.8,31]]},
   {id:'rival-leo',name:'Leo',points:[[-31.1,51],[-31.1,56],[-30.1,53]]},

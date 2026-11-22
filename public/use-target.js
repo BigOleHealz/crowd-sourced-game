@@ -1,4 +1,5 @@
 import {CITY} from './world.js';
+import {civilianProfiles} from './civilian-fleet.js';
 import {drivenRoad,nearestVehicle} from './rover.js';
 import {nearestTraffic} from './city-traffic.js';
 import {nearTank} from './tank.js';
@@ -19,7 +20,7 @@ export function nextUse(world,feet,id,wanted){
   if(road?.takeover)return null;
   if(road || world.rover.gunner===id){
     const car=road??world.rover,kind=car.kind??'rover';
-    return action(kind,'exit','Exit '+names[car.model??kind]);
+    return action(kind,'exit','Exit '+(civilianProfiles[car.model]?.name??names[car.model??kind]));
   }
   if(world.tank?.driver===id)return action('tank','exit','Exit tank');
   if(world.jet?.pilot===id)return action('jet','exit',world.jet.grounded?'Exit jet':'Bail out of jet');
@@ -49,7 +50,7 @@ export function nextUse(world,feet,id,wanted){
     offer(v,nearby,gunner?'gunner':'drive',gunner?'Join '+name+' turret':(heli?'Pilot ':'Drive ')+name);
   }
   const car=nearestTraffic(world,feet);
-  if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+(car.patrol?'patrol cruiser':names[car.model]));
+  if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+(car.patrol?'patrol cruiser':(civilianProfiles[car.model]?.name??names[car.model])));
   if(nearTank(world.tank,feet))offer(world.tank,'tank','drive','Drive tracked tank');
   if(nearJet(world.jet,feet))offer(world.jet,'jet','drive','Pilot strike jet');
   const near=nearBoat(world,feet);

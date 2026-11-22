@@ -1,5 +1,7 @@
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
-import {casinoSeat} from './casino-layout.js';
+import {casinoHall,casinoSeat} from './casino-layout.js';
+import {resortFloorView} from './resort-floor-view.js';
+import {resortExterior} from './resort-exterior.js';
 import {fitParadeBreeches} from './parade-costume.js';
 import {streetRideView,riderPose} from './street-ride-view.js';
 import {districtFireEffects} from './fire-effects.js';
@@ -1058,6 +1060,8 @@ export function createScene(canvas,onFootfall) {
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   const updateCasino=CITY?casinoView(scene,Batch):null;
+  const updateResortExterior=CITY?resortExterior(scene,Batch):null;
+  let updateResortFloor;
   const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1293,6 +1297,10 @@ export function createScene(canvas,onFootfall) {
       basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
+    updateResortExterior?.(dt,local);
+    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58)
+      updateResortFloor=resortFloorView(scene,Batch);
+    updateResortFloor?.(dt,local);
     const attackTick=world.frameTick??world.simTick;
     const localDefeat=local.dead && world.sharkDefeats?.find(e=>e.playerId===local.id);
     const athletes=volleyballActors(world.volleyball,world.volleyballAthletes,local);

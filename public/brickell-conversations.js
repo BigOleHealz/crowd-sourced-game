@@ -1,4 +1,5 @@
 import {blocked} from './world.js';
+import {resortConversations} from './resort-guests.js';
 
 export const hotelRegulars=[
   {id:'rival-marisol',name:'Marisol Vega',points:[[-25.25,-49.8],[-25.25,-51.15],[-25.6,-50.45]]},
@@ -6,6 +7,7 @@ export const hotelRegulars=[
 ];
 
 export const conversations={
+  ...resortConversations,
   'rival-marisol':{
     name:'Marisol Vega',age:39,
     greeting:'You caught me between escort bookings. I have a cafecito and ten minutes before my ride. Pull up a piece of sidewalk.',
