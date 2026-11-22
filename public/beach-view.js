@@ -1,4 +1,5 @@
 import {beachSigns} from './scenery-layout.js';
+import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, courts, sandHeight } from './beach-layout.js';
@@ -21,7 +22,7 @@ export function addBeach(scene,Batch) {
     const pivot=new THREE.Group(),parts=new THREE.Group();
     pivot.position.set(x,y,z);parts.position.set(-x,-y,-z);
     pivot.add(parts);scene.add(pivot);
-    wrecks.push({pivot,id,stand,progress:0});
+    wrecks.push({pivot,id,stand,baseY:y,progress:0});
     return parts;
   }
   for(const [i,[x,z,yaw,label]] of beachSigns.entries()){
@@ -68,6 +69,7 @@ export function addBeach(scene,Batch) {
     netViews.push({rig,web,x,z,angle:0});
   }
   addLookouts(scene,Batch,makeRig);
+  addBeachShades(Batch,makeRig);
   cord.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true})).userData.impactSurface='solid';
   box.dispose();
   let first=true;
@@ -79,7 +81,7 @@ export function addBeach(scene,Batch) {
       w.progress=next;
       const yaw=(heading??0)/1000,angle=next*next*(w.stand?.51:1.56);
       // Signs fall flat as one piece. A stand buckles on its piles and its roof settles over the deck.
-      w.pivot.position.y=w.stand?sandHeight(w.pivot.position.x,w.pivot.position.z)+next*.16:.80+next*.085;
+      w.pivot.position.y=w.baseY+next*(w.stand?.16:.085);
       w.pivot.rotation.set(Math.cos(yaw)*angle,0,-Math.sin(yaw)*angle);
       w.pivot.scale.y=1-(w.stand?.90:0)*next;
     }
