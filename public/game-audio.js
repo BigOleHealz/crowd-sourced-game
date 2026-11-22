@@ -15,6 +15,7 @@ import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 
+import {dolphinCalls,dolphinSound} from './dolphin-audio.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
@@ -124,6 +125,7 @@ export function createGameAudio(button,slider,level) {
   } catch {}
   let context,master,limiter,reflection,environmentWorld;
   let listenerSpace=acousticSpace(null,null);
+  let previousDolphins;
   let previousVehicles={},lastGlass=0,nextEnvironment=0;
   const collapse=fallAudioTracker(MAP.buildings);
   let clubTrackLoading=false;
@@ -183,8 +185,9 @@ export function createGameAudio(button,slider,level) {
   function voice(name,loop=false,variant=0) {
     const designed=['carbine','sidearm','turret','launch'].includes(name);
     const step=name.startsWith('foot/');
-    const key=designed || step ? name+variant : name;
-    if(!buffers.has(key))buffers.set(key,designed ? weaponSound(context,name,variant) : step ? stepBuffer(context,name.slice(5),variant) : synth(context,name));
+    const dolphin=name.startsWith('dolphin/');
+    const key=designed || step || dolphin ? name+variant : name;
+    if(!buffers.has(key))buffers.set(key,dolphin ? dolphinSound(context,name.slice(8),variant) : designed ? weaponSound(context,name,variant) : step ? stepBuffer(context,name.slice(5),variant) : synth(context,name));
     const source=context.createBufferSource(),gain=context.createGain(),pan=context.createStereoPanner();
     source.buffer=buffers.get(key);source.loop=loop;
     const tone=context.createBiquadFilter();tone.type='lowpass';tone.Q.value=.65;tone.frequency.value=20000;
@@ -227,6 +230,7 @@ export function createGameAudio(button,slider,level) {
   }
   function reset(world) {
     collapse.reset();
+    previousDolphins=world?.dolphins;
     environmentWorld=world;listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
@@ -258,6 +262,9 @@ export function createGameAudio(button,slider,level) {
       }
       for(const key of loops.keys())if(key.startsWith('amb/') && !local.has(key))stopMotor(key);
     }
+    dolphinCalls(previousDolphins,world.dolphins,listener,(kind,point,gain,id)=>
+      burst('dolphin/'+kind,point,listener,yaw,gain,id));
+    previousDolphins=world.dolphins;
     if(reflection)reflection.gain.setTargetAtTime(listenerSpace.reflection,context.currentTime,.11);
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
     lastGlass=world.doors?.glassSeq??0;
