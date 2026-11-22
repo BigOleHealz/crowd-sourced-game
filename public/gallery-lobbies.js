@@ -3,6 +3,7 @@ import {spiralForHouse,outsideWell} from './residential-spirals.js';
 // building's independently furnished east and west commercial tenancies.
 import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
 import {hotel,hotelDoorTop} from './maravela-hotel.js';
+import {paneSupportLost} from './glass-support.js';
 import {fallenTop} from './shop-furniture.js';
 import {retailDepths} from './street-shop-layout.js';
 import {brickellMap,citySiteId} from './brickell-map.js';
@@ -52,7 +53,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const far=w/2-.21,near=galleryDoorWidth/2+galleryStile;
       const paneWidth=far-near, paneX=x+bay*(near+far)/2;
       const pane={id,widthAxis:'x',width:paneWidth,top:galleryDoorHead,
-        building:index,side,bay,axis:'x',normal:{x:0,z:side},x:paneX,z:wz(.09),w:paneWidth,d:.032,
+        owner:b,building:index,side,bay,axis:'x',normal:{x:0,z:side},x:paneX,z:wz(.09),w:paneWidth,d:.032,
         bottom:galleryFloor+.071,h:galleryDoorHead-galleryFloor-.071};
       galleryPanes.push(pane);plan.panes.push(pane);
       block('jamb',bay*(galleryDoorWidth/2+galleryStile/2),.095,galleryStile,.14,galleryCeiling);
@@ -60,7 +61,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       if(!plan.hotel){
         const leaf=block('doorLeaf',bay*(galleryDoorWidth/2+.046),.455,.067,.80,galleryDoorHead);
         const glass={
-          id:id+'-leaf',widthAxis:'z',x:leaf.x,z:leaf.z,width:.67,bottom:galleryFloor+.105,
+          id:id+'-leaf',owner:b,widthAxis:'z',x:leaf.x,z:leaf.z,width:.67,bottom:galleryFloor+.105,
           top:galleryDoorHead-.064,edge:false,
         };
         leaf.glass=glass;
@@ -115,7 +116,9 @@ export function galleryEntryDepth(room,z) {return Math.min(Math.abs(z-room.entri
 
 export function galleryVehicleRects(building,doors) {
   const p=byBuilding.get(building);
-  return p ? [...p.solids.filter(part=>!part.piece || !doors?.furniture?.[part.piece.id]),...p.panes.filter(pane=>!doors?.brokenPanes?.[pane.id])] : [];
+  return p ? [...p.solids.filter(part=>(!part.piece || !doors?.furniture?.[part.piece.id]) &&
+    (!part.glass || !paneSupportLost(part.glass,doors))), ...p.panes.filter(pane=>
+    !doors?.brokenPanes?.[pane.id] && !paneSupportLost(pane,doors))] : [];
 }
 
 // Undefined delegates unopened building areas to the existing tower or café collision.
@@ -125,8 +128,9 @@ export function galleryTopAt(b,x,z,padding,probe,roof,doors,round=false) {
   const room=plan.rooms.find(r=>z>=r.zmin-padding && z<=r.zmax+padding)??plan.passage;
   if(!room)return undefined;
   const overlaps=o=>Math.abs(o.x-x)<=o.w/2+padding && Math.abs(o.z-z)<=o.d/2+padding;
-  let top=plan.hotel ? hotelDoorTop(x,z,padding,doors,galleryDoorWidth,galleryFloor,probe,round) : -Infinity;
+  let top=plan.hotel ? hotelDoorTop(x,z,padding,doors,galleryDoorWidth,galleryFloor,probe,round,b) : -Infinity;
   for(const part of plan.solids){
+    if(part.glass && paneSupportLost(part.glass,doors))continue;
     const down=part.piece && doors?.furniture?.[part.piece.id];
     if(down){top=Math.max(top,fallenTop(part.piece,down,x,z,padding));continue;}
     if(!overlaps(part) || probe<part.bottom-.001)continue;
@@ -138,7 +142,7 @@ export function galleryTopAt(b,x,z,padding,probe,roof,doors,round=false) {
     }
     top=Math.max(top,part.bottom+part.h);
   }
-  for(const pane of plan.panes)if(!round && !doors?.brokenPanes?.[pane.id] && overlaps(pane))top=Math.max(top,pane.bottom+pane.h);
+  for(const pane of plan.panes)if(!round && !doors?.brokenPanes?.[pane.id] && overlaps(pane) && !paneSupportLost(pane,doors))top=Math.max(top,pane.bottom+pane.h);
   for(const face of room.entries)if(Math.abs(z-face)<.15+padding && probe>galleryDoorHead)return roof;
   return top;
 }

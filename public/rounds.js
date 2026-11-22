@@ -50,10 +50,7 @@ function glassContact(from,delta,pane,doors){
 // The chase camera's stepped depth probe can skip a thin leaf at a shallow
 // angle. Use the same swept pane geometry as rounds within the visible span.
 function visitIntactTowerGlass(world,from,d,accept) {
-  visitTowerGlass(towerGlass,from,d,world.doors?.brokenPanes,box,(t,p)=>{
-    if ((ruinedHouseAt(world.doors,from.x+t*d.x,from.z+t*d.z) || inTowerBreach(MAP.buildings,world.doors,from.x+t*d.x,from.y+t*d.y,from.z+t*d.z))) return;
-    accept(t,p);
-  });
+  visitTowerGlass(towerGlass,from,d,world.doors,box,accept);
 }
 function visitResortHits(world,from,d,glassOnly,accept){
   if(!CITY)return;

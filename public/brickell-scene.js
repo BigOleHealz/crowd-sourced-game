@@ -211,12 +211,12 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   return (doors,dt,local,remotes,tick,bankVisual)=>{
     updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
-    updateHarborWindows(doors?.brokenPanes);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
+    updateHarborWindows(doors);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);
     updateLamps(doors,dt);updatePosts(doors,dt);updateJunctions(doors,tick);
     breakables.update(doors);
-    offices.update(doors?.brokenPanes);
+    offices.update(doors);
     updateGallery(doors,bankVisual);
     debris.update(dt);
     updateCourts(doors,dt,local,remotes);

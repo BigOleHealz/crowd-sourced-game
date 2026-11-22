@@ -20,7 +20,7 @@ import {mareFloor,mareCeiling} from './palazzo-mare.js';
 import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
-import {faceAt,frontageOpenToRound,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
+import {faceAt,frontageOpenToRound,frontageSupportOpening,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
 import {galleryTopAt,galleryRoomAt,galleryFloor,galleryCeiling} from './gallery-lobbies.js';
 import {postDown} from './street-lamps.js';
 import {storefrontFloor,storefrontCeiling,hasStorefrontRooms,facadePiers,storefrontRoom,storefrontTopAt,storefrontHeadroom} from './storefront-layout.js';
@@ -128,7 +128,8 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   const face=faceAt(b,x);
   if(!face)return roof;
   if(!face.showcase)return retailSurface(face,x,z,pad,probe,roof,doors,round);
-  const gap=round ? frontageOpenToRound(face,z,probe,doors) : brokenSpan(face,doors?.broken?.[face.id]??0,z,pad);
+  const gap=round ? frontageOpenToRound(face,z,probe,doors) : brokenSpan(face,doors?.broken?.[face.id]??0,z,pad) ||
+    frontageSupportOpening(face,z,probe,pad,doors);
   return storefrontTopAt(x,z,pad,probe,roof,doors,gap);
 }
 
