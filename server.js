@@ -395,6 +395,7 @@ function acceptInput(player, data, binary) {
     skateTrick:input.skateTrick==='kickflip' || input.skateTrick==='shove'?input.skateTrick:undefined,
     flipDive:input.flipDive===true,hoopShot:input.hoopShot===true,
     holster:typeof input.holster==='boolean'?input.holster:undefined,handheldHeld:input.handheldHeld===true,
+    swimY:input.swimY===1 || input.swimY===-1 ? input.swimY : 0, toggleScuba:input.toggleScuba===true,
     fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: validEquipment(input.weapon) ? input.weapon : null,
     seat: input.seat===1 || input.seat===2 ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,

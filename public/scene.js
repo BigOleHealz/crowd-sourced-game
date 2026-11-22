@@ -1012,7 +1012,7 @@ function diveSpray(avatar,mark,frameTick){
 }
 
 function updateSwimRipples(avatar,state) {
-  if((state.swimming || state.moving && waterBlend(state)>.15) && !state.fall && !state.dead) {
+  if(!(state.swimDepth>.28) && (state.swimming || state.moving && waterBlend(state)>.15) && !state.fall && !state.dead) {
     const stroke=avatar.stroke??0;
     if(!avatar.ripples) {
       const rings=Array.from({length:2},()=>{
@@ -1446,6 +1446,15 @@ export function createScene(canvas) {
       if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
+      if(state.scuba && !a.scubaTank){
+        const gear=new Batch();
+        gear.add(trunk,0xc8cabc,0,1.275,.29,.095,.40,.095);
+        for(const y of [1.09,1.29,1.42])gear.add(round,0x38454b,0,y,.29,.102,.022,.102);
+        gear.add(round,0xd4aa49,0,1.47,.29,.086,.065,.086);
+        gear.beam(0x2f3939,[0,1.52,.29],[.13,1.49,.10],.025);
+        a.scubaTank=gear.mesh(a.upper,a.material,false);
+      }
+      if(a.scubaTank)a.scubaTank.visible=!!state.scuba && !!state.swimming;
       if(a.parade)a.parade.visible=!!state.paradeCostume && !seated && !station && !skipper && !entering;
       const mauling=state.dead && world.sharkDefeats?.find(e=>e.playerId===state.id);
       if(a.root.visible && mauling){
@@ -1595,7 +1604,9 @@ export function createScene(canvas) {
     const distance=roverBoom ?? footBoom ?? clearance;
     camera.position.copy(target).addScaledVector(boom,distance);
     const cameraWater=waterSurfaceAt(camera.position.x,camera.position.z,camera.position.y);
-    if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<cameraWater)camera.position.y=Math.max(camera.position.y,cameraWater+.27);
+    const exploring=(local.swimDepth??0)>.42;
+    if(exploring)camera.position.y=Math.max(groundHeight(camera.position.x,camera.position.z,local.y,world.doors)+.16,Math.min(cameraWater-.12,camera.position.y));
+    else if(local.swimming || groundHeight(camera.position.x,camera.position.z,camera.position.y)<cameraWater)camera.position.y=Math.max(camera.position.y,cameraWater+.27);
     // At steep angles transition from the ground-limited chase boom to an
     // unobstructed vertical sightline directly above the person or station.
     const overhead=flyingJet?0:THREE.MathUtils.smoothstep(pitch,.79,zenith);
@@ -1684,7 +1695,7 @@ export function createScene(canvas) {
     }
     pendingMuzzles.length=0;
     updateRounds(world.bullets,visibleMuzzle);
-    if(localDefeat && camera.position.y<MAP.waterY){
+    if((localDefeat || exploring) && camera.position.y<cameraWater){
       if(!diveBackdrop){
         diveBackdrop=new THREE.Mesh(new THREE.SphereGeometry(12,24,12),new THREE.ShaderMaterial({
           side:THREE.BackSide,depthWrite:false,uniforms:{time:{value:0}},
@@ -1702,7 +1713,7 @@ export function createScene(canvas) {
         diveBackdrop.renderOrder=-20;scene.add(diveBackdrop);
       }
       const airFog=scene.fog,far=camera.far;
-      scene.fog=underwaterFog;camera.far=16;camera.updateProjectionMatrix();
+      scene.fog=underwaterFog;camera.far=exploring?38:16;camera.updateProjectionMatrix();
       diveBackdrop.material.uniforms.time.value=clock;
       diveBackdrop.position.copy(camera.position);diveBackdrop.visible=true;
       renderer.render(scene,camera);
