@@ -1,3 +1,5 @@
+import {courtContactAudio,courtContactBuffer} from './basketball-audio.js';
+import {hoop} from './basketball-layout.js';
 import {beachDJ} from './beach-club.js';
 import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
@@ -29,6 +31,7 @@ const shapes={
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
+  if(name.startsWith('hoops/'))return courtContactBuffer(context,name.slice(6));
   if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
@@ -244,8 +247,9 @@ export function createGameAudio(button,slider,level,caption) {
     else v.source.start();
   }
   let previousDogs;
+  const courtSounds=courtContactAudio();
   function reset(world) {
-    previousDogs=world?.dogs;
+    previousDogs=world?.dogs;courtSounds.reset(world?.basketball);
     thefts.reset(world?.dogs);ownerLine.stop();clearTimeout(captionTimer);
     if(caption)caption.hidden=true;
     collapse.reset();flameEmitters.clear();
@@ -253,8 +257,7 @@ export function createGameAudio(button,slider,level,caption) {
     previousDolphins=world?.dolphins;
     previousSharkDefeats=world?.sharkDefeats;
     environmentWorld=world;
-    dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
-    previousDogs=world.dogs;listenerSpace=acousticSpace(null,null);
+    listenerSpace=acousticSpace(null,null);
     if(reflection)reflection.gain.setTargetAtTime(0,context.currentTime,.04);
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
@@ -272,6 +275,10 @@ export function createGameAudio(button,slider,level,caption) {
     dogWhimpers(previousDogs,world.dogs,world.simTick,(dog,tick)=>burst(dog.size<.9?'dog-whimper-small':'dog-whimper-large',dog,listener,yaw,.89,tick));
     previousDogs=world.dogs;
     listenerSpace=acousticSpace(listener,world);
+    courtSounds.step(world.basketball,cue=>{
+      if(Math.hypot(listener.x-hoop.x,listener.z-hoop.z)<=38)
+        burst('hoops/'+cue.kind,hoop,listener,yaw,cue.kind==='swish'?.66:.86,cue.id);
+    });
     for(const npc of world.npcs??[]){
       const time=npc.drenchedAt;
       if(time==null || time===sprayLines.get(npc.id) || world.simTick-time>18 || npc.dead)continue;

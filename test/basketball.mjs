@@ -129,7 +129,7 @@ for(const timing of ['gold','early','late','step out']){
   advance(18);
   assert.equal(game.state.result.kind,'dunk');
   assert.equal(game.state.result.points,timing==='gold'?2:0);
-  assert.equal(game.state.result.timing,timing==='gold'?'In gold':timing==='early'?'Early':'Late');
+  assert.equal(game.state.result.timing,timing==='gold'?'Perfect':timing==='early'?'Early':'Late');
   advance(65);
   assert.equal(game.state.turn,1);assert.deepEqual(game.state.scores,[timing==='gold'?2:0,0]);
 }

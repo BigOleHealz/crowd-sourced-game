@@ -19,7 +19,7 @@ export function createBasketball(world,players) {
     z:court.z+(side?3.8:.70),yaw:0,moving:false,grounded:true,hp:100,
   }));
   const ball={x:court.x,y:court.y+radius,z:court.z,spin:0,serial:0};
-  const state={players:[null,null],scores:[0,0],turn:0,phase:'held',charge:0,npcs,ball,shot:null,result:null};
+  const state={players:[null,null],scores:[0,0],turn:0,phase:'held',charge:0,npcs,ball,shot:null,result:null,contactId:0};
   let elapsed=0,attempt=0,holding=false,inputAge=0,inputDown=false,resolved=false,reachReady=1.15;
   let vx=0,vy=0,vz=0,shotPoints=0;
   const active=side=>players.get(state.players[side]);
@@ -64,12 +64,14 @@ export function createBasketball(world,players) {
     const angle=assist?0:Math.atan2(Math.sin(yaw-forward),Math.cos(yaw-forward));
     const aimError=Math.max(0,Math.abs(angle)-.19)*Math.sign(angle);
     elapsed=0;holding=false;resolved=false;state.charge=0;
-    state.phase='flight';state.shot={side:state.turn,age:0};
+    state.phase='flight';
+    state.shot={serial:attempt,side:state.turn,age:0,power,center,halfWidth,
+      timing:rate<=1?'Perfect':error<0?'Early':'Late',contacts:[]};
     if(inDunkRange(feet)){
       // Outside the gold window, the ball catches the side of the rim.
       const offset=rate<=1?error*.40:Math.sign(error)*Math.min(.32,.18+(rate-1)*.065);
       Object.assign(state.shot,{kind:'dunk',actorId:state.players[state.turn]??npcs[state.turn].id,
-        x:feet.x,y:feet.y,z:feet.z,yaw:forward,offset,timing:rate<=1?'In gold':error<0?'Early':'Late'});
+        x:feet.x,y:feet.y,z:feet.z,yaw:forward,offset});
       Object.assign(ball,dunkFrame(state.shot,0).hand);
       vx=0;vy=-3.9;vz=0;shotPoints=2;return;
     }
@@ -90,8 +92,12 @@ export function createBasketball(world,players) {
     resolved=true;
     const points=made?shotPoints:0;
     state.scores[state.turn]+=points;
-    state.result={serial:attempt,side:state.turn,points};
-    if(state.shot.kind==='dunk')Object.assign(state.result,{kind:'dunk',timing:state.shot.timing});
+    state.result={serial:attempt,side:state.turn,points,timing:state.shot.timing};
+    if(state.shot.kind==='dunk')state.result.kind='dunk';
+  }
+
+  function contact(kind){
+    state.shot.contacts.push({kind,id:++state.contactId,age:elapsed});
   }
 
   function stepBall(dt) {
@@ -109,7 +115,7 @@ export function createBasketball(world,players) {
     const board=hoop.boardZ+radius;
     if(z>board && ball.z<=board && Math.abs(ball.x-hoop.x)<.92 &&
       ball.y>hoop.y-.19 && ball.y<hoop.y+1.06){
-      ball.z=board;vz*=-.56;
+      ball.z=board;vz*=-.56;contact('backboard');
     }
     if(!resolved && y>=hoop.y && ball.y<hoop.y){
       const t=(y-hoop.y)/(y-ball.y);
@@ -117,8 +123,9 @@ export function createBasketball(world,players) {
       const crossing=Math.hypot(dx,dz);
       const made=crossing<=hoop.radius-radius+.024;
       resolve(made);
-      if(made){vx*=.30;vz*=.30;vy*=.50;}
+      if(made){contact('swish');vx*=.30;vz*=.30;vy*=.50;}
       else if(crossing<hoop.radius+radius){
+        contact('rim');
         ball.y=hoop.y+.02;
         vx=-dx/crossing*1.45;vz=-dz/crossing*1.45;vy=2.35;
       }

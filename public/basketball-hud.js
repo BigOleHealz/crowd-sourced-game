@@ -5,24 +5,22 @@ export function basketballHud(panel){
   const status=panel.querySelector('output'),meter=panel.querySelector('[role=meter]');
   const tally=courtTally(panel);
   const fill=meter.querySelector('i'),gold=meter.querySelector('b');
-  let lastSerial,noticeUntil=0;
   function update(game,feet,yaw,touch){
     panel.hidden=!game || !onBasketballCourt(feet,5) || Math.abs(feet.y-court.y)>5 || feet.dead;
     if(panel.hidden)return;
     const side=game.players.indexOf(feet.id),joined=side>=0;
     const ball=game.turn===side && game.phase==='held';
     tally(game.scores,side,game.phase==='held'?game.turn:-1,'Ball');
-    if(game.result?.serial!==lastSerial){
-      lastSerial=game.result?.serial;
-      noticeUntil=performance.now()+1800;
-    }
-    const result=game.result,team=basketballTeams[game.turn];
+    const shot=game.shot,result=game.result,team=basketballTeams[game.turn];
+    const released=joined && shot?.side===side && Number.isFinite(shot.power);
     let line;
     if(!joined){
       line=game.players.includes(null)?(touch?'Tap Join basketball to play':'Press E at the court to join'):'Both sides are playing';
-    }else if(result && performance.now()<noticeUntil && game.phase==='flight'){
-      if(result.kind==='dunk')line=result.points?'Dunk · +2':'Missed dunk · '+result.timing;
-      else line=result.points?basketballTeams[result.side].name+' basket · +'+result.points:'Miss · Next possession soon';
+    }else if(shot && result?.serial===shot.serial){
+      const outcome=result.points?(result.kind==='dunk'?'Dunk':'Basket')+' · +'+result.points:result.kind==='dunk'?'Missed dunk':'Miss';
+      line=outcome+' · '+shot.timing;
+    }else if(released){
+      line=(shot.kind==='dunk'?'Dunk':'Release')+' · '+shot.timing;
     }else if(game.steal && game.phase==='held'){
       line=basketballTeams[game.steal.side].player+' stole the ball';
     }else if(game.reach && ball){
@@ -35,15 +33,16 @@ export function basketballHud(panel){
     }else if(game.shot?.kind==='dunk')line='Dunk attempt';
     else line=game.phase==='flight'?'Ball in the air':game.players[game.turn]==null?team.player+' has the ball':'Opponent has the ball';
     if(status.textContent!==line)status.textContent=line;
-    meter.hidden=!ball;
-    if(!ball)return;
-    const {center,halfWidth}=shotWindow(feet);
+    meter.hidden=!ball && !released;
+    if(meter.hidden)return;
+    const power=released?shot.power:game.charge;
+    const {center,halfWidth}=released?shot:shotWindow(feet);
     gold.style.left=(center-halfWidth)*100+'%';
     gold.style.width=halfWidth*200+'%';
-    const amount=Math.round(game.charge*100);
+    const amount=Math.round(power*100);
     fill.style.width=amount+'%';
     meter.setAttribute('aria-valuenow',amount);
-    meter.classList.toggle('in-gold',Math.abs(game.charge-center)<=halfWidth);
+    meter.classList.toggle('in-gold',Math.abs(power-center)<=halfWidth);
   }
   return {update,hide(){panel.hidden=true;}};
 }
