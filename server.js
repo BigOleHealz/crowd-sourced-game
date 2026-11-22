@@ -4,6 +4,7 @@ import {storefrontFaces} from './public/frontage-glass.js';
 import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
+import {createGulls} from './public/gull-flight.js';
 import {createSharks} from './public/shark-swim.js';
 import {createManatees} from './public/manatee-swim.js';
 import {fireEngine,driveWater,stepFireEngines} from './public/fire-engine.js';
@@ -113,6 +114,9 @@ function freshWorld(){
     const volleyball=createVolleyball(canPlayVolleyball);
     Object.defineProperty(w,'volleyballActivity',{value:volleyball});
     w.volleyball=volleyball.state;
+    const gulls=createGulls();
+    w.gulls=gulls.state;
+    Object.defineProperty(w,'stepGulls',{value:gulls.step});
     const sharks=createSharks();
     w.sharks=sharks.state;
     Object.defineProperty(w,'stepSharks',{value:sharks.step});
@@ -766,6 +770,7 @@ function tick() {
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
+  world.stepGulls?.(step);
   world.stepSharks?.(step,players,ticks,damageActor);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
