@@ -1,8 +1,9 @@
+import {footStickPace} from './foot-stick.js';
 const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
 
 const gestures={
   basketball:{name:'Basketball',axis:'Move',look:'Drag to aim',tip:'Face the hoop and hold Shoot. Release in the gold band.',help:'Walk off the court or tap Leave basketball to return to free roam.'},
-  foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Drag the left stick to move. Swipe the open right side to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to sprint, change stance or switch weapons.'},
+  foot:{name:'On foot',axis:'Move',look:'Drag to look',tip:'Nudge the stick to run. Push forward to its edge to sprint. Swipe right of the stick to look.',help:'Hold Fire to shoot. Drag on Fire to aim while shooting. Open Gear to change stance or switch weapons.'},
   car:{name:'Driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe the right side to look around. Open Driver tools for the horn and rear view.'},
   'armed-car':{name:'Pickup driver',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to look',tip:'Push up for gas, down to brake or reverse. Move the stick sideways to steer.',help:'Swipe to look around. Fire missile launches straight ahead. Change seats in Driver tools.'},
   engine:{name:'Fire engine',axis:'Steer',up:'Gas',down:'Reverse',look:'Drag to aim',tip:'Use the left stick to drive. Drag the right side to aim the roof monitor.',help:'Hold Spray water to cool a fire. Drag on Spray water to aim while driving.'},
@@ -33,7 +34,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   tip.querySelector('button').onclick=dismissTip;
   reference.querySelector('[data-replay-tip]').onclick=()=>{menu.close();showTip();};
   const primary=matchMedia('(pointer: coarse)');
-  const holds=new Map(),buttons=new Map(),axes={x:0,y:0};
+  const holds=new Map(),buttons=new Map(),axes={x:0,y:0,sprint:false};
   let visible=false,moveId=null,lookId=null,prevX=0,prevY=0,originX=0,originY=0,radius=34;
   let current='',layout=null,stowed=[],hasGame=false;
   function capture(target,id){
@@ -43,7 +44,7 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   }
   function consume(e){e.preventDefault();e.stopPropagation();}
   function clearPad(){
-    moveId=null;axes.x=axes.y=0;knob.style.transform='';
+    moveId=null;axes.x=axes.y=0;axes.sprint=false;pad.classList.remove('sprinting');knob.style.transform='';
   }
   function reset(){
     clearPad();tools.hidden=true;quick.querySelector('[data-action=more]')?.setAttribute('aria-expanded','false');
@@ -70,6 +71,8 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
     const dx=(e.clientX-originX)/radius,dy=(e.clientY-originY)/radius;
     const distance=Math.hypot(dx,dy),amount=clamp((distance-.10)/.90,0,1);
     axes.x=distance?dx/distance*amount:0;axes.y=distance?-dy/distance*amount:0;
+    axes.sprint=layout?.role==='foot' && footStickPace(axes.x,axes.y,axes.sprint).sprint;
+    pad.classList.toggle('sprinting',axes.sprint);
     if(tipRole && amount>.35){sawStick=true;if(sawLook)dismissTip();}
     knob.style.transform='translate('+axes.x*radius+'px,'+-axes.y*radius+'px)';
   }

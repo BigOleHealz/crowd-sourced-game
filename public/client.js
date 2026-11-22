@@ -1,3 +1,4 @@
+import {footStickPace} from './foot-stick.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {swimWeapon} from './shark-swim.js';
 import {casinoPanel} from './casino-panel.js';
@@ -679,14 +680,16 @@ function movementInput() {
   const left = held.has('KeyA') || held.has('ArrowLeft');
   const up = held.has('KeyW') || held.has('ArrowUp');
   const backward = held.has('KeyS') || held.has('ArrowDown');
-  const lateral=clamp(Number(right)-Number(left)+touch.axes.x,-1,1);
-  const forward=clamp(Number(up)-Number(backward)+touch.axes.y,-1,1);
+  const foot=touch.active && canChangeStance(self) && !self.ride && !self.swimming && !self.parachute && !playingHoops();
+  const pace=foot ? footStickPace(touch.axes.x,touch.axes.y,touch.axes.sprint) : touch.axes;
+  const lateral=clamp(Number(right)-Number(left)+pace.x,-1,1);
+  const forward=clamp(Number(up)-Number(backward)+pace.y,-1,1);
   const length = Math.max(1, Math.hypot(lateral, forward));
   const x = (lateral * Math.cos(camera.yaw) + forward * Math.sin(camera.yaw)) / length;
   const z = (lateral * Math.sin(camera.yaw) - forward * Math.cos(camera.yaw)) / length;
   const moving = Boolean(lateral || forward);
   const effectiveStance = requestedStance ?? self.stance;
-  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && (touchSprint || down('ShiftLeft') || down('ShiftRight'));
+  const sprint = moving && (!effectiveStance || effectiveStance === 'stand') && !self.swimming && ((foot && pace.sprint) || touchSprint || down('ShiftLeft') || down('ShiftRight'));
   return {x,z,lateral,forward,moving,sprint};
 }
 
