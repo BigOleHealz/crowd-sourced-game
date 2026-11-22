@@ -1,5 +1,4 @@
 import {beachDJ} from './beach-club.js';
-import {beachClubLoop} from './beach-club-music.js';
 import {dogWhimper,dogWhimpers} from './dog-whimper.js';
 import {projectorRoar} from './projector-roar.js';
 import {dogOwnerDialogue,ownerSpeech} from './dog-owner-dialogue.js';
@@ -31,7 +30,6 @@ const shapes={
 };
 function synth(context,name) {
   if(name.startsWith('dog-whimper-'))return dogWhimper(context,name==='dog-whimper-small');
-  if(name==='beach-club')return beachClubLoop(context);
   if(name==='projector-roar')return projectorRoar(context);
   if(name==='marine-impact')return marineImpactSound(context);
   if(name==='shark-strike-water')return sharkStrikeWaterSound(context);
@@ -144,14 +142,17 @@ export function createGameAudio(button,slider,level,caption) {
   let captionTimer;
   const sprayLines=new Map();
   const collapse=fallAudioTracker(MAP.buildings);
-  let clubTrackLoading=false;
-  async function loadClubTrack(){
-    if(clubTrackLoading)return;
-    clubTrackLoading=true;
+  const musicLoading=new Set(),musicRetryAt=new Map();
+  async function loadMusic(name,file){
+    if(buffers.has(name) || musicLoading.has(name) || performance.now()<(musicRetryAt.get(name)??0))return;
+    musicLoading.add(name);
     try{
-      const response=await fetch('./audio/lucero-trio.ogg');
-      if(response.ok)buffers.set('lucero',await context.decodeAudioData(await response.arrayBuffer()));
-    }catch{/* Browsers without an Opus decoder keep the other district sounds. */}
+      const response=await fetch('./audio/'+file);
+      if(!response.ok)throw Error('Music unavailable');
+      buffers.set(name,await context.decodeAudioData(await response.arrayBuffer()));
+      musicRetryAt.delete(name);
+    }catch{musicRetryAt.set(name,performance.now()+30000);}
+    finally{musicLoading.delete(name);}
   }
   let recordingsStarted=false;
   async function loadRecordings(){
@@ -306,7 +307,6 @@ export function createGameAudio(button,slider,level,caption) {
       nextEnvironment=context.currentTime+.2;
       const {bed,water}=ambientScene(world.map==='brickell',listener,light,listenerSpace);
       const beachRange=world.map==='brickell'?Math.hypot(listener.x-beachDJ.x,listener.y-beachDJ.y,listener.z-beachDJ.z):Infinity;
-      motor('beach-club',beachDJ,beachRange<32,1,.72*Math.max(0,1-beachRange/32),listener,yaw);
       const inEarshot=world.map==='brickell' && Math.hypot(listener.x-clubSpeaker.x,listener.z-clubSpeaker.z)<19;
       let party=null,partyRange=36;
       for(const b of world.boats??[]){
@@ -314,9 +314,14 @@ export function createGameAudio(button,slider,level,caption) {
         const range=Math.hypot(listener.x-b.x,listener.y-b.y-2,listener.z-b.z);
         if(range<partyRange){party=b;partyRange=range;}
       }
-      if((inEarshot || party) && audible() && !buffers.has('lucero'))loadClubTrack();
+      if(audible()){
+        if(beachRange<32 || inEarshot)loadMusic('scoopin-dung','scoopin-dung.mp3');
+        if(party)loadMusic('lucero','lucero-trio.ogg');
+      }
+      const songReady=buffers.has('scoopin-dung');
+      motor('scoopin-dung',beachDJ,beachRange<32 && songReady,1,.72*Math.max(0,1-beachRange/32),listener,yaw,'beach-dj');
       motor('lucero',party,!!party && buffers.has('lucero'),1,.55*(1-partyRange/36),listener,yaw,'yacht-party-music');
-      motor('lucero',clubSpeaker,inEarshot && buffers.has('lucero'),1,.56,listener,yaw);
+      motor('scoopin-dung',clubSpeaker,inEarshot && songReady,1,.56,listener,yaw,'club-speakers');
       const bankAlarm=world.bank?.phase==='alarm' || world.bank?.phase==='handoff';
       const nearBank=bankAlarm && Math.hypot(listener.x-bankDesk.x,listener.y-bankDesk.y,listener.z-bankDesk.z)<45;
       motor('branch-alarm',bankDesk,nearBank,1,.84,listener,yaw);

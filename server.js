@@ -177,6 +177,7 @@ const types = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.ogg': 'audio/ogg',
+  '.mp3': 'audio/mpeg',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
 };
