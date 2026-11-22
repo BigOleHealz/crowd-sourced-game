@@ -1,12 +1,12 @@
 import * as THREE from 'three';
-import {club,clubSolids,clubCast} from './club-lucero.js';
+import {club,clubFixtures,clubPoint,clubCast} from './club-lucero.js';
 
 export function clubInterior(scene,Batch){
-  const root=new THREE.Group();root.name='Club Lucero';scene.add(root);
+  const root=new THREE.Group();root.name='Club Lucero';root.position.set(club.x,club.floor,club.z);root.rotation.y=club.yaw;scene.add(root);
   const b=new Batch(),cube=new THREE.BoxGeometry(),drum=new THREE.CylinderGeometry(1,1,1,18);
-  const rect=(c,u,y,v,w,h,d)=>b.add(cube,c,club.x+u,club.floor+y,club.z+v,w,h,d);
-  const cylinder=(c,u,y,v,r,h)=>b.add(drum,c,club.x+u,club.floor+y,club.z+v,r,h,r);
-  for(const p of clubSolids)b.add(cube,p.color,p.x,club.floor+(p.bottom+p.h)/2,p.z,p.w,p.h-p.bottom,p.d);
+  const rect=(c,u,y,v,w,h,d)=>b.add(cube,c,u,y,v,w,h,d);
+  const cylinder=(c,u,y,v,r,h)=>b.add(drum,c,u,y,v,r,h,r);
+  for(const p of clubFixtures)b.add(cube,p.color,p.u,(p.bottom+p.h)/2,p.v,p.w,p.h-p.bottom,p.d);
   rect(0x534341,0,.009,0,8.6,.018,9.62);
   // Fluted velvet, warm footlights, stage monitors and a stepped brass proscenium.
   for(let i=0;i<37;i++){
@@ -16,7 +16,7 @@ export function clubInterior(scene,Batch){
     for(let i=0;i<3;i++)rect(0xb59063,side*(3.55-i*.09),1.77,-3.94,.048,3.45-i*.17,.07);
     for(const v of [-2.14,2.32])rect(0x583342,side*3.48,.68,v,1.15,1.33,.10);
     rect(0x38323a,side*2.94,.62,-3.02,.55,.68,.44);
-    for(const y of [.47,.73])b.add(drum,0x292730,club.x+side*2.94,club.floor+y,club.z-2.788,.155,.02,.155,Math.PI/2);
+    for(const y of [.47,.73])b.add(drum,0x292730,side*2.94,y,-2.788,.155,.02,.155,Math.PI/2);
     for(const v of [-.94,1.06]){
       for(const k of [-1,0,1])rect(0xa36269,side*3.63,.83,v+k*.51,.07,.48,.44);
       cylinder(0x755c47,side*2.62,.37,v,.055,.70);
@@ -29,8 +29,8 @@ export function clubInterior(scene,Batch){
   // Track cans, overlapping trim, padded booth corners and entrance marquee.
   for(const side of [-1,1]){
     for(const v of [-3.68,-1.35]){
-      b.add(drum,0x36343a,club.x+side*2.24,3.94,club.z+v,.16,.28,.16,.30);
-      b.add(drum,side<0?0xf0b587:0xe39fba,club.x+side*2.24,3.79,club.z+v+.055,.139,.024,.139,.30);
+      b.add(drum,0x36343a,side*2.24,3.14,v,.16,.28,.16,.30);
+      b.add(drum,side<0?0xf0b587:0xe39fba,side*2.24,2.99,v+.055,.139,.024,.139,.30);
     }
     for(const v of [-1.0,1.0]){
       for(let j=-3;j<=3;j++)rect(j%2?0xb16b72:0x975762,side*3.655,.77,v+j*.227,.082,.57,.18);
@@ -48,7 +48,7 @@ export function clubInterior(scene,Batch){
   ctx.fillStyle='#ffdfc2';ctx.textAlign='center';ctx.font='62px Georgia';ctx.fillText('CLUB LUCERO',384,79);
   ctx.font='19px sans-serif';ctx.fillText('L I V E   C A B A R E T     •     2 1 +',384,113);
   const map=new THREE.CanvasTexture(paint);map.colorSpace=THREE.SRGBColorSpace;
-  const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.28,.8),new THREE.MeshBasicMaterial({map}));sign.position.set(club.x,3.87,club.z+5.04);root.add(sign);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.28,.8),new THREE.MeshBasicMaterial({map}));sign.position.set(0,3.07,5.04);root.add(sign);
   // Project the photographed wood/limestone grain onto the batch. Three wide
   // stage washes and the entrance sconces are baked into this one material.
   const grain=new THREE.TextureLoader().load('./storefront-oak.webp');
@@ -57,7 +57,7 @@ export function clubInterior(scene,Batch){
   mat.onBeforeCompile=shader=>{
     shader.uniforms.luceroGrain={value:grain};
     shader.vertexShader='varying vec3 clubPosition,clubNormal;\n'+shader.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\nclubPosition=position-vec3(-70.75,.8,-54.4);clubNormal=normal;');
+      '#include <begin_vertex>\nclubPosition=position;clubNormal=normal;');
     shader.fragmentShader='uniform sampler2D luceroGrain;varying vec3 clubPosition,clubNormal;\n'+shader.fragmentShader.replace('#include <opaque_fragment>',`
       vec3 pos=clubPosition,n=normalize(clubNormal);
       vec2 uv=abs(n.y)>.64?pos.xz:(abs(n.x)>.55?pos.zy:pos.xy);
@@ -84,10 +84,11 @@ export function castForAudience(local,remotes,simTick){
   // performance for all observers, including a guest who joins mid-song.
   const travel=guest?Math.min(1,Math.max(0,(simTick-guest.clubSince)/72)):0;
   const fraction=travel*travel*(3-2*travel);
+  const booth=clubPoint(-1.47,1.02);
   return clubCast.map((p,i)=>({...p,...(i===1 && guest?{
-    x:p.x+(club.x-1.47-p.x)*fraction,y:p.y-.27*Math.min(1,fraction*2),
-    z:p.z+(-53.38-p.z)*fraction,moving:travel>0 && travel<1}:{}),
-    yaw:i===1 && guest?-Math.PI/2:Math.PI,grounded:true,hp:100,performer:i+1}));
+    x:p.x+(booth.x-p.x)*fraction,y:p.y-.27*Math.min(1,fraction*2),
+    z:p.z+(booth.z-p.z)*fraction,moving:travel>0 && travel<1}:{}),
+    yaw:(i===1 && guest?-Math.PI/2:Math.PI)-club.yaw,grounded:true,hp:100,performer:i+1}));
 }
 export function poseCabaret(actor,state,t){
   const beat=t*(Math.PI*2*96/60),v=beat+(state.performer===2?1.3:0);

@@ -1,3 +1,4 @@
+import {club,clubDoor} from './club-lucero.js';
 import {citySiteId} from './brickell-map.js';
 import {resortWingShaft,shaftContains} from './hotel-lifts.js';
 import {lidoHouse} from './lido-house.js';
@@ -125,8 +126,8 @@ export function initializeBuildingInteriors(buildings,city,terrain){
     lookout.wood=s.number;
     door(lookout,s.x-.94,sandHeight(s.x,s.z)+1.44,s.z+.14,'z',.97,'Lookout gate');
   }
-  const c=plan(21,{x:-70.75,z:-54.4,w:8.8,d:9.8},'existing','Club Lucero');
-  door(c,c.x,.8,-49.49,'x',1.98,'Club entrance');
+  const c=plan(21,club,'existing','Club Lucero');
+  door(c,clubDoor.x,club.floor,clubDoor.z,'z',1.98,'Club entrance');
   const salon=plan(22,lidoHouse,'villa-lido',lidoHouse.name);
   door(salon,26.2,.8,-389.98,'x',2.34,'Villa Lido entrance');
   const casa=plan(23,{x:-25,z:-397,w:30,d:26},'existing','Casa de Luma','casa');

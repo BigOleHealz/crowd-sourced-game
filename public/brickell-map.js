@@ -31,11 +31,8 @@ export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-2
 export const causeway=causewayArch(-6,6,harbor.south,coast.north);
 export const within=contains;
 export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
-// The new cabaret occupies the northern tip of the turning apron. Its lobby
-// replaces the old short curb here; both drawing and walking use this plan.
-streetPlan.curbs=streetPlan.curbs.filter(c=>Math.abs(c.x-club.x)>club.w/2 || Math.abs(c.z-club.z)>club.d/2);
+// Keep the western turning apron open beside the resort.
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-71.5 && e.z===61));
-// Keep the avenue curb open for pedestrians crossing onto the salon terrace.
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(c.x< -71.5 && c.x> -72 && Math.abs(c.z-61)<4.5));
 export const bridges=[causeway,lanternBridge];
 // Open the former avenue turning head into the resort drive.

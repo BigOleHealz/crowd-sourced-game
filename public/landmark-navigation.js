@@ -1,3 +1,4 @@
+import {clubDoor} from './club-lucero.js';
 import {drive,valet} from './palma-site.js';
 import {casinoName,casinoEntrance} from './casino-layout.js';
 import {bankSite,bankRoadZ} from './bank-site.js';
@@ -10,7 +11,7 @@ import {skatePark} from './skate-park.js';
 import {basketballCourt} from './basketball-layout.js';
 
 export const destinations=CITY?new Map([
-  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[-71,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
   [skatePark.name,[39.35,-156.35]],
   [casinoName,[valet.x,valet.z]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
@@ -34,7 +35,7 @@ function path(coords){
   }
 }
 if(CITY){
-  for(const z of streets)path([-71,...avenues,...(z===61?[casinoEntrance.x]:[]),...(z===-45?[-16]:z===bankRoadZ?[bankSite.x]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
+  for(const z of streets)path([-71,...avenues,...(z===61?[casinoEntrance.x]:z===27?[clubDoor.x+1.5]:[]),...(z===-45?[-16]:z===bankRoadZ?[bankSite.x]:[]),40].sort((a,b)=>a-b).map(x=>[x,z]));
   for(const x of avenues)path([x===0?-60:-55,...streets,...(x===0?[14]:[]),...(x===32?[roadGarages[0].z]:[]),71].sort((a,b)=>a-b).map(z=>[x,z]));
   const outer=[streetPlan.westStreet,0,streetPlan.eastStreet];
   for(const z of [harbor.crossing,streetPlan.northStreet])path((z===harbor.crossing?[...outer,19.1].sort((a,b)=>a-b):[...outer,fuelStop.x].sort((a,b)=>a-b)).map(x=>[x,z]));
@@ -45,6 +46,7 @@ if(CITY){
   path([[0,-60],[0,harbor.crossing]]);path([[0,streetPlan.northStreet],[0,-370]]);
   for(const z of [-466,-419,-370])path([-49,0,49].map(x=>[x,z]));
   for(const x of [-49,0,49])path([-466,-419,...(x===49?[-377]:[]),-370].map(z=>[x,z]));
+  path([[clubDoor.x+1.5,27],destinations.get('Club Lucero')]);
   path([[-38,27],...drive.slice(1,27),destinations.get(casinoName)]);
   path([[49,-419],[66,-419]]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);

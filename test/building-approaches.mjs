@@ -50,9 +50,9 @@ for(const station of stations){
  walker.walk(x,z,'shade hut');walker.walk(x+4,z,'hut east exit');
 }
 {
- const x=club.x,z=club.z+club.d/2,walker=approach(x,z+1.5);
- walker.walk(x,z-2.3,'Club Lucero');assert(inClub(walker.feet));
- walker.walk(x,z+1.5,'club exit');assert(!inClub(walker.feet));
+ const x=club.x+club.w/2,z=club.z,walker=approach(x+1.5,z);
+ walker.walk(x-2.3,z,'Club Lucero');assert(inClub(walker.feet));
+ walker.walk(x+1.5,z,'club exit');assert(!inClub(walker.feet));
 }
 const bank=interiorPlans.find(p=>p.type==='bank');
 for(const d of bank.doors.filter(d=>d.axis==='z')){
