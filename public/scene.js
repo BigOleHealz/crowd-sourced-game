@@ -18,7 +18,6 @@ import {roomAtFeet} from './building-interiors.js';
 import {gunfireAlarm,poseBystanderCover} from './bystander-cover.js';
 import {bankCast,bankLooks,poseBankGuest} from './bank-lobby-cast.js';
 import {castForAudience,poseCabaret} from './club-lucero-view.js';
-import {contactingFoot} from './footsteps.js';
 import {terrainWidth,terrainLength,terrainCols,terrainRows,ridgeX,ridgeZ} from './outpost-relief.js';
 import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
@@ -1020,7 +1019,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 }
 
 import {createSprintGate} from './marina-sprint-view.js';
-export function createScene(canvas,onFootfall) {
+export function createScene(canvas) {
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
@@ -1348,18 +1347,8 @@ export function createScene(canvas,onFootfall) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        const previousGait=a.gait,previousPhase=previousGait?.phase;
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors);
-        if(!seated && !station && !entering && !skipper){
-          contacts.boots(a,state,local);
-          if(onFootfall && previousGait===a.gait && Math.hypot(state.x-local.x,state.y-local.y,state.z-local.z)<17){
-            const side=contactingFoot(previousPhase,a.gait,state);
-            if(side && !state.lostParts?.[side<0?'leftLeg':'rightLeg']){
-              const foot=a.limbs[side<0?0:1].foot;
-              onFootfall(state,{x:foot.wx,y:state.y+(foot.floor??0),z:foot.wz},local,view.yaw,world,side,a.gait.run);
-            }
-          }
-        }
+        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);

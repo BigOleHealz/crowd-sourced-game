@@ -4,8 +4,6 @@ import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
 import {doorBuffer,doorCue} from './car-door-sound.js';
 import {roadHandle} from './road-cabin.js';
-import {bootSurface,stepBuffer} from './footsteps.js';
-import {aboardYacht} from './yacht-layout.js';
 import {fallAudioTracker} from './collapse-sound-cues.js';
 import {MAP} from './world.js';
 import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
@@ -188,10 +186,9 @@ export function createGameAudio(button,slider,level) {
   }
   function voice(name,loop=false,variant=0) {
     const designed=['carbine','sidearm','turret','launch'].includes(name);
-    const step=name.startsWith('foot/');
     const dolphin=name.startsWith('dolphin/');
-    const key=designed || step || dolphin ? name+variant : name;
-    if(!buffers.has(key))buffers.set(key,dolphin ? dolphinSound(context,name.slice(8),variant) : designed ? weaponSound(context,name,variant) : step ? stepBuffer(context,name.slice(5),variant) : synth(context,name));
+    const key=designed || dolphin ? name+variant : name;
+    if(!buffers.has(key))buffers.set(key,dolphin ? dolphinSound(context,name.slice(8),variant) : designed ? weaponSound(context,name,variant) : synth(context,name));
     const source=context.createBufferSource(),gain=context.createGain(),pan=context.createStereoPanner();
     source.buffer=buffers.get(key);source.loop=loop;
     const tone=context.createBiquadFilter();tone.type='lowpass';tone.Q.value=.65;tone.frequency.value=20000;
@@ -222,15 +219,6 @@ export function createGameAudio(button,slider,level) {
     const v=voice(name,false,eventId%3);
     v.source.playbackRate.value=.985+(eventId%13)*.0025;v.gain.gain.value=volume*place.gain*passage(v,point);v.pan.pan.value=place.pan;
     v.source.start();
-  }
-  let stepCount=0;
-  function footfall(state,point,listener,yaw,world,side,run){
-    const local=state.id===listener.id;
-    if(!audible() || voices.size>=(local?26:17))return;
-    const distance=Math.hypot(point.x-listener.x,point.y-listener.y,point.z-listener.z);
-    const surface=bootSurface(state,world,aboardYacht(world.yacht,state));
-    const gain=(local?.53:.41)*(1-distance/18)**2*(state.stance==='crouch'?.28:.67+.33*run);
-    if(gain>.015)burst('foot/'+surface,point,listener,yaw,gain,++stepCount+(side>0?1:0));
   }
   function reset(world) {
     collapse.reset();
@@ -441,5 +429,5 @@ export function createGameAudio(button,slider,level) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,footfall,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
 }
