@@ -134,3 +134,33 @@ for(const timing of ['gold','early','late','step out']){
   assert.equal(game.state.turn,1);assert.deepEqual(game.state.scores,[timing==='gold'?2:0,0]);
 }
 console.log('Close releases dunk, gold scores two, early and late rim out, both hands rise with the ball, normal shots resume outside the lane.');
+
+for(const response of ['idle','drive','shoot','other player joins']){
+  const {game,advance,player}=gameFixture(),a=player(1),guard=game.state.npcs[1];
+  game.interact(a,'join');
+  const initially=Math.hypot(guard.x-a.state.x,guard.z-a.state.z);
+  let ticks=0;
+  while(!game.state.reach && ticks++<160)advance(1);
+  const reach=game.state.reach;assert(reach,'NPC closes to attempt a steal');
+  assert.equal(reach.target,a.id);assert.equal(reach.side,1);
+  assert(Math.hypot(guard.x-a.state.x,guard.z-a.state.z)<initially-1);
+  const pose=basketballPose(JSON.parse(JSON.stringify(game.state)),guard,0);
+  assert(pose.reach && pose.reach.lift>0);
+  if(response==='drive')advance(22,()=>{a.state.x+=.14;});
+  else if(response==='shoot'){
+    advance(3,()=>game.input(a,{hoopShot:true}));game.input(a,{hoopShot:false});advance(18);
+    assert.equal(game.state.phase,'flight');
+  }else if(response==='other player joins'){
+    game.interact(player(2),'join');advance(24);
+  }else{
+    advance(18);
+    assert.deepEqual(game.state.steal,{side:1,from:a.id});
+    assert.equal(game.state.turn,1);assert.deepEqual(game.state.scores,[0,0]);
+    assert.equal(game.state.charge,0);assert.equal(game.state.reach,undefined);
+    advance(1);assert(Math.hypot(game.state.ball.x-guard.x,game.state.ball.z-guard.z)<.50);
+    advance(220);assert(game.state.result?.side===1,'after stealing the NPC can take its own shot');
+    continue;
+  }
+  assert.equal(game.state.reach,undefined);assert.equal(game.state.steal,undefined);assert.equal(game.state.turn,0);
+}
+console.log('NPC closes, visibly reaches and steals from an idle carrier. Driving away, releasing a shot and a second human joining interrupt the steal.');

@@ -7,6 +7,10 @@ export function basketballPose(game,actor,clock){
   if(side<0 || actor.dead || actor.fall)return null;
   if(game.shot?.kind==='dunk' && game.shot.actorId===actor.id && game.shot.age<dunkLanding)
     return {dunk:dunkFrame(game.shot,game.shot.age,actor)};
+  if(game.reach?.side===side && game.players[side]==null){
+    const lift=Math.sin(Math.min(1,game.reach.age/.60)*Math.PI);
+    return {reach:{ball:game.ball,lift}};
+  }
   const hasBall=game.turn===side && game.phase==='held';
   const charge=hasBall?Math.min(1,game.charge*1.65):0;
   const dribble=hasBall && !charge && actor.moving;

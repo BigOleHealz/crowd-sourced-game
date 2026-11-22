@@ -23,6 +23,10 @@ export function basketballHud(panel){
     }else if(result && performance.now()<noticeUntil && game.phase==='flight'){
       if(result.kind==='dunk')line=result.points?'Dunk · +2':'Missed dunk · '+result.timing;
       else line=result.points?basketballTeams[result.side].name+' basket · +'+result.points:'Miss · Next possession soon';
+    }else if(game.steal && game.phase==='held'){
+      line=basketballTeams[game.steal.side].player+' stole the ball';
+    }else if(game.reach && ball){
+      line='Defender reaching · Move or release';
     }else if(ball){
       const hoopYaw=hoopHeading(feet);
       const deviation=Math.atan2(Math.sin(yaw-hoopYaw),Math.cos(yaw-hoopYaw));

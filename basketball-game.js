@@ -20,14 +20,15 @@ export function createBasketball(world,players) {
   }));
   const ball={x:court.x,y:court.y+radius,z:court.z,spin:0,serial:0};
   const state={players:[null,null],scores:[0,0],turn:0,phase:'held',charge:0,npcs,ball,shot:null,result:null};
-  let elapsed=0,attempt=0,holding=false,inputAge=0,inputDown=false,resolved=false;
+  let elapsed=0,attempt=0,holding=false,inputAge=0,inputDown=false,resolved=false,reachReady=1.15;
   let vx=0,vy=0,vz=0,shotPoints=0;
   const active=side=>players.get(state.players[side]);
   const actor=side=>active(side)?.state??npcs[side];
 
   function possession(side) {
     state.turn=side;state.phase='held';state.shot=null;state.charge=0;
-    elapsed=0;holding=false;inputDown=false;inputAge=0;
+    elapsed=0;holding=false;inputDown=false;inputAge=0;reachReady=1.15;
+    delete state.reach;delete state.steal;
     ball.serial++;
     const feet=actor(side);
     ballInHand(ball,feet,hoopHeading(feet));
@@ -137,17 +138,43 @@ export function createBasketball(world,players) {
   function moveNpc(side,dt) {
     const npc=npcs[side],owns=side===state.turn;
     const [x,z]=npcSpots[(attempt+(side?2:0))%npcSpots.length];
-    const targetX=court.x+(owns?x:side?4.65:-4.65);
-    const targetZ=court.z+(owns?z:1.8);
+    const holder=active(state.turn);
+    const guarding=!owns && holder && state.phase==='held';
+    // Close on the ball side, giving a moving player room to drive past.
+    const targetX=guarding?clamp(holder.state.x+.95*Math.sin(holder.yaw),court.x-6.9,court.x+6.9):court.x+(owns?x:side?4.65:-4.65);
+    const targetZ=guarding?clamp(holder.state.z-.95*Math.cos(holder.yaw),hoop.boardZ+.27,court.z+6.85):court.z+(owns?z:1.8);
     const dx=targetX-npc.x,dz=targetZ-npc.z;
-    const dist=Math.hypot(dx,dz),travel=Math.min(dist,(owns?2.9:1.95)*dt);
+    const dist=Math.hypot(dx,dz);
+    // Plant for the reach so a well-timed drive can break contact.
+    const travel=state.reach?.side===side?0:Math.min(dist,(owns?2.9:guarding?3.65:1.95)*dt);
     if(dist>.01){npc.x+=dx/dist*travel;npc.z+=dz/dist*travel;}
     npc.moving=travel>.02;
-    const goal=npc.moving?Math.atan2(dx,-dz):owns?hoopHeading(npc):
+    const goal=npc.moving && (!guarding || dist>.48)?Math.atan2(dx,-dz):owns?hoopHeading(npc):
       Math.atan2(ball.x-npc.x,npc.z-ball.z);
     const delta=Math.atan2(Math.sin(goal-npc.yaw),Math.cos(goal-npc.yaw));
     npc.yaw+=clamp(delta,-dt*8,dt*8);
     return dist<.14;
+  }
+
+  function checkSteal(dt,holder){
+    const side=1-state.turn,guard=npcs[side];
+    if(state.players[side]!=null || !holder || state.phase!=='held'){
+      delete state.reach;return;
+    }
+    const gap=Math.hypot(ball.x-guard.x,ball.z-guard.z);
+    if(!state.reach){
+      if(elapsed<reachReady || gap>.70 || Math.abs(guard.y-ball.y+1.34)>.45)return;
+      state.reach={side,target:holder.id,age:0};
+      reachReady=elapsed+2.25;
+    }
+    const reach=state.reach;
+    reach.age+=dt;
+    if(reach.age<.43)return;
+    const toBall=Math.atan2(ball.x-guard.x,guard.z-ball.z);
+    if(gap<=.75 && Math.cos(toBall-guard.yaw)>.60 && Math.abs(guard.y-ball.y+1.34)<=.45){
+      possession(side);
+      state.steal={side,from:holder.id};
+    }else if(reach.age>.60)delete state.reach;
   }
 
   function step(dt) {
@@ -162,10 +189,12 @@ export function createBasketball(world,players) {
     }
     elapsed+=dt;inputAge+=dt;
     const positioned=state.players.map((id,side)=>id==null && moveNpc(side,dt));
-    if(state.phase==='flight'){stepBall(dt);return;}
+    if(state.phase==='flight'){delete state.reach;stepBall(dt);return;}
     const player=active(state.turn),feet=actor(state.turn);
     ballInHand(ball,feet,player?player.yaw:feet.yaw);
     if(!player){
+      delete state.reach;
+      if(elapsed>1.8)delete state.steal;
       const {center}=shotWindow(feet);
       if(positioned[state.turn] && elapsed>.65)state.charge=Math.min(center,state.charge+dt*chargeRate);
       if(state.charge>=center && elapsed>.9){
@@ -180,7 +209,8 @@ export function createBasketball(world,players) {
     }else if(holding){
       if(!feet.stance)release(feet,player.yaw,state.charge);
       else {holding=false;state.charge=0;}
-    }else if(elapsed>15)possession(1-state.turn);
+    }else if(elapsed>15){possession(1-state.turn);return;}
+    checkSteal(dt,player);
   }
   return {state,input,interact,step};
 }
