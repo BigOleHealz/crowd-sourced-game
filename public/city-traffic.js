@@ -18,8 +18,8 @@ import {roadContact} from './road-contact.js';
 const path=new WeakMap();
 // Angled bays outside the fountain circuit give each display car a clear forward exit.
 const valetBays=[
-  ['falco',-69.6,96.75,.28,200],
-  ['veloce',-45.10,96.75,-.28,195],
+  ['falco',-72.5,96.65,.19,200],
+  ['veloce',-41.5,96.65,-.34,195],
 ];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 

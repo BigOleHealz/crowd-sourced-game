@@ -66,7 +66,7 @@ for(const [i,p] of promenades.entries()){
 }
 // Colonnade supports flank the carriage opening. No pier sits in its drive lane.
 for(const x of [-64.20,-49.80])for(const z of [78.35,85.38])piers.push({kind:'pier',x,z,w:.92,d:.92,base:arrivalDeck,top:8.6});
-export const arrivalTrees=[[-73.65,92.8],[-73.6,96.4],[-65.1,97.85],[-60.1,98.12],[-53.9,98.12],[-49.2,97.9],[-35.4,92.6],[-35.5,97.25]];
+export const arrivalTrees=[[-75.15,92.8],[-75.20,96.4],[-65.1,97.85],[-60.1,98.12],[-53.9,98.12],[-49.2,97.9],[-35.4,92.6],[-35.5,97.25]];
 export const palaceFurnishings=[
   {kind:'desk',x:-47.6,z:76.95,w:4.50,d:.82,h:1.21},
   {kind:'desk',x:-25.0,z:77.15,w:4.24,d:.84,h:1.21},

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {driveRover}=await import('../public/rover.js');
+const {newCityTraffic}=await import('../public/city-traffic.js');
 const {roadContact}=await import('../public/road-contact.js');
 const {stepPlayer,groundHeight}=await import('../public/world.js');
 const {roomAtFeet}=await import('../public/building-interiors.js');
@@ -10,6 +11,10 @@ const {fountainSite}=await import('../public/centaur-fountain-layout.js');
 const tick=1/60;
 function visit(reverse){
   const w=newExpedition(),car=w.rover,owners=new Map();
+  w.traffic=newCityTraffic({resort:true});
+  for(const [x,yaw] of [[-69.60,2.4],[-44.4,-2.4]]){
+    assert(!roadContact(w,x,92.16,yaw,x,92.16,car),'Allow the outside line past the parked sports cars');
+  }
   Object.assign(car,{driver:1,x:-38,z:64.7,y:.70,yaw:Math.PI});
   const enter=reverse?[[-38,76],[-38.6,83.8],[-42,88.3]]:[[-38,74],[-39.6,77.8],[-44.5,81.7]];
   const start=reverse?0:-.72,end=reverse?Math.PI*2-.72:-Math.PI*2;
