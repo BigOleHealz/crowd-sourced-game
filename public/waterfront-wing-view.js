@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {wingArchitecture} from './waterfront-wing.js';
+import {wingArchitecture,wingBounds,wingEntrances} from './waterfront-wing.js';
 
 const plum=0x361c38, pearl=0xf1d9b8, onyx=0x222337, gold=0xd2a056;
 const champagne=0xffe6a4, coral=0xff7a91, turquoise=0x78ede3;
@@ -11,11 +11,9 @@ export function addWaterfrontWing(scene,Batch){
   const cube=new THREE.BoxGeometry(),bulb=new THREE.SphereGeometry(.5,8,6);
   const put=(batch,tint,x,y,z,w,h,d)=>batch.add(cube,tint,x,y,z,w,h,d);
   const box=(batch,tint,p)=>put(batch,tint,p.x,(p.bottom+p.top)/2,p.z,p.w,p.top-p.bottom,p.d);
-  const w=-90.65,e=-72,n=30.4,s=61,base=.8,roof=9.35;
+  const {west:w,east:e,north:n,south:s}=wingBounds;
   const cx=(w+e)/2,cz=(n+s)/2;
-  put(masonry,0xb6aa9c,-81.245,-.04,47.5,19.51,1.46,35);
-  put(masonry,0xdbbca3,-81.245,.744,47.5,19.51,.11,35);
-  for(const slab of wingArchitecture.slabs)box(masonry,slab.top>8?onyx:pearl,slab);
+  for(const slab of wingArchitecture.slabs)box(masonry,slab.kind==='roof'?onyx:pearl,slab);
   for(const step of wingArchitecture.steps){
     box(masonry,0xdac9af,step);
     put(metal,gold,step.x,step.top+.002,step.z+step.d/2-.034,step.w,.016,.052);
@@ -70,7 +68,7 @@ export function addWaterfrontWing(scene,Batch){
   }
   // Flared champagne-gold fan over the entry. Seven stepped blades and their
   // inlaid inner ribs give the crown a dimensional silhouette from the water.
-  const portal=-80.4;
+  const portal=wingEntrances.terrace.x;
   function fan(x,z,y,yaw,scale){
     const on=(u,v,out)=>[x+scale*(Math.cos(yaw)*u+Math.sin(yaw)*out),y+scale*v,z+scale*(-Math.sin(yaw)*u+Math.cos(yaw)*out)];
     for(let i=-4;i<=4;i++){
@@ -116,7 +114,7 @@ export function addWaterfrontWing(scene,Batch){
     face.position.set(x+Math.sin(yaw)*.095,y,z+Math.cos(yaw)*.095);group.add(face);
   }
   marquee(portal,6.27,s+.40,0,7.3);
-  marquee(e+.14,3.94,58.75,Math.PI/2,3.65);
+  marquee(e+.14,4.74,wingEntrances.avenue.z,Math.PI/2,3.65);
   marquee(w-.42,6.05,45.7,-Math.PI/2,6.3);
   masonry.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.56}),false);
   metal.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.34,metalness:.47}),false);
