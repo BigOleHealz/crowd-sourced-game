@@ -1,5 +1,7 @@
 import {addResortParking} from './resort-parking-view.js';
 import {estatePoolHoles} from './swimming-pools.js';
+import {spiralForHouse,outsideWell} from './residential-spirals.js';
+import {addResidentialSpirals} from './residential-spiral-view.js';
 import {addOfficeWindows} from './office-window-view.js';
 import {bankSite} from './bank-site.js';
 import {addFuelStop} from './pelican-fuel-view.js';
@@ -162,9 +164,11 @@ export function cityStreets(scene,renderer,Batch,panorama) {
     const {west:westDepth,east:eastDepth,x:coreX,w:coreWidth,rooms,ends}=galleryPlans[i];
     if(rooms.length===2){
       const wing=(coreWidth-1.48)/2;
-      for(const sign of [-1,1])solids.add(box,0xb5a88e,coreX+sign*(.74+wing/2),base+podium/2,z,wing,podium,d-2*ends[0].depth);
+      for(const sign of [-1,1])for(const p of outsideWell({x:coreX+sign*(.74+wing/2),z,w:wing,d:d-2*ends[0].depth},spiralForHouse(MAP.buildings[i])))
+        solids.add(box,0xb5a88e,p.x,base+podium/2,p.z,p.w,podium,p.d);
     }
-    solids.add(box,0xbcaf97,coreX,base+podium-.34,z,coreWidth,.68,d);
+    for(const p of outsideWell({x:coreX,z,w:coreWidth,d},spiralForHouse(MAP.buildings[i])))
+      solids.add(box,0xbcaf97,p.x,base+podium-.34,p.z,p.w,.68,p.d);
     furnishPortico(i,-1,{x,z,w,d},westDepth);
     if(!avenueCorner)furnishPortico(i,1,{x,z,w,d},eastDepth);
     if(housing) {
@@ -186,6 +190,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateApartments=addApartmentBalconies(scene,Batch,facadeMaterial.map,MAP.buildings.filter(b=>b.housing),base,podium,panorama);
   const towerParts=[...scene.children.filter(o=>o.userData.interiorFixtures),...scene.children.slice(apartmentStart)];
   const harborStart=scene.children.length;
+  addResidentialSpirals(scene,Batch);
   const updateHarborWindows=addHarborKeyStructures(scene,Batch,base+podium);
   furnishMarketStreet(solids);
   const updateFuelStop=addFuelStop(scene,Batch,solids);

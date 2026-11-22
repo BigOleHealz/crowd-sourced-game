@@ -1,3 +1,4 @@
+import {mareSpiral,outsideWell,spiralSupport,spiralCeiling} from './residential-spirals.js';
 import {identifyPane} from './pane-damage.js';
 // Heights are above the Lantern Point quay. The view, player, camera and
 // vehicle barriers all use this plan, including the two cuts in the slabs.
@@ -8,10 +9,6 @@ export const mareUpper=[
 ];
 const tiers=[mareBase,...mareUpper];
 const quay=.80;
-export const mareFlights=[
-  {start:16,end:24.8,z:-446.8,width:2.12,low:.07,high:4.1,count:21},
-  {start:24.8,end:16,z:-449.25,width:2.12,low:4.1,high:7.9,count:20},
-];
 export const mareParts=[],mareFurniture=[],mareGuards=[];
 const rect=(x,z,w,d,bottom,h)=>({x,z,w,d,bottom,h});
 function part(kind,x,z,w,d,bottom,h){
@@ -24,13 +21,12 @@ function slab(west,east,north,south,y,thickness){
 function floorPlate(b,y,hole){
   const l=b.x-b.w/2-.32,r=b.x+b.w/2+.32,n=b.z-b.d/2-.32,s=b.z+b.d/2+.32;
   if(!hole){slab(l,r,n,s,y,y===.07?.09:.24);return;}
-  const a=Math.min(hole.start,hole.end),c=Math.max(hole.start,hole.end);
-  const back=hole.z-hole.width/2-.12,front=hole.z+hole.width/2+.12;
-  slab(l,r,n,back,y,.24);slab(l,r,front,s,y,.24);
-  slab(l,a,back,front,y,.24);slab(c,r,back,front,y,.24);
+  for(const p of outsideWell({x:(l+r)/2,z:(n+s)/2,w:r-l,d:s-n},mareSpiral)){
+    slab(p.x-p.w/2,p.x+p.w/2,p.z-p.d/2,p.z+p.d/2,y,.24);
+  }
 }
 floorPlate(mareBase,.07);
-for(const [i,b] of tiers.entries())floorPlate(b,b.h,mareFlights[i]);
+for(const [i,b] of tiers.entries())floorPlate(b,b.h,i<2);
 
 // Leave masonry returns at corners and around each floor-to-ceiling opening.
 function facade(b,alongX,side,doorways){
@@ -106,16 +102,6 @@ furnishing('wardrobe',16.16,-442.43,2.54,.70,2,2.18);
 furnishing('sofa',26.7,-442.64,2.52,.81,2,.85,true);
 furnishing('console',20.3,-442.46,1.65,.52,2,.88);
 
-// Side rails protect both flights. At the low end of each upper landing,
-// fixed rails enclose the open edge of its lightwell.
-for(const f of mareFlights){
-  const exit=f.start,dir=Math.sign(f.end-exit);
-  mareGuards.push(rect(exit-dir*.035,f.z,.07,f.width+.22,f.high,f.high+.94));
-  for(const side of [-1,1]){
-    const z=f.z+side*(f.width/2+.09);
-    mareGuards.push(rect((exit+f.end)/2,z,Math.abs(f.end-exit),.075,f.high,f.high+.94));
-  }
-}
 // Continue the existing arcade rail along the open perimeter of each setback.
 for(const [level,west,east,north,south] of [[4.1,10.32,39.68,-451.18,-436.84],[7.9,11.32,36.68,-451.08,-439.32]]){
   for(const x of [west,east])mareGuards.push(rect(x,(north+south)/2,.07,south-north,level,level+.94));
@@ -123,15 +109,6 @@ for(const [level,west,east,north,south] of [[4.1,10.32,39.68,-451.18,-436.84],[7
   if(level===7.9)mareGuards.push(rect((west+east)/2,south,east-west,.07,level,level+.94));
 }
 for(const x of [11.0,39.0])mareGuards.push(rect(x,-435.08,.07,3.6,4.12,5.06));
-const stairParts=[];
-for(const f of mareFlights){
-  const run=(f.end-f.start)/f.count;
-  for(let i=0;i<f.count;i++){
-    const x=f.start+(i+.5)*run,h=treadHeight(f,i);
-    stairParts.push({...rect(x,f.z,Math.abs(run),f.width,h-.22,h),kind:'tread',flushEdge:true});
-    for(const side of [-1,1])stairParts.push(rect(x,f.z+side*(f.width/2-.045),Math.abs(run),.05,h,h+.85));
-  }
-}
 export const mareLoggiaRoof={...rect(25,-435.5,28.2,4.6,3.86,4.12),kind:'slab',flushEdge:true,id:'limestone-loggia'};
 const terraceFixtures=[
   mareLoggiaRoof,
@@ -143,8 +120,8 @@ const terraceFixtures=[
   ...[32.1,34.25].map(x=>rect(x,-444.1,.87,1.86,7.9,8.65)),
 ];
 const slabParts=[...mareParts.filter(p=>p.kind==='slab'),mareLoggiaRoof];
-export const mareBarriers=[...mareParts,...mareFurniture,...mareGuards,...stairParts,...terraceFixtures];
-export function treadHeight(flight,index){return flight.low+(flight.high-flight.low)*(index+1)/flight.count;}
+export const mareBarriers=[...mareParts,...mareFurniture,...mareGuards,...terraceFixtures];
+
 
 const on=(p,x,z)=>Math.abs(x-p.x)<=p.w/2+.00001 && Math.abs(z-p.z)<=p.d/2+.00001;
 const nearby=(x,z)=>x>=10 && x<=40 && z>=-452 && z<=-436;
@@ -152,24 +129,15 @@ export function mareFloor(x,z,probe){
   if(z<-452 || z>-433 || x<10 || x>40)return -Infinity;
   let top=-Infinity;
   for(const p of slabParts)if(quay+p.h<=probe+.00001 && on(p,x,z))top=Math.max(top,quay+p.h);
-  for(const f of mareFlights){
-    const t=(x-f.start)/(f.end-f.start);
-    if(t<0 || t>1 || Math.abs(z-f.z)>f.width/2+.03 || probe<quay+f.low)continue;
-    const h=quay+treadHeight(f,Math.min(f.count-1,Math.floor(t*f.count)));
-    if(probe>=h-.00001)top=Math.max(top,h);
-  }
+  const stair=spiralSupport(mareSpiral,x,z,probe);
+  if(stair!==undefined)top=Math.max(top,stair);
   return top;
 }
 export function mareCeiling(x,y,z,support=Infinity){
   if(z<-452 || z>-433 || x<10 || x>40)return Infinity;
   let limit=Infinity;
   for(const p of slabParts)if(on(p,x,z) && quay+p.h<=support && y<quay+p.bottom)limit=Math.min(limit,quay+p.bottom);
-  for(const f of mareFlights){
-    const t=(x-f.start)/(f.end-f.start);
-    if(t<0 || t>=1 || Math.abs(z-f.z)>f.width/2)continue;
-    const underside=quay+treadHeight(f,Math.floor(t*f.count))-.22;
-    if(underside<=support && y<underside)limit=Math.min(limit,underside);
-  }
+  limit=Math.min(limit,spiralCeiling(mareSpiral,x,y,z));
   return limit;
 }
 export function inPalazzoMare(x,y,z){

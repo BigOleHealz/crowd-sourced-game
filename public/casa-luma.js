@@ -1,3 +1,4 @@
+import {casaSpiral,spiralSupport,spiralCeiling,outsideWell} from './residential-spirals.js';
 import {identifyPane} from './pane-damage.js';
 // All local elevations are measured from the original limestone court.
 const base=.80, ground=.27, upper=3.97, terrace=4.10;
@@ -7,12 +8,6 @@ export const villaWings=[
   {id:'villa-east-wing',x:-13.7,z:-392.5,w:7.4,d:17,h:terrace,bottom:0},
 ];
 const [gallery,west,east]=villaWings;
-export const casaStair={start:-29,end:-21,z:-407.1,width:1.85,count:20,ground,upper};
-export const casaTreads=Array.from({length:casaStair.count},(_,i)=>{
-  const run=(casaStair.end-casaStair.start)/casaStair.count;
-  return {x:casaStair.start+(i+.5)*run,z:casaStair.z,w:run,d:casaStair.width,
-    bottom:ground,h:ground+(i+1)*(upper-ground)/casaStair.count};
-});
 export const casaBarriers=[],casaSlabs=[],casaWalls=[],casaRails=[],casaFurniture=[],casaRoofGarden=[];
 function part(list,p){list.push(p);casaBarriers.push(p);}
 function slab(x,z,w,d,bottom,h,level){
@@ -23,26 +18,13 @@ for(const wing of villaWings){
   const roof=wing.h;
   slab(wing.x,wing.z,wing.w+(wing===gallery?-.50:.30),wing.d+(wing===gallery?-.30:.30),roof-.24,roof,wing===gallery?'roof':'terrace');
 }
-// Keep the north fascia continuous around the open stairwell.
-const slotNorth=-409.15,slotSouth=-405.88,slotWest=-29.55,slotEast=-20.45;
-function upperPlate(left,right,north,south){
-  slab((left+right)/2,(north+south)/2,right-left,south-north,3.45,upper,'upper');
+// Four plates frame the spiral lightwell. Their mitred corners and landing
+// tongue are finished by the spiral renderer.
+for(const p of outsideWell({x:-25,z:-405,w:30.30,d:8.30},casaSpiral)){
+  slab(p.x,p.z,p.w,p.d,3.45,upper,'upper');
+  casaSlabs.at(-1).flushEdge=true;
 }
-upperPlate(-40.15,-9.85,slotSouth,-400.85);
-upperPlate(slotWest,slotEast,slotNorth,-408.78);
-upperPlate(-40.15,slotWest,slotNorth,slotSouth);
-upperPlate(slotEast,-9.85,slotNorth,slotSouth);
-// A landing bridges the last half metre between the stair and the main floor.
-upperPlate(casaStair.end,slotEast,casaStair.z-casaStair.width/2,casaStair.z+casaStair.width/2);
 function rail(x,z,w,d,bottom,h){part(casaRails,{x,z,w,d,bottom,h});}
-rail((slotWest+slotEast)/2,slotSouth,slotEast-slotWest,.07,upper,upper+.98);
-rail(slotWest,(slotNorth+slotSouth)/2,.07,slotSouth-slotNorth,upper,upper+.98);
-for(const end of [-1,1]){
-  const z=casaStair.z+end*casaStair.width/2;
-  for(const p of casaTreads)casaBarriers.push({...p,z,w:p.w,d:.06,bottom:ground,h:p.h+.88});
-  const edge=end<0?slotNorth:slotSouth;
-  rail(slotEast,(edge+z)/2,.07,Math.abs(edge-z),upper,upper+.98);
-}
 for(const wing of [west,east]){
   for(const dx of [-2.4,2.4])part(casaRoofGarden,{kind:'trough',x:wing.x+dx,z:-399.5,w:1.55,d:.72,bottom:terrace,h:terrace+.60});
   for(const dx of [0,1.5])part(casaRoofGarden,{kind:'lounger',x:wing.x+dx,z:-388.1,w:.87,d:1.86,bottom:terrace,h:terrace+.75});
@@ -117,16 +99,12 @@ function covers(p,x,z,pad=0){return Math.abs(p.x-x)<=p.w/2+pad && Math.abs(p.z-z
 const nearCasa=(x,z)=>x>=-40.6 && x<=-9.4 && z>=-409.6 && z<=-383.3;
 export function casaFloor(x,z,probe){
   if(!nearCasa(x,z))return;
-  const stair=casaStair;
-  if(Math.abs(z-stair.z)<stair.width/2 && x>=stair.start && x<=stair.end){
-    const i=Math.min(stair.count-1,Math.floor((x-stair.start)*stair.count/(stair.end-stair.start)));
-    return base+casaTreads[i].h;
-  }
+  const stair=spiralSupport(casaSpiral,x,z,probe);
   // The walking capsule first touches the rim of a slab a radius before
   // its centre reaches the visible edge, including the patio threshold.
-  let top;
+  let top=stair;
   for(const p of casaSlabs){
-    if(covers(p,x,z,.32) && (p.level==='ground' || (Number.isFinite(probe) && probe>=base+p.h+.25))){
+    if(covers(p,x,z,p.flushEdge?0:.32) && (p.level==='ground' || (Number.isFinite(probe) && probe>=base+p.h+.25))){
       top=Math.max(top??0,base+p.h);
     }
   }
@@ -134,8 +112,8 @@ export function casaFloor(x,z,probe){
 }
 export function casaCeiling(x,y,z,support=Infinity){
   if(!nearCasa(x,z))return Infinity;
-  let ceiling=Infinity;
-  for(const p of casaSlabs)if(p.level!=='ground' && base+p.h<=support && y<base+p.bottom && covers(p,x,z,.32))ceiling=Math.min(ceiling,base+p.bottom);
+  let ceiling=spiralCeiling(casaSpiral,x,y,z);
+  for(const p of casaSlabs)if(p.level!=='ground' && base+p.h<=support && y<base+p.bottom && covers(p,x,z,p.flushEdge?0:.32))ceiling=Math.min(ceiling,base+p.bottom);
   return ceiling;
 }
 export function casaRoomAt(x,y,z){

@@ -1,6 +1,7 @@
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {garageSurface} from './resort-parking.js';
 import {swimmingPoolAt,poolFloorAt} from './swimming-pools.js';
+import {residenceSpirals,spiralForHouse,spiralWell,spiralSolid,spiralSupport} from './residential-spirals.js';
 import {upperShellTop} from './tower-glass.js';
 import {rollingMotion} from './street-rides.js';
 import {interiorPlans,initializeBuildingInteriors,furnishedSupport,furnishedFloorTop,roomDoorTop,interiorCeiling,approachRamp} from './building-interiors.js';
@@ -111,6 +112,9 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
+  const stair=b.finish && spiralForHouse(b);
+  if(stair && spiralWell(stair,x,z) && probe<roof-.1)
+    return Math.max(spiralSupport(stair,x,z,probe),spiralSolid(stair,x,z,pad,probe));
   const interior=furnishedFloorTop(b,x,z,pad,probe,doors,round);
   const shell=round && upperShellTop(b,x,z,probe,roof);
   if(round && shell!==undefined)return Math.max(shell,interior??-Infinity);
@@ -158,6 +162,12 @@ const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
   let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
+  if(CITY)for(const stair of residenceSpirals){
+    if(!spiralWell(stair,x,z,padding) || doors?.houseRuins?.[stair.home])continue;
+    const cap=estateSupportLimit(doors,x,z);
+    const hit=spiralSolid(stair,x,z,padding,Math.min(maxBottom,cap));
+    if(hit<=cap)top=Math.max(top,hit);
+  }
   for(const b of MAP.buildings) {
     const dz=Math.max(0,Math.abs(z-b.z)-padding);
     if(Math.abs(x-b.x)>b.w/2+padding || dz>b.d/2) continue;
@@ -444,7 +454,7 @@ export function stepPlayer(state, input, dt, hp, world) {
     const shops=CITY && !ruined && !collapsedLot(MAP.buildings,doors,x,z);
     if(shops && state.y<shopCeiling)ceiling=Math.min(ceiling,retailHeadroom(x,z,PLAYER_RADIUS)-height);
     if(shops && state.y<storefrontCeiling)ceiling=Math.min(ceiling,storefrontHeadroom(x,z,PLAYER_RADIUS)-height);
-    if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z))ceiling=Math.min(ceiling,galleryCeiling-height);
+    if(shops && state.y<galleryCeiling && galleryRoomAt(x,galleryFloor,z) && !residenceSpirals.some(s=>spiralWell(s,x,z)))ceiling=Math.min(ceiling,galleryCeiling-height);
     if(CITY && vy>0)ceiling=Math.min(ceiling,balconyAt(x,z,PLAYER_RADIUS,state.y+height,doors,true)-height);
     if(y>ceiling) {y=ceiling;vy=0;}
     if (y <= floor && vy <= 0) {

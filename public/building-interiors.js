@@ -1,5 +1,6 @@
 import {lidoHouse} from './lido-house.js';
 import {GRAND_STEP,grandLift,grandLobbyOpening,grandStoryY,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,skyRooms} from './grand-resort-layout.js';
+import {spiralForHouse,outsideWell,spiralWell,spiralSupport} from './residential-spirals.js';
 import {casinoHall,casinoName,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 // A floor is generated once for simulation. The renderer only needs the floor
 // the camera occupies. Door bits are the only persistent per-room network data.
@@ -60,9 +61,18 @@ function floorPlan(p,y,height,n){
       add(line+side*1.0,z+span*.38,.8,.48,0,.76,'desk',0x8f7355);
     }
   }
-  if(residential)level.residential=furnishResidentialLevel(level);
+  if(p.stair)level.parts=level.parts.flatMap(part=>outsideWell(part,p.stair));
+  if(residential){
+    level.residential=furnishResidentialLevel(level);
+    if(p.stair)level.residential.furnishings=level.residential.furnishings.flatMap(item=>{
+      if(item.kind!=='floor' && item.kind!=='rug')return [item];
+      const turned=Math.abs(Math.sin(item.yaw))>.5;
+      const rect=turned?{...item,w:item.d,d:item.w}:item;
+      return outsideWell(rect,p.stair).map(piece=>turned?{...piece,w:piece.d,d:piece.w}:piece);
+    });
+  }
   p.levels.push(level);
-  panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
+  if(!p.stair)panel(p,b.x,y,b.z-b.d/2+.48,0,b.x,b.z-b.d/2+1.48);
 }
 export function initializeBuildingInteriors(buildings,city,terrain){
   if(interiorPlans.length)return;
@@ -76,8 +86,9 @@ export function initializeBuildingInteriors(buildings,city,terrain){
         for(const s of bankServiceDoors)door(p,s.x,.824,s.z,s.axis,s.width,s.label,false);
       }
       if(!b.housing && !b.finish)continue;
+      p.stair=spiralForHouse(b);
       const lobbyZ=b.z-b.d/2+Math.min(3.36,b.d*.48);
-      panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
+      if(!p.stair)panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
       const {floors,story}=b.finish?{floors:1,story:Math.max(2.50,b.base+b.eave-floorY)}:towerStories(b,3.9);
       for(let n=0;n<floors;n++)floorPlan(p,floorY+n*story,story,n);
     }else{
@@ -111,12 +122,12 @@ export function initializeBuildingInteriors(buildings,city,terrain){
   for(const [x,z,axis,width,label] of [[-25,-401,'x',3.1,'Gallery'],[-36.45,-401,'x',2.4,'Bedroom wing'],[-13.75,-401,'x',2.4,'Dining wing'],
     ...[-397.25,-387.05].flatMap(z=>[[-32.6,z,'z',2.3,'Bedroom courtyard'],[-17.4,z,'z',2.3,'Dining courtyard']])])door(casa,x,1.07,z,axis,width,label);
   for(const x of [-36.45,-13.75])door(casa,x,4.77,-401.3,'x',2.4,'Roof terrace');
-  for(const y of [1.07,4.77])panel(casa,-30.2,y,-402.20,Math.PI,-30.2,-403.10);
+
   const mare=plan(24,{x:25,z:-444,w:30,d:16},'existing','Palazzo Mare','mare');
   for(const [x,y,z,axis,w,label] of [[15.4,.87,-437,'x',2.6,'Palazzo entrance'],[28.2,.87,-437,'x',2.6,'Palazzo entrance'],
     [39.5,.87,-441,'z',2.6,'Dining entrance'],[32.6,4.9,-439.5,'x',2.6,'Library terrace'],[30.05,8.7,-444.9,'z',2.6,'Suite terrace'],
     [31.2,.87,-442.32,'z',3.1,'Kitchen'],[28.2,4.9,-444.6,'z',3.85,'Writing room'],[18.25,8.7,-445.25,'z',2.82,'Dressing room']])door(mare,x,y,z,axis,w,label);
-  for(const [y,z] of [[.87,-437.61],[4.9,-440.12],[8.7,-442.45]])panel(mare,22,y,z,Math.PI,22,z-.95);
+
   // Append rear controls so existing saved door bits keep their original IDs.
   for(const g of galleryPlans)if(g.passage){
     const p=byBuilding.get(g.b);
@@ -231,6 +242,7 @@ export function furnishedSupport(x,z,probe,doors){
     if(p.type==='bank' && probe>=.80 && probe<3.77)return .824;
     if(p.type==='villa-lido' && probe>=1.05 && probe<4.4)return 1.07;
     if(p.type==='outpost' && probe>=p.b.base-.04)return p.b.base;
+    if(p.stair && spiralWell(p.stair,x,z))return spiralSupport(p.stair,x,z,probe);
     const floor=storyAt(p,probe);
     if(floor && probe<p.b.base+p.b.eave && breachedFloor(p.b,x,z,floor.y-.01,doors)==null)return floor.y;
   }
@@ -238,6 +250,7 @@ export function furnishedSupport(x,z,probe,doors){
 export function roomAtFeet(feet,doors){
   for(const p of near(feet.x,feet.z)){
     if(!isInside(p,feet.x,feet.z) || !intact(p,doors,feet.x,feet.y,feet.z))continue;
+    if(p.stair && spiralWell(p.stair,feet.x,feet.z) && feet.y<4.65)return {p,label:'Stair hall'};
     const l=storyAt(p,feet.y+.03);
     if(l && feet.y<p.b.base+p.b.eave-.12)return {p,l,label:l.rooms.find(r=>isInside(r,feet.x,feet.z))?.number??'Hall'};
     if(p.type==='casino'){

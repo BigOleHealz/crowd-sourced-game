@@ -33,7 +33,7 @@ if(!process.env.INTERIOR_TEST_MAP){
     return (p.state.x-d.x)*dx+(p.state.z-d.z)*dz;
   }
   if(process.env.INTERIOR_TEST_MAP==='brickell'){
-    for(const b of interiorPlans.filter(p=>p.panels.length)){
+    for(const b of interiorPlans.filter(p=>p.panels.length || p.levels.length)){
       const [lobby,...upper]=b.panels;
       for(const dest of upper){go(lobby,dest);go(dest,lobby);}
       for(const l of b.levels)for(const d of l.doors){
@@ -49,7 +49,8 @@ if(!process.env.INTERIOR_TEST_MAP){
         p.state=feet(d.x-dir*.72,d.y,d.z);send({door:d.id,open:false});assert(!doorIsOpen(d,w.doors));rooms++;
       }
     }
-    assert.equal(rooms,412);assert.equal(trips,252+2*(20-1));
+    assert.equal(rooms,412);assert.equal(trips,238+2*(20-1));
+
     for(const building of interiorPlans)for(const d of building.entrances){
       const doors={};setDoorOpen(d,doors,true);
       assert(!blocked(d.x,d.y,d.z,{},doors),'open entrance '+building.name+' '+d.label);

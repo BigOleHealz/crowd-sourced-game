@@ -1,3 +1,4 @@
+import {spiralForHouse,outsideWell} from './residential-spirals.js';
 // Ground-floor north/south gallery entries occupy the strip between each
 // building's independently furnished east and west commercial tenancies.
 import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
@@ -98,7 +99,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
   }
   if(!shared && !bank){
     const inner=b.d-2*depth,wing=(w-1.48)/2;
-    for(const side of [-1,1])plan.solids.push({kind:'core',...rect(x+side*(.74+wing/2),b.z,wing,inner,galleryCeiling)});
+    for(const side of [-1,1])plan.solids.push(...outsideWell({kind:'core',...rect(x+side*(.74+wing/2),b.z,wing,inner,galleryCeiling)},spiralForHouse(b)));
     plan.passage={name:'Gallery passage',index,x,left:x-.74,right:x+.74,zmin:b.z-inner/2,zmax:b.z+inner/2,entries:plan.ends.map(e=>e.z)};
     indexRoom(plan.passage);
   }
