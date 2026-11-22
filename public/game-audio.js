@@ -441,7 +441,12 @@ export function createGameAudio(button,slider,level,caption) {
       stopMotor(key);track=null;
     }
     if(!track) {
-      track=voice(name,true);track.gain.gain.value=0;track.source.start();loops.set(key,track);
+      track=voice(name,true);
+      track.gain.gain.value=0;
+      const clubMusic=key==='beach-dj' || key==='club-speakers';
+      const offset=clubMusic ? Math.random()*track.source.buffer.duration : 0;
+      track.source.start(0,offset);
+      loops.set(key,track);
     }
     const now=context.currentTime,place=placement(listener,yaw,v);
     track.source.playbackRate.setTargetAtTime(rate,now,.13);
