@@ -1,4 +1,4 @@
-import {arrivalDoor} from './palace-arrival.js';
+import {drive,valet} from './palma-site.js';
 import {casinoName,casinoEntrance} from './casino-layout.js';
 import {bankSite,bankRoadZ} from './bank-site.js';
 import {fuelStop} from './fire-sites.js';
@@ -12,7 +12,7 @@ import {basketballCourt} from './basketball-layout.js';
 export const destinations=CITY?new Map([
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[-71,-45]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
   [skatePark.name,[39.35,-156.35]],
-  [casinoName,[arrivalDoor.x,arrivalDoor.z+2.0]],
+  [casinoName,[valet.x,valet.z]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
@@ -45,7 +45,7 @@ if(CITY){
   path([[0,-60],[0,harbor.crossing]]);path([[0,streetPlan.northStreet],[0,-370]]);
   for(const z of [-466,-419,-370])path([-49,0,49].map(x=>[x,z]));
   for(const x of [-49,0,49])path([-466,-419,...(x===49?[-377]:[]),-370].map(z=>[x,z]));
-  path([[-38,71],[-38,76],[-39.6,77.8],[-44.5,81.7],destinations.get(casinoName)]);
+  path([[-38,27],...drive.slice(1,27),destinations.get(casinoName)]);
   path([[49,-419],[66,-419]]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
 }else{

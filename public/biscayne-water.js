@@ -43,6 +43,11 @@ varying vec3 bayPoint;
       float grazing=pow(1.-clamp(dot(waveNormal,viewDir),0.,1.),3.);
       sky=eveningReflection(sky,azimuth,altitude,harborDark);
       outgoingLight=mix(outgoingLight,sky,.032+.29*grazing);
+      // Six broken reflections align with the south arcade in evening light.
+      float pier=mod(p.x+72.75+3.11+sin(p.y*4.5+t*1.7)*.33,6.22)-3.11;
+      float band=exp(-pier*pier*2.4)*step(99.,p.y)*exp(-max(0.,p.y-99.)*.083);
+      float frontage=smoothstep(-76.,-72.75,p.x)*(1.-smoothstep(-36.,-32.,p.x));
+      outgoingLight+=vec3(.92,.51,.17)*band*frontage*harborDark*(.53+.45*sin(p.y*15.+t*3.+ripple));
       #include <opaque_fragment>
     `);
   };

@@ -5,7 +5,7 @@ import {bankSite} from './bank-site.js';
 import {galleryVehicleRects,galleryPlans,galleryDoorWidth,galleryFloor} from './gallery-lobbies.js';
 import {fallenTop} from './shop-furniture.js';
 import {tenants,retailDepths,retailFixtures,shopFloor,shopCeiling} from './street-shop-layout.js';
-import {brickellMap} from './brickell-map.js';
+import {brickellMap,citySiteId} from './brickell-map.js';
 import {doorX,hasStorefrontRooms,panelCenter,storefrontDoors,storefrontFloor,storefrontFurniture,storefrontLeafId} from './storefront-layout.js';
 
 const roomGrid=new Map();
@@ -45,7 +45,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const bays=Math.max(3,Math.round(b.d/2.8)),bay=(b.d-.44)/bays;
       spans=Array.from({length:bays},(_,i)=>[b.z-b.d/2+.22+i*bay,b.z-b.d/2+.22+(i+1)*bay]);
     }
-    const face={id:index*2+(side+1)/2,buildingIndex:index,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
+    const face={id:(citySiteId(b))*2+(side+1)/2,buildingIndex:index,side,x,building:b,showcase,spans,depth:retailDepths(b)[side===1?'east':'west']};
     if(!showcase){
       const bayIndex=side===1?spans.length-1:0,[lo,hi]=spans[bayIndex];
       face.name=tenants[index][side===1?1:0][0];

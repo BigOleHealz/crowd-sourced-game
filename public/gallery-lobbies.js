@@ -5,7 +5,7 @@ import {bankSite,bankFront,bankServiceParts} from './bank-site.js';
 import {hotel,hotelDoorTop} from './maravela-hotel.js';
 import {fallenTop} from './shop-furniture.js';
 import {retailDepths} from './street-shop-layout.js';
-import {brickellMap} from './brickell-map.js';
+import {brickellMap,citySiteId} from './brickell-map.js';
 
 export const galleryFloor=.824, galleryCeiling=3.77, galleryDoorWidth=1.32;
 export const galleryDoorHead=3.10, galleryStile=.07;
@@ -21,6 +21,7 @@ function indexRoom(room){
 }
 const rect=(x,z,w,d,top,bottom=galleryFloor)=>({x,z,w,d,bottom,h:top-bottom});
 for(const [index,b] of brickellMap.buildings.entries()){
+  const siteId=citySiteId(b);
   const {east,west}=retailDepths(b);
   const w=b.w-east-west,x=b.x+(west-east)/2;
   const plan={index,b,w,x,east,west,hotel:b.x===hotel.x && b.z===hotel.z,
@@ -47,7 +48,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
       plan.solids.push(obstacle);return obstacle;
     }
     for(const bay of [-1,1]){
-      const id='gallery-'+index+'-'+(side<0?'north':'south')+'-'+(bay<0?'west':'east');
+      const id='gallery-'+siteId+'-'+(side<0?'north':'south')+'-'+(bay<0?'west':'east');
       const far=w/2-.21,near=galleryDoorWidth/2+galleryStile;
       const paneWidth=far-near, paneX=x+bay*(near+far)/2;
       const pane={id,widthAxis:'x',width:paneWidth,top:galleryDoorHead,
@@ -82,7 +83,7 @@ for(const [index,b] of brickellMap.buildings.entries()){
     entry.table=block('lowTable',-display,.91,seatW*.64,.47,galleryFloor+.37);
     entry.console=block('console',display,1.45,seatW*.81,.57,galleryFloor+.87);
     for(const [part,height] of [[entry.sofa,.85],[entry.table,.408],[entry.console,1.142]]){
-      const id='gallery-'+index+'-'+(side<0?'north':'south')+'-'+part.kind;
+      const id='gallery-'+siteId+'-'+(side<0?'north':'south')+'-'+part.kind;
       part.piece={id,x:part.x,z:part.z,w:part.w,d:part.d,height,floor:galleryFloor,room:[left,right,zmin,zmax]};
     }
     entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);

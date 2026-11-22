@@ -1,30 +1,19 @@
-import {courtRoom} from './palace-arrival.js';
-import {inWaterfrontSalon} from './waterfront-wing.js';
-import {resortLevelAt} from './grand-resort-layout.js';
+import {resortLevelAt,resortLevels} from './grand-resort-layout.js';
+import {doors,resortGround,arrivalBarriers} from './palma-site.js';
 import {fountainWalls} from './centaur-fountain-layout.js';
-export const casinoName='Lantern Club Casino';
-export const casinoHall={x:-59,z:47,w:26,d:16,floor:.80,ceiling:5.6};
-export const casinoEntrance={x:-55,z:55};
-export const casinoSideDoor={x:-46,z:46};
-export const casinoSeat={x:-55,y:casinoHall.floor,z:44.7};
-export const tableZ=casinoSeat.z-1.35;
-
-// Keep the south and east thresholds clear from the sidewalk to the tables.
-const wall=(x,z,w,d)=>({x,z,w,d,h:casinoHall.ceiling-casinoHall.floor});
-export const resortBarriers=[
-  wall(-72,42.1,.26,6.2),wall(-72,51.4,.26,7.2),{...wall(-67.4,39,9.2,.26),h:3.45},{...wall(-52.6,39,13.2,.26),h:3.45},
-  wall(-64.5,55,15,.26),wall(-49.5,55,7,.26),
-  wall(-46,41.75,.26,5.5),wall(-46,51.25,.26,7.5),
-
-  ...fountainWalls,
-  ...[-60.35,-49.65].map(x=>({x,z:56.35,w:.35,d:.38,h:3.7})),
-  {x:casinoSeat.x,z:tableZ-.21,w:2.96,d:.50,h:.96},
-  {x:casinoSeat.x,z:tableZ+.21,w:2.62,d:.36,h:.96},
-  {x:casinoSeat.x,z:tableZ+.51,w:1.84,d:.25,h:.96},
-];
-export function insideCasino(x,y,z){
-  return !!courtRoom(x,y,z) || inWaterfrontSalon(x,y,z) || !!resortLevelAt(x,y,z,.25);
-}
+export const casinoName='Palma de Sal';
+export const casinoHall={x:-78.75,z:47,w:19.5,d:30,floor:1.8,ceiling:26.58};
+export const casinoEntrance=doors.lobby,casinoSideDoor=doors.quay;
+export const casinoSeat={x:-68,y:.8,z:81.55},tableZ=80.2;
+// Only street-level furniture and walls participate in road-vehicle contact.
+// The per-storey index handles walking collision and upper levels.
+export const resortBarriers=[...arrivalBarriers,...fountainWalls,
+  ...resortLevels[0].parts.filter(p=>p.facade && p.base<3.5).map(p=>{
+    const bottom=p.base-(resortGround(p.x,p.z)??.8);
+    return {x:p.x,z:p.z,w:p.w,d:p.d,bottom,h:bottom+p.h,paneId:p.paneId,resortShell:true};
+  }),
+  {x:casinoSeat.x,z:tableZ,w:2.8,d:1.12,h:.96}];
+export function insideCasino(x,y,z){return !!resortLevelAt(x,y,z);}
 export const stakes=[0,10,20,50];
 export function nearBlackjack(feet){
   return !!feet?.grounded && !feet.ride && !feet.swimming && !feet.climb && !feet.parachute && !feet.liftTravel &&

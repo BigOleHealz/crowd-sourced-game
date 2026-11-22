@@ -1,4 +1,4 @@
-import {wingEntrances} from './waterfront-wing.js';
+import {doors as resortDoors} from './palma-site.js';
 import {insideCasino,casinoEntrance,casinoSideDoor} from './casino-layout.js';
 import {club,inClub} from './club-lucero.js';
 import {CITY,MAP} from './world.js';
@@ -22,7 +22,7 @@ export function acousticSpace(point,world){
   if(CITY){
     if(world.yacht && yachtRoomDepth(world.yacht,x,y,z)>=0)return room('yacht',.12);
     if(insideCasino(x,y,z))return room('casino',Math.max(opening(x,z,casinoEntrance.x,casinoEntrance.z,1),opening(x,z,casinoSideDoor.x,casinoSideDoor.z,1),
-      opening(x,z,wingEntrances.avenue.x,wingEntrances.avenue.z,1),opening(x,z,wingEntrances.terrace.x,wingEntrances.terrace.z,1)));
+      opening(x,z,resortDoors.arcadeWest.x,resortDoors.arcadeWest.z,1),opening(x,z,resortDoors.dining.x,resortDoors.dining.z,1)));
     if(inClub(point))return room('lucero',opening(x,z,club.x,club.z+4.82,1));
     const lobby=galleryRoomAt(x,y,z);
     if(lobby){

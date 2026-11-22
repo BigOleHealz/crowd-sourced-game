@@ -32,8 +32,8 @@ for(const [z,x0,x1,yaw] of [[58.25,-68,-42,Math.PI/2],[63.75,-42,-68,-Math.PI/2]
 }
 
 for(const [model,name,throttle,steer,departed] of [
-  ['falco','Lamborghini',.50,0,car=>car.z<92.5],
-  ['veloce','Ferrari',.25,.12,car=>car.z<92.5],
+  ['falco','Lamborghini',.50,0,car=>car.x> -44.5],
+  ['veloce','Ferrari',.25,.12,car=>car.x> -44.5],
 ]){
   const world=newResort(),car=world.traffic.find(car=>car.model===model);
   const home={x:car.x,z:car.z,yaw:car.yaw,hp:car.hp};
@@ -51,7 +51,7 @@ for(const [model,name,throttle,steer,departed] of [
   damageRover(world,car.hp,players,car.id);
   for(let i=0;i<220;i++)stepCityTraffic(world,players,[],dt,i);
   assert(car.wrecked,'Someone near the berth delays replacement');
-  peer.state.x+=15;
+  peer.state.x+=15;driver.state.z+=15;
   for(let i=220;i<250;i++)stepCityTraffic(world,players,[],dt,i);
   assert(!car.wrecked);
   assert.deepEqual({x:car.x,z:car.z,yaw:car.yaw,hp:car.hp},home);

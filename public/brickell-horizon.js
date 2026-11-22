@@ -10,9 +10,10 @@ const waterfronts=[
   [130,-11,1,0,146,94,'condos',17],
   [166,-201,1,0,160,90,'beach',45],
   [244,-38,1,0,310,106,'downtown',81],
-  [-110,-49,-1,0,273,88,'condos',22],
+  [174,-391,1,0,170,83,'midtown',117],
+  [-272,-49,-1,0,273,88,'condos',22],
   [-141,-230,-1,0,144,84,'beach',67],
-  [-223,-123,-1,0,362,95,'downtown',39],
+  [-343,-123,-1,0,362,95,'downtown',39],
   [-28,131,0,1,201,88,'condos',63],
   [18,245,0,1,285,86,'downtown',92],
   [-3,-548,0,-1,219,105,'condos',73],
@@ -66,7 +67,9 @@ function material(facades){
           if(leaves.a<.38)discard;
           lit=leaves.rgb*tint;
         }
-        float haze=1.-exp(-.0000067*distanceToEye*distanceToEye);
+        // Look above the marine haze from a high suite or the open pool deck.
+      float hazeDistance=distanceToEye/(1.+clamp(cameraPosition.y-10.,0.,100.)*.021);
+      float haze=1.-exp(-.0000067*hazeDistance*hazeDistance);
         lit=mix(lit,mist,min(.94,haze));
         lit*=mix(vec3(1.),vec3(.10,.15,.24),skyDarkness);
         if(kind>.5 && kind<2.5)lit+=skyDarkness*vec3(.22,.15,.06)*step(.80,fract(sin(dot(floor(tile*3.),vec2(2.7,5.1)))*312.1))*step(.5,fract(tile.y*3.));
@@ -239,7 +242,7 @@ export function addBrickellHorizon(scene,facades){
         const floor=1.35, w=10.5+random()*6.7,d=9.3+random()*6.5;
         const type=(i+seed)%6, angle=(random()-.5)*.20;
         const variation=.5+.5*Math.sin(i*2.63+phase);
-        const h=use==='downtown'?39+variation*38+random()*20:use==='beach'?12+variation*16:22+variation*28+random()*9;
+        const h=use==='midtown'?84+variation*66+random()*20:use==='downtown'?39+variation*38+random()*20:use==='beach'?12+variation*16:22+variation*28+random()*9;
         const stone=stoneTints[(i+seed)%5],glaze=glassTints[(i*2+seed)%5];
         const shape=type===1||type===5?diamond:type===2?oval:rectangle;
         const footprint=(scale=1,du=0,dv=0)=>ring(u+du,v+dv,w*scale,d*scale,shape,angle);

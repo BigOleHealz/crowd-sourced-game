@@ -43,7 +43,7 @@ function sculptedForm(stations){
 }
 
 function centaur(group,Batch){
-  const {x,z,base}=fountainSite,y=base+1.13,scale=1.98,yaw=.28;
+  const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=.28;
   const ball=new THREE.SphereGeometry(1,14,12),horse=new THREE.Group();
   // Build all of the bronze into one static batch. The forelegs paw the air
   // while the back hooves actually bear on the plinth.
@@ -117,12 +117,11 @@ function centaur(group,Batch){
   form(litBronze,[[.25,2.63,.66,.094,.11],[.36,2.67,.66,.122,.127],[.45,2.79,.74,.097,.105],
     [.52,2.91,.83,.072,.080],[.59,3.03,.79,.074,.076],[.64,3.19,.74,.047,.050],[.67,3.24,.71,.043,.054]]);
   oval(bronze,[.67,3.25,.70],[.064,.065,.063]);
-  // A gold victory wreath reads between the raised hand and the sky.
-  const wreath=new THREE.TorusGeometry(.195,.019,8,32);
-  const g=wreath.rotateY(.31);metal.add(g,gold,x+(.70*Math.cos(yaw)+.70*Math.sin(yaw))*scale,y+3.48*scale,z+(.70*Math.cos(yaw)-.70*Math.sin(yaw))*scale,scale,scale,scale,0,yaw);wreath.dispose();
-  for(let j=0;j<16;j++){
-    const a=Math.PI*2*j/16;
-    oval(litBronze,[.70+.181*Math.cos(a),3.48+.187*Math.sin(a),.70-.051*Math.cos(a)],[.033,.048,.024],a*.6);
+  // Seven fluted palmetto blades open from the centaur's raised hand.
+  for(let i=-3;i<=3;i++){
+    const a=i*.23,dx=Math.sin(a),dy=Math.cos(a);
+    form(gold,[[.67,3.25,.70,.024,.025],[.67+.45*dx,3.25+.45*dy,.70,.09,.035],
+      [.67+1.12*dx,3.25+1.12*dy,.65,.065,.025],[.67+1.43*dx,3.25+1.43*dy,.60,.006,.008]]);
   }
   ball.dispose();
   const patina=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.38,roughness:.48});
@@ -138,7 +137,7 @@ function centaur(group,Batch){
       diffuseColor.rgb=mix(diffuseColor.rgb,vec3(.083,.125,.102),smoothstep(.65,.94,stain)*.28);`);
   };
   const sculpture=metal.mesh(group,patina);
-  sculpture.name='Bronze centaur raising a laurel wreath';
+  sculpture.name='The Tide Bearer · bronze and gilded palmetto';
   sculpture.userData.impactSurface='metal';
 }
 

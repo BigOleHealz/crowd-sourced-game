@@ -1,27 +1,9 @@
-import {resortLevels,grandFurniture,skyRooms} from './grand-resort-layout.js';
-import {grandHotelPalette} from './residential-furnishing-layout.js';
+import {floorIndex} from './grand-resort-layout.js';
 import {outsideWell} from './residential-spirals.js';
 import * as THREE from 'three';
 import {interiorPlans,doorIsOpen,landingValid,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {furnishingSupported} from './estate-damage.js';
 import {residentialFurnishingView} from './residential-furnishing-view.js';
-
-const suiteKits=resortLevels.map(level=>{
-  if(level.n<5)return;
-  const furnishings=grandFurniture[level.n].filter(p=>['sofa','coffee','dining','bed','writing','nightstand'].includes(p.kind))
-    .map(p=>({...p,kind:p.kind==='writing'?'desk':p.kind,y:level.y+p.bottom,yaw:0}));
-  if(level.n<17){
-    for(const r of skyRooms(level.n)){
-      const put=(kind,x,z,w,h,d,dy=0,yaw=0)=>furnishings.push({kind,x,y:level.y+dy,z,w,h,d,yaw});
-      const length=r.side?13.91:r.d-.33;
-      put('floor',r.x,r.side?47.82:r.z,r.w-.58,.012,length,.036);
-      put('rug',r.x-.73,r.z+1.93,3.9,.025,3.03,.054);
-      put('pendant',r.x-.73,r.z+1.9,.76,.48,.76,2.92);
-      if(r.side)put('art',r.x,r.z-3.414,1.76,.80,.06,1.34);
-    }
-  }
-  return {profile:grandHotelPalette(level.n),furnishings};
-});
 
 // Reuse two bounded instance buffers: nearby entrances and a single furnished floor.
 export function buildingInteriorView(scene,Batch){
@@ -44,8 +26,8 @@ export function buildingInteriorView(scene,Batch){
     const a=i*.222;pen.beginPath();pen.moveTo(256,105);pen.lineTo(256+55*Math.sin(a),105-55*Math.cos(a));
     pen.stroke();
   }
-  pen.fillStyle='#ecd8ac';pen.font='32px Georgia';pen.textAlign='center';pen.fillText('L A N T E R N',256,151);
-  pen.font='18px Arial';pen.fillText('G R A N D   R E S O R T',256,191);
+  pen.fillStyle='#ecd8ac';pen.font='32px Georgia';pen.textAlign='center';pen.fillText('P A L M A',256,151);
+  pen.font='18px Arial';pen.fillText('D E   S A L',256,191);
   const crestMap=new THREE.CanvasTexture(crest);crestMap.colorSpace=THREE.SRGBColorSpace;
   const carPlaque=new THREE.Mesh(new THREE.PlaneGeometry(.69,.345),new THREE.MeshBasicMaterial({map:crestMap}));
   carPlaque.visible=false;scene.add(carPlaque);
@@ -147,9 +129,8 @@ export function buildingInteriorView(scene,Batch){
   let hadVisibleRider=false;
   return (feet,doors,dt,remotes)=>{
     const room=roomAtFeet(feet,doors),l=room?.l;
-    const suite=suiteKits[room?.casinoStorey];
-    const model=feet.liftTravel?null:l?.residential??room?.p.residential??suite;
-    if(model)furnish(model,{x:room.p.x,y:l?.y??(suite?resortLevels[room.casinoStorey].y:room.p.b.base),z:room.p.z});
+    const model=feet.liftTravel?null:l?.residential??room?.p.residential;
+    if(model)furnish(model,{x:room.p.x,y:l?.y??room.p.b.base,z:room.p.z});
     else furnish(null);
     const changedArea=Math.abs(feet.x-lastX)>6 || Math.abs(feet.z-lastZ)>6;
     if(changedArea){lastX=feet.x;lastZ=feet.z;nearby=interiorPlans.filter(p=>Math.abs(p.x-feet.x)<p.w/2+20 && Math.abs(p.z-feet.z)<p.d/2+20);}
@@ -181,7 +162,7 @@ export function buildingInteriorView(scene,Batch){
     for(const p of nearby){
       if(doors?.beachWood?.[p.wood] || doors?.collapsedTowers?.includes(p.b.towerId) || p.home && doors?.houseRuins?.[p.home])continue;
       for(const s of p.panels)if(Math.abs(s.y-feet.y)<2.0 && landingValid(s,doors))lift(s,ride,p.shaft && (shaft===p.shaft?feet:remoteShaft===p.shaft?remoteRider:null));
-      if(p.grandDoors)for(const d of p.grandDoors[Math.floor((feet.y-.80+.16)/3.6)]??[])leaf(d,doors,dt);
+      if(p.grandDoors)for(const d of p.grandDoors[floorIndex(feet.y+.16)]??[])leaf(d,doors,dt);
       for(const d of p.entrances)if(Math.abs(d.y-feet.y)<3.5 && (!p.home || furnishingSupported(p.home,d.x,d.y,d.z,doors)))leaf(d,doors,dt);
     }
     buffer.count=count;labels.count=textCount;buffer.instanceMatrix.needsUpdate=true;

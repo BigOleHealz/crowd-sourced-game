@@ -1,24 +1,15 @@
 import assert from 'node:assert/strict';
-import {salonFurniture,salonTables,salonSeats,salonBanquettes,salonChandeliers,salonBar} from '../public/waterfront-salon-layout.js';
-
-// Test route envelopes with a player's footprint already included, on each occupied level.
-const groundPaths=[
-  [-80.35,46.9,1.22,27.8],[-76.9,46.5,8.65,1.4],[-81.23,52.30,17.9,1.22],[-76.85,58.75,9.43,1.3],
-  [-84.4,46.62,3.72,9.52],
-];
-const galleryPaths=[[-80.3,36.4,1.18,10.6],[-82.15,40.9,5.48,1.4]];
-for(const f of salonFurniture){
-  assert.ok(f.x-f.w/2>-90.65 && f.x+f.w/2< -72);
-  assert.ok(f.z-f.d/2>30.4 && f.z+f.d/2<(f.bottom>0?42:61));
-  for(const [x,z,w,d] of f.bottom>0?galleryPaths:groundPaths){
-    assert.ok(Math.abs(f.x-x)>=(f.w+w)/2 || Math.abs(f.z-z)>=(f.d+d)/2,
-      'Furniture blocks a salon route at '+[f.x,f.z,x,z]);
-  }
+import {resortLevels,suiteDoors,grandStoryY,penthousePool,resortSupport} from '../public/grand-resort-layout.js';
+for(const floor of resortLevels.slice(5,21)){
+  assert.equal(suiteDoors(floor.n).length,2);
+  for(const kind of ['wardrobe','bath','sofa','bed','dining'])
+    assert.equal(floor.parts.filter(p=>p.kind===kind).length,2,kind+' in both suites');
+  assert.equal(resortSupport(-75.4,49.5,floor.y+.02),floor.y);
 }
-assert.equal(salonTables.length,5);assert.equal(salonSeats.length,15);
-assert.ok(salonBanquettes.some(b=>b.y===salonBar.y));
-for(const c of salonChandeliers){
-  const ceiling=c.z<42?4.75:9.05;
-  assert.ok(c.top<ceiling && c.top-c.drop>.8+2.4,'look and walk under the pendants');
-}
-console.log('PASS Aurora Salon gaming furniture, mezzanine lounge, chandelier clearance, all four entrance and stair routes.');
+assert.equal(resortLevels.length,24);assert.equal(grandStoryY(24),100.8);
+assert.equal(resortLevels[2].parts.filter(p=>p.kind==='poker').length,4);
+assert.equal(resortLevels[23].parts.filter(p=>p.kind==='poolBed').length,14);
+assert(penthousePool.x-penthousePool.w/2>-74,'pool basin is entirely outside the bedroom footprint');
+assert.equal(resortSupport(-65.5,30.65,96.5),96.4,'north overlook reaches the parapet');
+assert.equal(resortSupport(penthousePool.x,34.6,92.2),undefined,'bedroom volume is clear of the basin');
+console.log('PASS all suite floors, future poker layout and stepped rooftop pool.');

@@ -1,11 +1,11 @@
 // Short circuits beside the valet stand and in the lounge, clear of both doors.
 export const resortGuests=[
-  {id:'rival-mateus',name:'Mateus Costa',points:[[-59.45,56.05],[-58.47,56.17],[-59.15,56.65]]},
-  {id:'rival-simone',name:'Simone Baptiste',points:[[-51.8,56.35],[-51.35,57.65],[-52.27,57.61]]},
-  {id:'rival-lucia',name:'Lucía Navarro',points:[[-65.90,46.18],[-65.95,47.55],[-66.55,47.03]]},
-  {id:'rival-adele',name:'Adèle Laurent',points:[[-59.5,49.4],[-60.32,50.26],[-59.54,50.99]]},
-  {id:'rival-kenji',name:'Kenji Sato',points:[[-65.85,49.29],[-66.12,50.04],[-66.05,48.46]]},
-  {id:'rival-victor',name:'Victor Nwosu',points:[[-50.0,48.0],[-48.97,48.15],[-48.58,48.99]]},
+  {id:'rival-mateus',name:'Mateus Costa',points:[[-66.8,42.2],[-67.2,41.4],[-66.75,40.6]]},
+  {id:'rival-simone',name:'Simone Baptiste',points:[[-70.2,92.05],[-68.9,91.8],[-69.5,92.25]]},
+  {id:'rival-lucia',name:'Lucía Navarro',points:[[-84.2,47.9],[-84,49.0],[-83.5,48.5]]},
+  {id:'rival-adele',name:'Adèle Laurent',points:[[-75.75,49.8],[-76.6,50.35],[-75.8,50.75]]},
+  {id:'rival-kenji',name:'Kenji Sato',points:[[-56.0,96.35],[-56.8,96.4],[-56.5,96.84]]},
+  {id:'rival-victor',name:'Victor Nwosu',points:[[-22.7,76.3],[-22.0,76.5],[-22.4,76.0]]},
 ];
 
 export const resortConversations={
@@ -14,8 +14,8 @@ export const resortConversations={
     greeting:'Evening. I’m Mateus, on valet tonight. You can take either of the display cars for a spin.',
     topics:[
       ['Which one would you drive?','The green Lamborghini. You sit so low you see your own reflection in the puddles. The red Ferrari sounds better off the line, though.'],
-      ['Where are the cars?','Take the avenue south to the raised fountain court. The Lamborghini and Ferrari are parked on either side of the seawall.'],
-      ['Where’s the lounge?','Through the doors and to your left. There’s a sofa along the west wall if you need a break from the floor.'],
+      ['Where are the cars?','Take the avenue south to the raised fountain court. The Lamborghini and Ferrari are in the two display bays on the city side of the fountain.'],
+      ['Where’s the lounge?','The south arcade has sofas facing the bay. Take either guest lift up to Overture and walk across the glass bridge.'],
     ],
   },
   'rival-lucia':{

@@ -1,4 +1,5 @@
 import {compactAmbientView} from './ambient-snapshot.js';
+import {resortArrivals} from './public/palma-site.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
@@ -237,24 +238,26 @@ const sockets = new WebSocketServer({
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
+const arrivalRoutes=new Map([...resortArrivals].map(([key,pose])=>['/world?map=brickell&arrival='+key,pose]));
 const cityRoutes=new Map([['/world?map=brickell',''],...[marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
-  sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws));
+  sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws,request));
 }
 server.on('upgrade', (request, socket, head) => {
   const origin = request.headers.origin;
   const validOrigin = !origin || origin === 'http://' + request.headers.host ||
     origin === 'https://' + request.headers.host;
-  const district = cityRoutes.get(request.url);
+  const roomPath=arrivalRoutes.has(request.url)?'/world?map=brickell':request.url;
+  const district = cityRoutes.get(roomPath);
   if ((request.url!=='/world' && district===undefined) || !validOrigin) {
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
     return;
   }
   if(request.url === '/world') return accept(request,socket,head);
-  let cityWorker=cityWorkers.get(request.url);
+  let cityWorker=cityWorkers.get(roomPath);
   if(!cityWorker?.connected) {
     cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell',PINEWATCH_MODE:district}});
-    cityWorkers.set(request.url,cityWorker);
+    cityWorkers.set(roomPath,cityWorker);
     cityWorker.on('error',err=>console.error('City session:',err.message));
   }
   socket.pause();
@@ -265,7 +268,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.state.swimming && player.swimArmedUntil>ticks && {swimArmed:true}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -428,7 +431,7 @@ function updateRoom() {
   }
 }
 
-sockets.on('connection', ws => {
+sockets.on('connection', (ws,request) => {
   ws.on('error', () => ws.terminate());
   if (players.size >= capacity) {
     ws.send(JSON.stringify({ type: 'full' }));
@@ -442,6 +445,11 @@ sockets.on('connection', ws => {
     id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
+  const arrival=arrivalRoutes.get(request.url);
+  if(CITY && !match && arrival){
+    player.state={x:arrival.x,y:arrival.y,z:arrival.z+(id%3)*.55,grounded:true,vy:0};
+    player.yaw=arrival.yaw;
+  }
   if(match){
     Object.assign(player,assignTeam(players));
     delete player.trip;

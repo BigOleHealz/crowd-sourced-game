@@ -15,12 +15,13 @@ if(!process.env.INTERIOR_TEST_MAP){
   let seq=0,t=0,rooms=0,trips=0;
   const send=data=>requestInterior(w,players,p,{...data,seq:++seq},t);
   function go(from,to){
+    p.resortStay={key:0,floor:Math.max(from.index,to.index),penthouse:true};
     p.state=feet(from.exitX,from.y,from.exitZ);
     assert(!blocked(p.state.x,p.state.y,p.state.z,w.hp,w.doors),'clear boarding area '+from.p.name);
     assert.equal(buildingAction(p.state,w.doors)?.s,from,'reachable panel '+from.p.name);
     send({building:from.p.id,floor:to.index});
     assert(p.trip);assert.equal(p.state.liftTravel,to.index+1);
-    for(let i=0;p.trip && i<400;i++)advanceElevator(w,p,++t);
+    for(let i=0;p.trip && i<650;i++)advanceElevator(w,p,++t);
     assert.equal(p.trip,undefined);assert(p.state.grounded);
     assert.equal(p.state.y,to.y);assert(Math.abs(groundHeight(p.state.x,p.state.z,p.state.y+1.6,w.doors)-to.y)<.00001);
     assert(!blocked(p.state.x,p.state.y,p.state.z,w.hp,w.doors),'clear destination '+to.p.name);
@@ -49,7 +50,7 @@ if(!process.env.INTERIOR_TEST_MAP){
         p.state=feet(d.x-dir*.72,d.y,d.z);send({door:d.id,open:false});assert(!doorIsOpen(d,w.doors));rooms++;
       }
     }
-    assert.equal(rooms,412);assert.equal(trips,238+2*(20-1));
+    assert.equal(rooms,344);assert.equal(trips,332);
 
     for(const building of interiorPlans)for(const d of building.entrances){
       const doors={};setDoorOpen(d,doors,true);

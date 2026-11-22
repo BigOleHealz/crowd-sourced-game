@@ -46,7 +46,7 @@ for(const key of ['dolphins','manatees','dogs']){
 }
 const c=encounter();c.player.life.hp=0;c.step(98);assert(c.world.sharks.some(s=>s.phase==='scavenging'));
 c.player.life=newLife(110,true);c.step(8);assert(c.world.sharks.every(s=>!s.scavenge));
-for(const p of [estatePools[0],{x:-55.9,z:66.35,waterY:69.10}]){
+for(const p of [estatePools[0],{x:-69.15,z:34.5,waterY:96.30}]){
   const b=encounter({x:p.x,y:p.waterY-.72,z:p.z}),evt=b.blast();assert(evt?.dead && evt.blast);assert(Math.abs(evt.waterline-p.waterY)<.002);
   Object.assign(b.world.sharks[0],{x:p.x-3,z:p.z});
   b.step(40);assert(b.world.sharks.every(s=>!s.scavenge));

@@ -1,7 +1,6 @@
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {casinoView,casinoCast,dealerLooks,poseAtTable,uniformDealer} from './casino-view.js';
-import {casinoHall,casinoSeat} from './casino-layout.js';
-import {resortFloorView} from './resort-floor-view.js';
+import {casinoSeat} from './casino-layout.js';
 import {resortExterior} from './resort-exterior.js';
 import {fitParadeBreeches} from './parade-costume.js';
 import {streetRideView,riderPose} from './street-ride-view.js';
@@ -1105,7 +1104,7 @@ export function createScene(canvas) {
     Object.assign(sun.shadow.camera,{left:-72,right:72,top:61,bottom:-61});
   }
   if(CITY)scene.add(sun.target);
-  let lanternShadows=false,shoreCamera=0;
+  let lanternShadows=false,casinoShadowBand=-1,shoreCamera=0;
   sun.shadow.normalBias=.045; sun.shadow.bias=-.0004; scene.add(sun);
   const lighting=roadLighting(scene,ambient,sun);
   const panorama=addSky(scene);
@@ -1127,8 +1126,7 @@ export function createScene(canvas) {
   const updateHydrants=streetHydrants(scene,Batch);
   const features=new Batch();
   const updateCasino=CITY?casinoView(scene,Batch):null;
-  const updateResortExterior=CITY?resortExterior(scene,Batch):null;
-  let updateResortFloor;
+  const updateResortExterior=CITY?resortExterior(scene,Batch,panorama):null;
   const updateBasketball=CITY?addBasketballCourt(scene,Batch):null;
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
@@ -1298,13 +1296,17 @@ export function createScene(canvas) {
     scene.fog.density=(CITY ? .005 : .0067)/(1+Math.min(4,altitude/32));
     // Bake a new sun map only when the camera's district changes.
     const insideLantern=CITY && local.z<(lanternShadows?-330:-342);
-    if(lanternShadows!==insideLantern){
+    const nearResort=CITY && Math.hypot(local.x+69,local.z-60)<70;
+    const shadowBand=nearResort?Math.floor(Math.max(0,local.y)/25):-1;
+    if(lanternShadows!==insideLantern || casinoShadowBand!==shadowBand){
+      casinoShadowBand=shadowBand;
       lanternShadows=insideLantern;
-      const distance=lanternShadows?2.2:1,centerZ=lanternShadows?-416:0;
-      sun.target.position.set(0,0,centerZ);
-      sun.position.set(-36*distance,32*distance,centerZ-21*distance);
-      const extent=lanternShadows?92:45;
-      Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,far:lanternShadows?240:130});
+      const distance=lanternShadows?2.2:nearResort?1.8:1,centerZ=lanternShadows?-416:nearResort?61:0;
+      const centerX=nearResort?-68:0,centerY=nearResort?shadowBand*25+5:0;
+      sun.target.position.set(centerX,centerY,centerZ);
+      sun.position.set(centerX-36*distance,centerY+(nearResort?45:32)*distance,centerZ-21*distance);
+      const extent=lanternShadows?92:nearResort?52:45;
+      Object.assign(sun.shadow.camera,{left:-extent,right:extent,top:extent,bottom:-extent,far:lanternShadows||nearResort?240:130});
       sun.shadow.camera.updateProjectionMatrix();renderer.shadowMap.needsUpdate=true;
     }
     dt=clamp(dt||.016,0,.10);clock+=dt;
@@ -1372,10 +1374,7 @@ export function createScene(canvas) {
       basketball?.npcs.filter((_,i)=>basketball.players[i]==null)??[] : [];
     const detailScale=view.sighted ? (local.weapon===3 ? 3.1 : 1.8) : 1;
     updateCasino?.(world.casino,local);
-    updateResortExterior?.(dt,local);
-    if(CITY && !updateResortFloor && Math.hypot(local.x-casinoHall.x,local.z-casinoHall.z)<58 && local.y<20)
-      updateResortFloor=resortFloorView(scene,Batch);
-    updateResortFloor?.(dt,local);
+    updateResortExterior?.(dt,local,world.doors);
     const attackTick=world.frameTick??world.simTick;
     const blastDeath=local.dead && local.deathKind==='blast';
     const localDefeat=local.dead && !blastDeath && world.sharkDefeats?.find(e=>e.playerId===local.id);
