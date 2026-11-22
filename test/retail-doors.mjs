@@ -5,7 +5,7 @@ const {storefrontFaces,brokenSpan,breakFrontage,retailRoom,stepRetailDoors}=awai
 const {stepPlayer,blocked,groundHeight,buildingTopAt}=await import('../public/world.js');
 const {shopFloor}=await import('../public/street-shop-layout.js');
 const shops=storefrontFaces.filter(f=>f.entry),dt=1/30;
-assert.equal(new Set(shops.map(f=>f.name)).size,33);
+assert.equal(new Set(shops.map(f=>f.name)).size,31);
 for(const f of shops){
   const world=newExpedition(),s=f.side,door=f.entry;
   let p={x:f.x+s*1.25,z:door.z,y:.8,grounded:true,vy:0};
@@ -32,4 +32,4 @@ for(const f of shops){
   assert(brokenSpan(f,world.doors.broken[f.id],door.z,.32));
   assert(!blocked(f.x,shopFloor,door.z,world.hp,world.doors),f.name+' broken door opening');
 }
-console.log('PASS all 33 named shops: solid closed doors and glass, automatic entry, lateral browsing, exit, closure, furniture, floor, roof and broken door opening on both orientations.');
+console.log('PASS all 31 named shops: solid closed doors and glass, automatic entry, lateral browsing, exit, closure, furniture, floor, roof and broken door opening on both orientations.');

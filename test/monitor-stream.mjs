@@ -27,8 +27,10 @@ assert(npcs[0].lastDrenched>30 && npcs[0].lastDrenched<49,'held trigger gives on
 assert(npcs.slice(1).every(n=>!n.reaction),'near misses, overhead water and defeated actors do not respond');
 driveWater(world,car,{...input,fire:false},61);
 assert(!car.water);
-// From the reserve bay, the resident on the north sidewalk is behind a wall.
-const north=npcs[1];north.state.x=18;north.state.z=-14.6;
+// Park beside the relocated branch and put the resident beyond its opposite wall.
+const {bankSite}=await import('../public/bank-site.js');
+car.x=bankSite.x+12;car.z=bankSite.z;
+const north=npcs[1];north.state.x=bankSite.x-12;north.state.z=bankSite.z;
 const distance=Math.hypot(north.state.x-car.x,north.state.z-car.z);
 const yaw=Math.atan2(north.state.x-car.x,car.z-north.state.z);
 const pitch=Math.atan2(1-monitorHeight+waterDrop(distance),distance);

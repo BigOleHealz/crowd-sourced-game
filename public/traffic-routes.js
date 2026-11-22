@@ -1,3 +1,5 @@
+import {bankRoadZ,bankSite} from './bank-site.js';
+
 // The center of each traffic lane is in map metres. Round each survey corner
 // with a tangent quadratic and tabulate arc length once for constant road speed.
 function circuit(points,trim) {
@@ -43,7 +45,7 @@ const marinaMarket=circuit([
 const estatesBank=circuit([
   [2.15,-88],[2.15,-421.1],[-46.9,-421.1],[-46.9,-434,'Lantern Point Estates'],
   [-46.9,-463.9],[46.95,-463.9],[46.95,-371.85],[-2.15,-371.85],
-  [-2.15,-7],[18,-7,'Biscayne Mutual Bank'],[29.45,-7],[29.45,59],
+  [-2.15,-10.85],[-40.15,-10.85],[-40.15,bankRoadZ+2],[bankSite.x,bankRoadZ+2,bankSite.name],[29.45,bankRoadZ+2],[29.45,59],
   [4.18,59],[4.18,-10.85],[-35.95,-10.85],[-35.95,-43.15],[2.15,-43.15],
 ],3.1);
 marinaMarket.onward=estatesBank;

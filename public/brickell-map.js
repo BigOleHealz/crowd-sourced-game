@@ -1,7 +1,7 @@
 import {shorePads,resortGround,onDrive} from './palma-site.js';
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
 import {resortBarriers} from './casino-layout.js';
-import {bankSite} from './bank-site.js';
+import {bankSite,bankParcelTowerId} from './bank-site.js';
 import {stationBarriers} from './fire-sites.js';
 import {club,clubSolids} from './club-lucero.js';
 import {marketHalls} from './harbor-market.js';
@@ -86,7 +86,10 @@ const buildings=towers.map(([x,z,w,d,eave,facade],towerId)=>({
 const cityPlots=[...buildings,...harborHouses,...marketHalls,bankSite];
 const plotIds=new WeakMap(cityPlots.map((b,id)=>[b,id]));
 export const citySiteId=b=>plotIds.get(b);
-const retainedTowers=buildings.filter(b=>!replacedTowers.has(b.towerId));
+// Substitute the bank in the old tower slot so surviving shops retain their tenant indices.
+const activePlots=cityPlots.filter(b=>b!==bankSite && !replacedTowers.has(b.towerId))
+  .map(b=>b.towerId===bankParcelTowerId?bankSite:b);
+const retainedTowers=activePlots.filter(b=>b.housing);
 const palms=[[-69.2,34.1,7.9],[-68.2,51.8,7.6],[-45.4,39.7,7.9],[-46.3,48.4,6.8],
   [-74.43,92.8,8.6],[-73.7,97.1,7.7],[-63.15,96.4,6.8],[-44.4,96.4,7.4],[-34.35,94.7,7.1],
   [-27.8,78.8,6.7],[-10.4,78.8,6.55]].map(([x,z,height])=>({x,z,height,radius:.19}));
@@ -104,5 +107,5 @@ export const brickellMap = {
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({
       x:x+side*1.72*Math.cos(yaw),z:z-side*1.72*Math.sin(yaw),w:.14,d:.14,h:2.1,postId:'beach-'+i,woodId:'sign-'+i,
     })))], lookout:{x:38,z:-42}, trail:[], rocks:[], trees:[...palms,...lanternPalms].filter(p=>!roadway(p.x,p.z)),
-  buildings:cityPlots.filter(b=>!replacedTowers.has(b.towerId)),
+  buildings:activePlots,
 };
