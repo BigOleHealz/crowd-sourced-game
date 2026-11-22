@@ -50,10 +50,16 @@ export function createDolphins(world,water){
         }
         slots.set(boat.id,[...(slots.get(boat.id)??[]),minds[i].side]);
       }
-      for(const boat of underway){
+      // A staffed cruise can attract a pod while the harbor is quiet. When a
+      // player takes a boat alongside, let the pair switch bows together.
+      const cruises=new Set(underway.filter(b=>b.cruising && b.driver==null).map(b=>b.id));
+      for(const boat of [...underway].sort((a,b)=>Number(b.driver!=null)-Number(a.driver!=null))){
         const taken=slots.get(boat.id)??[];
         const nearest=state.map((s,i)=>({s,i,d:distance(s,boat)}))
-          .filter(({s,i,d})=>!s.bowId && d<40 && !(minds[i].lastBow===boat.id && time<minds[i].release)).sort((a,b)=>a.d-b.d);
+          .filter(({s,i,d})=>{
+            const available=!s.bowId || (boat.driver!=null && cruises.has(s.bowId) && d<30);
+            return available && d<40 && !(minds[i].lastBow===boat.id && time<minds[i].release);
+          }).sort((a,b)=>a.d-b.d);
         for(const side of [-1,1]){
           if(taken.includes(side)||!nearest.length||!openPoint(boat,side))continue;
           const {s,i}=nearest.shift();s.bowId=boat.id;minds[i].side=side;

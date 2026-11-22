@@ -89,3 +89,14 @@ for(const exit of ['stop','reverse','wreck','sling']){
   assert.deepEqual(heard,['whistle'],'Only a nearby listener hears a newly emitted call once');
 }
 console.log('Dolphins join both sides of the bow, keep pace through a turn, avoid hulls and shallows, release underway boats and share nearby calls.');
+
+{
+  const yacht={id:'party',partyYacht:true,cruising:true,x:62,z:22,y:water,yaw:0,speed:3,driver:null};
+  const world={boats:[yacht]},pod=createDolphins(world,water);
+  for(let i=0;i<120;i++){yacht.z-=3*dt;pod.step(dt);}
+  assert.equal(pod.state.filter(s=>s.bowId===yacht.id).length,2);
+  const launch={id:'player-launch',x:67,z:yacht.z,y:water,yaw:0,speed:3,driver:7};
+  world.boats.push(launch);
+  for(let i=0;i<300;i++){yacht.z-=3*dt;launch.z-=3*dt;pod.step(dt);}
+  assert.equal(pod.state.filter(s=>s.bowId===launch.id).length,2,'A passing player boat can draw dolphins alongside an ongoing party cruise');
+}
