@@ -149,7 +149,7 @@ export function manateeMaterial(assets,tint,waterline,clock){
       vec3 along=normalize(cameraPosition-manateePoint);
       float depth=max(0.,manateeWaterline-manateePoint.y);
       float submerged=smoothstep(-.025,.040,manateeWaterline-manateePoint.y);
-      float optical=depth/max(.29,along.y);
+      float optical=cameraPosition.y<manateeWaterline ? .18*distance(cameraPosition,manateePoint) : depth/max(.29,along.y);
       float clarity=exp(-.44*optical);
       float speckle=sin(dot(manateePoint.xz,vec2(4.0,3.7))+manateeTime*1.36);
       vec3 tint=vec3(.042,.109,.108);
@@ -158,7 +158,7 @@ export function manateeMaterial(assets,tint,waterline,clock){
       float meniscus=exp(-abs(manateePoint.y-manateeWaterline-wave)*40.);
       outgoingLight+=vec3(.045,.081,.075)*meniscus*(.5+.45*speckle);
       float distanceFade=1.-smoothstep(35.,52.,distance(cameraPosition,manateePoint));
-      diffuseColor.a*=distanceFade*mix(1.,.21+.69*clarity,submerged);
+      diffuseColor.a*=distanceFade*(cameraPosition.y<manateeWaterline ? 1. : mix(1.,.21+.69*clarity,submerged));
       #include <opaque_fragment>
     `);
   };
