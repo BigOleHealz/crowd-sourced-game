@@ -23,6 +23,7 @@ import {addOutpostCreek,riverbedTexture} from './outpost-creek.js';
 import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {gullView} from './gull-view.js';
 import {dolphinView} from './dolphin-view.js';
+import {sharkDogSpray} from './shark-dog-spray.js';
 import {sharkView} from './shark-view.js';
 import {createSharkDefeatView} from './shark-defeat-view.js';
 import {manateeView} from './manatee-view.js';
@@ -1085,6 +1086,7 @@ export function createScene(canvas) {
   const updateDolphins=CITY ? dolphinView(scene,MAP.waterY) : null;
   const updateSharkDefeats=CITY ? createSharkDefeatView(scene,MAP.waterY) : null;
   let framedBite=null,biteSide=1;
+  const updateDogSpray=CITY?sharkDogSpray(scene,MAP.waterY):null;
   const updateSharks=CITY ? sharkView(scene,MAP.waterY) : null;
   const updateManatees=CITY ? manateeView(scene,MAP.waterY) : null;
   const updateHydrants=streetHydrants(scene,Batch);
@@ -1595,6 +1597,7 @@ export function createScene(canvas) {
       camera.lookAt(casinoSeat.x,casinoSeat.y+1.08,casinoSeat.z-1.62);
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
+    updateDogSpray?.(world.sharks,local);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);
     updateSharkDefeats?.(world.sharkDefeats,world.simTick,local,dt);

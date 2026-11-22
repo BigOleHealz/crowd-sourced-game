@@ -31,6 +31,7 @@ function clearCourse(a,b){
   }
   return true;
 }
+export {clearCourse as clearSharkCourse};
 function atBearing(start,bearing,range){
   return {x:start.x+Math.sin(bearing)*range,z:start.z-Math.cos(bearing)*range};
 }
@@ -232,6 +233,7 @@ export function createSharks(){
         }
         continue;
       }
+      if(s.dogEncounter)continue;
       if(mind.feeding && stepFeeding(s,i,dt,tick,players))continue;
       const prey=swimmers.get(s.target);
       const ang=time*.115+i*1.23;

@@ -6,6 +6,7 @@ import {boardRacks,parkRide,takeRide} from './public/street-rides.js';
 import {requestInterior,advanceElevator} from './interior-actions.js';
 import {createBank} from './bank-claim.js';
 import {createGulls} from './public/gull-flight.js';
+import {stepSharkDogEncounters} from './public/shark-dog-encounter.js';
 import {createSharks} from './public/shark-swim.js';
 import {createDolphins} from './public/dolphin-swim.js';
 import {createManatees} from './public/manatee-swim.js';
@@ -773,6 +774,7 @@ function tick() {
   }
   world.stepGulls?.(step);
   world.stepSharks?.(step,players,ticks,damageActor);
+  if(players.size && world.removeEncounterDog)stepSharkDogEncounters(world,step,world.removeEncounterDog);
   if(players.size) {
     for(const player of players.values())sampleRanger(player,step,world);
     for(const npc of npcs)sampleRanger(npc,step,world);
