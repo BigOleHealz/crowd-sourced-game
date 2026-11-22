@@ -34,8 +34,8 @@ import {lockStatus} from './public/handheld-launcher.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
 import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
 import {bridges} from './public/brickell-map.js';
-import {raisedRoadAt} from './public/bridge-driving.js';
-import {stepDrawbridges,bridgeMiddle,leafGeometry,leafLength} from './public/drawbridges.js';
+import {raisedRoadAt,updateRoadPose} from './public/bridge-driving.js';
+import {stepDrawbridges} from './public/drawbridges.js';
 import {interactYacht,stepYacht} from './public/superyacht.js';
 import {stepFurniture} from './public/shop-furniture.js';
 import {stepHotelDoors} from './public/maravela-hotel.js';
@@ -59,7 +59,6 @@ import { reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fir
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
-import { stepSuspension } from './public/road-suspension.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
 import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
@@ -738,28 +737,9 @@ function tick() {
     if(!road || road.sling)continue;
     const kind=road.kind??'rover';
     if(road.driver==null && road.bridgeFlight)driveRover(world,idle,step,players,kind);
-    const raised=raisedRoadAt(world,road.x,road.z);
-    if(raised && !road.bridgeFlight && !road.wrecked){
-      const floor=groundHeight(road.x,road.z,Infinity,world.doors);
-      if(floor>MAP.waterY)road.y=floor;
-      else road.bridgeFlight={vx:0,vz:0,vy:0};
-    }
-    if(road.bridgeFlight){
-      const f=road.bridgeFlight;
-      const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)));
-      road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
-    }else{
-      const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
-      // Driven civilian suspension already advanced with its driving input.
-      if(road.model && (road.driver!=null || !road.flatTires))continue;
-      stepSuspension(road,step,(x,z)=>{
-        const ground=groundHeight(x,z,road.y+1.65,world.doors);
-        // Until takeoff, an unsupported axle follows the end of its ramp.
-        if(leaf && ground<=MAP.waterY && Math.abs(z-bridgeMiddle(raised))<leafLength)
-          return leaf.base+leaf.vertical;
-        return ground;
-      });
-    }
+    // Driven and moving NPC traffic already updated their wheel contacts.
+    if(!road.model || (road.driver==null && (road.flatTires || road.bridgeFlight || raisedRoadAt(world,road.x,road.z))))
+      updateRoadPose(world,road,step);
 
   }
   for(const b of world.boats){

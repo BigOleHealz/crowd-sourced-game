@@ -1,3 +1,5 @@
+import {updateRoadPose} from './bridge-driving.js';
+import {interpolateSuspension,seedRoadSuspension} from './road-suspension.js';
 import {driveTrafficCar} from './city-traffic.js';
 import {stepTank} from './tank.js';
 import {stepJet} from './jet.js';
@@ -16,6 +18,7 @@ export function driverPrediction(snapshot,id) {
   const {jet,heli,rover,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
   const world=structuredClone({jet,heli,rover,supercar,tank,yacht,boats,doors,hp,traffic});
   const vehicle=road?.model ? drivenRoad(world,id) : kind==='boat'?crewBoat(world,id):world[kind];
+  if(road)seedRoadSuspension(vehicle);
   if(kind==='heli')restoreFlightState(vehicle);
   const occupants=new Map();
   let previous=vehicle;
@@ -30,12 +33,16 @@ export function driverPrediction(snapshot,id) {
       else if(kind==='boat')stepBoat(world,vehicle,cmd,dt,occupants);
       else if(kind==='yacht')stepYacht(world,cmd,dt,occupants);
       else if(vehicle.model)driveTrafficCar(world,vehicle,cmd,dt,occupants);
-      else driveRover(world,cmd,dt,occupants,kind);
+      else {driveRover(world,cmd,dt,occupants,kind);updateRoadPose(world,vehicle,dt);}
     },
     pose(t){
       const result={};
       for(const key of ['x','y','z','pitch','roll','steer']){
         if(Number.isFinite(vehicle[key]))result[key]=(previous[key]??0)+(vehicle[key]-(previous[key]??0))*t;
+      }
+      if(road){
+        result.suspension=interpolateSuspension(previous.suspension,vehicle.suspension,t);
+        result.bridgeFlight=(t<.5?previous:vehicle).bridgeFlight;
       }
       if(kind==='tank'){
         const turn=vehicle.turretYaw-previous.turretYaw;

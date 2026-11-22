@@ -4,7 +4,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
-import {raisedRoadAt} from './bridge-driving.js';
+import {onBridgeDeck,raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
@@ -114,7 +114,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   // Keep the prior shore/bridge traversal limits as terrain safeguards.
   const cliff=Math.abs(base-groundHeight(fromX,fromZ,floorProbe,world.doors))>=.34 || [-.73,.73].some(along=>
     Math.abs(groundHeight(x+along*s,z-along*c,floorProbe,world.doors)-base)>.67);
-  if(boat || base<MAP.waterY+.2 || (cliff && !raisedRoadAt(world,x,z))){
+  if(boat || base<MAP.waterY+.2 || (cliff && !(onBridgeDeck(x,z) && onBridgeDeck(fromX,fromZ)) && !raisedRoadAt(world,x,z))){
     const dx=boat?x-boat.x:fromX-x,dz=boat?z-boat.z:fromZ-z,len=Math.hypot(dx,dz);
     return {nx:len?dx/len:0,nz:len?dz/len:1,depth:.01,object:boat||'terrain'};
   }

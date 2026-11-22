@@ -1,6 +1,11 @@
+import {stepSuspension} from './road-suspension.js';
 import {bridges} from './brickell-map.js';
 import {leafLength,bridgeMiddle,leafGeometry} from './drawbridges.js';
 import {CITY,MAP,groundHeight} from './world.js';
+
+export function onBridgeDeck(x,z){
+  return CITY && bridges.some(b=>x>=b.west && x<=b.east && z>=b.north && z<=b.south);
+}
 
 export function raisedRoadAt(world,x,z){
   if(!CITY || !world.doors?.bridgeLifts || Math.abs(x)>6)return null;
@@ -43,4 +48,25 @@ export function advanceBridgeFlight(world,car,dt){
   if(flight.vy<=0 && car.y<=floor && floor>MAP.waterY){
     car.y=floor;roadTouchdown(car,-flight.vy);delete car.bridgeFlight;
   }
+}
+
+export function updateRoadPose(world,road,dt){
+  const raised=raisedRoadAt(world,road.x,road.z);
+  if(raised && !road.bridgeFlight && !road.wrecked){
+    const floor=groundHeight(road.x,road.z,Infinity,world.doors);
+    if(floor>MAP.waterY)road.y=floor;
+    else road.bridgeFlight={vx:0,vz:0,vy:0};
+  }
+  if(road.bridgeFlight){
+    const f=road.bridgeFlight;
+    const pitch=Math.atan2(f.vy,Math.max(1,Math.hypot(f.vx,f.vz)))*(road.speed<0?-1:1);
+    road.suspension={pitch:Math.max(-.55,Math.min(.55,pitch)),roll:0,heave:0,wheels:[0,0,0,0]};
+    return;
+  }
+  const leaf=raised && leafGeometry(raised,world.doors.bridgeLifts[raised.north]);
+  stepSuspension(road,dt,(x,z)=>{
+    const ground=groundHeight(x,z,road.y+1.65,world.doors);
+    if(leaf && ground<=MAP.waterY && Math.abs(z-leaf.middle)<leafLength)return leaf.base+leaf.vertical;
+    return ground;
+  });
 }
