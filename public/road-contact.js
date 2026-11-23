@@ -1,5 +1,3 @@
-import {shorePads} from './palma-site.js';
-const onArrivalQuay=(x,z)=>shorePads.some(r=>x>=r.west && x<=r.east && z>=r.north && z<=r.south);
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -12,7 +10,7 @@ import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
 import {postDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
-import { BREAKABLES, CITY, MAP, groundHeight, terrainHeight } from './world.js';
+import { BREAKABLES, CITY, MAP, travelBounds, waterSurfaceAt, groundHeight, terrainHeight } from './world.js';
 
 // Round the corners of each chassis. Flat faces stay at the modeled extents.
 const pickup={halfWidth:.82,halfLength:CITY?1.69:1.55,corner:.16};
@@ -108,16 +106,18 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const car of world.traffic??[])considerCar(car);
   for(const car of world.patrolCars??[])considerCar(car);
   if(result)return result;
-  const limit=MAP.flightLimit??32,north=MAP.flightNorth??-limit;
-  if(x>limit)return {nx:-1,nz:0,depth:x-limit,object:'east'};
-  if(x< -limit && !(CITY&&onArrivalQuay(x,z)))return {nx:1,nz:0,depth:-limit-x,object:'west'};
-  if(z>limit && !(CITY&&onArrivalQuay(x,z)))return {nx:0,nz:-1,depth:z-limit,object:'south'};
+  const {west,east,north,south}=travelBounds;
+  if(x>east)return {nx:-1,nz:0,depth:x-east,object:'east'};
+  if(x<west)return {nx:1,nz:0,depth:west-x,object:'west'};
+  if(z>south)return {nx:0,nz:-1,depth:z-south,object:'south'};
   if(z<north)return {nx:0,nz:1,depth:north-z,object:'north'};
   const boat=base<MAP.waterY+.75 && nearbyHull(world.boats,null,x,z,yaw,shape.halfWidth,shape.halfLength);
-  // Keep the prior shore/bridge traversal limits as terrain safeguards.
-  const cliff=Math.abs(base-groundHeight(fromX,fromZ,floorProbe,world.doors))>=.34 || [-.73,.73].some(along=>
-    Math.abs(groundHeight(x+along*s,z-along*c,floorProbe,world.doors)-base)>.67);
-  if(boat || base<MAP.waterY+.2 || (cliff && !(onBridgeDeck(x,z) && onBridgeDeck(fromX,fromZ)) && !raisedRoadAt(world,x,z))){
+  const previous=groundHeight(fromX,fromZ,floorProbe,world.doors);
+  const front=groundHeight(x+.73*s,z-.73*c,floorProbe,world.doors);
+  const rear=groundHeight(x-.73*s,z+.73*c,floorProbe,world.doors);
+  const cliff=Math.abs(base-previous)>=.34 || Math.max(Math.abs(front-base),Math.abs(rear-base))>.67;
+  const shoreDrop=cliff && previous>=base && Math.min(front,rear,base)<waterSurfaceAt(x,z,base);
+  if(boat || (cliff && !shoreDrop && !(onBridgeDeck(x,z) && onBridgeDeck(fromX,fromZ)) && !raisedRoadAt(world,x,z))){
     const dx=boat?x-boat.x:fromX-x,dz=boat?z-boat.z:fromZ-z,len=Math.hypot(dx,dz);
     return {nx:len?dx/len:0,nz:len?dz/len:1,depth:.01,object:boat||'terrain'};
   }
