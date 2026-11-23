@@ -1,3 +1,4 @@
+import {wallSectionContact,inTankOpening} from './tank-wall-cuts.js';
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -60,17 +61,18 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const shape=roadHullFor(vehicle);
   const s=Math.sin(yaw),c=Math.cos(yaw);
   const interior=CITY && onEstate(x,z);
-  const floorProbe=interior ? (vehicle.y??.8)+.32 : Infinity;
+  const floorProbe=interior || CITY && inTankOpening(world.doors,x,vehicle.y??.8,z) ? (vehicle.y??.8)+.32 : Infinity;
   const base=groundHeight(x,z,floorProbe,world.doors);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   const reach=shape.halfWidth+shape.halfLength;
+  const contact=box=>boxContact(x,z,s,c,box,shape);
+  const wall=box=>wallSectionContact(box,x,z,reach,world.doors,vehicle.kind==='tank',contact);
   for(const b of MAP.buildings){
     if(towerCollapsed(b,world.doors) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>{
-      const hit=boxContact(x,z,s,c,box,shape);
-      if(hit && vehicle.kind==='tank' && b.towerId==null)hit.home=houseAtPoint(b.x,b.z)?.id;
-      consider(hit);
+      const destructible=b.towerId!=null || b.finish;
+      consider(destructible && !box.piece && !box.fixedFixture ? wall(box) : contact(box));
     },reach);
     else consider(boxContact(x,z,s,c,b,shape));
   }
@@ -86,9 +88,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     if(CITY && onEstate(b.x,b.z) && terrainHeight(b.x,b.z)+b.h<=(vehicle.y??base)+.30)continue;
     if(b.bottom!=null && terrainHeight(b.x,b.z)+b.bottom>base+1.65)continue;
     if(b.h>.16){
-      const hit=boxContact(x,z,s,c,b,shape);
-      if(hit && CITY && vehicle.kind==='tank' && !b.postId && b.lamp==null)hit.home=houseAtPoint(b.x,b.z,.25)?.id;
-      consider(hit);
+      const destructible=CITY && !b.postId && b.lamp==null && houseAtPoint(b.x,b.z,.25);
+      consider(destructible ? wall(b) : contact(b));
     }
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));

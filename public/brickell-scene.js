@@ -212,7 +212,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const harborMeshes=scene.children.slice(harborStart);
   const citySolids=solids.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true}));
   citySolids.userData.impactSurface='street';
-  const updateHomes=residentialRuinView(scene,[...estateMeshes,...harborMeshes,...podiumParts,citySolids],renderer);
+  const updateHomes=residentialRuinView(scene,[...estateMeshes,...harborMeshes,...podiumParts,...towerParts,citySolids],renderer);
   const updateFalls=structuralCollapseView(scene,MAP.buildings);
   const updateTowers=towerDamageView(scene,MAP.buildings,[citySolids,...podiumParts,...towerParts],renderer);
   box.dispose();
@@ -222,7 +222,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
 
   return (doors,dt,local,remotes,tick,bankVisual)=>{
     updateFuelStop(doors);
-    updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors);updateFalls(doors,dt);
+    updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors,dt);updateFalls(doors,dt);
     updateHarborWindows(doors);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);
     updateDoors(doors,dt);
     updateShopFurniture(scene,doors);

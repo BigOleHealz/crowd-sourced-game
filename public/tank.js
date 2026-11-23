@@ -1,7 +1,7 @@
 import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
-import {ramHouse} from './residential-falls.js';
+import {openTankWall} from './tank-wall-cuts.js';
 import {breakRoadObstacle} from './road-obstacle-damage.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
@@ -77,15 +77,16 @@ export function stepTank(world,input,dt,players){
     const driver=players?.get(t.driver),vx=Math.sin(t.yaw)*t.speed,vz=-Math.cos(t.yaw)*t.speed;
     for(let pass=0;hit && pass<12;pass++){
       const incoming=-(vx*hit.nx+vz*hit.nz);
-      if(hit.home && incoming>0 && ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
-        world.rules?.damageProperty(driver?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
-        t.speed*=.74;
-      }else if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
-        const car=hit.object;
-        if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
-        // The normal lethal damage path ejects the driver and handles credit and recovery.
-        damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
-        car.crushed=true;
+      if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
+        if(incoming>0 && openTankWall(world.doors,hit.wallCell)){
+          world.rules?.damageProperty?.(driver?.team,{x:t.x,y:t.y,z:t.z},'wall:'+hit.wallCell,'Wall section',5_000);
+        }else{
+          const car=hit.object;
+          if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
+          // The normal lethal damage path ejects the driver and handles credit and recovery.
+          damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
+          car.crushed=true;
+        }
       }
       ({fraction,hit}=sweepRoad(world,t,dx,dz));
     }

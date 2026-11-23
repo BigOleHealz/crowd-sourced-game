@@ -1,3 +1,4 @@
+import {inTankOpening} from './tank-wall-cuts.js';
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
@@ -115,6 +116,13 @@ export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return furnishedFloorTop(b,x,z,pad,probe,doors,round)??roof;
   if(ruinedHouseAt(doors,b.x,b.z))return -Infinity;
   if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
+  if(doors?.tankWallCuts){
+    // The shop glass is inset from the lot outline; test the actual contact
+    // point when the player's radius still overlaps the edge of the lot.
+    const px=Math.max(b.x-b.w/2+.18,Math.min(b.x+b.w/2-.18,x));
+    const pz=Math.max(b.z-b.d/2+.18,Math.min(b.z+b.d/2-.18,z));
+    if(inTankOpening(doors,px,probe,pz))return -Infinity;
+  }
   const breach=breachedFloor(b,x,z,Math.min(probe,roof),doors);
   if(breach!=null)return breach;
   const stair=b.finish && spiralForHouse(b);
@@ -176,7 +184,7 @@ const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 // Align the models, walking collision, aim traces and aircraft clearance.
 export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
   let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom,doors),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
-  top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
+  if(!inTankOpening(doors,x,maxBottom,z))top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
   if(CITY)for(const stair of residenceSpirals){
     if(!spiralWell(stair,x,z,padding) || doors?.houseRuins?.[stair.home])continue;
     const cap=estateSupportLimit(doors,x,z);
@@ -197,7 +205,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;
     if(postDown(doors,b) || (b.paneId && doors?.brokenPanes?.[b.paneId]) || doors?.brokenSills?.[b.sillPaneId])continue;
-    if(ruinedHouseAt(doors,b.x,b.z))continue;
+    if(ruinedHouseAt(doors,b.x,b.z) || inTankOpening(doors,x,maxBottom,z))continue;
     const base=terrainHeight(b.x,b.z);
     if(inTowerBreach(MAP.buildings,doors,x,Math.min(base+b.h,maxBottom),z))continue;
     if(b.bottom===undefined || base+b.bottom<=maxBottom) top=Math.max(top,base+b.h);
