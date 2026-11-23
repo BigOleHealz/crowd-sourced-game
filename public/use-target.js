@@ -22,7 +22,7 @@ export function nextUse(world,feet,id,wanted){
     const car=road??world.rover,kind=car.kind??'rover';
     return action(kind,'exit','Exit '+(civilianProfiles[car.model]?.name??names[car.model??kind]));
   }
-  if(world.tank?.driver===id)return action('tank','exit','Exit tank');
+  if(world.tank?.driver===id || world.tank?.gunner===id)return action('tank','exit','Exit tank');
   if(world.jet?.pilot===id)return action('jet','exit',world.jet.grounded?'Exit jet':'Bail out of jet');
   if(world.heli.pilot===id || world.heli.gunner===id)return action('heli','exit',world.heli.grounded?'Exit helicopter':'Bail out of helicopter');
   if(boat)return action(boat.id,'exit',boat.boatModel?'Disembark '+boat.name:'Disembark patrol boat');
@@ -51,7 +51,10 @@ export function nextUse(world,feet,id,wanted){
   }
   const car=nearestTraffic(world,feet);
   if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+(car.patrol?'patrol cruiser':(civilianProfiles[car.model]?.name??names[car.model])));
-  if(nearTank(world.tank,feet))offer(world.tank,'tank','drive','Drive tracked tank');
+  if(nearTank(world.tank,feet)){
+    const driving=world.tank.driver==null;
+    offer(world.tank,'tank',driving?'drive':'gunner',driving?'Drive tracked tank':'Use tank roof gun');
+  }
   if(nearJet(world.jet,feet))offer(world.jet,'jet','drive','Pilot strike jet');
   const near=nearBoat(world,feet);
   if(near)offer(near,near.id,near.driver==null?'drive':'gunner',near.boatModel?'Take helm of '+near.name:

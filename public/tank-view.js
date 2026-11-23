@@ -1,6 +1,6 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import * as THREE from 'three';
-import {tankPivot,tankBarrel} from './tank-layout.js';
+import {tankPivot,tankBarrel,roofPivot} from './tank-layout.js';
 
 const cube=new THREE.BoxGeometry(),disc=new THREE.CylinderGeometry(1,1,1,18);
 function plate(batch,tint,rings){
@@ -73,6 +73,14 @@ export function tankView(scene,Batch,shadowMap){
     for(let j=0;j<8;j++)art.add(cube,dark,side*.38,1.18,1.06+j*.079,.50,.025,.038);
   }
   art.mesh(root,mat,false);top.mesh(turret,equipmentFinish(),false);gun.mesh(barrel,equipmentFinish(),false);
+  const roofRing=new THREE.Group(),roofGun=new THREE.Group(),cradle=new Batch(),receiver=new Batch();
+  root.add(roofRing);roofRing.add(roofGun);roofRing.position.fromArray(roofPivot);
+  cradle.add(disc,dark,0,-.63,0,.18,1.24,.18);
+  cradle.add(disc,trim,0,-.12,0,.21,.09,.21);
+  receiver.add(cube,0x444b43,0,0,-.21,.15,.15,.45);
+  receiver.add(disc,0x363d36,0,.015,-.59,.043,.48,.043,Math.PI/2);
+  for(const side of [-1,1])receiver.add(cube,dark,side*.07,-.04,.11,.035,.14,.075);
+  cradle.mesh(roofRing,mat,false);receiver.mesh(roofGun,mat,false);
   const belt=new THREE.InstancedMesh(cube,new THREE.MeshPhongMaterial({color:0x454740,shininess:33}),links*2);
   belt.instanceMatrix.setUsage(THREE.DynamicDrawUsage);belt.frustumCulled=false;root.add(belt);
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3.15,5.3),new THREE.MeshBasicMaterial({map:shadowMap,color:0x1e2a26,opacity:.48,transparent:true,depthWrite:false}));
@@ -82,6 +90,7 @@ export function tankView(scene,Batch,shadowMap){
   return (tank,dt)=>{
     root.visible=!!tank;if(!tank)return;
     root.position.set(tank.x,tank.y,tank.z);root.rotation.y=-tank.yaw;
+    roofRing.rotation.y=tank.yaw-tank.roofYaw;roofGun.rotation.x=tank.roofPitch;
     turret.rotation.y=tank.yaw-tank.turretYaw;turret.rotation.z=tank.wrecked?.20:0;
     barrel.rotation.x=tank.wrecked?-.22:tank.turretPitch;
     const firstFrame=previousYaw==null;

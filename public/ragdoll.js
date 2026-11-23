@@ -40,7 +40,7 @@ export function sampleRanger(actor,dt,world,tick=0) {
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;
-  const vehicle=crewBoat(world,actor.id)??world?.rover;
+  const vehicle=world?.tank?.gunner===actor.id ? world.tank : crewBoat(world,actor.id)??world?.rover;
   const pose={...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,
     holstered:actor.infected ? true : actor.holstered,moving:actor.moving,sprint:actor.sprint,infected:actor.infected};
   poseRig(state.rig,pose,dt,

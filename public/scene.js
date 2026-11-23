@@ -1284,7 +1284,7 @@ export function createScene(canvas) {
     // At the pole there is no horizontal bearing to recover from atan2.
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
-    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tankCannon' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
@@ -1292,9 +1292,9 @@ export function createScene(canvas) {
     if(station==='heli' && cursorRay.ray.distanceSqToPoint(muzzle)<1e-8)
       return {yaw:Math.atan2(direction.x,-direction.z),pitch:Math.asin(clamp(direction.y,-1,1))};
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station==='tankCannon'?'tank':station);
     let {to}=aimHit;
     if(CITY && to){
       const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);
@@ -1468,7 +1468,7 @@ export function createScene(canvas) {
       a.label.sprite.visible = (!state.beachRole || state.beachRole==='bar') && !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
-      const station=state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
+      const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
       a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
@@ -1528,7 +1528,7 @@ export function createScene(canvas) {
     const marinaBoats=CITY ? world.boats.filter(b=>b.boatModel && !b.wrecked && b!==boat &&
       Math.hypot(local.x-b.x,local.z-b.z)<14) : null;
     const yachtHelm=world.yacht?.driver===local.id;
-    const localStation=world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const localStation=world.tank?.gunner===local.id ? 'tank' : world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
     const nearbyYacht=world.yacht && Math.hypot(local.x-world.yacht.x,local.z-world.yacht.z)<25 ? world.yacht : null;
