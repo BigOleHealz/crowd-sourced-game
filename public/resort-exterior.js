@@ -396,12 +396,11 @@ export function resortExterior(scene,Batch,panorama){
     const lamp=new THREE.PointLight(tint,38,13,2);group.add(lamp);return lamp;
   });
   const interiorMeshes=[];
-  const previewChair=new URLSearchParams(location.search).get('chairPreview')==='1';
   let chaiseFallback,importedSeat,requestedSeat=false;
   for(const level of resortLevels){
     const furniture=new Batch();
     for(const p of level.parts){
-      if(previewChair && level.n===21 && p.kind==='chaise'){
+      if(level.n===21 && p.kind==='chaise'){
         const batch=new Batch();
         renderPart(p,batch);
         chaiseFallback=batch.mesh(group,stoneMat);
@@ -474,7 +473,7 @@ export function resortExterior(scene,Batch,panorama){
           seat.name='Poly Haven lounge chair and footstool';
           seat.position.set(-76.6,87.6,36.6);
           seat.visible=false;group.add(seat);importedSeat=seat;
-        },undefined,err=>console.warn('Lounge chair preview unavailable',err));
+        },undefined,err=>console.warn('Lounge chair unavailable',err));
       }
       chaiseFallback.visible=visible && !importedSeat;
       if(importedSeat)importedSeat.visible=visible;
