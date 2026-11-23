@@ -378,7 +378,7 @@ export function stanceMuzzleHeight(state) {
 }
 
 export function stepPlayer(state, input, dt, hp, world) {
-  if(world?.survival && (world.survival.phase==='lobby' || world.survival.phase==='finished'))return state;
+  if(world?.survival?.phase==='finished')return state;
   const next = movePlayer(state,input,dt,hp,world);
   return world?.survival ? confineToArena(next) : next;
 }

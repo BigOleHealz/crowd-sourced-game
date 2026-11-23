@@ -387,6 +387,13 @@ window.addEventListener('keydown', e => {
     return;
   }
   if(touchBlocked() && byId('guide').hidden)return;
+  if(e.code==='Enter' && zombies && !e.repeat && !touchBlocked() &&
+    (e.target===canvas || e.target===document.body) &&
+    (world?.survival?.phase==='lobby' || world?.survival?.phase==='finished')){
+    e.preventDefault();
+    byId('zombie-start').click();
+    return;
+  }
   if(e.code==='KeyT' && !e.repeat){startMarinaSprint();return;}
   if (e.key === '?' && !e.repeat) setGuide(byId('guide').hidden);
   if (e.code === 'Escape') {if(vitals.clubSince!=null)pressAction('KeyE');setGuide(false);releaseLook();return;}
