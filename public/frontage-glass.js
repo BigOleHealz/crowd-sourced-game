@@ -247,7 +247,7 @@ for(const face of storefrontFaces){
   for(const end of [-1,1])face.solids.push({x:(x+rear)/2,z:b.z+end*(b.d/2-.09),w:Math.abs(x-rear),d:.18});
   if(face.showcase){
     face.solids.push({x:(x+rear)/2,z:2.41,w:Math.abs(x-rear),d:.17});
-    for(const p of storefrontFurniture)face.solids.push({x:p.x,z:p.z,w:2*(p.hw??p.r),d:2*(p.hd??p.r),piece:p.piece});
+    for(const p of storefrontFurniture)face.solids.push({x:p.x,z:p.z,w:2*(p.hw??p.r),d:2*(p.hd??p.r),piece:p.piece,fixedFixture:!p.piece});
   }
   face.panes=face.spans.map(([lo,hi,door],i)=>({x,z:(lo+hi)/2,w:.09,d:hi-lo,face,index:i,door}));
   if(face.entry){
