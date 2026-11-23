@@ -14,7 +14,7 @@ export function spearfishingView(scene,camera){
   const held=spear.clone();held.name='Scuba hand spear';held.visible=false;
   held.position.set(.18,-.15,-.43);
   held.quaternion.setFromUnitVectors(up,dir.set(-.14,.11,-1).normalize());camera.add(held);
-  const passing=new Map();
+  const passing=new Map(),launch=new THREE.Vector3(),right=new THREE.Vector3(),end=new THREE.Vector3();
   return (players,local,sighted,tick)=>{
     const age=tick-(local.spearfishing?.last?.tick??-Infinity);
     held.visible=sighted && (age<0 || age>12);
@@ -27,9 +27,12 @@ export function spearfishingView(scene,camera){
       const {from,to}=last;
       dir.set(to.x-from.x,to.y-from.y,to.z-from.z);
       if(dir.lengthSq()<.001)continue;
-      const progress=Math.min(1,elapsed/10);
-      shot.position.set(from.x+dir.x*progress,from.y+dir.y*progress,from.z+dir.z*progress);
-      shot.quaternion.setFromUnitVectors(up,dir.normalize());
+      dir.normalize();
+      right.crossVectors(dir,up).normalize();
+      launch.set(from.x,from.y-.15,from.z).addScaledVector(right,.18).addScaledVector(dir,.43);
+      end.set(to.x,to.y,to.z).addScaledVector(dir,-.36);
+      shot.position.lerpVectors(launch,end,Math.min(1,elapsed/10));
+      shot.quaternion.setFromUnitVectors(up,dir.subVectors(end,launch).normalize());
       shot.visible=true;
     }
     for(const [id,shot] of passing)if(!shot.visible){scene.remove(shot);passing.delete(id);}
