@@ -64,19 +64,19 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const base=groundHeight(x,z,floorProbe,world.doors);
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
+  const reach=shape.halfWidth+shape.halfLength;
   for(const b of MAP.buildings){
     if(towerCollapsed(b,world.doors) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>{
       const hit=boxContact(x,z,s,c,box,shape);
       if(hit && vehicle.kind==='tank' && b.towerId==null)hit.home=houseAtPoint(b.x,b.z)?.id;
       consider(hit);
-    });
+    },reach);
     else consider(boxContact(x,z,s,c,b,shape));
   }
   if(CITY)for(const stand of stationFootprints){
     if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand,shape));
   }
-  const reach=shape.halfWidth+shape.halfLength;
   for(const b of estateSolids(MAP.barriers,world.doors)){
     if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
     if(collapsedLot(MAP.buildings,world.doors,b.x,b.z) || ruinedHouseAt(world.doors,b.x,b.z))continue;

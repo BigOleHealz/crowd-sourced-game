@@ -7,10 +7,7 @@ import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {onBridgeDeck,launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
-import {tipFurniture} from './shop-furniture.js';
-import {noteGlass} from './pane-damage.js';
-import {breakFrontage,shatterPane} from './frontage-glass.js';
-import {damagePost,lampHP} from './street-lamps.js';
+import {breakRoadObstacle} from './road-obstacle-damage.js';
 import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
@@ -18,6 +15,7 @@ import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js
 
 import { RECOVERY_SECONDS } from './airframe.js';
 
+const obstacleRetention={frontage:.8,wood:.84,net:.94,post:.86};
 export const ROVER_HP = 250;
 export const ROVER_PAD = { x: -3, z: 17 };
 export const ROVER_BOARD_RANGE = 2.6;
@@ -272,45 +270,14 @@ export function driveRover(world, input, dt, players,kind='rover') {
     if(!hit)break;
     contacted=true;
     const incoming=Math.max(0,-(vx*hit.nx+vz*hit.nz));
-    if(incoming>.12 && tipFurniture(world.doors,hit.object.piece,vx,vz)){
-      remaining*=1-fraction;
-      continue;
-    }
-    if((hit.object.paneId || hit.object.sillPaneId) && incoming>2.3){
-      const p=hit.object;
-      if(p.sillPaneId)(world.doors.brokenSills??={})[p.sillPaneId]=true;
-      const paneId=p.paneId??p.sillPaneId;
-      if(shatterPane(world.doors,{id:paneId,x:p.x,z:p.z,bottom:r.y,top:r.y+1.4})){
-        world.rules?.brokenPane(players?.get(r.driver)?.team,p,paneId);
-      }
-      remaining*=1-fraction;continue;
-    }
-    if((hit.object.face || hit.object.axis==='x') && incoming>2.3 && breakFrontage(world.doors,hit.object,r,world.rules && (id=>world.rules.brokenPane(players?.get(r.driver)?.team,r,id)))){
-      noteGlass(world.doors,{x:r.x,y:r.y+.9,z:r.z});
-      registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
+    const cleared=breakRoadObstacle(world,r,hit.object,vx,vz,incoming,players?.get(r.driver)?.team);
+    if(cleared){
+      if(cleared==='frontage')registerImpact(world,r,hit,Math.min(5,incoming*.55),players);
+      if(cleared==='post')registerImpact(world,r,hit,Math.min(incoming,4),players);
       if(r.wrecked)return;
-      vx*=.8;vz*=.8;remaining*=1-fraction;
+      const retained=obstacleRetention[cleared]??1;
+      vx*=retained;vz*=retained;remaining*=1-fraction;
       continue;
-    }
-    const woodId=hit.object.woodId;
-    if(woodId && world.doors && incoming>(woodId.startsWith('sign-')?1.1:2.5)){
-      (world.doors.beachWood??={})[woodId]=Math.round(Math.atan2(vx,vz)*1000);
-      // Keep zero radians truthy for the shared collision/visibility lookup.
-      if(!world.doors.beachWood[woodId])world.doors.beachWood[woodId]=1;
-      vx*=.84;vz*=.84;remaining*=1-fraction;
-      continue;
-    }
-    if(hit.object.net!=null && world.doors && incoming>.55){
-      (world.doors.nets??={})[hit.object.net]=Math.sign(vz)||1;
-      vx*=.94;vz*=.94;remaining*=1-fraction;
-      continue;
-    }
-    if((hit.object.lamp!=null || hit.object.postId!=null) && incoming>2.5){
-      damagePost(world.doors,hit.object,lampHP);
-      world.rules?.brokenPost(players?.get(r.driver)?.team,hit.object);
-      registerImpact(world,r,hit,Math.min(incoming,4),players);
-      if(r.wrecked)return;
-      vx*=.86;vz*=.86;remaining*=1-fraction;continue;
     }
     registerImpact(world,r,hit,incoming,players);
     if(r.wrecked)return;

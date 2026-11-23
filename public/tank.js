@@ -1,6 +1,7 @@
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {ramHouse} from './residential-falls.js';
+import {breakRoadObstacle} from './road-obstacle-damage.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
 import {roadContact,sweepRoad} from './road-contact.js';
@@ -65,20 +66,21 @@ export function stepTank(world,input,dt,players){
   if(t.speed){
     const dx=Math.sin(t.yaw)*t.speed*dt,dz=-Math.cos(t.yaw)*t.speed*dt;
     let {fraction,hit}=sweepRoad(world,t,dx,dz);
-    while(hit){
-      if(hit.home && dx*hit.nx+dz*hit.nz<0 &&
-          ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
-        world.rules?.damageProperty(players?.get(t.driver)?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
+    // A thick hull can meet several adjacent bays or pieces in one sweep.
+    // Stop at the next intact contact if a dense pile exhausts this tick's budget.
+    const driver=players?.get(t.driver),vx=Math.sin(t.yaw)*t.speed,vz=-Math.cos(t.yaw)*t.speed;
+    for(let pass=0;hit && pass<12;pass++){
+      const incoming=-(vx*hit.nx+vz*hit.nz);
+      if(hit.home && incoming>0 && ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
+        world.rules?.damageProperty(driver?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
         t.speed*=.74;
-        ({fraction,hit}=sweepRoad(world,t,dx,dz));continue;
+      }else if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
+        const car=hit.object;
+        if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
+        // The normal lethal damage path ejects the driver and handles credit and recovery.
+        damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
+        car.crushed=true;
       }
-      const car=hit.object;
-      if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
-      // A track can clear an existing wreck too. A fresh crush uses the
-      // normal lethal vehicle damage path for ejection, credit and recovery.
-      const driver=players?.get(t.driver);
-      damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
-      car.crushed=true;
       ({fraction,hit}=sweepRoad(world,t,dx,dz));
     }
     t.x+=dx*fraction;t.z+=dz*fraction;t.y=groundHeight(t.x,t.z,t.y+1,world.doors);
