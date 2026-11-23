@@ -153,7 +153,9 @@ export function zombieSurvival() {
         z.lastAdvance=tick;
       }
       if (range<=1.4 && Math.abs(target.state.y-z.state.y)<1.8 && tick>=z.nextBite) {
+        const hpBefore = target.life.hp;
         damageActor(target,9+2*state.wave,tick);
+        if (target.life.hp < hpBefore) target.life.lastBiteTick = tick;
         z.nextBite = tick+26;
       }
     }
