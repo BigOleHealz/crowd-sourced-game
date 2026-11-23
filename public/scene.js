@@ -48,7 +48,7 @@ import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
-import {infectedLook,poseInfected} from './zombie-view.js';
+import {infectedLook,infectedWardrobe,poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -1235,19 +1235,23 @@ export function createScene(canvas) {
     map.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
     return new THREE.MeshLambertMaterial({map});
   }
-  let nightlifeFaces;
+  let nightlifeFaces,infectedFaces,infectedShirts;
   const volleyballShirts=new Map();
-  function resident(id,name,officer=false,lookId=id,infected=false){
+  function resident(id,name,officer=false,lookId=id,infected=0){
     const athlete=volleyballLooks[id];
     const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??beachStaffLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
-    const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
+    const faces=infected?(infectedFaces??=civilianTexture('./infected-faces.webp')):officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
       volleyballShirts.set(look.top,new THREE.MeshLambertMaterial({color:look.top}));
     const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressPerson(rig,infected ? {...look,skin:0x94a98b,hair:0x413b36,extra:null} : look,Batch,material,{faces,shirts});
+    if(infected && !infectedShirts){
+      infectedShirts=shirts.clone();
+      infectedShirts.vertexColors=true;
+    }
+    dressPerson(rig,infected?infectedWardrobe(look,infected):look,Batch,material,{faces,shirts:infected?infectedShirts:shirts});
     if(dealerLooks[id])uniformDealer(rig,Batch,material);
     if(officer)rig.tools=carriedEquipment(rig.upper,scene,Batch);
     scene.add(rig.root);
@@ -1450,7 +1454,7 @@ export function createScene(canvas) {
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){
-          a=resident(state.id,'Infected',false,infectedLook(state.infected),true);
+          a=resident(state.id,'Infected',false,infectedLook(state.infected),state.infected);
         }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
