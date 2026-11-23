@@ -46,11 +46,18 @@ function newTrafficCar(id,model,pose,speed,npcDriver,maxHp=250){
     wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
 }
 
-export function newCityTraffic({resort=false}={}){
+export function parkedTrafficCar(id, model, x, z, yaw=0, hp){
+  const car=newTrafficCar(id,model,{x,z,yaw},0,null,hp);
+  path.set(car,{bay:[x,z],yaw});
+  return car;
+}
+
+export function newCityTraffic({resort=false,parked=false}={}){
   const services=CITY?cityServices:outpostServices;
   const fleet=services.map(([route,offset,model,name,bay,cruise],i)=>{
     const distance=route.length*offset,pose=route.pose(distance);
     const npcDriver='rival-'+name,id=(CITY?'city-car-':'outpost-car-')+(i+1);
+    if(parked)return parkedTrafficCar(id,model,...bay);
     const car=newTrafficCar(id,model,pose,cruise??civilianProfiles[model].cruise,npcDriver);
     const journey={track:route,bay,cruise,distance,wait:0};
     chooseDestination(journey,car);
@@ -58,9 +65,7 @@ export function newCityTraffic({resort=false}={}){
     return car;
   });
   if(CITY && resort)for(const {model,x,z,yaw,hp} of displayBays){
-    const car=newTrafficCar('valet-'+model,model,{x,z,yaw},0,null,hp);
-    path.set(car,{bay:[x,z],yaw});
-    fleet.push(car);
+    fleet.push(parkedTrafficCar('valet-'+model,model,x,z,yaw,hp));
   }
   return fleet;
 }
