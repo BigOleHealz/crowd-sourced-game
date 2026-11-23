@@ -15,6 +15,10 @@ Press **E** in flight to jump out. You start in free fall. Release the climb key
 
 Hikers and trail rivals have 100 HP, forestry rovers have 250 HP, and helicopters have 500 HP. Blasters damage people, vehicles and roadside supply barricades. Trees stay intact. A wrecked rover releases its driver and respawns at the trailhead after six seconds.
 
+## Zombie Survival
+
+Select **Zombie Survival · Co-op** in the map menu or share `/?map=brickell&mode=zombies`. Gather at the Harbor Key cordon and choose **Start run**. All players share one score. Each infected is worth 100 points times the wave number. Clearing a wave brings fallen teammates back and sends a larger, stronger horde. When the last survivor falls, the final score stays up until someone selects **Play again**.
+
 ## Brickell team modes
 
 Choose a mode in the map menu or share its URL with the whole group. Each mode runs its own match. Brickell Avenue and Lantern Point are the two home islands. Harbor Key is neutral. Teams fill automatically up to eight a side. For playtesting, Total Loss starts with one player per side and pauses if a team empties. While alone you can move, shoot and drive in a separate warm-up. Joining opponents return everyone to the competitive round with its property and scores intact. Repo Wars and Moving Day start at five per side and pause if either side falls below five. After a win, players get a fresh round after 15 seconds if both teams still have enough players.

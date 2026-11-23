@@ -338,3 +338,18 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 
 #touch-pad.sprinting #touch-stick { box-shadow: 0 0 0 2px #c2efcf, 0 0 12px #5dd09c; }
 #dive-result {white-space:pre-line;font-variant-numeric:tabular-nums}
+
+#zombie-card {
+  position:fixed; z-index:8; left:14px; top:78px; max-width:min(290px,70vw);
+  padding:10px 14px; color:#fff1dc; background:rgba(33,23,24,.93);
+  border-left:3px solid #e96848; border-radius:4px;
+}
+#zombie-card strong {color:#ffaa75; letter-spacing:.045em}
+#zombie-tally {font-size:.85em; color:#e7d3c2}
+#zombie-start {margin-top:5px; padding:6px 12px; cursor:pointer}
+
+#zombie-card.run-finished {
+  left:50%; top:40%; transform:translate(-50%,-50%); width:max-content;
+  text-align:center; padding:20px 28px; border:1px solid #a5563c;
+}
+#zombie-card.run-finished #zombie-status {font-size:1.35em; font-weight:700; margin:.35em 0}

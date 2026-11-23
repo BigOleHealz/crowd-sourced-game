@@ -1,3 +1,4 @@
+import {confineToArena} from './zombie-arena.js';
 import {grandTopAt,poolSurface} from './grand-resort-layout.js';
 import {towerFloor,towerRail,stepPlatformLadder} from './marina-platform.js';
 import {boardAt,boardHeight,stepDive} from './estate-diving.js';
@@ -377,6 +378,12 @@ export function stanceMuzzleHeight(state) {
 }
 
 export function stepPlayer(state, input, dt, hp, world) {
+  if(world?.survival && (world.survival.phase==='lobby' || world.survival.phase==='finished'))return state;
+  const next = movePlayer(state,input,dt,hp,world);
+  return world?.survival ? confineToArena(next) : next;
+}
+
+function movePlayer(state, input, dt, hp, world) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;

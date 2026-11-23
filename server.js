@@ -44,6 +44,8 @@ import {stepStructuralFalls} from './public/structural-collapse.js';
 import {leaveTank,stepTank} from './public/tank.js';
 import {stepJet,leaveJet} from './public/jet.js';
 import {lockStatus} from './public/handheld-launcher.js';
+import {zombieSurvival} from './zombie-survival.js';
+import {zombieMode} from './public/zombie-arena.js';
 import {assignTeam,createMatch,propertyTeam,teamSpawn} from './island-match.js';
 import {frozenPhase,maxTeam,modes} from './public/island-rules.js';
 import {bridges} from './public/brickell-map.js';
@@ -95,14 +97,15 @@ const build=await clientBuild();
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
-const mode = CITY && Object.hasOwn(modes,process.env.PINEWATCH_MODE) ? process.env.PINEWATCH_MODE : null;
+const zombies = CITY && process.env.PINEWATCH_MODE===zombieMode;
+const mode = CITY && (zombies || Object.hasOwn(modes,process.env.PINEWATCH_MODE)) ? process.env.PINEWATCH_MODE : null;
 const bank=CITY && !mode ? createBank() : null;
 const marina=CITY && process.env.PINEWATCH_MODE===marinaMode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
 const departedScores=new Map();
-let match;
+let match, survival;
 function canPlayVolleyball(world,player){
   const id=player.id,feet=player.state;
   return player.life.hp && !player.life.fall && feet.grounded && !feet.swimming && !feet.climb && !feet.parachute &&
@@ -116,7 +119,7 @@ function canFish(player){
 }
 function freshWorld(){
   const w=newExpedition({civilianMarina:!mode});
-  w.traffic=newCityTraffic({resort:!mode});w.traffic.push(fireEngine());
+  w.traffic=zombies ? [] : [...newCityTraffic({resort:!mode}),fireEngine()];
   if(CITY){
     w.rides=[...(mode?[]:[...boardRacks(groundHeight),...parkRides(groundHeight)]),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
@@ -155,7 +158,10 @@ function freshWorld(){
     Object.defineProperty(w,'hoops',{value:game});
     w.basketball=game.state;
   }
-  if(mode){
+  if(zombies){
+    survival=zombieSurvival();
+    w.survival=survival.state;
+  }else if(mode){
     match=createMatch(mode);
     w.match=match.state;
     Object.defineProperty(w,'rules',{value:match});
@@ -164,6 +170,7 @@ function freshWorld(){
 }
 let world = freshWorld();
 function freshResidents(){
+  if(zombies)return [];
   const residents=newRivals({resort:!mode});
   syncTrafficDrivers(world,residents);
   world.trading?.assign(residents);
@@ -258,7 +265,7 @@ const sockets = new WebSocketServer({
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
 const arrivalRoutes=new Map([...resortArrivals].map(([key,pose])=>['/world?map=brickell&arrival='+key,pose]));
-const cityRoutes=new Map([['/world?map=brickell',''],...[marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
+const cityRoutes=new Map([['/world?map=brickell',''],...[zombieMode,marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws,request));
 }
@@ -287,7 +294,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:!zombies && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -313,6 +320,15 @@ function acceptInput(player, data, binary) {
   } catch {
     return;
   }
+  if(zombies && input?.type==='startSurvival'){
+    if(survival.state.phase==='finished'){
+      world=freshWorld();
+      npcs=freshResidents();
+    }
+    survival.start(players,ticks);
+    return;
+  }
+  if(zombies && !['input','snapshotEncoding'].includes(input?.type))return;
   if(input?.type==='fishing'){fishingAction(player,input.action,ticks,canFish(player));return;}
   if(input?.type==='dog'){
     if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
@@ -387,7 +403,7 @@ function acceptInput(player, data, binary) {
   if (input?.type !== 'input' || !Number.isSafeInteger(input.seq) ||
       input.seq <= player.lastSeq || !Number.isFinite(input.x) ||
       !Number.isFinite(input.z) || !Number.isFinite(input.yaw)) return;
-  if(match && frozenPhase(world.match.phase)){
+  if((zombies && ['lobby','finished'].includes(survival.state.phase)) || (match && frozenPhase(world.match.phase))){
     player.ack=player.lastSeq=input.seq;
     return;
   }
@@ -407,12 +423,12 @@ function acceptInput(player, data, binary) {
     holster:typeof input.holster==='boolean'?input.holster:undefined,handheldHeld:input.handheldHeld===true,
     swimY:input.swimY===1 || input.swimY===-1 ? input.swimY : 0, toggleScuba:input.toggleScuba===true,
     fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: validEquipment(input.weapon) ? input.weapon : null,
-    seat: input.seat===1 || input.seat===2 ? input.seat : null,
+    seat: !zombies && (input.seat===1 || input.seat===2) ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
     lowerHook:input.lowerHook===true,releaseHook:input.releaseHook===true,
-    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: !zombies && input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -478,6 +494,7 @@ sockets.on('connection', (ws,request) => {
     player.state=teamSpawn(player.team,player.slot);
     player.score.team=player.team;
   }
+  if(zombies)survival.join(player,ticks);
   if(world.trading)player.wallet=newWallet();
   players.set(id, player);
   updateRoom();
@@ -553,6 +570,10 @@ function resetRound(){
 }
 function tick() {
   if(!players.size)return;
+  if(zombies && ['lobby','finished'].includes(survival.state.phase)){
+    if(++lobbyTicks%6===0)publish();
+    return;
+  }
   if(match && frozenPhase(world.match.phase)){
     if(world.match.phase==='finished' && match.step(players))resetRound();
     if(++lobbyTicks%2===0)publish();
@@ -578,7 +599,7 @@ function tick() {
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
-  if (players.size) {
+  if (!zombies && players.size) {
     stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
     for(const car of world.traffic)stepRoadBoarding(car,step);
     stepFireEngines(world,players,npcs,ticks,step);
@@ -634,7 +655,7 @@ function tick() {
       if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
       if (world.supercar?.driver===player.id) interactRover(world,player,'supercar');
-      if (respawnDue(player, ticks)) {
+      if (!zombies && respawnDue(player, ticks)) {
         player.state = match ? teamSpawn(player.team,player.slot) : spawn(player.id - 1);
         player.life = newLife(ticks);
         player.yaw = 0;
@@ -876,9 +897,10 @@ function tick() {
   world.wanted?.step(npcs,ticks);
   bank?.step(world,players,ticks);
   world.volleyballActivity?.step(world,players,ticks,step);
-  localWorldReactions(world,npcs,ticks,players);
+  if(zombies)survival.advance(players,npcs,ticks,world);
+  else localWorldReactions(world,npcs,ticks,players);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
-  else updateSupplyRun(world, step);
+  else if(!zombies)updateSupplyRun(world, step);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
