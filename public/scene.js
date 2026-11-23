@@ -47,7 +47,7 @@ import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
-import {buildCordon,poseInfected} from './zombie-view.js';
+import {poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -1172,7 +1172,7 @@ export function createScene(canvas) {
   }
   landingMarks(features);const featureMesh=features.mesh(scene,material);
   if(churchPanes)updateChurch=churchPanes.bind(featureMesh);
-  let updateCases, cordon;
+  let updateCases;
   let updateSupplyView;
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
@@ -1338,7 +1338,6 @@ export function createScene(canvas) {
     lighting.frame(world,local);
     displayedWorld = world;
     displayedPlayers = remotes;
-    if(world.survival && !cordon)cordon=buildCordon(scene,Batch,material,cube);
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);

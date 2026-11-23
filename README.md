@@ -18,7 +18,7 @@ Hikers and trail rivals have 100 HP, forestry rovers have 250 HP, and helicopter
 
 ## Zombie Survival
 
-Select **Zombie Survival · Co-op** in the map menu or share `/?map=brickell&mode=zombies`. Move, jump and shoot as soon as you arrive at the Harbor Key cordon. Press **Enter** or tap the start button to begin a run, solo or with friends. All players share one score. Each infected is worth 100 points times the wave number. Clearing a wave brings fallen teammates back and sends a larger, stronger horde. When the last survivor falls, the final score stays up until someone selects **Play again**.
+Select **Zombie Survival · Co-op** in the map menu or share `/?map=brickell&mode=zombies`. Move, jump and shoot from the Harbor Key starting block into the rest of Brickell. The horde follows the squad. Press **Enter** or tap the start button to begin a run, solo or with friends. All players share one score. Each infected is worth 100 points times the wave number. Clearing a wave brings fallen teammates back and sends a larger, stronger horde. When the last survivor falls, the final score stays up until someone selects **Play again**.
 
 ## Brickell team modes
 
