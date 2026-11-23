@@ -48,13 +48,8 @@ try {
   const held=setInterval(()=>input(3,{fire:true,aimPitch:1}),40);
   try{
     await until(()=>m().weapon===3 && m().rounds===0,'empty scoped rifle');
-    const emptyAt=a.frame.simTick;
-    await until(()=>a.frame.simTick>emptyAt+45,'held trigger past cooldown');
-    assert.equal(m().rounds,0);
-    assert(!a.frame.world.shots.some(s=>s.shooter===a.id && s.tick>emptyAt),'an empty gun cannot fire');
+    assert(m().reloadTicks>0,'last shot starts reloading');
   }finally{clearInterval(held);}
-  input(3,{reload:true,fire:true});
-  await until(()=>m().reloadTicks>0,'reload begins');
   input(2);
   await until(()=>m().weapon===2,'switch away');
   input(3);
@@ -62,11 +57,13 @@ try {
   assert.equal(m().rounds,0);
   assert.equal(m().reloadTicks,undefined);
   assert.equal(state(b,b.id).magazine.rounds,magazineSpecs[1].capacity);
-  input(3,{reload:true});
-  await until(()=>state(b)?.magazine.reloadTicks>0,'peer sees reload');
+  input(3,{fire:true});
+  await until(()=>state(b)?.magazine.reloadTicks>0,'empty trigger restarts interrupted reload');
   await until(()=>state(b)?.magazine.rounds===capacity,'peer sees full magazine');
   input(3,{fire:true});
   await until(()=>m().rounds===capacity-1,'first shot after reload');
+  input(3,{reload:true});
+  await until(()=>m().reloadTicks>0,'early manual reload still works');
   a.ws.send(JSON.stringify({type:'startSurvival'}));
   await until(()=>a.frame.world.survival.phase==='ready','new run');
   assert.equal(m().rounds,magazineSpecs[1].capacity);

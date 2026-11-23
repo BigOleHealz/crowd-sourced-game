@@ -1,5 +1,5 @@
 import {sidearmSlot,carPistolOrigin,carSource} from './car-sidearm.js';
-import { spendRound } from './magazines.js';
+import { spendRound, startReload } from './magazines.js';
 import {meleeItems,validEquipment} from './arcade-melee.js';
 import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
@@ -328,8 +328,17 @@ export function advanceMelee(world,player,tick,players,npcs){
   }
 }
 
+function readyToFire(player, weapon, tick) {
+  if (player.life.magazines?.[weapon] === 0) {
+    startReload(player, tick, weapon);
+    return false;
+  }
+  return !(tick < player.fireReady);
+}
+
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.holstered || player.releaseSwimTrigger || player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || tick < player.fireReady || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (player.holstered || player.releaseSwimTrigger || player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (!readyToFire(player, player.weapon, tick)) return;
   const melee=meleeItems[player.weapon];
   if(melee){
     if(!canUseHandheld(world,player) || !Number.isFinite(input.aimYaw) || input.interact || input.seat)return;
@@ -340,7 +349,7 @@ export function fire(world, player, input, tick, players, npcs) {
     return;
   }
   const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
-  if(!spec || !spendRound(player))return;
+  if(!spec || !spendRound(player,player.weapon,tick))return;
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   if(player.weapon===6){
@@ -695,7 +704,7 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
 
 export function fireCarPistol(world,car,player,input,tick){
   if(input.interact || input.seat || !player.life.hp || player.life.fall ||
-    player.state.swimming || tick<player.fireReady || !spendRound(player,sidearmSlot))return;
+    player.state.swimming || !readyToFire(player,sidearmSlot,tick) || !spendRound(player,sidearmSlot,tick))return;
   player.fireReady=tick+firearmSpecs[sidearmSlot].cooldown;
   const {aimYaw:yaw,aimPitch:pitch}=input;
   player.carShot={source:carSource(car),yaw,pitch,tick};
