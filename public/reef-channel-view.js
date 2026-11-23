@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {reefAnchor,reefTrail,seabedHeight,reefGridSpacing,reefTileSize} from './reef-channel.js';
+import {reefAnchor,reefDiveSite,reefTrail,seabedHeight,reefGridSpacing,reefTileSize} from './reef-channel.js';
 
 function sandTile(tx,tz,material) {
   const geo=new THREE.PlaneGeometry(reefTileSize,reefTileSize,reefTileSize/reefGridSpacing,reefTileSize/reefGridSpacing);
@@ -100,9 +100,42 @@ function buildTrailPlants(scene,Batch) {
   return plants;
 }
 
+// Merge the float, pole and two-sided diver-down pennant into one draw.
+function buildDiveBuoy(scene,Batch){
+  const batch=new Batch(),red=0xf03237,white=0xfff4de;
+  function ring(top,bottom,height,y,tint){
+    const shape=new THREE.CylinderGeometry(top,bottom,height,20);
+    batch.add(shape,tint,0,y,0);shape.dispose();
+  }
+  ring(.83,.55,.46,.04,red);
+  ring(.81,.83,.18,.36,white);
+  ring(.40,.81,.31,.605,red);
+  ring(.07,.10,2.1,1.78,0xe9e6d3);
+  // A slight ripple keeps the stripe visible from oblique approaches.
+  function cloth(u,v){
+    return [.055+u*1.46,2.87-v*.93-u*.12,.24*Math.sin(u*4.4)];
+  }
+  for(let i=0;i<8;i++){
+    const a=i/8,b=(i+1)/8;
+    const bands=u=>[0,Math.max(0,u-.14),Math.min(1,u+.14),1];
+    const left=bands(a),right=bands(b);
+    for(let j=0;j<3;j++){
+      const corners=[cloth(a,left[j]),cloth(a,left[j+1]),cloth(b,right[j]),cloth(b,right[j+1])];
+      const shape=new THREE.BufferGeometry();
+      shape.setAttribute('position',new THREE.Float32BufferAttribute(corners.flat(),3));
+      shape.setIndex([0,1,2,2,1,3]);shape.computeVertexNormals();
+      batch.add(shape,j===1?white:red,0,0,0);shape.dispose();
+    }
+  }
+  const buoy=batch.mesh(scene,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}),false);
+  buoy.name='Coral Reef dive buoy';buoy.position.set(reefDiveSite.x,0,reefDiveSite.z);
+  return buoy;
+}
+
 export function reefChannelView(scene,Batch) {
   const floorMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
   const waterClock={value:0};
+  const buoy=buildDiveBuoy(scene,Batch);
   floorMaterial.onBeforeCompile=shader=>{
     shader.uniforms.reefTime=waterClock;
     shader.vertexShader='varying vec2 reefXZ;\n'+shader.vertexShader.replace('#include <worldpos_vertex>',
@@ -119,6 +152,9 @@ export function reefChannelView(scene,Batch) {
   const tiles=new Map();
   let lastX,lastZ,submerged=false;
   return function update(camera,waterY) {
+    const phase=performance.now()*.0016;
+    buoy.position.y=waterY+.062*Math.sin(phase);
+    buoy.rotation.z=.036*Math.sin(phase*.8);
     const under=camera.position.y<waterY-.04;
     if(!under && !submerged)return;
     submerged=under;

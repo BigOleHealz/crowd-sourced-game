@@ -73,6 +73,7 @@ import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
 import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 
+import {reefDiveSite} from './reef-channel.js';
 import {destinations,landmarkGuide} from './landmark-navigation.js';
 import {sprintHud} from './marina-sprint-view.js';
 import {courtHalfLength,courtHalfWidth,volleyballMember} from './volleyball-court.js';
@@ -1398,6 +1399,21 @@ function drawMap(player, remotes, yaw) {
     ctx.strokeText('⛽',x,z);ctx.fillText('⛽',x,z);
   }
   ctx.restore();
+  if(CITY){
+    const x=sx(reefDiveSite.x),y=sy(reefDiveSite.z);
+    if(x>=0 && x<w && y>=0 && y<h){
+      ctx.save();
+      ctx.fillStyle='#c52c35';ctx.strokeStyle='#fff';ctx.lineWidth=1.4;
+      ctx.fillRect(x-6,y-5,12,9);ctx.strokeRect(x-6,y-5,12,9);
+      ctx.beginPath();ctx.moveTo(x-5,y-4);ctx.lineTo(x+5,y+3);ctx.stroke();
+      const labelLeft=x>w-66;
+      ctx.font='bold 10px sans-serif';ctx.textAlign=labelLeft?'right':'left';
+      ctx.strokeStyle='#193437';ctx.lineWidth=2.6;ctx.fillStyle='#fff';
+      const labelX=x+(labelLeft?-9:9), labelY=clamp(y+3,10,h-2);
+      ctx.strokeText(reefDiveSite.name,labelX,labelY);ctx.fillText(reefDiveSite.name,labelX,labelY);
+      ctx.restore();
+    }
+  }
   if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
   else if(!zombies)drawSupplyMap(ctx,sx,sy,world,player,id);
   if(market.chart && world.market){

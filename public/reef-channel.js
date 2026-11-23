@@ -3,6 +3,7 @@ export const reefTrail = [
   [81,-401],[85,-391],[81,-381],[77,-371],[70,-360],[61,-351],
   [51,-343],[41,-335],[30,-328],[19,-322],[8,-317],[-4,-315],[-16,-313],[-27,-311],
 ];
+export const reefDiveSite = {name:'Coral Reef', x:reefTrail[0][0], z:reefTrail[0][1]};
 const spacing = 2;
 export const reefTileSize = 32;
 const west = -256, north = -544, columns = 193, rows = 337;
