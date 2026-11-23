@@ -23,6 +23,8 @@ import {marketPanel} from './market-panel.js';
 import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {breathSeconds} from './scuba.js';
+import {canSpearfish} from './spearfishing.js';
+import {fishSpecies} from './reef-fish.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
 import {inSkatePark} from './skate-park.js';
 import {basketballCourt,basketballTeams,hoopHeading,onBasketballCourt} from './basketball-layout.js';
@@ -249,6 +251,7 @@ let queuedHorn=false,queuedBomb=false,queuedMissile=false;
 let queuedReplay = false, queuedDeploy = false;
 let queuedFlip=false;
 let queuedSkateTrick;
+let spearSequence=0;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
@@ -449,7 +452,16 @@ function dogInteraction(){
 function pierAt(feet){
   return CITY && !mode && !atTable() && !inVolleyball() && canChangeStance(feet) && fishingSpot(feet);
 }
+function spearReady(feet){
+  return CITY && !mode && !racing && !zombies && !vitals.dead && !vitals.fall && canSpearfish(feet);
+}
+function castSpear(){
+  if(!spearReady(self) || socket?.readyState!==WebSocket.OPEN)return;
+  socket.send(JSON.stringify({type:'spearfish',seq:++spearSequence,aimYaw:camera.yaw,aimPitch:camera.pitch}));
+}
 function pressAction(code){
+  if(code==='KeyF' && self?.swimming){castSpear();return;}
+
   if(code==='KeyP'){
     const car=sidearmCar(world,id);
     if(car && hasMountedTool(car))selectedCarPistol=!selectedCarPistol;
@@ -468,7 +480,7 @@ function pressAction(code){
   }
   if(vitals.clubSince!=null && code!=='KeyE')return;
   if(self?.swimming && (code==='KeyG' || code==='KeyC')){
-    if(code==='KeyG' && !self.swimDepth)queuedScuba=true;
+    if(code==='KeyG' && (self.swimDepth??0)<=.06)queuedScuba=true;
     return;
   }
   if(inVolleyball()){
@@ -589,7 +601,10 @@ function pressButton(e) {
   canvas.focus({ preventScroll: true });
   if(inVolleyball())return;
   if(playingHoops()){mouseFire=queuedFire=true;return;}
-  if((self?.swimming || manualHolster) && !isDriving() && !isPilot() && !gunnerRole()){mouseFire=true;return;}
+  if((self?.swimming || manualHolster) && !isDriving() && !isPilot() && !gunnerRole()){
+    if(self?.swimming)castSpear();
+    mouseFire=true;return;
+  }
   if (self && (!meleeItems[weapon] || meleeItems[weapon].posedContact || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
@@ -711,7 +726,7 @@ function connect() {
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;manualHolster=!!m.state.holstered;holsterSeq=0;
       predictedDriver=null;
-      seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
+      spearSequence=0;seq = 0; pending = []; samples = []; accumulator = 0; retry = 500;
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
     } else if (m.type === 'snapshot' && id != null) {
@@ -865,7 +880,7 @@ function tick() {
   pressedAim = null;
   if(activeCast(vitals.fishing))facing=Math.atan2(vitals.fishing.x-self.x,self.z-vitals.fishing.z);
   else if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
-  else if (fire || (!lookPaused && canAim())) facing = aim.yaw;
+  else if (fire || spearReady(self) || (!lookPaused && canAim())) facing = aim.yaw;
   else if (moving) facing = Math.atan2(x, -z);
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
@@ -1240,7 +1255,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,pistol,swapPistol:roadStation && hasMountedTool(roadStation),canRefuel,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:liftLabel || (dogTarget && !dogTarget.held?'Steal dog':useLabel),dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,pistol,swapPistol:roadStation && hasMountedTool(roadStation),canRefuel,canSpear:spearReady(local),scuba:local.scuba,submerged:(local.swimDepth??0)>.06,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:liftLabel || (dogTarget && !dogTarget.held?'Steal dog':useLabel),dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage && !refuelSite)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
@@ -1251,6 +1266,18 @@ function updateEquipment(local) {
     prompt.textContent=pier.name+' fishing · '+fishingDetail(fish,world.simTick)+
       (fish?.phase==='waiting'?'':'   '+action);
     if(activeCast(fish))byId('kit').textContent='Fishing rod';
+  }
+  const canSpear=spearReady(local);
+  canvas.classList.toggle('spear-sight',canSpear && byId('guide').hidden);
+  if(canSpear){
+    const record=vitals.spearfishing,last=record?.last;
+    const tally=record?.count?' · '+record.count+' caught · '+record.score+' pts':'';
+    const recent=last && world.simTick-last.tick<100;
+    if(recent && last.catch){
+      const fish=last.catch;
+      prompt.textContent='Caught '+fishSpecies[fish.species].name+' · '+fish.lengthCm+' cm · +'+fish.points+' pts'+tally;
+    }else if(recent)prompt.textContent='Miss · Aim at a nearby fish'+tally;
+    else if(!sharkNearby)prompt.textContent=(touch.active?'Aim at a fish · Tap Spear':'Aim at a fish · F or click to spear')+tally;
   }
   if(local.swimming && local.outOfAir)prompt.textContent='Out of air · Surfacing';
   if(climbingLadder){
@@ -1451,7 +1478,7 @@ function frame(time) {
     const tank=world.tank?.driver===traffic.tank?.driver ? traffic.tank : world.tank;
     const cars=traffic.traffic??[];
     const road=inTank()?tank:myRoad()?.model ? cars.find(c=>c.driver===id)??myRoad() : inGT() ? supercar : rover;
-    local.weapon = weapon;local.fishing=vitals.fishing;local.holstered=manualHolster || !!activeCast(vitals.fishing);
+    local.weapon = weapon;local.spearfishing=vitals.spearfishing;local.fishing=vitals.fishing;local.holstered=manualHolster || !!activeCast(vitals.fishing);
     local.meleeSwing=vitals.meleeSwing;
     if (isPilot()) Object.assign(local, { x: aircraft.x, y: aircraft.y, z: aircraft.z, yaw: aircraft.yaw });
     if(boat?.driver===id)Object.assign(local,helmFeet(boat),{yaw:boat.yaw});
@@ -1461,7 +1488,7 @@ function frame(time) {
     const role=gunnerRole();
     if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:role==='tank'?tank:boat??(role==='rover' ? rover : heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
-    view.marinaSprint=racing;view.touch=touch.active;view.basketball=playingHoops();
+    view.spearSight=spearReady(local);view.marinaSprint=racing;view.touch=touch.active;view.basketball=playingHoops();
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
     const roadTraffic=patrolCars?.length?[...cars,...patrolCars]:cars;
     audio.patrolSiren(local,view.yaw,roadTraffic,dt);
