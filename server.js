@@ -1,5 +1,6 @@
 import {sidearmSlot,sidearmCar,hasMountedTool} from './public/car-sidearm.js';
 import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
+import {spearCast,clearReturnedFish} from './public/spearfishing.js';
 import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
 import {refuelVehicle,stepVehicleFuel} from './public/vehicle-fuel.js';
 import {compactAmbientView} from './ambient-snapshot.js';
@@ -298,7 +299,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.spearfishing && {spearfishing:player.spearfishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -339,6 +340,11 @@ function acceptInput(player, data, binary) {
       const {seq,door,open,building,floor}=input;
       requestInterior(world,players,player,{seq,door,open,building,floor},ticks);
     }
+    return;
+  }
+  if(input?.type==='spearfish'){
+    if(CITY && !mode && !marina && player.clubSince==null && !player.trip)
+      spearCast(world,player,input,ticks,MAP.waterY,groundHeight);
     return;
   }
   if(input?.type==='fishing'){fishingAction(player,input.action,ticks,canFish(player));return;}
@@ -591,6 +597,7 @@ function tick() {
     if(++lobbyTicks%2===0)publish();
     return;
   }
+  if(world.spearedFish)clearReturnedFish(world,ticks);
   stepVehicleFuel(world,step);
   stepDrawbridges(world,bridges,step);
   if(CITY && players.size) {
