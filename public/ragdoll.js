@@ -1,3 +1,4 @@
+import {infectedLook,poseInfected} from './zombie-view.js';
 import {poseBeachClub} from './beach-club-cast.js';
 import {poseCabaret} from './club-lucero.js';
 import {civilianLooks,beachStaffLooks,cabaretLooks} from './civilian-style.js';
@@ -33,14 +34,18 @@ export function sampleRanger(actor,dt,world,tick=0) {
   let state=frame.get(actor.life);
   if(!state) {
     state={rig:createRangerRig(),now:pointSet(),last:pointSet(),initialized:false};
+    if(actor.infected)state.rig.civilian=civilianLooks[infectedLook(actor.infected)];
     if(actor.evacLook)state.rig.civilian=civilianLooks[actor.evacLook];
     if(actor.venue)state.rig.civilian=civilianLooks[actor.lookId]??beachStaffLooks[actor.lookId]??cabaretLooks[actor.id];
     frame.set(actor.life,state);
   }
   const swap=state.last;state.last=state.now;state.now=swap;
   const vehicle=crewBoat(world,actor.id)??world?.rover;
-  poseRig(state.rig,{...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,holstered:actor.holstered,moving:actor.moving,sprint:actor.sprint},dt,
+  const pose={...actor.state,id:actor.id,yaw:actor.yaw,weapon:actor.weapon,
+    holstered:actor.infected ? true : actor.holstered,moving:actor.moving,sprint:actor.sprint,infected:actor.infected};
+  poseRig(state.rig,pose,dt,
     vehicle?.driver===actor.id ? vehicle : null,vehicle?.gunner===actor.id ? vehicle : null,world?.doors);
+  if(actor.infected)poseInfected(state.rig,pose,tick/30);
   if(actor.onDuty && !actor.reaction){
     if(actor.program.performer)poseCabaret(state.rig,actor.program,tick/30);
     else poseBeachClub(state.rig,actor.program,tick);

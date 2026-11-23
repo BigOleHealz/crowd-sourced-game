@@ -47,7 +47,7 @@ import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
-import {poseInfected} from './zombie-view.js';
+import {infectedLook,poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -1443,8 +1443,7 @@ export function createScene(canvas) {
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){
-          const looks=['rival-maia','rival-omar','rival-ines','rival-diego'];
-          a=resident(state.id,'Infected',false,looks[state.infected%looks.length],true);
+          a=resident(state.id,'Infected',false,infectedLook(state.infected),true);
         }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);

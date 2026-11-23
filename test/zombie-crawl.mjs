@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {zombieSurvival}=await import('../zombie-survival.js');
+const {advanceRounds,fire,newExpedition}=await import('../public/expedition.js');
+const {sampleRanger,J}=await import('../public/ragdoll.js');
+const {rivalView}=await import('../public/rivals.js');
+const {groundHeight}=await import('../public/world.js');
+
+for(const [leg,side] of [['leftLeg',-1],['rightLeg',1]]){
+  const world=newExpedition(), run=zombieSurvival();
+  const shooter={id:1,inputs:[],lastSeq:0};
+  const players=new Map([[1,shooter]]), infected=[];
+  run.start(players,0);
+  run.advance(players,infected,90,world);
+  const z=infected[0], y=groundHeight(0,0);
+  z.state={x:0,y,z:0,grounded:true,vy:0};
+  z.yaw=0;z.moving=false;
+  sampleRanger(z,1/30,world,91);
+  const knee=z.hitPose.joints[side<0?J.kneeL:J.kneeR];
+  shooter.state={x:knee.x,y,z:knee.z-4,grounded:true};
+  fire(world,shooter,{aimYaw:Math.PI,aimPitch:Math.atan2(knee.y-y-1.3,4)},91,players,infected);
+  for(let tick=91;tick<=94;tick++)advanceRounds(world,players,infected,tick);
+  assert.ok(z.life.lostParts?.[leg] && z.life.hp>0,leg+' lost to a surviving shot');
+  run.advance(players,infected,94,world);
+  assert.equal(rivalView(z,94).fall.cause,'lostLeg');
+  assert.equal(run.state.kills,0);
+  const before=z.state.z;
+  for(let tick=95;tick<=155;tick++)run.advance(players,infected,tick,world);
+  const view=rivalView(z,155);
+  assert.ok(view.moving && !view.fall && view.lostParts[leg]);
+  assert.equal(view.stance,'prone');
+  assert.ok(z.state.z<before-.4 && z.state.z>before-1.7,'slow pursuit toward survivor');
+  sampleRanger(z,1/30,world,155);
+  assert.ok(z.hitPose.joints[J.head].y-z.state.y<.65,'crawler head follows ground-level pose');
+  shooter.state={...z.state,z:z.state.z-.6};
+  for(let tick=156;tick<=160;tick++)run.advance(players,infected,tick,world);
+  assert.equal(z.state.stance,'prone','stays down in bite range');
+  assert.ok(shooter.life.hp<100,'crawler can still reach a nearby survivor');
+}
+console.log('PASS either leg can be lost to a shot, followed by a fall, low pursuit and close-range attack.');
