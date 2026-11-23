@@ -23,7 +23,7 @@ export function flightRounds(scene) {
   mesh.name='Flying rounds';mesh.count=0;mesh.frustumCulled=false;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(mesh);
   const pose=new THREE.Object3D(),direction=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);
-  const offsets=new Map(),tip=new THREE.Vector3(),origin=new THREE.Vector3();
+  const offsets=new Map(),tip=new THREE.Vector3(),forward=new THREE.Vector3(),origin=new THREE.Vector3();
   let frame=0;
   return (bullets,visibleMuzzle)=>{
     frame++;
@@ -35,14 +35,24 @@ export function flightRounds(scene) {
       // Capture the muzzle once. The round leaves the moving shooter behind,
       // then converges on the server trajectory within its first four ticks.
       const age=r.visualAge??r.age;
-      if(age<4 && r.weapon>=1 && r.weapon<=3 && r.shooter!=null){
+      const jet=r.source==='jet';
+      if(age<4 && (jet || (r.weapon>=1 && r.weapon<=3)) && r.shooter!=null){
         let offset=offsets.get(r.id);
-        if(!offset && visibleMuzzle(r.shooter,r.weapon,tip)){
+        if(!offset && visibleMuzzle(r.shooter,r.weapon,tip,r.source,forward)){
           origin.set(r.vx,r.vy,r.vz).multiplyScalar(-age/30).add(pose.position);
           offset=tip.clone().sub(origin);
+          if(jet)offset.velocity=forward.clone().multiplyScalar(Math.hypot(r.vx,r.vy,r.vz)).sub(origin.set(r.vx,r.vy,r.vz));
           offsets.set(r.id,offset);
         }
-        if(offset){offset.frame=frame;pose.position.addScaledVector(offset,1-age/4);}
+        if(offset){
+          offset.frame=frame;
+          const blend=1-age/4;
+          pose.position.addScaledVector(offset,blend);
+          if(offset.velocity){
+            pose.position.addScaledVector(offset.velocity,age/30*blend);
+            direction.set(r.vx,r.vy,r.vz).addScaledVector(offset.velocity,blend).normalize();
+          }
+        }
       }
       pose.quaternion.setFromUnitVectors(up,direction);
       const length=r.weapon==='turret'?.26:r.weapon===2?.16:.202;

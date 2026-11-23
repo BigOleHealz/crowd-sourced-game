@@ -188,7 +188,7 @@ function worldView() {
   const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
     if(r.source!=='heli' && r.source!=='jet')return r;
     const {id,weapon,x,y,z,vx,vy,vz,age}=r;
-    return {id,weapon,x,y,z,vx,vy,vz,age};
+    return r.source==='jet' ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;

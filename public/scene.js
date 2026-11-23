@@ -1198,7 +1198,7 @@ export function createScene(canvas) {
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
-  const updateJet=jetView(scene,Batch);
+  const jetModel=jetView(scene,Batch);
   const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1362,7 +1362,7 @@ export function createScene(canvas) {
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    updateJet(world.jet,dt);
+    jetModel.update(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
     const aircraft=flyingJet ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
@@ -1721,6 +1721,10 @@ export function createScene(canvas) {
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     // Sample once the visible gun, avatar and camera all have their current-frame pose.
     for(const flash of pendingMuzzles){
+      if(flash.source==='jet'){
+        if(world.jet?.pilot===flash.shooter && !world.jet.wrecked)jetModel.flashCannon();
+        continue;
+      }
       const from=visibleMuzzle(flash.shooter,flash.firedWeapon,muzzlePoint);
       effects.shot(from ? {...flash,from} : flash,flash.source);
     }
@@ -1754,7 +1758,11 @@ export function createScene(canvas) {
   const pendingMuzzles=[];
   const muzzlePoint=new THREE.Vector3();
   const muzzleTips=[[0,.099,-.628],[0,.091,-.202],[0,.120,-.744]];
-  function visibleMuzzle(shooter,weapon,out){
+  function visibleMuzzle(shooter,weapon,out,source,forward){
+    if(source==='jet'){
+      const jet=displayedWorld?.jet;
+      return jet && !jet.wrecked && jet.pilot===shooter ? jetModel.cannonMuzzle(out,forward) : null;
+    }
     const tip=muzzleTips[weapon-1];
     if(!tip)return null;
     const avatar=avatars.get(shooter), sight=sightModels[weapon-1];
@@ -1768,7 +1776,7 @@ export function createScene(canvas) {
   function showShots(shots,tick) {
     for(const shot of shots){
       if(isArcadeMelee(shot.weapon) || (shot.weapon==='muzzle' && isArcadeMelee(shot.firedWeapon)))continue;
-      if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
+      if(shot.weapon==='muzzle' && (shot.source==='jet' || (!shot.source && muzzleTips[shot.firedWeapon-1]))){
         pendingMuzzles.push(shot);continue;
       }
       if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
