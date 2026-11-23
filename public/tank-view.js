@@ -77,13 +77,19 @@ export function tankView(scene,Batch,shadowMap){
   belt.instanceMatrix.setUsage(THREE.DynamicDrawUsage);belt.frustumCulled=false;root.add(belt);
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3.15,5.3),new THREE.MeshBasicMaterial({map:shadowMap,color:0x1e2a26,opacity:.48,transparent:true,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.position.y=.025;root.add(shadow);
+  const localAim=new THREE.Vector3(),inverseHull=new THREE.Quaternion();
   const stamp=new THREE.Object3D(),phase=[0,0];
   let lastDriver,previousYaw;
   return (tank,dt)=>{
     root.visible=!!tank;if(!tank)return;
-    root.position.set(tank.x,tank.y,tank.z);root.rotation.y=-tank.yaw;
-    turret.rotation.y=tank.yaw-tank.turretYaw;turret.rotation.z=tank.wrecked?.20:0;
-    barrel.rotation.x=tank.wrecked?-.22:tank.turretPitch;
+    const ride=tank.suspension;
+    root.position.set(tank.x,tank.y+(ride?.heave??0),tank.z);
+    root.rotation.set(ride?.pitch??0,-tank.yaw,ride?.roll??0,'YXZ');
+    const forward=Math.cos(tank.turretPitch);
+    localAim.set(Math.sin(tank.turretYaw)*forward,Math.sin(tank.turretPitch),-Math.cos(tank.turretYaw)*forward);
+    localAim.applyQuaternion(inverseHull.copy(root.quaternion).invert());
+    turret.rotation.y=Math.atan2(-localAim.x,-localAim.z);turret.rotation.z=tank.wrecked?.20:0;
+    barrel.rotation.x=tank.wrecked?-.22:Math.asin(THREE.MathUtils.clamp(localAim.y,-1,1));
     const firstFrame=previousYaw==null;
     const turn=lastDriver===tank.driver && previousYaw!=null ? Math.atan2(Math.sin(tank.yaw-previousYaw),Math.cos(tank.yaw-previousYaw)):0;
     if(!firstFrame && Math.abs(tank.speed)<.0001 && Math.abs(turn)<.00001){lastDriver=tank.driver;previousYaw=tank.yaw;return;}

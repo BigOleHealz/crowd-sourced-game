@@ -1,3 +1,4 @@
+import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {ramHouse} from './residential-falls.js';
@@ -85,6 +86,7 @@ export function stepTank(world,input,dt,players){
     if(hit)t.speed=0;
     if(enterRoadWater(world,t,players,dt) && t.sinking)return;
   }
+  stepSuspension(t,dt,(x,z)=>groundHeight(x,z,t.y+1.65,world.doors));
   if(Number.isFinite(input?.aimYaw))t.turretYaw=input.aimYaw;
   if(Number.isFinite(input?.aimPitch))t.turretPitch=clamp(input.aimPitch,-.25,.85);
 }

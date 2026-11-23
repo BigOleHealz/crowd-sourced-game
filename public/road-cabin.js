@@ -1,16 +1,17 @@
 import {mountPosition} from './mounts.js';
 
-const rover={seat:[-.322,.11,-.085],scale:.85,wheel:[-.36,1.195,-.29],radius:.117,tilt:-.50,handle:[-.738,.964,.204]};
-const gt={seat:[-.365,-.27,-.070],scale:.8,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-.966,.604,.28]};
-function traffic(width,lift,van=false){
-  return {seat:[-.43,-.22+lift,-.28],scale:.91,wheel:[-.43,1.05+lift,-.65],radius:.145,tilt:-.42,
+// The footwell is the top of the chassis floor and the ankle's fore/aft position, in vehicle metres.
+const rover={seat:[-.322,.11,-.085],scale:.85,floorY:.65,ankleZ:-.59,wheel:[-.36,1.195,-.29],radius:.117,tilt:-.50,handle:[-.738,.964,.204]};
+const gt={seat:[-.365,-.27,-.070],scale:.8,floorY:.235,ankleZ:-.61,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-.966,.604,.28]};
+function traffic(width,lift,floorY,van=false){
+  return {seat:[-.43,-.22+lift,-.28],scale:.91,floorY,ankleZ:-.86,wheel:[-.43,1.05+lift,-.65],radius:.145,tilt:-.42,
     handle:[-width-.008,.85+lift,van?.13:.11],hinge:[-width+.025,van?-1.07:-1.02],lift};
 }
-const sportCabin=(width,front,seatZ)=>({...gt,seat:[-.365,-.29,seatZ],handle:[-width-.006,.56,.34],hinge:[-width+.065,front]});
+const sportCabin=(width,front,seatZ)=>({...gt,seat:[-.365,-.29,seatZ],floorY:.38,ankleZ:-.60,handle:[-width-.006,.56,.34],hinge:[-width+.065,front]});
 const fleet={
   falco:sportCabin(1.02,-.91,-.03),
   veloce:sportCabin(.99,-.82,-.02),
-  engine:traffic(1.03,.24,true),sedan:traffic(.86,0),hatchback:traffic(.82,.035),van:traffic(.95,.135,true)};
+  engine:traffic(1.03,.24,.58,true),sedan:traffic(.86,0,.397),hatchback:traffic(.82,.035,.397),van:traffic(.95,.135,.452,true)};
 export const roadCabin=car=>fleet[car.model]??(car.kind==='supercar'?gt:rover);
 const smooth=(v,a,b)=>{const f=Math.max(0,Math.min(1,(v-a)/(b-a)));return f*f*(3-2*f);};
 export function boardingDoorAngle(t){return -1.05*smooth(t,.16,.43)*(1-smooth(t,.76,1));}

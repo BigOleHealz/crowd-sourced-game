@@ -7,7 +7,8 @@ const sportWheels=[-supercarLayout.axle,supercarLayout.axle].flatMap(x=>supercar
 const civilianWheels=Object.fromEntries(Object.entries(civilianProfiles).map(([model,{bodyWidth,axles}])=>[
   model,[-1,1].flatMap(side=>axles.map(z=>[side*(bodyWidth-.078),z])),
 ]));
-export const wheelsFor=car=>civilianWheels[car.model] ?? (car.kind==='supercar'?sportWheels:wheelStations);
+const tankContacts=[[-1.02,-1.46],[-1.02,1.46],[1.02,-1.46],[1.02,1.46]];
+export const wheelsFor=car=>car.kind==='tank'?tankContacts:civilianWheels[car.model] ?? (car.kind==='supercar'?sportWheels:wheelStations);
 export const flatMobility=car=>1/(1+.47*flatTireCount(car));
 
 export const flatWheelDrop=.13;
