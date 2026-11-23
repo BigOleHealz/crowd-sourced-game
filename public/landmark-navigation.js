@@ -19,7 +19,7 @@ export const destinations=CITY?new Map([
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
 for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);
-for(const site of fuelSites)destinations.set(site.name,[site.x,site.z]);
+for(const site of fuelSites)if(!destinations.has(site.name))destinations.set(site.name,[site.x,site.z]);
 
 // Use the intersecting road centrelines, with the island links limited to the
 // two drivable causeways. A destination may split an existing avenue segment.
@@ -53,7 +53,6 @@ if(CITY){
   path([[49,-419],[61,-419],[66,-419]]);
   path([[61,-419],[61,-408.7],destinations.get('East Quay Jetty')]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
-  path([[fuelStop.x,fuelStop.roadZ],[fuelStop.x,fuelStop.z]]);
 }else{
   path(MAP.trail);path(MAP.northTrail);path(churchPath);
   path([[0,15],[-3,19.5],[-8,20.5],destinations.get(roadGarages[0].name)]);
@@ -99,7 +98,8 @@ export function landmarkGuide(name){
     for(let n=chosen;n;n=toward.get(n))if(length(line.at(-1),n.p)>.02)line.push(n.p);
     const distance=nearest+length(join,chosen.p)+dist.get(chosen);
     let cue='Continue',meters=distance;
-    if(length(here,goal.p)<(CITY?6:3))cue='Arrived';
+    const atPump=service?.kind==='road' && Math.hypot(x-service.x,z-service.z)<=service.radius;
+    if(atPump || length(here,goal.p)<(CITY?6:3))cue='Arrived';
     else if(nearest>(CITY?10:5)){cue=CITY?'Join the road':'Join the trail';meters=nearest;}
     else if(line.length>1){
       const heading=(a,b)=>Math.atan2(b[0]-a[0],a[1]-b[1]);
