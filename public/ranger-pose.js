@@ -200,14 +200,16 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
-    const feet=gunnerFeet(station,station.id??'rover');
+    const feet=gunnerFeet(station,station.id??station.kind??'rover');
     avatar.root.position.set(feet.x,feet.y,feet.z);
   }
-  const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
+  const stationYaw=station?.kind==='tank'?station.roofYaw:station?.turretYaw;
+  const stationPitch=station?.kind==='tank'?station.roofPitch:station?.turretPitch;
+  const yaw=station ? -stationYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
   const ride=helm ? seated : (seated || station)?.suspension;
-  const deltaHeading=station ? station.turretYaw-station.yaw : 0;
+  const deltaHeading=station ? stationYaw-station.yaw : 0;
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
@@ -360,7 +362,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       ankle.rotation.set(0,0,0);
       if(cabin)seatRoadLeg(avatar,limb,cabin);
     }
-    arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.x=station ? .64-.34*stationPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
     if (fall) {
@@ -399,7 +401,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));
       forearm.rotation.x=shield?1.20:.39;
     } else if(station) {
-      const p=station.turretPitch;
+      const p=stationPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(avatar.civilian && !seated && !state.dead) {

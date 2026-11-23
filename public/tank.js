@@ -11,17 +11,20 @@ import {tankPad} from './tank-layout.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function parkedTank(){
   return {...tankPad,kind:'tank',y:groundHeight(tankPad.x,tankPad.z),yaw:0,turretYaw:0,turretPitch:0,
-    driver:null,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
+    driver:null,gunner:null,roofYaw:0,roofPitch:0,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
 }
 export function nearTank(tank,state){
-  return !!tank && !tank.wrecked && !tank.sinking && tank.driver==null && state?.grounded &&
+  return !!tank && !tank.wrecked && !tank.sinking && (tank.driver==null || tank.gunner==null) && state?.grounded &&
     Math.hypot(tank.x-state.x,tank.y-state.y,tank.z-state.z)<3.15;
 }
 export function leaveTank(world,player){
   const tank=world.tank;
-  if(!tank || tank.driver!==player.id)return false;
-  tank.driver=null;tank.speed=tank.turnRate=0;
-  for(const side of [-1,1])for(const aft of [0,1.3,-1.3,2.8]){
+  if(!tank)return false;
+  const gunner=tank.gunner===player.id;
+  if(tank.driver===player.id){tank.driver=null;tank.speed=tank.turnRate=0;}
+  else if(gunner)tank.gunner=null;
+  else return false;
+  for(const side of gunner?[1,-1]:[-1,1])for(const aft of [0,1.3,-1.3,2.8]){
     const x=tank.x+2.05*side*Math.cos(tank.yaw)-aft*Math.sin(tank.yaw);
     const z=tank.z+2.05*side*Math.sin(tank.yaw)+aft*Math.cos(tank.yaw);
     const y=groundHeight(x,z,tank.y+1.3,world.doors);
@@ -37,9 +40,11 @@ export function damageTank(world,amount,players,owner){
   tank.hp=Math.max(0,tank.hp-amount);
   if(tank.hp)return;
   world.wanted?.record(owner,'wreck');
-  const driver=players?.get(tank.driver);
-  if(driver)leaveTank(world,driver);
-  tank.driver=null;tank.speed=tank.turnRate=0;tank.wrecked=true;tank.recoverySeconds=9;
+  for(const id of [tank.driver,tank.gunner]){
+    const occupant=players?.get(id);
+    if(occupant){leaveTank(world,occupant);if(occupant.inputs)occupant.inputs.length=0;}
+  }
+  tank.driver=tank.gunner=null;tank.speed=tank.turnRate=0;tank.wrecked=true;tank.recoverySeconds=9;
 }
 export function stepTank(world,input,dt,players){
   const t=world.tank;

@@ -276,7 +276,7 @@ export function canUseHandheld(world,player){
   return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute && !s.liftTravel &&
     player.clubSince==null && world.casino?.player!==id && !world.volleyballActivity?.member(id) &&
     !world.basketball?.players.includes(id) && world.yacht?.driver!==id && world.yacht?.gunner!==id &&
-    world.tank?.driver!==id && world.jet?.pilot!==id && world.heli.pilot!==id && world.heli.gunner!==id &&
+    world.tank?.driver!==id && world.tank?.gunner!==id && world.jet?.pilot!==id && world.heli.pilot!==id && world.heli.gunner!==id &&
     world.rover.gunner!==id && !drivenRoad(world,id) && !crewBoat(world,id);
 }
 
@@ -385,7 +385,7 @@ export function fire(world, player, input, tick, players, npcs) {
 function targets(world,shooter,players,npcs,source=null,round,swept) {
   return [...players.values(), ...npcs].filter(actor =>
     actor.life.hp>0 && actor.id!==shooter && (!swept || swept(actor.state)) &&
-    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner));
+    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner));
 }
 
 function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
@@ -665,7 +665,7 @@ const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=vehicleById(world,kind);
   if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
-  const yaw=kind==='jet'?v.yaw:v.turretYaw, pitch=kind==='jet'?v.pitch:v.turretPitch;
+  const yaw=kind==='jet'?v.yaw:kind==='tank'?v.roofYaw:v.turretYaw, pitch=kind==='jet'?v.pitch:kind==='tank'?v.roofPitch:v.turretPitch;
   if(CITY && (kind==='heli' || kind==='jet')) {
     // Five integer time slots per tick put rounds three slots apart (50/s).
     // Reset the phase after a pause so idle time never accrues ammunition.
@@ -686,6 +686,10 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
+  if(kind==='tank'){
+    const reach=.83*Math.cos(pitch);
+    pivot.x+=reach*Math.sin(yaw);pivot.y+=.015+.83*Math.sin(pitch);pivot.z-=reach*Math.cos(yaw);
+  }
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);
 }
 
