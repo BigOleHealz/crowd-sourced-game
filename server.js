@@ -321,10 +321,10 @@ function acceptInput(player, data, binary) {
     return;
   }
   if(zombies && input?.type==='startSurvival'){
-    if(survival.state.phase==='finished'){
-      world=freshWorld();
-      npcs=freshResidents();
-    }
+    if(survival.state.phase!=='lobby' && survival.state.phase!=='finished')return;
+    // Practice shots and their world damage belong to the warm-up.
+    world=freshWorld();
+    npcs=freshResidents();
     survival.start(players,ticks);
     return;
   }
@@ -403,7 +403,7 @@ function acceptInput(player, data, binary) {
   if (input?.type !== 'input' || !Number.isSafeInteger(input.seq) ||
       input.seq <= player.lastSeq || !Number.isFinite(input.x) ||
       !Number.isFinite(input.z) || !Number.isFinite(input.yaw)) return;
-  if((zombies && ['lobby','finished'].includes(survival.state.phase)) || (match && frozenPhase(world.match.phase))){
+  if((zombies && survival.state.phase==='finished') || (match && frozenPhase(world.match.phase))){
     player.ack=player.lastSeq=input.seq;
     return;
   }
@@ -570,7 +570,7 @@ function resetRound(){
 }
 function tick() {
   if(!players.size)return;
-  if(zombies && ['lobby','finished'].includes(survival.state.phase)){
+  if(zombies && survival.state.phase==='finished'){
     if(++lobbyTicks%6===0)publish();
     return;
   }
@@ -655,8 +655,9 @@ function tick() {
       if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
       if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
       if (world.supercar?.driver===player.id) interactRover(world,player,'supercar');
-      if (!zombies && respawnDue(player, ticks)) {
-        player.state = match ? teamSpawn(player.team,player.slot) : spawn(player.id - 1);
+      if ((!zombies || survival.state.phase==='lobby') && respawnDue(player, ticks)) {
+        if(zombies)survival.join(player,ticks);
+        else player.state = match ? teamSpawn(player.team,player.slot) : spawn(player.id - 1);
         player.life = newLife(ticks);
         player.yaw = 0;
         // Retire all inputs received during defeat. The respawn starts at rest.

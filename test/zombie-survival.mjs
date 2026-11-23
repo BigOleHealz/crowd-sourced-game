@@ -26,16 +26,39 @@ try{
     return guest;
   }
   const path='/world?map=brickell&mode=zombies';
-  const first=await join(path), second=await join(path);
+  const first=await join(path);
+  const origin=first.frame.players[0];
+  let seq=0;
+  function soloInput() {
+    first.ws.send(JSON.stringify({type:'input',seq:++seq,x:1,z:0,yaw:0,jump:true,fire:true,weapon:1}));
+  }
+  async function exerciseSolo() {
+    const before=first.frame.players[0];
+    soloInput();
+    await until(()=>{
+      const p=first.frame.players[0];
+      return p.ack===seq && p.x>before.x && p.y>before.y && first.frame.world.shots.some(s=>s.shooter===p.id);
+    });
+    assert.equal(first.frame.players.length,1);
+  }
+  await exerciseSolo();
+  assert.equal(first.frame.world.survival.phase,'lobby');
+  assert.equal(first.frame.world.survival.score,0);
+  assert.equal(first.frame.world.npcs.length,0);
+  const start=()=>first.ws.send(JSON.stringify({type:'startSurvival'}));
+  start();
+  await until(()=>first.frame.world.survival.phase==='ready');
+  assert.equal(first.frame.players[0].x,origin.x);
+  assert.equal(first.frame.world.shots.length,0);
+  await until(()=>first.frame.world.survival.phase==='active');
+  await exerciseSolo();
+  const second=await join(path);
   const regular=await join('/world?map=brickell');
   assert.equal(regular.frame.world.survival,undefined);
   await until(()=>first.frame.players.length===2);
-  assert.equal(first.frame.world.survival.phase,'lobby');
-  const start=()=>first.ws.send(JSON.stringify({type:'startSurvival'}));
-  start();
+  assert.equal(second.frame.world.survival.phase,'active');
   await until(()=>second.frame.world.npcs.some(z=>z.infected));
   // Shoot from the actual actor position through the normal carbine input path.
-  let seq=0;
   const fire=setInterval(()=>{
     const frame=first.frame, p=frame.players.find(a=>a.id===first.id);
     const z=frame.world.npcs.find(a=>a.hp);

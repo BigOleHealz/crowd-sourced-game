@@ -12,9 +12,9 @@ export function survivalHud(run, size) {
     run.phase==='ready' ? 'Wave '+run.wave+' in '+run.readyIn+'s' :
     'Wave '+run.wave+' · '+run.waveKills+' / '+run.goal+' defeated';
   if (status.textContent!==title) status.textContent=title;
-  tally.textContent = lobby ? 'Invite friends to this mode, then start together.' :
+  tally.textContent = lobby ? 'Warm up here. Move, jump and shoot until you’re ready.' :
     finished ? run.kills+' kills · Reached wave '+run.wave :
     run.score.toLocaleString()+' points · '+run.kills+' squad kills';
   start.hidden = !lobby && !finished;
-  start.textContent = finished ? 'Play again' : 'Start run';
+  start.textContent = finished ? 'Play again' : size===1 ? 'Start solo run' : 'Start squad run';
 }

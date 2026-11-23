@@ -354,3 +354,5 @@ dd { text-align: right; color: var(--accent); margin: 0; }
   text-align:center; padding:20px 28px; border:1px solid #a5563c;
 }
 #zombie-card.run-finished #zombie-status {font-size:1.35em; font-weight:700; margin:.35em 0}
+
+body:not(.touch-play) #zombie-start::after {content:' ↵';opacity:.7}
