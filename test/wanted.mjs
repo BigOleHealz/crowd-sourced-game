@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {startReload,advanceReload} from '../public/magazines.js';
 process.env.PINEWATCH_MAP='brickell';
 const {createWanted}=await import('../public/wanted.js');
 const {newExpedition,fire,advanceRounds,advanceMissiles,patrolSight}=await import('../public/expedition.js');
@@ -9,7 +10,7 @@ function fixture(){
   const w=newExpedition(),p=make(1,0,-185),b=make(2,4,-185),players=new Map([[1,p],[2,b]]),npcs=[];
   w.traffic=[];w.wanted=createWanted(w,players);
   const level=t=>w.wanted.view(p,t).stars;
-  function shot(t){fire(w,p,{aimYaw:0,aimPitch:0},t,players,npcs);for(let i=0;i<40;i++){advanceRounds(w,players,npcs,t+i);advanceMissiles(w,players,npcs,t+i);}}
+  function shot(t){advanceReload(p,t,false);fire(w,p,{aimYaw:0,aimPitch:0},t,players,npcs);startReload(p,t);for(let i=0;i<40;i++){advanceRounds(w,players,npcs,t+i);advanceMissiles(w,players,npcs,t+i);}}
   return {w,p,b,players,npcs,level,shot};
 }
 {
@@ -27,11 +28,11 @@ function fixture(){
   const {w,p,b,players,npcs,level,shot}=fixture();
   const resident=make('resident',0,-190);npcs.push(resident);shot(5);
   assert.equal(resident.life.hp,0);assert.equal(level(5),0);
-  w.wanted.set(p,true);resident.life=newLife(60,false);p.fireReady=0;shot(70);
+  w.wanted.set(p,true);resident.life=newLife(60,false);p.fireReady=0;shot(75);
   assert.equal(resident.life.hp,0);assert.equal(w.wanted.session(p).heat,2);
-  shot(130);assert.equal(w.wanted.session(p).heat,2,'old defeats cannot score twice');
+  shot(142);assert.equal(w.wanted.session(p).heat,2,'old defeats cannot score twice');
   const officer=make('officer-test',0,-190);officer.officer=true;officer.targetId=1;npcs.push(officer);
-  shot(200);assert.equal(officer.life.hp,0);assert.equal(w.wanted.session(p).heat,5);
+  shot(210);assert.equal(officer.life.hp,0);assert.equal(w.wanted.session(p).heat,5);
   Object.assign(w.rover,{x:0,y:.70,z:-191,speed:0});shot(280);
   assert(w.rover.wrecked);assert.equal(w.wanted.session(p).heat,7);shot(370);assert.equal(w.wanted.session(p).heat,7);
   w.rover.x=25;const car={id:'patrol-car-test',kind:'patrol-car-test',targetId:1,hp:180,maxHp:180,x:0,z:-191,y:.7,yaw:0,model:'sedan'};
@@ -40,7 +41,7 @@ function fixture(){
   assert.equal(w.shots.filter(s=>s.weapon==='vehicleWreck'&&s.source===car.id).length,1);
   w.wanted.set(p,false);assert.equal(w.patrolCars,undefined);assert.equal(level(540),0);
   // An old projectile, reconnect or toggling the system again cannot reclaim its ownership.
-  w.wanted.set(p,true);fire(w,p,{aimYaw:0,aimPitch:0},610,players,npcs);
+  w.wanted.set(p,true);advanceReload(p,610,false);fire(w,p,{aimYaw:0,aimPitch:0},610,players,npcs);
   const m=w.missiles.at(-1);assert(w.wanted.owner(m));w.wanted.set(p,false);w.wanted.set(p,true);assert.equal(w.wanted.owner(m),undefined);
   assert.equal(w.wanted.view(b,610).enabled,false);
 }
