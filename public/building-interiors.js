@@ -37,8 +37,10 @@ function door(p,x,y,z,axis,width,label,initial=true,level=-1){
   const d={id:interiorDoors.length,p,x,y,z,axis,width,label,initial,level};
   interiorDoors.push(d);p.doors.push(d);if(level<0)p.entrances.push(d);return d;
 }
+export const elevatorCallOffset=.90;
 function panel(p,x,y,z,angle,exitX,exitZ){
-  p.panels.push({x,y,z,angle,exitX,exitZ,index:p.panels.length,p});
+  const buttonX=x+Math.cos(angle)*elevatorCallOffset,buttonZ=z-Math.sin(angle)*elevatorCallOffset;
+  p.panels.push({x,y,z,angle,buttonX,buttonZ,exitX,exitZ,index:p.panels.length,p});
 }
 function shaftLanding(p,y){
   const shaft=p.shaft;
@@ -100,7 +102,10 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       p.stair=spiralForHouse(b);
       const lobbyZ=b.z-b.d/2+Math.min(3.36,b.d*.48);
       if(b.resortWing){p.shaft=resortWingShaft(b);shaftLanding(p,.824);}
-      else if(!p.stair)panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
+      else if(!p.stair){
+        p.lobbyEntries=gallery.ends;
+        panel(p,gallery.x-gallery.w/2+.23,.824,lobbyZ,Math.PI/2,gallery.x,lobbyZ);
+      }
       const {floors,story}=b.finish?{floors:1,story:Math.max(2.50,b.base+b.eave-floorY)}:towerStories(b,3.9);
       for(let n=0;n<floors;n++)floorPlan(p,floorY+n*story,story,n);
     }else{
@@ -194,7 +199,8 @@ export function buildingAction(feet,state){
     if(d){best={kind:'door',d,label:(doorIsOpen(d,state)?'Close ':'Open ')+d.label};dist=Math.hypot(feet.x-d.x,feet.z-d.z);}
     for(const s of p.panels){
       if(Math.abs(s.y-feet.y)>.5)continue;
-      const distance=Math.min(Math.hypot(feet.x-s.x,feet.z-s.z), .5+Math.hypot(feet.x-s.exitX,feet.z-s.exitZ));
+      const buttonDistance=Math.hypot(feet.x-s.buttonX,feet.z-s.buttonZ);
+      const distance=Math.min(Math.hypot(feet.x-s.x,feet.z-s.z),buttonDistance,.5+Math.hypot(feet.x-s.exitX,feet.z-s.exitZ));
       if(distance<dist){best={kind:'lift',s,label:p.hotelTower?'Guest elevator · suites & penthouse':'Use elevator'};dist=distance;}
     }
   }

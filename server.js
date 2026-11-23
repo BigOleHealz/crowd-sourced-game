@@ -331,7 +331,15 @@ function acceptInput(player, data, binary) {
     survival.start(players,ticks);
     return;
   }
-  if(zombies && !['input','snapshotEncoding'].includes(input?.type))return;
+  if(zombies && !['input','snapshotEncoding'].includes(input?.type)){
+    // Allow physical navigation without enabling shops or casino games in survival.
+    if(input?.type==='interior' && survival.state.phase!=='finished' &&
+      (Number.isInteger(input.door) || Number.isInteger(input.floor))){
+      const {seq,door,open,building,floor}=input;
+      requestInterior(world,players,player,{seq,door,open,building,floor},ticks);
+    }
+    return;
+  }
   if(input?.type==='fishing'){fishingAction(player,input.action,ticks,canFish(player));return;}
   if(input?.type==='dog'){
     if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||

@@ -11,7 +11,8 @@ for(const plan of galleryPlans)for(const entry of plan.ends){
     const p=entry[kind].piece;
     assert(p);assert.equal(p.floor,.824);count++;
   }
-  assert.equal(entry.shelf.piece,undefined);
+  assert.equal(Boolean(entry.shelf),entry.side>0 || !plan.b.housing);
+  assert.equal(entry.shelf?.piece,undefined);
 }
 assert.equal(count,99);
 for(const index of [2,3,5])for(const side of [-1,1])for(const target of ['table','console']){
@@ -23,7 +24,7 @@ for(const index of [2,3,5])for(const side of [-1,1])for(const target of ['table'
   assert(Object.keys(world.doors.brokenPanes).length===1);
   if(target==='table')assert.equal(world.doors.furniture[e.sofa.piece.id].phase,1);
   assert(!galleryVehicleRects(p.b,world.doors).includes(e[target]));
-  assert(galleryVehicleRects(p.b,world.doors).includes(e.shelf));
+  if(e.shelf)assert(galleryVehicleRects(p.b,world.doors).includes(e.shelf));
   const piece=e[target].piece;
   const x=piece.x+f.dx*(f.shift+piece.height/2),z=piece.z+f.dz*(f.shift+piece.height/2);
   assert(galleryTopAt(p.b,x,z,0,2.0,22,world.doors)>=fallenTop(piece,f,x,z,0));

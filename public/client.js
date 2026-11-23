@@ -476,6 +476,12 @@ function pressAction(code){
   if(self?.ride?.kind==='board' && inSkatePark(self.x,self.z) && (code==='KeyF' || code==='KeyX')){
     queuedSkateTrick=code==='KeyF'?'kickflip':'shove';return;
   }
+  // Give the visible floor control first use of E even when an NPC, dog or
+  // shopkeeper happens to stand within reach of the elevator.
+  if(code==='KeyE'){
+    const lift=interiorAction();
+    if(lift?.kind==='lift'){elevator.show(lift.s);return;}
+  }
   if(code==='KeyE' || code==='KeyX'){
     const target=dogInteraction();
     if(target && (code==='KeyX' || !target.held)){
@@ -524,7 +530,6 @@ function pressAction(code){
     const building=interiorAction();
     if(building?.kind==='slot'){sendInterior({slot:building.slot});return;}
     if(building?.kind==='concierge'){sendInterior({checkIn:true});return;}
-    if(building?.kind==='lift'){elevator.show(building.s);return;}
     if(building?.kind==='yachtDoor'){sendInterior({cabin:building.d.id,open:!!(world.yacht.closedCabins&(1<<building.d.id))});return;}
     if(building?.kind==='door'){sendInterior({door:building.d.id,open:!doorIsOpen(building.d,world.doors)});return;}
     const person=speaker();
@@ -1209,6 +1214,8 @@ function updateEquipment(local) {
   const dogTarget=dogInteraction();
   const dogInfo=dogTarget && (dogTarget.dog.name+' · '+dogTarget.dog.hp+'/'+dogTarget.dog.maxHp+' HP');
   if(dogTarget)prompt.textContent=dogInfo+(dogTarget.held?' · X  Throw':' · E  Steal dog   X  Kick');
+  const liftLabel=building?.kind==='lift'?building.label:null;
+  if(liftLabel && !touch.active)prompt.textContent='E  ·  '+liftLabel;
   const pier=pierAt(local),fish=vitals.fishing;
   if(touch.active){
     const role=board || diving?'diving':local.swimming?'swimming':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
@@ -1218,7 +1225,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,canRefuel,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,canRefuel,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:liftLabel || (dogTarget && !dogTarget.held?'Steal dog':useLabel),dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage && !refuelSite)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
