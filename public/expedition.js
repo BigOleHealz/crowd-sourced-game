@@ -1,3 +1,4 @@
+import {sidearmSlot,carPistolOrigin,carSource} from './car-sidearm.js';
 import { spendRound } from './magazines.js';
 import {meleeItems,validEquipment} from './arcade-melee.js';
 import {immersedSurface} from './water-impact.js';
@@ -156,12 +157,13 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     {x:from.x+delta.x,y:from.y+delta.y,z:from.z+delta.z});
   const wildlifeDistance=wildlife ? wildlife.t*range : Infinity;
   const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,delta);
-  const sportContact=supercarRoundContact(world.supercar,from,delta);
+  const sportContact=sourceVehicle==='supercar'?Infinity:supercarRoundContact(world.supercar,from,delta);
   const tankDistance=sourceVehicle==='tank'?Infinity:tankRoundContact(world.tank,from,delta)*range;
   const hitSport=sportContact<(roverContact?.t??Infinity);
   let roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
   let road=hitSport?world.supercar:world.rover;
   for(const car of world.traffic??[]){
+    if(car.id===sourceVehicle)continue;
     const distance=civilianRoundContact(car,from,delta)*range;
     if(distance<roadDistance){roadDistance=distance;road=car;}
   }
@@ -685,6 +687,15 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);
+}
+
+export function fireCarPistol(world,car,player,input,tick){
+  if(input.interact || input.seat || !player.life.hp || player.life.fall ||
+    player.state.swimming || tick<player.fireReady || !spendRound(player,sidearmSlot))return;
+  player.fireReady=tick+firearmSpecs[sidearmSlot].cooldown;
+  const {aimYaw:yaw,aimPitch:pitch}=input;
+  player.carShot={source:carSource(car),yaw,pitch,tick};
+  sendRound(world,player,sidearmSlot,carSource(car),carPistolOrigin(car,player.id,yaw,pitch),yaw,pitch,tick);
 }
 
 function sendRound(world,player,weapon,source,from,yaw,pitch,tick,tracer=true,delay=0){

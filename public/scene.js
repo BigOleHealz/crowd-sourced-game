@@ -1,3 +1,4 @@
+import {sidearmCar,carPistolGrip,carSource} from './car-sidearm.js';
 import {pierFishingView} from './pier-fishing-view.js';
 import {reefChannelView} from './reef-channel-view.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
@@ -497,7 +498,26 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   lining.quadraticCurveTo(-.66,1.63,-.68,1.42);lining.closePath();
   const bulkhead=new THREE.ShapeGeometry(lining,4);
   hull.add(bulkhead,0x343a34,0,0,-.69,1,1,1,0,Math.PI);
+  // Close the partition on the passenger-cabin side as well.
+  hull.add(bulkhead,0x858474,0,0,-.675);
   bulkhead.dispose();
+  // A continuous footwell, raised cargo deck and rear bench give each bay
+  // its own depth when either the windshield or a sliding window is lost.
+  hull.add(cube,0x474a43,0,.749,-1.28,1.20,.058,1.12);
+  hull.add(cube,0x595c50,0,.691,.29,1.30,.055,1.90);
+  hull.add(cube,0x7b796a,0,1.14,1.17,1.29,.82,.056);
+  hull.add(cube,0x525950,0,.878,.84,1.15,.10,.40);
+  hull.add(cube,0x626758,0,1.08,1.025,1.16,.38,.085);
+  for(const x of [-.44,-.22,0,.22,.44])
+    hull.add(cube,0x82877a,x,.726,.24,.018,.012,1.59);
+  for(const x of [-.35,.35]){
+    hull.add(cube,0x464d47,x,1.385,-.88,.21,.15,.095);
+    hull.beam(0x393e39,[x,.79,-1.48],[x,1.00,-1.49],.023);
+    hull.beam(0x5b6259,[x-.055,1.003,-1.49],[x+.055,1.003,-1.49],.024);
+    hull.add(cube,0x242c2b,x,1.089,-1.58,.25,.112,.018);
+    hull.add(cube,0x81ab9f,x,1.096,-1.567,.153,.052,.007);
+    hull.add(cube,0x383e38,x,1.117,1.07,.057,.27,.025);
+  }
   hull.add(cube,0x42483f,0,1.18,-.70,.30,.77,.024);
   hull.add(cube,0x72766a,.113,1.18,-.718,.033,.065,.017);
   for(const side of [-1,1]) {
@@ -1198,7 +1218,7 @@ export function createScene(canvas) {
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
-  const updateJet=jetView(scene,Batch);
+  const jetModel=jetView(scene,Batch);
   const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1284,7 +1304,9 @@ export function createScene(canvas) {
     // At the pole there is no horizontal bearing to recover from atan2.
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
-    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const windowCar=station==='car-window' && sidearmCar(displayedWorld,id);
+    if(station==='car-window' && !windowCar)return null;
+    const muzzle=windowCar ? carPistolGrip(windowCar,id) : station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
@@ -1294,7 +1316,7 @@ export function createScene(canvas) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station);
     let {to}=aimHit;
     if(CITY && to){
       const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);
@@ -1362,7 +1384,7 @@ export function createScene(canvas) {
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    updateJet(world.jet,dt);
+    jetModel.update(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
     const aircraft=flyingJet ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
@@ -1721,6 +1743,10 @@ export function createScene(canvas) {
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     // Sample once the visible gun, avatar and camera all have their current-frame pose.
     for(const flash of pendingMuzzles){
+      if(flash.source==='jet'){
+        if(world.jet?.pilot===flash.shooter && !world.jet.wrecked)jetModel.flashCannon();
+        continue;
+      }
       const from=visibleMuzzle(flash.shooter,flash.firedWeapon,muzzlePoint);
       effects.shot(from ? {...flash,from} : flash,flash.source);
     }
@@ -1754,7 +1780,11 @@ export function createScene(canvas) {
   const pendingMuzzles=[];
   const muzzlePoint=new THREE.Vector3();
   const muzzleTips=[[0,.099,-.628],[0,.091,-.202],[0,.120,-.744]];
-  function visibleMuzzle(shooter,weapon,out){
+  function visibleMuzzle(shooter,weapon,out,source,forward){
+    if(source==='jet'){
+      const jet=displayedWorld?.jet;
+      return jet && !jet.wrecked && jet.pilot===shooter ? jetModel.cannonMuzzle(out,forward) : null;
+    }
     const tip=muzzleTips[weapon-1];
     if(!tip)return null;
     const avatar=avatars.get(shooter), sight=sightModels[weapon-1];
@@ -1768,7 +1798,7 @@ export function createScene(canvas) {
   function showShots(shots,tick) {
     for(const shot of shots){
       if(isArcadeMelee(shot.weapon) || (shot.weapon==='muzzle' && isArcadeMelee(shot.firedWeapon)))continue;
-      if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
+      if(shot.weapon==='muzzle' && (shot.source==='jet' || (!shot.source && muzzleTips[shot.firedWeapon-1]))){
         pendingMuzzles.push(shot);continue;
       }
       if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}

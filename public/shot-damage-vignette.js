@@ -12,11 +12,10 @@ export function shotDamageVignette(element){
   let hold;
   return {
     update(previous,current,yaw){
-      const bite=previous && current && !previous.dead && current.hp<previous.hp &&
-        current.lastBiteTick!=null && current.lastBiteTick!==previous.lastBiteTick;
-      if(!bite && !confirmedShot(previous,current))return;
+      if(!previous || !current || previous.dead || !(current.hp<previous.hp))return;
+      const bite=current.lastBiteTick!=null && current.lastBiteTick!==previous.lastBiteTick;
       clearTimeout(hold);
-      const angle=bite?null:hitAngle(current.hitSector,yaw);
+      const angle=!bite && confirmedShot(previous,current)?hitAngle(current.hitSector,yaw):null;
       element.classList.toggle('directional',angle!=null);
       if(angle!=null)element.style.setProperty('--strike-angle',angle+'deg');
       if(!element.classList.contains('struck'))element.classList.add('struck');

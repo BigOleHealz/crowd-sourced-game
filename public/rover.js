@@ -173,7 +173,9 @@ function registerImpact(world,r,hit,speed,players){
     share=2*roadMass(other)/(roadMass(r)+roadMass(other));
   }
   const panel=contactPanel(r,nx,nz),excess=Math.max(0,speed-1.65);
-  const severity=.60*excess*excess+.6*excess,damage=Math.round(share*severity);
+  const severity=.60*excess*excess+.6*excess;
+  const breakaway=other.lamp!=null || other.postId!=null || other.woodId?.startsWith('sign-');
+  const damage=Math.min(breakaway?1:Infinity,Math.round(share*severity));
   const profile=civilianProfiles[r.model]??(r.kind==='supercar'?supercarLayout:null);
   const side=Math.abs(Math.cos(r.yaw)*nx+Math.sin(r.yaw)*nz),end=Math.abs(Math.sin(r.yaw)*nx-Math.cos(r.yaw)*nz);
   const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
@@ -297,6 +299,10 @@ export function driveRover(world, input, dt, players,kind='rover') {
       (world.doors.beachWood??={})[woodId]=Math.round(Math.atan2(vx,vz)*1000);
       // Keep zero radians truthy for the shared collision/visibility lookup.
       if(!world.doors.beachWood[woodId])world.doors.beachWood[woodId]=1;
+      if(woodId.startsWith('sign-')){
+        registerImpact(world,r,hit,incoming,players);
+        if(r.wrecked)return;
+      }
       vx*=.84;vz*=.84;remaining*=1-fraction;
       continue;
     }

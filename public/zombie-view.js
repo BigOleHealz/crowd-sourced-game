@@ -9,7 +9,7 @@ export function infectedWardrobe(look,id){
 }
 
 export function poseInfected(avatar, state, time) {
-  if(state.dead)return;
+  if(state.dead || state.climb || state.swimming)return;
   if(state.fall){
     if(state.fall.cause==='lostLeg'){
       // Tip forward into the same hip position as the prone rig. Stay down

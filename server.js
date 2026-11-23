@@ -1,3 +1,4 @@
+import {sidearmSlot,sidearmCar,hasMountedTool} from './public/car-sidearm.js';
 import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
 import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
 import {refuelVehicle,stepVehicleFuel} from './public/vehicle-fuel.js';
@@ -74,7 +75,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import {validEquipment} from './public/arcade-melee.js';
 import { advanceReload, magazineView, startReload } from './public/magazines.js';
-import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -188,7 +189,7 @@ function worldView() {
   const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
     if(r.source!=='heli' && r.source!=='jet')return r;
     const {id,weapon,x,y,z,vx,vy,vz,age}=r;
-    return {id,weapon,x,y,z,vx,vy,vz,age};
+    return r.source==='jet' ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
   }) : world.bullets;
   const heli=world.heli;
   const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
@@ -297,7 +298,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,magazine:magazineView(player,ticks),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -431,7 +432,7 @@ function acceptInput(player, data, binary) {
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
     lowerHook:input.lowerHook===true,releaseHook:input.releaseHook===true,
-    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, reload: input.reload === true, interact: input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, sidearm:input.sidearm===true, reload: input.reload === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -619,9 +620,10 @@ function tick() {
   for (const player of players.values()) {
     const input = player.inputs.shift();
     if(player.life.reload){
-      const interrupt=player.holstered || input?.holster || input?.interact || input?.seat ||
+      const seated = sidearmCar(world,player.id);
+      const interrupt=seated ? (input?.interact || input?.seat || (hasMountedTool(seated) && input && !input.sidearm)) : player.holstered || input?.holster || input?.interact || input?.seat ||
         (input?.weapon != null && input.weapon!==player.weapon) || !canUseHandheld(world,player);
-      advanceReload(player,ticks,interrupt);
+      advanceReload(player,ticks,interrupt,seated?sidearmSlot:player.weapon);
     }
     if(player.fishing){
       stepFishing(player,ticks,canFish(player));
@@ -753,10 +755,14 @@ function tick() {
       }
       if(road.model)driveTrafficCar(world,road,roadInput,step,players);
       else driveRover(world,roadInput,step,players,kind);
-      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
+      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step,players);
       if(road.driver!==player.id)continue;
-      if(road.model==='engine')driveWater(world,road,input,ticks);
-      if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
+      const pistol=sidearmCar(world,player.id) && (!hasMountedTool(road) || input?.sidearm);
+      if(road.model==='engine')driveWater(world,road,pistol?{...input,fire:false}:input,ticks);
+      if(pistol){
+        if(input?.reload && !input.interact && !input.seat)startReload(player,ticks,sidearmSlot);
+        if(input?.fire)fireCarPistol(world,road,player,input,ticks);
+      }else if(kind==='rover' && !road.model && input?.fire)launchMissile(world,kind,player,ticks);
       const {x,y,z,yaw}=road;
       player.state = { x,y,z,vy:0,grounded:true };
       player.yaw = yaw;
@@ -786,7 +792,10 @@ function tick() {
         const vehicle=vehicleById(world,kind);
         vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
         if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
-        if(input.fire) firingGunners.add(player.id);
+        if(kind==='rover' && input.sidearm && sidearmCar(world,player.id)){
+          if(input.reload)startReload(player,ticks,sidearmSlot);
+          if(input.fire)fireCarPistol(world,vehicle,player,input,ticks);
+        }else if(input.fire) firingGunners.add(player.id);
       }
       // Bridge ordinary packet jitter, and release a stalled client's trigger.
       if(CITY && (kind==='heli' || kind==='superyacht') && ticks<player.chainFireUntil)firingGunners.add(player.id);

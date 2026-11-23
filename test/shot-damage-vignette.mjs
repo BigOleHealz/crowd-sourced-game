@@ -51,4 +51,12 @@ vignette.update({hp:100},bitten,0);
 vignette.update(bitten,bitten,0);
 vignette.update(bitten,{hp:32,lastBiteTick:130},0);
 assert.deepEqual(flashes,['struck','struck'],'Each confirmed bite flashes the edges once');
+// General damage has no bearing, even if an earlier shot left a sector behind.
+const priorShot={hp:60,hitSector:4,lastShotTick:9};
+vignette.update(priorShot,{...priorShot,hp:45},0);
+vignette.update({hp:45},{hp:0,dead:true},0);
+vignette.update({hp:0,dead:true},{hp:100},0);
+vignette.update({hp:45},{hp:48},0);
+vignette.update(null,{hp:45},0);
+assert.deepEqual(flashes,['struck','struck','struck','struck']);
 vignette.reset();
