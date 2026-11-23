@@ -1275,7 +1275,7 @@ function updateEquipment(local) {
     const recent=last && world.simTick-last.tick<100;
     if(recent && last.catch){
       const fish=last.catch;
-      prompt.textContent='Caught '+fishSpecies[fish.species].name+' · '+fish.lengthCm+' cm · +'+fish.points+' pts'+tally;
+      prompt.textContent='Caught '+fishSpecies[fish.species].name+' · '+fish.lengthCm+' cm · +'+fish.points+' pts';
     }else if(recent)prompt.textContent='Miss · Aim at a nearby fish'+tally;
     else if(!sharkNearby)prompt.textContent=(touch.active?'Aim at a fish · Tap Spear':'Aim at a fish · F or click to spear')+tally;
   }
