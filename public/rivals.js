@@ -5,6 +5,7 @@ import {brickellResidents} from './brickell-residents.js';
 import {resortGuests} from './resort-guests.js';
 import {packedJoints,releaseJoints} from './ragdoll.js';
 // The server advances every actor's lifecycle on the same 30 Hz clock.
+import { damageRover } from './rover.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { CITY, groundHeight, stepPlayer, stanceBodyHeight } from './world.js';
 
@@ -117,7 +118,7 @@ export function rivalView(actor, tick) {
     ...(actor.infected && {infected:actor.infected, maxHp:actor.maxHp, holstered:true}) };
 }
 
-export function vehicleContacts(world, kind, before, actors, tick, dt) {
+export function vehicleContacts(world, kind, before, actors, tick, dt, players) {
   const vehicle = world[kind]??world.traffic?.find(car=>car.id===kind);
   const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
   const descent = kind==='heli' ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
@@ -143,6 +144,11 @@ export function vehicleContacts(world, kind, before, actors, tick, dt) {
         driver.score.kills++;
         world.wanted?.record(world.wanted.session(driver),actor.officer?'officer':'defeat',tick);
       }
+    }
+    if (kind!=='heli' && vehicle.hp>0) {
+      // A knocked-down person cannot register another impact while the car overlaps.
+      damageRover(world,1,players,kind);
+      if (vehicle.wrecked) break;
     }
   }
 }
