@@ -20,6 +20,7 @@ import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
 import {tireMix,tireLoop} from './tire-road-sound.js';
 import {acousticSpace,transmission} from './acoustic-space.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
+import {tankDriveLoop,tankDriveMix} from './tank-drive-audio.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
@@ -83,6 +84,7 @@ function synth(context,name) {
   }
   if(name.startsWith('civilian/'))return civilianEngineLoop(context,name.slice(9));
   if(name==='jetFan' || name==='jetExhaust')return jetLoop(context,name==='jetExhaust');
+  if(name==='tank-engine' || name==='tank-tracks')return tankDriveLoop(context,name==='tank-tracks');
   if(name==='chainGun')return chainGunLoop(context);
   if(name.startsWith('landing-'))return roadLandingSound(context,name==='landing-hard');
   if(name.startsWith('bump-'))return roadContactSound(context,name.includes('hard'),name.endsWith('wood'));
@@ -595,6 +597,11 @@ export function createGameAudio(button,slider,level,caption) {
     motor('jetFan',jet,true,mix.fanRate,mix.fanGain,listener,yaw);
     motor('jetExhaust',jet,true,mix.exhaustRate,mix.exhaustGain,listener,yaw);
   }
+  function tankEngine(listener,yaw,tank){
+    const mix=tankDriveMix(tank,listener);
+    motor('tank-engine',tank,!!mix?.engineGain,mix?.engineRate,mix?.engineGain,listener,yaw);
+    motor('tank-tracks',tank,!!mix?.trackGain,mix?.trackRate,mix?.trackGain,listener,yaw);
+  }
   function yachtEngine(listener,yaw,yacht){
     const active=yacht?.driver!=null && !yacht.wrecked;
     const speed=Math.abs(yacht?.speed??0);
@@ -605,5 +612,5 @@ export function createGameAudio(button,slider,level,caption) {
     settings.muted=!settings.muted;
     save();
   }
-  return {unlock,reset,events,melee,engines,trafficEngines,patrolSiren,roadTires,jetEngine,yachtEngine,toggleMute};
+  return {unlock,reset,events,melee,engines,trafficEngines,patrolSiren,roadTires,jetEngine,tankEngine,yachtEngine,toggleMute};
 }

@@ -1495,6 +1495,7 @@ function frame(time) {
     audio.trafficEngines(local,view.yaw,roadTraffic);
     audio.roadTires(local,view.yaw,[rover,supercar,...roadTraffic]);
     audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && world.heli.gunner!=null && !world.heli.wrecked,supercar);
+    audio.tankEngine(local,view.yaw,tank);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
