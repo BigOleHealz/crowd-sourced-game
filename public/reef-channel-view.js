@@ -10,8 +10,9 @@ function sandTile(tx,tz,material) {
   for(let i=0;i<p.count;i++){
     const x=cx+p.getX(i), z=cz+p.getZ(i), h=seabedHeight(x,z);
     p.setY(i,h);
-    const relief=seabedHeight(x+1,z)-h, ripple=Math.sin(z*1.6+x*.43)*.034;
-    shade.setRGB(.32+relief*.13+ripple,.37+relief*.12+ripple,.28+relief*.10+ripple);
+    geo.attributes.uv.setXY(i,(x*.96+z*.28)/7.5,(z*.96-x*.28)/7.5);
+    const relief=seabedHeight(x+1,z)-h;
+    shade.setRGB(.66+relief*.13,.76+relief*.12,.65+relief*.10);
     colors.push(shade.r,shade.g,shade.b);
     if(i%count!==count-1 && i<p.count-count)indices.push(i,i+count,i+1,i+1,i+count,i+count+1);
   }
@@ -31,7 +32,38 @@ function buildTrailPlants(scene,Batch) {
     p.setXYZ(i,p.getX(i)*(1-.8*h)+.11*Math.sin(h*3),h,.34*h*h);
   }
   blade.computeVertexNormals();
+  // Low limestone fragments half buried on the flanks of the seagrass beds.
+  // Reuse one silhouette, embedded in the existing vegetation batch.
+  const rock=new THREE.IcosahedronGeometry(1,1);
+  const rv=rock.attributes.position;
+  for(let i=0;i<rv.count;i++){
+    const x=rv.getX(i),y=rv.getY(i),z=rv.getZ(i);
+    const wear=.93+.16*Math.sin(x*4.3+y*7.2+z*2.7);
+    rv.setXYZ(i,x*wear,y*wear+.08*x,z*wear);
+  }
+  // Smooth normals from the parent stone keep the small worn facets rounded.
+  const tintNoise=Array.from({length:rv.count},(_,i)=>
+    .94+.16*Math.sin(rv.getX(i)*8.1+rv.getY(i)*4.2)*Math.cos(rv.getZ(i)*7.9));
+
+  const stones=[0x797863,0x88856c,0x757967,0x939078,0x859178];
   for(const [i,[cx,cz]] of reefTrail.entries()){
+    if(i%2===0){
+      const centerX=cx+2.6*Math.cos(i*1.7),centerZ=cz+2.6*Math.sin(i*1.7);
+      for(let n=0;n<8;n++){
+        const a=i*.83+n*2.39,r=.44*Math.sqrt(n),size=n===0?.90:.18+.52*(1-n/8);
+        const x=centerX+r*Math.cos(a)*1.48,z=centerZ+r*Math.sin(a);
+        const start=vegetation.positions.length;
+        vegetation.add(rock,stones[(i+n)%stones.length],x,seabedHeight(x,z)-.035,z,
+          size*1.42,size*.32,size*.94,.10*Math.sin(a),a,.12*Math.cos(a));
+        const slopeX=seabedHeight(x+.5,z)-seabedHeight(x-.5,z);
+        const slopeZ=seabedHeight(x,z+.5)-seabedHeight(x,z-.5);
+        for(let j=0;j<rv.count;j++){
+          const v=start+j*3,gain=tintNoise[j];
+          vegetation.positions[v+1]+=(vegetation.positions[v]-x)*slopeX+(vegetation.positions[v+2]-z)*slopeZ;
+          for(let k=0;k<3;k++)vegetation.colors[v+k]*=gain;
+        }
+      }
+    }
     for(let n=0;n<38;n++){
       const a=n*2.399+i, r=.4+Math.sqrt(n)*.57, x=cx+Math.cos(a)*r, z=cz+Math.sin(a)*r;
       const y=seabedHeight(x,z);
@@ -64,7 +96,7 @@ function buildTrailPlants(scene,Batch) {
   }
   loop.dispose();fluke.dispose();
   const plants=vegetation.mesh(scene,weedMaterial,false);
-  blade.dispose();tube.dispose();
+  blade.dispose();tube.dispose();rock.dispose();
   return plants;
 }
 
@@ -78,12 +110,9 @@ export function reefChannelView(scene,Batch) {
     shader.fragmentShader='varying vec2 reefXZ; uniform float reefTime;\n'+shader.fragmentShader.replace('#include <color_fragment>',`
       #include <color_fragment>
       vec2 p=reefXZ;
-      float ripple=sin(p.y*7.1+sin(p.x*.9)*1.8+sin(p.x*1.87+p.y*.37));
-      float shoal=sin(p.x*.7+p.y*.34)*sin(p.y*.63-p.x*.16);
       float lace=sin(p.x*2.7+sin(p.y*2.1+reefTime*.4))+sin(p.y*2.3+sin(p.x*1.8-reefTime*.4));
       float light=1.-smoothstep(.045,.28,abs(lace));
-      diffuseColor.rgb*=.95+.10*ripple+.08*shoal;
-      diffuseColor.rgb+=vec3(.06,.105,.088)*light;
+      diffuseColor.rgb+=vec3(.026,.046,.036)*light;
     `);
   };
   let plants;
@@ -96,6 +125,13 @@ export function reefChannelView(scene,Batch) {
     const nearTrail=under && camera.position.z>-450 && camera.position.z< -260 && camera.position.x>-77 && camera.position.x<135;
     if(nearTrail && !plants)plants=buildTrailPlants(scene,Batch);
     if(plants)plants.visible=nearTrail;
+    if(under && !floorMaterial.map){
+      // Rob Tuytel's CC0 Aerial Beach 01 scan, with baked ripple relief.
+      // https://polyhaven.com/a/aerial_beach_01
+      const sand=new THREE.TextureLoader().load('./marina-reef-sand.webp');
+      sand.colorSpace=THREE.SRGBColorSpace;sand.wrapS=sand.wrapT=THREE.RepeatWrapping;
+      sand.anisotropy=2;floorMaterial.map=sand;floorMaterial.needsUpdate=true;
+    }
     if(under)waterClock.value=performance.now()*.001;
     const tx=Math.floor(camera.position.x/reefTileSize),tz=Math.floor(camera.position.z/reefTileSize);
     if(!under){for(const tile of tiles.values())tile.visible=false;lastX=lastZ=undefined;return;}
