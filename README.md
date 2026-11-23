@@ -33,3 +33,9 @@ Choose a mode in the map menu or share its URL with the whole group. Each mode r
 An asset pays once per round, including vehicles that respawn. The roster, damage, possession, deliveries and payouts are verified by the server. The map shows team colors and the auction marker. Enemy gold cases are omitted from the minimap.
 
 Mode definitions, team sizes and the dollar goal live in `public/island-rules.js`. The menu and room router read the same mode registry. The server owns the lifecycle and scoring handlers in `island-match.js`. Run `node test/island-match.mjs` for rule tests and `node test/island-lobby.mjs` for a self-contained multiplayer lobby test.
+
+## Regression checks
+
+Run `npm ci` and `npm test` with Node 24. Every top-level `test/*.mjs` file runs in isolation, including the tests that start a loopback game for multiple players. Add a regression in that directory when fixing a bug.
+
+The production Docker build runs the same suite before it creates a deployable image. GitHub Actions builds it for pull requests and pushes to main, checks the shipped assets over HTTP, and connects two players to the running container.

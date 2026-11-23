@@ -1,0 +1,58 @@
+name: Game CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    name: Game regression and release image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check JavaScript syntax
+        run: git ls-files -z '*.js' '*.mjs' | xargs -0 -n 1 -P 2 node --check
+      - name: Build production image and run all game tests
+        run: docker build --progress=plain -t game-under-test .
+      - name: Start the built game
+        run: |
+          docker run -d --name game -p 127.0.0.1:4173:4173 game-under-test
+          curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 1 http://127.0.0.1:4173/ -o /dev/null
+      - name: Verify shipped files and browser dependencies over HTTP
+        run: |
+          python3 - <<'PY'
+          import http.client
+          import pathlib
+          import subprocess
+          import urllib.parse
+
+          files = subprocess.check_output(['git', 'ls-files', '-z', 'public']).decode().strip('\0').split('\0')
+          paths = {name.removeprefix('public/'): pathlib.Path(name).stat().st_size for name in files}
+          for vendor in ['three.module.js', 'three.core.js', 'loaders/GLTFLoader.js', 'utils/BufferGeometryUtils.js']:
+              paths['vendor/' + vendor] = None
+          connection = http.client.HTTPConnection('127.0.0.1', 4173, timeout=10)
+          for path, size in paths.items():
+              connection.request('HEAD', '/' + urllib.parse.quote(path))
+              response = connection.getresponse()
+              response.read()
+              received = int(response.getheader('Content-Length', -1))
+              if response.status != 200 or (size is not None and received != size):
+                  raise SystemExit(f'{path}: HTTP {response.status}, {received} bytes, expected {size}')
+          print(f'{len(paths)} shipped files verified')
+          PY
+      - name: Connect two players to the production container
+        run: docker exec -e GAME_URL=http://127.0.0.1:4173 game node test/multiplayer.mjs
+      - name: Show game logs on failure
+        if: failure()
+        run: docker logs game || true
