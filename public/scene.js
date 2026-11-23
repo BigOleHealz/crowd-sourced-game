@@ -30,6 +30,8 @@ import {updateWaterfrontBreeze} from './waterfront-breeze.js';
 import {dogView} from './dog-view.js';
 import {gullView} from './gull-view.js';
 import {reefFishView} from './reef-fish-view.js';
+import {spearOrigin} from './spearfishing.js';
+import {spearfishingView} from './spearfishing-view.js';
 import {dolphinView} from './dolphin-view.js';
 import {sharkDogSpray} from './shark-dog-spray.js';
 import {sharkView} from './shark-view.js';
@@ -1223,6 +1225,7 @@ export function createScene(canvas) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
+  const updateSpears=CITY?spearfishingView(scene,camera):null;
   const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
   sightModels[0].position.set(0,-.214,-.40);
@@ -1695,6 +1698,12 @@ export function createScene(canvas) {
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       if(localBody)localBody.visible=false;
     }
+    if(view.spearSight){
+      const eye=spearOrigin(local);
+      camera.position.set(eye.x,eye.y,eye.z);
+      camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
+      if(localBody)localBody.visible=false;
+    }
     if(ridingHotelShaft(local)){
       camera.position.set(local.x,local.y+1.59,local.z);
       camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
@@ -1732,7 +1741,8 @@ export function createScene(canvas) {
     }
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDogSpray?.(world.sharks,local,world.dogs,attackTick);
-    updateFish?.(camera.position,attackTick);
+    updateFish?.(camera.position,attackTick,world.spearedFish);
+    updateSpears?.(players,local,view.spearSight,attackTick);
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {fishSpecies,fishSchools,fishPose} from './reef-fish.js';
+import {reefFishKey} from './spearfishing.js';
 
 export function fishGeometry(id,species) {
   const positions=[],colors=[],ink=new THREE.Color();
@@ -70,16 +71,17 @@ export function reefFishView(scene,waterY) {
     const mesh=new THREE.InstancedMesh(fishGeometry(id,species),material,schools.reduce((n,s)=>n+s.count,0));
     mesh.name=species.name;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
-    schoolsBySpecies.set(id,{mesh,schools,clock});
+    schoolsBySpecies.set(id,{mesh,schools:schools.map(school=>({school,index:fishSchools.indexOf(school)})),clock});
   }
-  return (viewer,tick)=>{
+  return (viewer,tick,spearedFish)=>{
     const seconds=tick/30;
     for(const {mesh,schools,clock} of schoolsBySpecies.values()){
       let count=0;
       if(Math.abs(viewer.y-waterY)<9){
-        for(const school of schools){
+        for(const {school,index} of schools){
           if((viewer.x-school.x)**2+(viewer.z-school.z)**2>32**2)continue;
           for(let i=0;i<school.count;i++){
+            if(spearedFish?.[reefFishKey(index,i)]>tick)continue;
             fishPose(school,i,seconds,pose);
             dummy.position.set(pose.x,waterY-pose.depth,pose.z);
             dummy.rotation.set(0,pose.yaw,pose.roll,'YXZ');

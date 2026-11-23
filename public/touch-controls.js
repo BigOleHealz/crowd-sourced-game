@@ -203,12 +203,13 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,pistol,swapPistol,canRefuel,scuba,submerged,jamBoard,fishAction,canReload,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,pistol,swapPistol,canRefuel,canSpear,scuba,submerged,jamBoard,fishAction,canReload,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(role==='swimming'){
     quick.push(['KeyC','Dive'],['Space','Rise / climb']);
     if(!submerged)quick.push(['KeyG',scuba?'Stow scuba':'Equip scuba']);
+    if(canSpear)quick.push(['KeyF','Spear']);
     if(use)quick.push(['KeyE',use]);
     return {active,role,axis:gestures.swimming.axis,quick,tools:[]};
   }
