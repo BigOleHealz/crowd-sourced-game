@@ -5,6 +5,8 @@ import {mooredYacht} from '../public/superyacht.js';
 import {newLife} from '../public/rivals.js';
 
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7, `${a} differs from ${b}`);
+assert.ok(firearmSpecs[2].speed < firearmSpecs[1].speed, 'sidearm rounds travel slower than carbine rounds');
+assert.equal(firearmSpecs[3].speed, 2 * firearmSpecs[1].speed, 'scoped rifle rounds travel twice as fast as carbine rounds');
 for(const [weapon,spec] of Object.entries(firearmSpecs)) {
   for(const pitch of [0,.26,-.26]){
     const world=newExpedition();
