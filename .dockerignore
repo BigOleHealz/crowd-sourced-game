@@ -4,13 +4,6 @@
 !package-lock.json
 !*.js
 !public/
-!public/*.html
-!public/*.css
-!public/*.js
-!public/*.webp
-!public/audio/
-!public/audio/*.ogg
-!public/audio/*.mp3
-!public/audio/CREDITS.md
+!public/**
 !test/
-!test/*.mjs
+!test/**

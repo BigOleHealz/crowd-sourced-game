@@ -193,7 +193,7 @@ async function checkExpedition(host) {
   console.log('PASS: two blasters, collision removal, exclusive flight, late join, landing, pilot disconnect and empty-world reset.');
 }
 
-async function isolatedExpedition() {
+async function withLocalServer(check) {
   const script = fileURLToPath(new URL('../server.js', import.meta.url));
   const child = spawn(process.execPath, [script], {
     env: { ...process.env, HOST: '127.0.0.1', PORT: '0' },
@@ -207,15 +207,14 @@ async function isolatedExpedition() {
       if (child.exitCode !== null) throw new Error('Isolated server exited');
       return output.match(/http:\/\/127\.0\.0\.1:\d+\//)?.[0];
     }, 'isolated loopback server');
-    await checkExpedition(host);
+    await check(host);
   } finally {
     child.kill();
     await exited;
   }
 }
 
-try {
-  const host = process.env.GAME_URL || 'http://127.0.0.1:4173';
+async function checkPeerMovement(host) {
   const first = await join(host), second = await join(host);
   assert.notEqual(first.id, second.id);
   await checkMotion(first, second);
@@ -224,7 +223,12 @@ try {
   await until(() => !player(second, first.id), 'disconnect propagation');
   await leave(second);
   console.log('PASS: two guests independently observed peer movement, jump, landing and removal.');
-  await isolatedExpedition();
+}
+
+try {
+  if (process.env.GAME_URL) await checkPeerMovement(process.env.GAME_URL);
+  else await withLocalServer(checkPeerMovement);
+  await withLocalServer(checkExpedition);
   await import('./rivals.mjs');
   await import('./airframe.mjs');
 } finally {

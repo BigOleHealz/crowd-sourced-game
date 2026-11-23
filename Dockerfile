@@ -7,5 +7,6 @@ COPY *.js ./
 COPY public/ public/
 COPY test/ test/
 USER node
+RUN npm test
 EXPOSE 4173
 CMD ["node", "server.js"]
