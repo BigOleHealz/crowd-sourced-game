@@ -87,7 +87,8 @@ for(const [index,b] of brickellMap.buildings.entries()){
       const id='gallery-'+siteId+'-'+(side<0?'north':'south')+'-'+part.kind;
       part.piece={id,x:part.x,z:part.z,w:part.w,d:part.d,height,floor:galleryFloor,room:[left,right,zmin,zmax]};
     }
-    entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
+    // The west wall of the north tower entrance contains the elevator doors.
+    if(side>0 || !b.housing)entry.shelf=block('shelf',w/2-.245,Math.min(depth*.64,3.98),.35,Math.min(1.62,depth*.34),galleryFloor+1.91);
   }
   if(bank){
     plan.solids.push(...bankServiceParts);

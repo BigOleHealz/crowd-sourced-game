@@ -248,11 +248,13 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
         leg(0xe1d7c4,cu+du,1.11,cv,.050*scale,.064*scale);
       }
       motion.end(display);
-      const vu=(shelf.x-x)*side,vv=(z-shelf.z)*side;
-      for(const dv of [-1,1])trim(2,wood,vu,.98,vv+dv*(shelf.d/2-.025),.33,1.90,.050);
-      for(const y of [.18,.72,1.25,1.85]){
-        trim(2,wood,vu,y,vv,.33,.049,shelf.d);
-        if(y<1.8)for(const s of [-1,1])orb(ball,4,s>0?0xeadac1:0xc2ab88,vu,y+.11,vv+s*shelf.d*.22,.081,.099,.073);
+      if(shelf){
+        const vu=(shelf.x-x)*side,vv=(z-shelf.z)*side;
+        for(const dv of [-1,1])trim(2,wood,vu,.98,vv+dv*(shelf.d/2-.025),.33,1.90,.050);
+        for(const y of [.18,.72,1.25,1.85]){
+          trim(2,wood,vu,y,vv,.33,.049,shelf.d);
+          if(y<1.8)for(const s of [-1,1])orb(ball,4,s>0?0xeadac1:0xc2ab88,vu,y+.11,vv+s*shelf.d*.22,.081,.099,.073);
+        }
       }
       // Small framed abstract diptych and a pair of track-lit wall niches.
       const artV=Math.min(depth-.75,sv+.54);

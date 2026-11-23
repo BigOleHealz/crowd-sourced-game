@@ -3,7 +3,7 @@ import {paneSupportLost} from './glass-support.js';
 // The existing mainland corner block keeps its two independent side shops.
 export const hotel={name:'Hotel Maravela',x:-16,z:-53,fronts:[
   {id:'quay',z:-57,side:-1},{id:'city',z:-49,side:1},
-],desk:{x:-14.34,z:-53.07,w:.83,d:1.84},cart:{x:-17.91,z:-52.91,w:.61,d:.83}};
+],desk:{x:-14.34,z:-53.07,w:.83,d:1.84},cart:{x:-14.34,z:-51.65,w:.61,d:.83}};
 export function hotelPanels(front,fraction,width){
   return [-1,1].map(s=>({x:hotel.x+s*width*(.25+.51*fraction),z:front.z-.045*front.side,w:width/2,d:.035}));
 }
