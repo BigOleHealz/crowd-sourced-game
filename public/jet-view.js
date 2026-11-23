@@ -70,7 +70,9 @@ export function jetView(scene,Batch){
   gear.add(round,0x23282b,0,.18,-1.58,.085,.18,.18);
   missileLaunchers(body,'jet');
   // Charcoal inset and a pale inspection stripe make the nose port read against its cowl.
-  body.add(round,0x343d40,-.124,1.03,-2.67,.057,.047,.137,-.11,-.18);
+  const cannonPort=new THREE.Vector3(-.232,1.03,-2.68);
+  body.add(round,0x343d40,cannonPort.x,cannonPort.y,cannonPort.z,.057,.047,.137);
+  cannonPort.z-=.137;
   for(const side of [-1,1])body.add(box,0xa6aaa1,side*.865,.966,.075,.033,.012,.195,0,side*.20);
   const hull=body.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.30}));
   hull.userData.impactSurface='metal';
@@ -95,15 +97,37 @@ export function jetView(scene,Batch){
     const fire=new THREE.Mesh(plume,flameMaterial);fire.position.x=side*.44;exhaust.add(fire);
   }
   exhaust.position.set(0,.96,2.68);group.add(exhaust);scene.add(group);
-  let glow=0,gearDown=1,time=0;
-  return (j,dt)=>{
+  let glow=0,gearDown=1,time=0,flashTime=0,cannonFlash;
+  function flashCannon(){
+    if(!cannonFlash){
+      cannonFlash=new THREE.Mesh(new THREE.SphereGeometry(1,8,5),new THREE.MeshBasicMaterial({color:0xffd395}));
+      cannonFlash.name='Jet cannon flash';
+      cannonFlash.scale.set(.055,.047,.12);
+      cannonFlash.position.copy(cannonPort);
+      cannonFlash.position.z-=.08;
+      group.add(cannonFlash);
+    }
+    flashTime=.065;
+    cannonFlash.visible=true;
+  }
+  function update(j,dt){
     group.visible=!!j;if(!j)return;
     time+=dt;
+    flashTime=Math.max(0,flashTime-dt);
+    if(cannonFlash)cannonFlash.visible=flashTime>0 && !j.wrecked && j.pilot!=null;
     group.position.set(j.x,j.y,j.z);group.rotation.set(j.pitch,-j.yaw,j.wrecked?1.12:j.roll,'YXZ');
     gearDown+=((j.grounded || j.speed<13 ? 1:0)-gearDown)*(1-Math.exp(-4*dt));
     wheels.visible=gearDown>.03;wheels.position.y=(1-gearDown)*.74;
     glow+=((j.burner && !j.wrecked?1:0)-glow)*(1-Math.exp(-9*dt));
     exhaust.visible=glow>.01;exhaust.scale.z=.18+1.58*glow*(1+.048*Math.sin(time*34));
     flameMaterial.uniforms.power.value=glow;flameMaterial.uniforms.clock.value=time;
-  };
+  }
+  function cannonMuzzle(out,forward){
+    if(forward){
+      group.updateWorldMatrix(true,false);
+      forward.set(0,0,-1).transformDirection(group.matrixWorld);
+    }
+    return group.localToWorld(out.copy(cannonPort));
+  }
+  return {update,cannonMuzzle,flashCannon};
 }

@@ -7,8 +7,8 @@ export const magazineSpecs = {
   5: { capacity: 48, reloadTicks: 60 }
 };
 
-export function magazineView(player, tick) {
-  const { weapon, life } = player;
+export function magazineView(player, tick, weapon = player.weapon) {
+  const { life } = player;
   const spec = magazineSpecs[weapon];
   if (!spec) return undefined;
   const rounds = life.magazines?.[weapon] ?? spec.capacity;
@@ -16,8 +16,8 @@ export function magazineView(player, tick) {
   return { weapon, rounds, capacity: spec.capacity, ...(reloading && { reloadTicks: Math.max(0, life.reload.end - tick) }) };
 }
 
-export function spendRound(player) {
-  const { weapon, life } = player;
+export function spendRound(player, weapon = player.weapon) {
+  const { life } = player;
   const spec = magazineSpecs[weapon];
   if (!spec) return true;
   const magazines = life.magazines ??= {};
@@ -27,8 +27,8 @@ export function spendRound(player) {
   return true;
 }
 
-export function startReload(player, tick) {
-  const { weapon, life } = player;
+export function startReload(player, tick, weapon = player.weapon) {
+  const { life } = player;
   const spec = magazineSpecs[weapon];
   if (!spec || life.reload) return;
   const rounds = life.magazines?.[weapon] ?? spec.capacity;
@@ -36,8 +36,8 @@ export function startReload(player, tick) {
   life.reload = { weapon, end: tick + spec.reloadTicks };
 }
 
-export function advanceReload(player, tick, interrupted) {
-  const { life, weapon } = player;
+export function advanceReload(player, tick, interrupted, weapon = player.weapon) {
+  const { life } = player;
   const reload = life.reload;
   if (!reload) return;
   if (interrupted || weapon !== reload.weapon) delete life.reload;

@@ -33,3 +33,11 @@ for(const role of ['car','armed-car','engine','tank','helm','heli','jet']){
   assert(has(eligible.quick,'KeyE'),role+' retains exit at the pump');
   assert(!has(touchLayout({role,active:true,canRefuel:false}).quick,'KeyU'));
 }
+
+for(const role of ['car','armed-car','turret','engine']){
+  const canSwap=role!=='car';
+  const window=touchLayout({role,active:true,pistol:true,canReload:true,swapPistol:canSwap});
+  assert(window.quick.some(([key,label])=>key==='KeyF' && label==='Fire pistol'));
+  assert(has(window.quick,'reload'));
+  assert.equal(has(window.tools,'KeyP'),canSwap);
+}

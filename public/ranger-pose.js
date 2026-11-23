@@ -1,3 +1,4 @@
+import {carPistolGrip,carSource,sidearmSlot} from './car-sidearm.js';
 import {activeCast} from './pier-fishing.js';
 import {diveMotion} from './estate-diving.js';
 import {rungPitch} from './marina-platform.js';
@@ -23,6 +24,7 @@ export function createRangerRig() {
   });
   return {root,body,spine,upper,head,limbs,tools:Array.from({length:6},()=>new THREE.Group()),cycle:0,gait:null};
 }
+const windowRotation=new THREE.Euler(0,0,0,'YXZ'),windowHeading=new THREE.Quaternion();
 const downArm=new THREE.Vector3(0,-1,0), reach=new THREE.Vector3(), bend=new THREE.Vector3();
 const relaxedPalm=new THREE.Vector3(),grip=new THREE.Vector3(),elbow=new THREE.Vector3(),segment=new THREE.Vector3(),inverseUpper=new THREE.Quaternion();
 const upperLength=.275, lowerLength=.265;
@@ -282,6 +284,18 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
   const melee=isArcadeMelee(state.weapon),fit=carryFits[toolIndex];
   const meleeReady=carrying && !state.parachute && !(state.lostParts?.leftArm && state.lostParts.rightArm);
   avatar.tools.forEach((tool,i)=>{tool.visible=carrying && i===toolIndex && !(i===5 && avatar.throwSwing>0) && (!melee || meleeReady);});
+  const shot=state.carShot,vehicle=seated || station;
+  const windowGrip=shot && vehicle && !fall && !state.dead && shot.source===carSource(vehicle) && carPistolGrip(vehicle,state.id);
+  if(windowGrip && avatar.tools[sidearmSlot-1]){
+    const pistol=avatar.tools[sidearmSlot-1];
+    pistol.visible=true;
+    // The model origin sits just above and ahead of the grip.
+    avatar.upper.getWorldQuaternion(inverseUpper).invert();
+    windowHeading.setFromEuler(windowRotation.set(shot.pitch,-shot.yaw,0,'YXZ'));
+    pistol.quaternion.copy(inverseUpper).multiply(windowHeading);
+    pistol.position.copy(avatar.upper.worldToLocal(grip.set(windowGrip.x,windowGrip.y,windowGrip.z)));
+    pistol.position.add(grip.set(0,.045,-.04).applyQuaternion(pistol.quaternion));
+  }
   avatar.label?.update(state);
   for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
     if(onLadder){
@@ -381,7 +395,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       const reach=Math.sin(avatar.throwSwing*Math.PI*.70);
       arm.rotation.set(side===1?1.03+reach*1.44:.28,side*.05,side*(.11+.09*reach));
       forearm.rotation.x=side===1?.24+.37*(1-reach):.67;
-    } else if(fit && avatar.tools[toolIndex] && !seated && !state.parachute && !state.dead && !swimming) {
+    } else if(fit && avatar.tools[toolIndex] && !windowGrip && !seated && !state.parachute && !state.dead && !swimming) {
       const weapon=avatar.tools[toolIndex];
       const kit=weapon.position;
       kit.x=(bloom ? .062 : .122)+.011*swing*weight;
@@ -408,6 +422,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       const handZ=side===1 ? .044 : fit.reach;
       grip.set(handX,handY,handZ).applyQuaternion(weapon.quaternion).add(kit);
       gripPose(arm,forearm,grip.x,grip.y,grip.z,side,prone);
+    } else if(windowGrip && side<0){
+      holdWorld(avatar,arm,forearm,side,windowGrip);
     } else if(cabin) {
       holdWorld(avatar,arm,forearm,side,roadWheelGrip(seated,side));
     } else if(helm) {

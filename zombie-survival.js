@@ -113,6 +113,11 @@ export function zombieSurvival() {
       const falling=advanceFall(z,tick,1/30,world.hp,world);
       if (z.crawling && z.state.grounded) z.state.stance='prone';
       if (falling) continue;
+      if(z.state.climb){
+        z.state=stepPlayer(z.state,{},1/30,world.hp,world);
+        z.lastAdvance=tick;
+        continue;
+      }
       let target, range = Infinity;
       for (const player of living) {
         if (!player.life.hp) continue;
@@ -122,7 +127,8 @@ export function zombieSurvival() {
       if (!target) break;
       const dx=target.state.x-z.state.x, dz=target.state.z-z.state.z;
       z.yaw = Math.atan2(dx,-dz);
-      z.moving = range>1.05;
+      const headingAshore=z.state.swimming && !target.state.swimming && range>.04;
+      z.moving = range>1.05 || headingAshore;
       if (z.moving) {
         // Use the same terrain and wall collisions as the squad, including on bridges.
         // Prone movement uses the same 1.05 m/s cap as a crawling survivor.
@@ -138,7 +144,9 @@ export function zombieSurvival() {
             zMove+=sz*push;
           }
         }
-        z.state=stepPlayer(z.state,{x:x*speed,z:zMove*speed},1/30,world.hp,world);
+        // Stagger shoreline probes across the wave; use the normal swimmer's ledge grab.
+        const swimY=headingAshore && (tick+z.infected)%12===0 ? 1 : 0;
+        z.state=stepPlayer(z.state,{x:x*speed,z:zMove*speed,swimY},1/30,world.hp,world);
         if(Math.hypot(z.state.x-z.progressX,z.state.z-z.progressZ)>1){
           z.lastAdvance=tick;
           z.progressX=z.state.x;
@@ -152,7 +160,7 @@ export function zombieSurvival() {
       }else{
         z.lastAdvance=tick;
       }
-      if (range<=1.4 && Math.abs(target.state.y-z.state.y)<1.8 && tick>=z.nextBite) {
+      if (!z.state.climb && range<=1.4 && Math.abs(target.state.y-z.state.y)<1.8 && tick>=z.nextBite) {
         const hpBefore = target.life.hp;
         damageActor(target,9+2*state.wave,tick);
         if (target.life.hp < hpBefore) target.life.lastBiteTick = tick;

@@ -1,3 +1,4 @@
+import {sidearmCar,carPistolGrip,carSource} from './car-sidearm.js';
 import {pierFishingView} from './pier-fishing-view.js';
 import {reefChannelView} from './reef-channel-view.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
@@ -1198,7 +1199,7 @@ export function createScene(canvas) {
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
-  const updateJet=jetView(scene,Batch);
+  const jetModel=jetView(scene,Batch);
   const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
@@ -1284,7 +1285,9 @@ export function createScene(canvas) {
     // At the pole there is no horizontal bearing to recover from atan2.
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
-    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const windowCar=station==='car-window' && sidearmCar(displayedWorld,id);
+    if(station==='car-window' && !windowCar)return null;
+    const muzzle=windowCar ? carPistolGrip(windowCar,id) : station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
@@ -1294,7 +1297,7 @@ export function createScene(canvas) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station);
     let {to}=aimHit;
     if(CITY && to){
       const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);
@@ -1362,7 +1365,7 @@ export function createScene(canvas) {
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
-    updateJet(world.jet,dt);
+    jetModel.update(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
     const aircraft=flyingJet ? world.jet : heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
@@ -1721,6 +1724,10 @@ export function createScene(canvas) {
     if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
     // Sample once the visible gun, avatar and camera all have their current-frame pose.
     for(const flash of pendingMuzzles){
+      if(flash.source==='jet'){
+        if(world.jet?.pilot===flash.shooter && !world.jet.wrecked)jetModel.flashCannon();
+        continue;
+      }
       const from=visibleMuzzle(flash.shooter,flash.firedWeapon,muzzlePoint);
       effects.shot(from ? {...flash,from} : flash,flash.source);
     }
@@ -1754,7 +1761,11 @@ export function createScene(canvas) {
   const pendingMuzzles=[];
   const muzzlePoint=new THREE.Vector3();
   const muzzleTips=[[0,.099,-.628],[0,.091,-.202],[0,.120,-.744]];
-  function visibleMuzzle(shooter,weapon,out){
+  function visibleMuzzle(shooter,weapon,out,source,forward){
+    if(source==='jet'){
+      const jet=displayedWorld?.jet;
+      return jet && !jet.wrecked && jet.pilot===shooter ? jetModel.cannonMuzzle(out,forward) : null;
+    }
     const tip=muzzleTips[weapon-1];
     if(!tip)return null;
     const avatar=avatars.get(shooter), sight=sightModels[weapon-1];
@@ -1768,7 +1779,7 @@ export function createScene(canvas) {
   function showShots(shots,tick) {
     for(const shot of shots){
       if(isArcadeMelee(shot.weapon) || (shot.weapon==='muzzle' && isArcadeMelee(shot.firedWeapon)))continue;
-      if(shot.weapon==='muzzle' && !shot.source && muzzleTips[shot.firedWeapon-1]){
+      if(shot.weapon==='muzzle' && (shot.source==='jet' || (!shot.source && muzzleTips[shot.firedWeapon-1]))){
         pendingMuzzles.push(shot);continue;
       }
       if(shot.weapon==='waterHit'){swimmerImpacts.event(shot,tick);continue;}
