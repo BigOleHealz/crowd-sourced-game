@@ -1,6 +1,6 @@
 import {blocked, groundHeight, insideTravelArea, stepPlayer, waterSurfaceAt} from './public/world.js';
 import {damageActor, newLife} from './public/rivals.js';
-import {advanceFall} from './public/falls.js';
+import {advanceFall, startFall} from './public/falls.js';
 
 export function squadSpawn(id) {
   const x = -20 + ((id-1)%4), z = -210 + Math.floor((id-1)/4);
@@ -105,7 +105,14 @@ export function zombieSurvival() {
       nextSpawn = tick + Math.max(5,30-2*state.wave);
     }
     for (const z of npcs) {
-      if (!z.life.hp || advanceFall(z,tick,1/30,world.hp,world)) continue;
+      if (!z.life.hp) continue;
+      if (!z.crawling && (z.life.lostParts?.leftLeg || z.life.lostParts?.rightLeg)) {
+        z.crawling=true;
+        if (!z.life.fall) startFall(z,tick,{x:0,y:0,z:0},'lostLeg');
+      }
+      const falling=advanceFall(z,tick,1/30,world.hp,world);
+      if (z.crawling && z.state.grounded) z.state.stance='prone';
+      if (falling) continue;
       let target, range = Infinity;
       for (const player of living) {
         if (!player.life.hp) continue;
@@ -118,7 +125,8 @@ export function zombieSurvival() {
       z.moving = range>1.05;
       if (z.moving) {
         // Use the same terrain and wall collisions as the squad, including on bridges.
-        const speed = (1.75+Math.min(2.8,(state.wave-1)*.27))/4.6;
+        // Prone movement uses the same 1.05 m/s cap as a crawling survivor.
+        const speed = z.crawling ? .80 : (1.75+Math.min(2.8,(state.wave-1)*.27))/4.6;
         let x=dx/range, zMove=dz/range;
         for (const other of npcs) {
           if (other===z || !other.life.hp) continue;
@@ -138,7 +146,7 @@ export function zombieSurvival() {
         }else if(tick-z.lastAdvance>300 && range>3){
           // An impassable route must not strand the last enemy of a wave.
           const position=approach(living,z.infected+Math.floor(tick/30),world);
-          if(position)z.state=position;
+          if(position)z.state=z.crawling && position.grounded ? {...position,stance:'prone'} : position;
           z.lastAdvance=tick;
         }
       }else{

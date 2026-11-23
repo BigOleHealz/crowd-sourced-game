@@ -23,3 +23,16 @@ for (const [index, look] of looks.entries()) {
   }
 }
 console.log('All four infected shirts stay attached at the waist while standing, walking, and turning.');
+
+const crawler=createRangerRig();
+const prone={id:'infected-1',infected:1,x:0,y:0,z:0,yaw:0,moving:true,grounded:true,stance:'prone',holstered:true};
+const fall={...prone,fall:{cause:'lostLeg',age:.5,speed:0,yaw:0,settled:true,recovery:1}};
+poseRig(crawler,fall,1/30);
+poseInfected(crawler,fall,0);
+const fallenAngle=crawler.body.rotation.x;
+poseRig(crawler,prone,1/30);
+poseInfected(crawler,prone,0);
+assert.ok(fallenAngle < -1 && Math.abs(fallenAngle-crawler.body.rotation.x)<.01,'settles into crawl without standing');
+const reach=crawler.limbs.map(l=>l.arm.rotation.x);
+poseInfected(crawler,prone,Math.PI/5);
+assert.ok((reach[0]-crawler.limbs[0].arm.rotation.x)*(reach[1]-crawler.limbs[1].arm.rotation.x)<0,'alternating arm pulls');
