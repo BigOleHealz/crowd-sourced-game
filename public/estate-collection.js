@@ -162,6 +162,101 @@ export function estateCollection(scene,Batch,refreshShadows,staticGroup){
           }
           ceramic(bowl,casa?0xc1966c:0x889989,w*.25,H+.008,0,.34,.135,.34);
         }
+      }else if(kind==='piano'){
+        // A rosewood upright with its keyboard lid open and the score on a sloped rest.
+        wood(0,.09,-.04,w-.08,.18,d-.09);
+        wood(0,H*.53,-d*.19,w-.06,H*.90,d*.53);
+        wood(0,H-.045,-d*.18,w,.09,d*.62);
+        for(const side of [-1,1]){
+          wood(side*(w/2-.058),H*.37,.025,.115,H*.74,d-.05);
+          wood(side*(w/2-.11),.32,d*.34,.09,.53,.095);
+        }
+        const keyHeight=.735,span=w-.24,keys=42,key=span/keys;
+        wood(0,keyHeight-.07,d*.16,w-.11,.13,d*.63);
+        for(let i=0;i<keys;i++){
+          const x=(i+.5-keys/2)*key;
+          put(box,linen,0xffefcf,x,keyHeight,d*.24,key-.002,.035,.23);
+          if(i+1<keys && ![2,6].includes(i%7))
+            put(box,marble,darkMetal,x+key*.5,keyHeight+.031,d*.155,key*.65,.050,.135);
+        }
+        wood(0,.95,.104,.68,.355,.044,-.18);
+        for(const side of [-1,1]){
+          put(box,linen,ivory,side*.139,.96,.135,.272,.29,.014,-.18,side*.056);
+          for(const y of [.90,.97,1.03])
+            put(box,linen,0x716951,side*.139,y,.148-(y-.96)*.18,.19,.008,.009);
+        }
+        for(const side of [-1,0,1])put(box,marble,gold,side*.075,.115,d*.27,.047,.034,.18);
+      }else if(kind==='bench'){
+        for(const a of [-1,1])for(const b of [-1,1]){
+          const u=a*w*.40,v=b*d*.35;
+          wood(u,H*.32,v,.065,H*.64,.065);
+          metal(u,.045,v,.078,.09,.078);
+        }
+        wood(0,H*.67,0,w-.065,H*.14,d-.06);
+        cloth(velvet,casa?0x8b5c42:home==='mare'?0x557367:0x5f8992,0,H*.86,0,w,H*.28,d);
+        for(const u of [-.30,0,.30])for(const v of [-.20,.20])
+          put(drum,velvet,0x625f52,u*w,H-.002,v*d,.018,.007,.018);
+      }else if(kind==='cocktailBar'){
+        wood(0,H*.46,0,w-.16,H*.92,d-.14);
+        for(let i=0;i<26;i++)
+          put(pin,walnut,0xc48d58,(i-12.5)*(w-.23)/26,H*.48,d*.416,.049,H*.85,.051);
+        slab(0,H-.055,0,w,.11,d);
+        put(box,marble,gold,0,.20,d*.48,w-.31,.031,.049);
+        for(const side of [-1,1])metal(side*w*.39,.12,d*.48,.036,.17,.036);
+        put(stone,marble,gold,-w*.22,H+.018,0,.69,.038,d*.60);
+        for(const [i,color] of [0x996343,0x58786e,0xc2a575].entries()){
+          const u=-w*.22+(i-1)*.195, bh=.20+.029*i;
+          ceramic(vase,color,u,H+.039,-.015,.176,bh,.169);
+          ceramic(orb,ivory,u,H+.054+bh,-.015,.074,.073,.074);
+        }
+        for(let i=0;i<3;i++){
+          const u=w*.15+i*.17;
+          ceramic(drum,ivory,u,H+.012,.042,.087,.023,.087);
+          metal(u,H+.071,.042,.016,.105,.016);
+          ceramic(bowl,0xc3c8ba,u,H+.12,.042,.118,.104,.118);
+        }
+      }else if(kind==='barstool'){
+        ceramic(drum,gold,0,.032,0,w*.81,.065,d*.81);
+        metal(0,H*.48,0,.076,H*.86,.076);
+        ceramic(drum,gold,0,H*.40,0,w*.73,.025,d*.73);
+        cloth(velvet,teal,0,H-.076,0,w,.15,d);
+      }else if(kind==='vitrine'){
+        // Open brass-and-walnut display, backed in fabric so the pieces read against glazing.
+        const lining=casa?0x94745b:home==='mare'?0x575e55:0x637e7b;
+        wood(0,H*.50,-d*.44,w,H,d*.11);
+        put(box,velvet,lining,0,H*.54,-d*.372,w-.10,H*.84,.025);
+        for(const side of [-1,1])wood(side*(w/2-.034),H*.5,0,.068,H,d);
+        const shelves=[.12,.40,.69,.98];
+        for(const level of shelves){
+          wood(0,H*level,0,w,.067,d);
+          put(box,marble,gold,0,H*level,d*.50,w,.022,.012);
+        }
+        for(const [i,level] of shelves.slice(0,3).entries()){
+          const y=H*level+.034,sign=i%2?-1:1;
+          const u=sign*w*.245;
+          if(home==='lido' && i!==0){
+            // A brass-cased nautical instrument displayed upright on a timber saddle.
+            wood(u,y+.037,0,.36,.074,.20);
+            put(drum,marble,gold,u,y+.242,0,.42,.075,.42,Math.PI/2);
+            put(box,compass,ivory,u,y+.242,.043,.282,.282,.012);
+          }else if(casa && i!==1){
+            for(let jacket=0;jacket<3;jacket++)
+              put(box,[harbor,abstract,botanical][jacket],ivory,u+jacket*.048,y+.20,jacket*.024,.36,.40,.024,-.075);
+          }else{
+            ceramic(vase,home==='lido'?0xc29a73:teal,u,y,0,.34,.32+i*.045,.31);
+          }
+          if(home==='mare' && i===2){
+            const stand=u-sign*.40;
+            slab(stand,y+.034,0,.27,.068,.21);
+            put(orb,marble,gold,stand,y+.21,0,.21,.39,.16,0,0,-.42);
+            put(orb,marble,ivory,stand+.062,y+.39,0,.11,.15,.10);
+          }else ceramic(bowl,ivory,u-sign*.40,y,0,.38,.15,.34);
+          for(let j=0;j<4;j++){
+            const height=.28+((j+i)%3)*.06, bx=-u+(j-1.5)*.078;
+            put(box,linen,[0x8f655c,0xc6a978,0x647a72,0xe2cdae][j],bx,y+height*.5,.01,.072,height,.23);
+            put(box,marble,gold,bx,y+height*.75,.13,.052,.018,.012);
+          }
+        }
       }else if(kind==='island'){
         wood(0,H*.45,0,w-.13,H*.90,d-.12);
         const longX=w>d,span=longX?w:d,n=Math.round(span/.11);

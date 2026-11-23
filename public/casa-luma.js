@@ -86,12 +86,13 @@ for(const [kind,x,z,w,d,height,facing] of [
   ['dining',-13.75,-388.4,2.02,1.18,.80],
   ...[-14.4,-13.1].flatMap(x=>[-389.38,-387.42].map(z=>['chair',x,z,.56,.59,.88,Math.sign(z+388.4)])),
   ['sofa',-31.6,-404.9,3.05,.95,.92],['lowTable',-31.6,-403.35,1.85,.74,.43],
+  ['piano',-32.5,-408.38,2.03,.69,1.32],['bench',-32.5,-407.48,1.07,.39,.50],
   ['console',-15.7,-408.1,3.46,.58,.88],
 ])furnish(kind,x,z,w,d,ground,height,facing);
 for(const [kind,x,z,w,d,height,facing] of [
   ['books',-35.2,-408.05,6.35,.52,2.33],['sofa',-34.1,-405.55,3.05,.95,.92],
   ['lowTable',-34.1,-404,1.85,.74,.43],['desk',-15.25,-406.9,3.4,.92,.82],
-  ['chair',-15.7,-408,.65,.65,.95],['console',-24.3,-402.1,3.45,.54,.88],
+  ['vitrine',-19.4,-408.09,2.55,.52,2.28],['chair',-15.7,-408,.65,.65,.95],['console',-24.3,-402.1,3.45,.54,.88],
 ])furnish(kind,x,z,w,d,upper,height,facing);
 export const artScreen={x:-24.3,z:-401.75,w:3.56,d:.12,bottom:upper,h:6.83};
 casaBarriers.push(artScreen);
