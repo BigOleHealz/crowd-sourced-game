@@ -36,6 +36,7 @@ import {createSharkDefeatView} from './shark-defeat-view.js';
 import {manateeView} from './manatee-view.js';
 import {cargoHookView} from './cargo-hook-view.js';
 import {contactShadows} from './contact-shadows.js';
+import {addFuelMarkers} from './fuel-markers.js';
 import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
 import {surfaceMarks} from './surface-marks.js';
@@ -1175,6 +1176,7 @@ export function createScene(canvas) {
     ({stacks,updateGlass:updateRuralGlass}=buildOutpost(scene,renderer,Batch));
     meadow(scene,renderer,rng,trailDistance);
   }
+  addFuelMarkers(scene,features);
   landingMarks(features);const featureMesh=features.mesh(scene,material);
   if(churchPanes)updateChurch=churchPanes.bind(featureMesh);
   let updateCases;

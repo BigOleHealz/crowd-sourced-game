@@ -26,3 +26,10 @@ for(const [target,label] of [['tank','Drive tracked tank'],['jet','Pilot strike 
 
 const seats=touchLayout({role:'armed-car',active:true,seat:['Driver','Gunner'],occupancy:['You','Taken']});
 assert.deepEqual(seats.tools.slice(0,2),[['Digit1','Driver · You',true],['Digit2','Gunner · Taken',true]]);
+
+for(const role of ['car','armed-car','engine','tank','helm','heli','jet']){
+  const eligible=touchLayout({role,active:true,canRefuel:true,use:'Exit vehicle'});
+  assert(eligible.quick.some(([code,label])=>code==='KeyU' && label==='Refuel'),role);
+  assert(has(eligible.quick,'KeyE'),role+' retains exit at the pump');
+  assert(!has(touchLayout({role,active:true,canRefuel:false}).quick,'KeyU'));
+}

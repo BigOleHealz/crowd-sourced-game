@@ -3,6 +3,7 @@ import {drive,valet} from './palma-site.js';
 import {casinoName,casinoEntrance} from './casino-layout.js';
 import {bankSite,bankRoadZ} from './bank-site.js';
 import {fuelStop} from './fire-sites.js';
+import {fuelSites} from './vehicle-fuel.js';
 import {avenues,streets,harbor,streetPlan} from './brickell-map.js';
 import {MAP,CITY} from './world.js';
 import {roadGarages} from './road-garages.js';
@@ -18,6 +19,7 @@ export const destinations=CITY?new Map([
 ]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
 for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);
+for(const site of fuelSites)destinations.set(site.name,[site.x,site.z]);
 
 // Use the intersecting road centrelines, with the island links limited to the
 // two drivable causeways. A destination may split an existing avenue segment.
@@ -51,6 +53,7 @@ if(CITY){
   path([[49,-419],[61,-419],[66,-419]]);
   path([[61,-419],[61,-408.7],destinations.get('East Quay Jetty')]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
+  path([[fuelStop.x,fuelStop.roadZ],[fuelStop.x,fuelStop.z]]);
 }else{
   path(MAP.trail);path(MAP.northTrail);path(churchPath);
   path([[0,15],[-3,19.5],[-8,20.5],destinations.get(roadGarages[0].name)]);
@@ -63,6 +66,15 @@ function project(p,a,b){
 }
 
 export function landmarkGuide(name){
+  const service=fuelSites.find(site=>site.name===name);
+  if(service && (service.kind==='marine' || service.kind==='air')){
+    const goal=[service.x,service.z];
+    return (x,z)=>{
+      const distance=Math.round(Math.hypot(x-service.x,z-service.z));
+      const cue=distance<=service.radius?'Arrived':service.kind==='marine'?'Fuel buoy':'Fuel apron';
+      return {line:[[x,z],goal],goal,cue,meters:distance,distance};
+    };
+  }
   const goal=points.get(key(destinations.get(name)??[]));
   if(!goal)return null;
   const pending=new Set(points.values()),dist=new Map([[goal,0]]),toward=new Map();
