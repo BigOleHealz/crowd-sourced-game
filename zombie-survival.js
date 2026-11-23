@@ -1,5 +1,4 @@
-import {arena, confineToArena} from './public/zombie-arena.js';
-import {groundHeight} from './public/world.js';
+import {blocked, groundHeight, insideTravelArea, stepPlayer, waterSurfaceAt} from './public/world.js';
 import {damageActor, newLife} from './public/rivals.js';
 import {advanceFall} from './public/falls.js';
 
@@ -36,18 +35,31 @@ export function zombieSurvival() {
     nextSpawn = startsAt;
   }
 
-  function spawnZombie(living, tick) {
+  // Look for clear approaches around the next survivor, rotating the first
+  // direction each spawn so a squad on the move gets attacked from different sides.
+  function approach(living, seed, world) {
+    const target=living[(seed-1)%living.length].state;
+    for (let i=0; i<16; i++) {
+      const angle=seed*2.4 + i*Math.PI/4;
+      const r=i<8 ? 13 : 7;
+      const x=target.x+Math.sin(angle)*r, z=target.z+Math.cos(angle)*r;
+      if (!insideTravelArea(x,z) || living.some(p=>Math.hypot(p.state.x-x,p.state.z-z)<5)) continue;
+      const floor=groundHeight(x,z,target.y+1.8,world.doors);
+      const water=waterSurfaceAt(x,z,target.y);
+      const swimming=floor<water-.75;
+      const y=swimming ? water-.72 : floor;
+      if ((swimming && !target.swimming) || Math.abs(y-target.y)>3 || blocked(x,y,z,world.hp,world.doors)) continue;
+      return {x,y,z,grounded:!swimming,vy:0,...(swimming && {swimming:true})};
+    }
+    return null;
+  }
+
+  function spawnZombie(position, tick) {
     const id = ++nextId;
-    const lane = (id*.61803398875)%1;
-    const across = arena.west+1+lane*(arena.east-arena.west-2);
-    const along = arena.north+1+lane*(arena.south-arena.north-2);
-    const gates = [[across,arena.north],[arena.east,along],[across,arena.south],[arena.west,along]];
-    const ordered = gates.slice((id-1)%4).concat(gates.slice(0,(id-1)%4));
-    const [x,z] = ordered.find(([x,z])=>living.every(p=>Math.hypot(p.state.x-x,p.state.z-z)>5)) ?? ordered[0];
     const maxHp = 65 + 10*(state.wave-1);
     return {id:'infected-'+id, name:'Infected', infected:id, yaw:0, moving:false, weapon:0,
       life:{...newLife(tick,false), hp:maxHp}, maxHp, nextBite:tick+18,
-      state:{x,z,y:groundHeight(x,z), grounded:true, vy:0}};
+      state:position, lastAdvance:tick, progressX:position.x, progressZ:position.z};
   }
 
   function advance(players, npcs, tick, world) {
@@ -85,8 +97,11 @@ export function zombieSurvival() {
     }
     const cap = Math.min(14,2+living.length+state.wave);
     if (spawned<state.goal && tick>=nextSpawn && npcs.length<cap) {
-      npcs.push(spawnZombie(living,tick));
-      spawned++;
+      const position=approach(living,nextId+1+Math.floor(tick/30),world);
+      if(position){
+        npcs.push(spawnZombie(position,tick));
+        spawned++;
+      }
       nextSpawn = tick + Math.max(5,30-2*state.wave);
     }
     for (const z of npcs) {
@@ -102,22 +117,32 @@ export function zombieSurvival() {
       z.yaw = Math.atan2(dx,-dz);
       z.moving = range>1.05;
       if (z.moving) {
-        const travel = Math.min(range-1.05, (1.75+Math.min(2.9,(state.wave-1)*.27))/30);
-        z.state.x += dx/range*travel;
-        z.state.z += dz/range*travel;
-        // Close neighbors spread across the approach instead of stacking in one silhouette.
+        // Use the same terrain and wall collisions as the squad, including on bridges.
+        const speed = (1.75+Math.min(2.8,(state.wave-1)*.27))/4.6;
+        let x=dx/range, zMove=dz/range;
         for (const other of npcs) {
           if (other===z || !other.life.hp) continue;
           const sx=z.state.x-other.state.x, sz=z.state.z-other.state.z;
           const gap=Math.hypot(sx,sz);
           if (gap>0 && gap<.62) {
-            const push=(.62-gap)*.16/gap;
-            z.state.x+=sx*push;
-            z.state.z+=sz*push;
+            const push=(.62-gap)/gap;
+            x+=sx*push;
+            zMove+=sz*push;
           }
         }
-        confineToArena(z.state);
-        z.state.y = groundHeight(z.state.x,z.state.z);
+        z.state=stepPlayer(z.state,{x:x*speed,z:zMove*speed},1/30,world.hp,world);
+        if(Math.hypot(z.state.x-z.progressX,z.state.z-z.progressZ)>1){
+          z.lastAdvance=tick;
+          z.progressX=z.state.x;
+          z.progressZ=z.state.z;
+        }else if(tick-z.lastAdvance>300 && range>3){
+          // An impassable route must not strand the last enemy of a wave.
+          const position=approach(living,z.infected+Math.floor(tick/30),world);
+          if(position)z.state=position;
+          z.lastAdvance=tick;
+        }
+      }else{
+        z.lastAdvance=tick;
       }
       if (range<=1.4 && Math.abs(target.state.y-z.state.y)<1.8 && tick>=z.nextBite) {
         damageActor(target,9+2*state.wave,tick);
