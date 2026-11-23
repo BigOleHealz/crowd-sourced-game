@@ -54,6 +54,14 @@ export function damageActor(actor, amount, tick, direction) {
   return true;
 }
 
+// The room clock runs at 30 Hz. An actual hit resets the recovery cadence.
+export function recoverPlayerHealth(player,tick){
+  const life=player.life;
+  if(life.hp<=0 || life.hp>=MAX_HP || life.lastHurtTick==null)return;
+  const age=tick-life.lastHurtTick;
+  if(age>=300 && (age-300)%15===0)life.hp=Math.min(MAX_HP,life.hp+1);
+}
+
 export function respawnDue(actor, tick) {
   return actor.life.hp === 0 && tick >= actor.life.returnAt;
 }

@@ -81,7 +81,7 @@ import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mo
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
+import { newLife, healthView, damageActor, recoverPlayerHealth, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
 import { advanceFall, startFall } from './public/falls.js';
 
@@ -924,6 +924,7 @@ function tick() {
   else localWorldReactions(world,npcs,ticks,players);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else if(!zombies)updateSupplyRun(world, step);
+  for(const player of players.values())recoverPlayerHealth(player,ticks);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);

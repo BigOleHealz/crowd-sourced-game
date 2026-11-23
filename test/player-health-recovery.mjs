@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {newLife,damageActor,recoverPlayerHealth} from '../public/rivals.js';
+const p={state:{x:0,y:0,z:0},life:newLife(0,false)};
+damageActor(p,20,10);
+for(let t=11;t<310;t++)recoverPlayerHealth(p,t);
+assert.equal(p.life.hp,80);
+recoverPlayerHealth(p,310);assert.equal(p.life.hp,81);
+damageActor(p,5,311);
+for(let t=311;t<611;t++)recoverPlayerHealth(p,t);
+assert.equal(p.life.hp,76);
+for(let t=611;t<1100;t++)recoverPlayerHealth(p,t);
+assert.equal(p.life.hp,100);
+damageActor(p,100,1100);recoverPlayerHealth(p,1400);assert.equal(p.life.hp,0);
