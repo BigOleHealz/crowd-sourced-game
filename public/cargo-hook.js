@@ -18,7 +18,7 @@ function support(world,v,x,z){
 // The authoritative tick owns the hook, the carried body and its release fall.
 // A release edge is independent of the lowering key, so letting go keeps a load.
 export function stepCargoHook(world,input,dt,onLanding){
-  const h=world.heli,canLift=h.pilot!=null && !h.wrecked && !h.grounded;
+  const h=world.heli,canLift=h.pilot!=null && h.fuel!==0 && !h.wrecked && !h.grounded;
   const old=attachments.get(world);
   if(old && (!h.hook?.load || old!==slingVehicle(world,h.hook.load))){
     if(h.hook?.load)delete h.hook;

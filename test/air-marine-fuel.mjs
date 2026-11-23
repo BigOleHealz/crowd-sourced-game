@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {newExpedition}=await import('../public/expedition.js');
+const {fly,flightState,interact}=await import('../public/airframe.js');
+const {stepJet,leaveJet}=await import('../public/jet.js');
+const {stepBoat,partyFleet}=await import('../public/patrol-boats.js');
+const {waterHelm}=await import('../public/water-helm.js');
+const {driverPrediction}=await import('../public/driver-prediction.js');
+const dt=1/30,world=newExpedition(),pilot={id:1,state:{},inputs:[]};
+const full={x:1,z:1,lift:1,aimYaw:1,steer:1,jetPitch:1,throttle:1};
+const h=world.heli;h.pilot=1;
+for(let i=0;i<90;i++)fly(world,{x:0,z:0,lift:1,aimYaw:0},dt);
+const high=h.y;
+h.fuel=0;
+for(let i=0;i<380;i++)fly(world,full,dt);
+assert(h.grounded && h.y<high-2 && h.hp===h.maxHp && !h.wrecked);
+assert.equal(h.yaw,0);
+h.motion={...flightState(h)};
+const predicted=driverPrediction(world,1);
+predicted.step(full,dt);
+assert.equal(predicted.pose(1).y,h.y);
+interact(world,pilot);assert.equal(h.pilot,null);
+h.fuel=100;h.pilot=1;fly(world,full,dt);assert(!h.grounded);
+h.pilot=null;
+
+const j=world.jet;j.pilot=1;j.fuel=0;
+const groundPose=[j.x,j.y,j.z,j.yaw];
+for(let i=0;i<15;i++)stepJet(world,full,dt);
+assert(j.grounded && !j.burner);
+assert.deepEqual([j.x,j.y,j.z,j.yaw],groundPose);
+Object.assign(j,{grounded:false,y:j.y+.8,speed:5});
+const z=j.z,alt=j.y;
+stepJet(world,{...full,steer:0},dt);
+assert(j.z<z && j.y<alt && j.speed<5 && !j.burner);
+for(let i=0;i<90;i++)stepJet(world,full,dt);
+assert(j.grounded && !j.wrecked && j.speed===0);
+leaveJet(j,pilot);assert.equal(j.pilot,null);
+j.pilot=1;j.fuel=100;stepJet(world,full,dt);assert(!j.grounded);
+
+for(const boat of [world.yacht,...world.boats]){
+  boat.driver=1;boat.fuel=0;boat.speed=2;
+  waterHelm(boat,full,dt);assert(boat.speed>0 && boat.speed<2);
+  for(let i=0;i<280;i++)waterHelm(boat,full,dt);
+  assert.equal(boat.speed,0);assert.equal(boat.throttle,0);
+  boat.fuel=100;waterHelm(boat,full,dt);assert(boat.speed>0);
+}
+const cruise=partyFleet()[0];
+world.boats=[cruise];
+for(let i=0;i<75;i++)stepBoat(world,cruise,null,dt);
+assert(cruise.speed>1);
+cruise.fuel=0;
+for(let i=0;i<140;i++)stepBoat(world,cruise,null,dt);
+assert.equal(cruise.speed,0);
+const moored=[cruise.x,cruise.z];
+stepBoat(world,cruise,null,dt);assert.deepEqual([cruise.x,cruise.z],moored);
+cruise.fuel=100;stepBoat(world,cruise,null,dt);assert(cruise.speed>0);
+console.log('PASS dry tanks stop air and marine propulsion, retain coast/descent and permit departure after filling.');

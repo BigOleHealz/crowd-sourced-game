@@ -21,12 +21,14 @@ export function cruisePartyYacht(world,b,dt,canFloat){
   let track=tracks.get(b);
   if(!track){track={a:r[6],time:i};tracks.set(b,track);}
   // The skipper idles along the shore-facing side, where swimmers can board.
+  const powered=b.fuel!==0;
   const target=2.45+1.1*(1+Math.cos(track.a));
-  const speed=Math.min(target,b.speed+.64*dt),arc=Math.hypot(r[4]*Math.sin(track.a),r[5]*Math.cos(track.a));
+  const speed=powered ? Math.min(target,b.speed+.64*dt) : Math.max(0,b.speed-.65*dt);
+  const arc=Math.hypot(r[4]*Math.sin(track.a),r[5]*Math.cos(track.a));
   const a=track.a+speed*dt/arc,pose=routePose(r,a);
   if(canFloat(world,b,pose.x,pose.z,pose.yaw)){
     const turn=Math.atan2(Math.sin(pose.yaw-b.yaw),Math.cos(pose.yaw-b.yaw));
-    Object.assign(b,pose,{yawRate:turn/dt,speed,throttle:speed/6.2});
+    Object.assign(b,pose,{yawRate:turn/dt,speed,throttle:powered?speed/6.2:0});
     track.a=a%(Math.PI*2);
   }else{b.speed=b.throttle=b.yawRate=0;}
   track.time+=dt;

@@ -8,7 +8,7 @@ const solana={ahead:5.2,astern:2,thrust:1.1,brake:2,drag:.39,dragSpeed:.085,
   rudder:.31,flow:1.8,response:1.25,grip:2.5};
 export function waterHelm(hull,input,dt){
   const profile=hull.id==='superyacht'?solana:marinaModel(hull)?.hydrodynamics??patrol;
-  const throttle=hull.driver==null?0:Math.max(-1,Math.min(1,input?.throttle||0));
+  const throttle=hull.driver==null || hull.fuel===0 ? 0 : Math.max(-1,Math.min(1,input?.throttle||0));
   const steer=hull.driver==null?0:Math.max(-1,Math.min(1,input?.steer||0));
   hull.throttle=throttle;
   const target=throttle*(throttle<0?profile.astern:profile.ahead);

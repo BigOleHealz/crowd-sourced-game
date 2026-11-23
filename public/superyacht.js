@@ -7,7 +7,7 @@ import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelm
   aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin} from './yacht-layout.js';
 
 export function mooredYacht(){
-  return {id:'superyacht',...yachtBerth,y:MAP.waterY,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
+  return {id:'superyacht',fuel:100,...yachtBerth,y:MAP.waterY,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
     hp:yachtMaxHp,maxHp:yachtMaxHp,wrecked:false,recoverySeconds:0};
 }
 export function interactYacht(world,player){

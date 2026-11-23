@@ -639,7 +639,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
       phase=0;
     }
     mainRotor.rotation.z=wrecked ? -.18 : 0;
-    speed = wrecked ? 0 : mix(speed,heli.pilot != null ? 20 : heli.abandonedFor != null ? Math.max(5,18-3*drift) : 0,1-Math.exp(-dt*4));
+    const rotorTarget=heli.fuel===0 ? (heli.grounded?0:7) : heli.pilot!=null ? 20 : heli.abandonedFor!=null ? Math.max(5,18-3*drift) : 0;
+    speed=wrecked ? 0 : mix(speed,rotorTarget,1-Math.exp(-dt*4));
     mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
     const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
     shadow.position.set(heli.x,floor+.07,heli.z);
