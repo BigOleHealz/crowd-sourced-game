@@ -16,14 +16,19 @@ export function magazineView(player, tick, weapon = player.weapon) {
   return { weapon, rounds, capacity: spec.capacity, ...(reloading && { reloadTicks: Math.max(0, life.reload.end - tick) }) };
 }
 
-export function spendRound(player, weapon = player.weapon) {
+export function spendRound(player, weapon = player.weapon, tick) {
   const { life } = player;
   const spec = magazineSpecs[weapon];
   if (!spec) return true;
   const magazines = life.magazines ??= {};
   const rounds = magazines[weapon] ?? spec.capacity;
-  if (life.reload || rounds === 0) return false;
+  if (life.reload) return false;
+  if (rounds === 0) {
+    if(Number.isInteger(tick))startReload(player,tick,weapon);
+    return false;
+  }
   magazines[weapon] = rounds - 1;
+  if(rounds===1 && Number.isInteger(tick))startReload(player,tick,weapon);
   return true;
 }
 
