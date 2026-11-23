@@ -38,7 +38,7 @@ export function estateCondition(doors){
   stateCache.set(list,condition);
   return condition;
 }
-const collectedKinds=new Set(['sofa','chair','bed','table','dining','coffee','lowTable','island','nightstand','planter']);
+const collectedKinds=new Set(['sofa','chair','bed','table','dining','coffee','lowTable','island','nightstand','planter','piano','bench','vitrine','cocktailBar','barstool']);
 export const collectionPiece=kind=>collectedKinds.has(kind);
 const collectedFurniture=new Set([...casaFurniture,...mareFurniture].filter(p=>collectionPiece(p.kind)));
 export function furnishingSupported(home,x,y,z,doors,cuts=estateCondition(doors).falls){
