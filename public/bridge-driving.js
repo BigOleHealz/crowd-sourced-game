@@ -51,6 +51,7 @@ export function advanceBridgeFlight(world,car,dt){
 }
 
 export function updateRoadPose(world,road,dt){
+  if(road.sinking)return;
   const raised=raisedRoadAt(world,road.x,road.z);
   if(raised && !road.bridgeFlight && !road.wrecked){
     const floor=groundHeight(road.x,road.z,Infinity,world.doors);

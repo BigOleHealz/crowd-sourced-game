@@ -597,7 +597,7 @@ function tick() {
   if(CITY)world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   let yachtInput,hookInput;
-  if(world.tank?.wrecked)stepTank(world,null,step);
+  if(world.tank?.wrecked || world.tank?.sinking)stepTank(world,null,step);
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
@@ -722,6 +722,7 @@ function tick() {
     }
     if(world.tank?.driver===player.id){
       stepTank(world,input,step,players);
+      if(world.tank.driver!==player.id)continue;
       if(input?.fire)fireTank(world,player,ticks);
       const t=world.tank;
       player.state={x:t.x,y:t.y,z:t.z,grounded:true,vy:0};
@@ -749,7 +750,7 @@ function tick() {
       }
       if(road.model)driveTrafficCar(world,road,roadInput,step,players);
       else driveRover(world,roadInput,step,players,kind);
-      vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
+      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
       if(road.driver!==player.id)continue;
       if(road.model==='engine')driveWater(world,road,input,ticks);
       if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);

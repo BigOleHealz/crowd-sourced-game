@@ -930,7 +930,7 @@ function remoteFrame(time) {
       suspension:Boolean(old.bridgeFlight)!==Boolean(car.bridgeFlight)?car.suspension:interpolateSuspension(old.suspension,car.suspension,t)};
   }
   let tank=b.tank;
-  if(tank && a.tank && tank.driver===a.tank.driver && tank.wrecked===a.tank.wrecked){
+  if(tank && a.tank && tank.driver===a.tank.driver && tank.wrecked===a.tank.wrecked && Math.hypot(tank.x-a.tank.x,tank.z-a.tank.z)<=9){
     tank={...tank,x:mix(a.tank.x,tank.x,t),y:mix(a.tank.y,tank.y,t),z:mix(a.tank.z,tank.z,t),
       yaw:angleMix(a.tank.yaw,tank.yaw,t),turretYaw:angleMix(a.tank.turretYaw,tank.turretYaw,t),turretPitch:mix(a.tank.turretPitch,tank.turretPitch,t)};
   }

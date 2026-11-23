@@ -1,3 +1,4 @@
+import {stepRoadSinking} from './road-water.js';
 import {displayBays} from './palma-site.js';
 import {updateRoadPose} from './bridge-driving.js';
 import {releaseCruiser} from './cruiser-handoff.js';
@@ -99,7 +100,7 @@ export function nearestTraffic(world,feet){
   let near=null,min=3.05;
   const parked=(world.patrolCars??[]).filter(car=>!car.npcDriver && !car.boarding && !car.sling);
   for(const car of parked.length?[...(world.traffic??[]),...parked]:world.traffic??[]){
-    if(car.driver!=null || car.takeover || car.wrecked || Math.abs(car.speed)>.12)continue;
+    if(car.driver!=null || car.takeover || car.sinking || car.wrecked || Math.abs(car.speed)>.12)continue;
     const d=Math.hypot(car.x-feet.x,car.y-feet.y,car.z-feet.z);
     if(d<=min){near=car;min=d;}
   }
@@ -197,7 +198,7 @@ function recoverTrafficCar(world,car,actors,dt){
   if(car.recoverySeconds>.0001)return;
   // A destroyed dispatched appliance returns to the response pool. The
   // reserve engine has its own permanent parking bay like the civilian cars.
-  if(car.model==='engine' && car.id!=='fire-engine-0'){
+  if(car.released || (car.model==='engine' && car.id!=='fire-engine-0')){
     world.traffic=world.traffic.filter(v=>v!==car);return;
   }
   const home=path.get(car),[x,z]=home?.bay??[engineBay.x,engineBay.z],yaw=home?.yaw??0;
@@ -205,6 +206,7 @@ function recoverTrafficCar(world,car,actors,dt){
   if(roadContact(world,x,z,yaw,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
   Object.assign(car,{x,y,z,yaw,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
+  delete car.sinking;delete car.wading;
   delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
 }
 
@@ -225,6 +227,7 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
       releaseNpcSeat(car);stopRover(car);
     }
     if(car.model==='engine' && car.driver==null && !car.response)delete car.water;
+    if(car.sinking){if(stepRoadSinking(world,car,dt))recoverTrafficCar(world,car,actors,dt);continue;}
     if(car.wrecked){if(!car.released)recoverTrafficCar(world,car,actors,dt);continue;}
     if(car.model==='engine'){if(npc)placeDriver(car,npc);continue;}
     if(!car.npcDriver)continue;

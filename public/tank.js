@@ -1,3 +1,4 @@
+import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {ramHouse} from './residential-falls.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
@@ -11,7 +12,7 @@ export function parkedTank(){
     driver:null,speed:0,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
 }
 export function nearTank(tank,state){
-  return !!tank && !tank.wrecked && tank.driver==null && state?.grounded &&
+  return !!tank && !tank.wrecked && !tank.sinking && tank.driver==null && state?.grounded &&
     Math.hypot(tank.x-state.x,tank.y-state.y,tank.z-state.z)<3.15;
 }
 export function leaveTank(world,player){
@@ -30,7 +31,7 @@ export function leaveTank(world,player){
 }
 export function damageTank(world,amount,players,owner){
   const tank=world.tank;
-  if(!tank || tank.wrecked || !(amount>0))return;
+  if(!tank || tank.wrecked || tank.sinking || !(amount>0))return;
   tank.hp=Math.max(0,tank.hp-amount);
   if(tank.hp)return;
   world.wanted?.record(owner,'wreck');
@@ -40,9 +41,10 @@ export function damageTank(world,amount,players,owner){
 }
 export function stepTank(world,input,dt,players){
   const t=world.tank;
-  if(t.wrecked){
+  if(t.sinking && !stepRoadSinking(world,t,dt))return;
+  if(t.wrecked || t.sinking){
     t.recoverySeconds=Math.max(0,t.recoverySeconds-dt);
-    if(!t.recoverySeconds && !roadContact(world,tankPad.x,tankPad.z,0,tankPad.x,tankPad.z,t))Object.assign(t,parkedTank());
+    if(!t.recoverySeconds && !roadContact(world,tankPad.x,tankPad.z,0,tankPad.x,tankPad.z,t)){delete t.sinking;delete t.wading;Object.assign(t,parkedTank());}
     return;
   }
   if(t.driver==null)return;
@@ -75,6 +77,7 @@ export function stepTank(world,input,dt,players){
     }
     t.x+=dx*fraction;t.z+=dz*fraction;t.y=groundHeight(t.x,t.z,t.y+1,world.doors);
     if(hit)t.speed=0;
+    if(enterRoadWater(world,t,players,dt) && t.sinking)return;
   }
   if(Number.isFinite(input?.aimYaw))t.turretYaw=input.aimYaw;
   if(Number.isFinite(input?.aimPitch))t.turretPitch=clamp(input.aimPitch,-.25,.85);

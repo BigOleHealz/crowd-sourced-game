@@ -1,3 +1,4 @@
+import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {steerRoadWheels} from './road-steering.js';
 import {beginRoadBoarding} from './road-cabin.js';
 import {strikeFittings} from './road-fittings.js';
@@ -50,8 +51,8 @@ export function nearestVehicle(world, feet) {
   const {heli, rover, supercar} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
   const flight = (heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
-  const road = (rover.driver == null || rover.gunner == null) && !rover.wrecked ? distance(rover) : Infinity;
-  const sport=supercar && supercar.driver==null && !supercar.wrecked ? distance(supercar) : Infinity;
+  const road = (rover.driver == null || rover.gunner == null) && !rover.sinking && !rover.wrecked ? distance(rover) : Infinity;
+  const sport=supercar && supercar.driver==null && !supercar.sinking && !supercar.wrecked ? distance(supercar) : Infinity;
   if(sport<=2.9 && sport<Math.min(road<=ROVER_BOARD_RANGE?road:Infinity,flight<=BOARD_RANGE?flight:Infinity))return 'supercar';
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
   return flight <= BOARD_RANGE ? 'heli' : null;
@@ -107,7 +108,7 @@ export function interactRover(world, player,kind='rover') {
 
 export function damageRover(world, amount, players,kind='rover',team,owner) {
   const r=roadByKind(world,kind);
-  if (!r || r.wrecked || !Number.isFinite(amount) || amount<=0) return;
+  if (!r || r.wrecked || r.sinking || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
   if (r.hp>0) return;
   world.wanted?.record(owner,'wreck');
@@ -125,7 +126,8 @@ export function damageRover(world, amount, players,kind='rover',team,owner) {
 
 export function recoverRover(world,dt,kind='rover') {
   const r=world[kind];
-  if (!r?.wrecked) return;
+  if(r?.sinking){if(!stepRoadSinking(world,r,dt))return;}
+  else if(!r?.wrecked)return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
   if(r.recoverySeconds>=.0001)return;
   const replacement=kind==='supercar'?parkedSupercar():parkedRover();
@@ -195,9 +197,10 @@ function tickExhaust(car,throttle,oldSpeed,dt){
 
 export function driveRover(world, input, dt, players,kind='rover') {
   const r = roadByKind(world,kind);
-  if(r?.sling)return;
+  if(r?.sling || r?.sinking)return;
   if(r?.bridgeFlight){
-    if(advanceBridgeFlight(world,r,dt)==='water')damageRover(world,r.hp,players,kind,undefined,world.wanted?.session(players?.get(r.driver)));
+    const fall=r.bridgeFlight;
+    if(advanceBridgeFlight(world,r,dt)==='water')enterRoadWater(world,r,players,dt,-fall.vy);
     return;
   }
   if (r?.driver == null) return;
@@ -247,7 +250,8 @@ export function driveRover(world, input, dt, players,kind='rover') {
   let vx=sn*r.speed+cs*r.lateralSpeed,vz=-cs*r.speed+sn*r.lateralSpeed;
   const airborne=launchAtLip(world,r,vx,vz,dt);
   if(airborne!==false){
-    advanceBridgeFlight(world,r,airborne);
+    const fall=r.bridgeFlight;
+    if(advanceBridgeFlight(world,r,airborne)==='water')enterRoadWater(world,r,players,airborne,-fall.vy);
     return;
   }
   const startHeight=r.y;
@@ -313,7 +317,9 @@ export function driveRover(world, input, dt, players,kind='rover') {
   // Ground-following wheels also strike the lower surface at a discrete ledge.
   // Ignore smooth ramps and grade changes within normal suspension travel.
   const drop=startHeight-r.y;
-  if(!r.wrecked && drop>.25 && !onBridgeDeck(r.x,r.z))roadTouchdown(r,Math.sqrt(2*19*drop));
+  const wet=enterRoadWater(world,r,players,dt);
+  if(r.sinking)return;
+  if(!wet && !r.wrecked && drop>.25 && !onBridgeDeck(r.x,r.z))roadTouchdown(r,Math.sqrt(2*19*drop));
   if(contacted){
     const forward=vx*sn-vz*cs;
     if(forward*r.speed<0)r.rebounding=true;

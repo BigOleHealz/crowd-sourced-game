@@ -35,6 +35,7 @@ export { parkedHelicopter, fly, interact } from './airframe.js';
 
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 
+import {takeRoadSplash} from './road-water.js';
 import {strikeFittings} from './road-fittings.js';
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
@@ -43,6 +44,8 @@ const reportedWrecks=new WeakSet();
 // Sample after the authoritative damage, collisions and crew ejection for this
 // tick. The retained event shares the regular shot feed's deduplication on join.
 export function reportVehicleWreck(world,vehicle,source,surface,tick) {
+  const entry=takeRoadSplash(vehicle);
+  if(entry)world.shots.push({id:nextShotId++,weapon:'roadSplash',source,from:entry.at,to:entry.at,power:entry.power,tick});
   if(!vehicle.wrecked){reportedWrecks.delete(vehicle);return;}
   if(reportedWrecks.has(vehicle))return;
   reportedWrecks.add(vehicle);

@@ -68,6 +68,7 @@ import {doorwayProximity} from './doorway-camera.js';
 import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
 import {roadLighting,skyDarkness} from './road-lighting.js';
 import {vehicleWreckBurst} from './vehicle-wreck-view.js';
+import {roadSplashView} from './road-splash-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
 import {superyachtView} from './superyacht-view.js';
@@ -672,6 +673,7 @@ function fieldEffects(scene) {
   }
   const pickSurface=surfacePicker(scene);
   const plume=missileCloud(scene,rng);
+  const roadSplash=roadSplashView(scene,plume.puff,particle,rng);
   const fireView=districtFireEffects(scene,plume.puff,rng);
   const wreck=aircraftWreck(scene,plume.puff,particle,rng);
   let nextHullPuff=0;
@@ -736,6 +738,7 @@ function fieldEffects(scene) {
       }
       return;
     }
+    if(s.weapon==='roadSplash'){roadSplash.enter(s);return;}
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
@@ -775,6 +778,7 @@ function fieldEffects(scene) {
   }
   function update(dt) {
     plume.update(dt);
+    roadSplash.update(dt);
     let write=0;
     for(const p of particles) {
       p.remaining-=dt;

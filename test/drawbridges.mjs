@@ -52,14 +52,14 @@ for(const bridge of bridges){
 }
 
 // A creep off the lip cannot teleport back onto the far leaf. A short fall
-// into the channel uses the existing wreck and recovery lifecycle.
+// into the channel releases the crew without impact damage.
 {
   const w=newExpedition(),b=bridges[0],mid=bridgeMiddle(b),r=w.rover;
   w.doors.bridgeLifts={[b.north]:maxLift};
   const leaf=leafGeometry(b,maxLift);
   Object.assign(r,{driver:1,x:2,z:mid-leaf.gap/2-.015,yaw:Math.PI,speed:1.6});
   r.y=groundHeight(r.x,r.z,Infinity,w.doors);
-  for(let i=0;i<120 && !r.wrecked;i++)driveRover(w,{throttle:0},dt);
-  assert(r.wrecked && r.driver===null && r.hp===0);
+  for(let i=0;i<180 && !r.sinking;i++)driveRover(w,{throttle:0},dt);
+  assert(r.sinking && !r.wrecked && r.driver===null && r.hp===r.maxHp);
   console.log('PASS slow entry falls through the gap');
 }
