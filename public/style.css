@@ -5,6 +5,7 @@ body { margin: 0; overflow: hidden; background: #a7b7ac; }
 .mast, .hud, footer { position: fixed; inset-inline: 0; pointer-events: none; }
 .mast { top: 0; padding: 24px 30px 44px; display: flex; align-items: flex-start; justify-content: space-between; background: linear-gradient(#17291f85,transparent); }
 .world-name, .presence, #compass, .map-title, footer, .shortcuts, .guide-heading { display: flex; align-items: center; }
+.world-name h1 { text-transform:none; white-space:nowrap; }
 .world-name { gap: 12px; text-shadow: 0 1px 6px #17291f70; }
 .subhead, .map-title, #compass { text-transform: uppercase; letter-spacing: .16em; font-size: 10px; font-weight: 700; }
 h1,h2 { margin: 0; font-family: "Arial Narrow", "Helvetica Neue", sans-serif; font-weight: 750; text-transform: uppercase; }

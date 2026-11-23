@@ -106,7 +106,7 @@ selector.append(new Option('Brickell · Marina Sprint',marinaMode),modeGroup);
 selector.value=racing?marinaMode:mode ?? (CITY ? 'brickell' : 'outpost');
 selector.addEventListener('change',()=>{ const url=new URL(location.href);if(selector.value===marinaMode || Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
 if(CITY) {
-  document.title='Brickell · Pinewatch';
+  document.title='Brickell · '+document.querySelector('.world-name h1').textContent;
   document.querySelector('.map-title span').textContent='District map';
   byId('map').setAttribute('aria-label','Brickell streets, waterfront and player locations');
 }
@@ -1433,5 +1433,5 @@ try {
 } catch (error) {
   console.error(error);
   byId('presence').textContent = 'Unavailable';
-  notice('Pinewatch could not initialize 3D graphics. Open it in a desktop browser with WebGL 2 enabled.');
+  notice('goy theft auto could not initialize 3D graphics. Open it in a desktop browser with WebGL 2 enabled.');
 }
