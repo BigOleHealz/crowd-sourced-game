@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {Matrix4,Scene,Vector3} from 'three';
+import {liveShots,expireShots} from '../public/shot-events.js';
+import {roadSplashView} from '../public/road-splash-view.js';
+
+const scene=new Scene(),mist=[],drops=[];
+const spray=roadSplashView(scene,(...puff)=>mist.push(puff),(...drop)=>drops.push(drop),()=>.5);
+const read=liveShots([]),point={x:8,y:2.5,z:-3};
+const history=[{id:21,tick:50,weapon:'roadSplash',source:'rover',to:point,power:0}];
+expireShots(history,72);
+for(const shot of read(history))spray.enter(shot);
+assert.deepEqual(read(history),[]);
+assert.deepEqual(liveShots(history)(history),[]);
+spray.update(.12);
+const film=scene.getObjectByName('Road vehicle splash foam');
+assert.equal(film.count,1);
+const slow=new Matrix4();film.getMatrixAt(0,slow);
+assert(Math.abs(slow.elements[13]-(point.y+.024))<.001);
+const firstDrops=drops.length,firstMist=mist.length;
+assert(firstDrops>0 && firstMist>0);
+
+const highPoint={...point,y:10};
+history.push({...history[0],id:22,tick:74,power:1,to:highPoint});
+for(const shot of read(history))spray.enter(shot);
+spray.update(.12);
+assert.equal(film.count,2);
+const fast=new Matrix4();film.getMatrixAt(1,fast);
+assert(Math.abs(fast.elements[13]-(highPoint.y+.024))<.001);
+const diameter=m=>new Vector3().setFromMatrixScale(m).x;
+assert(diameter(fast)>diameter(slow)*2);
+assert(drops[firstDrops][1].y>drops[0][1].y*2);
+assert(mist[firstMist][3]>mist[0][3]*2);
+spray.update(1);assert.equal(film.visible,false);
+expireShots(history,135);assert.equal(history.length,0);

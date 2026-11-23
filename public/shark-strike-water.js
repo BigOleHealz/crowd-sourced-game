@@ -46,9 +46,9 @@ export function strikeWaterFilm(scene,waterline,capacity,foamOnly=false,name=foa
   film.instanceMatrix.setUsage(THREE.DynamicDrawUsage);film.count=0;scene.add(film);
   const pose=new THREE.Object3D();
   return {
-    mark(i,x,z,phase,t,fade,scale,yaw){
+    mark(i,x,z,phase,t,fade,scale,yaw,surfaceY=waterline){
       const spread=.36+1.1*Math.sqrt(t);
-      pose.position.set(x+.068*t,waterline+.024,z+.033*t);
+      pose.position.set(x+.068*t,surfaceY+.024,z+.033*t);
       pose.rotation.y=-yaw;
       pose.scale.set(scale*spread*1.45,1,scale*spread*1.90);
       pose.updateMatrix();film.setMatrixAt(i,pose.matrix);
