@@ -1,0 +1,1 @@
+The penthouse lounge chair uses Kuutti Siitonen’s [Mid Century Lounge Chair](https://polyhaven.com/a/mid_century_lounge_chair) under [CC0](https://polyhaven.com/license). This local preview uses 512 px textures from the 1K glTF. The footstool reuses the original seat cushion and metal pedestal. The chair and footstool share one mesh primitive and one material.

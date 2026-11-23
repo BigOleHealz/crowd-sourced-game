@@ -3,6 +3,7 @@ import {dressPalmaArchitecture} from './palma-architecture.js';
 import {paneBatch} from './pane-damage-view.js';
 import {frontageGlassMaterial} from './frontage-glass-material.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {centaurFountain} from './centaur-fountain-view.js';
 import {finishes as C,resortLevels} from './grand-resort-layout.js';
 import {resortGround,shorePads,falls,pool} from './palma-site.js';
@@ -395,9 +396,17 @@ export function resortExterior(scene,Batch,panorama){
     const lamp=new THREE.PointLight(tint,38,13,2);group.add(lamp);return lamp;
   });
   const interiorMeshes=[];
+  let chaiseFallback,importedSeat,requestedSeat=false;
   for(const level of resortLevels){
     const furniture=new Batch();
     for(const p of level.parts){
+      if(level.n===21 && p.kind==='chaise'){
+        const batch=new Batch();
+        renderPart(p,batch);
+        chaiseFallback=batch.mesh(group,stoneMat);
+        chaiseFallback.visible=false;
+        continue;
+      }
       if(level.n>=21){
         const kind=({banquet:'dining',cocktail:'coffee'})[p.kind]??p.kind;
         if(['sofa','bed','coffee','dining'].includes(kind)){
@@ -455,6 +464,19 @@ export function resortExterior(scene,Batch,panorama){
       accents[0].position.set(-84.3,floor+2.9,45.2);accents[1].position.set(-78.6,floor+2.45,50.7);
     }else if(nearHall){
       accents[0].position.set(-82.8,6.30,44.2);accents[1].position.set(-68,5.65,44);
+    }
+    if(chaiseFallback){
+      const visible=distance<86 && Math.abs(local.y-87.6)<7.8;
+      if(visible && !requestedSeat && Math.hypot(local.x+76.6,local.z-36.6)<22){
+        requestedSeat=true;
+        new GLTFLoader().load('./palma-lounge-chair.glb',({scene:seat})=>{
+          seat.name='Poly Haven lounge chair and footstool';
+          seat.position.set(-76.6,87.6,36.6);
+          seat.visible=false;group.add(seat);importedSeat=seat;
+        },undefined,err=>console.warn('Lounge chair unavailable',err));
+      }
+      chaiseFallback.visible=visible && !importedSeat;
+      if(importedSeat)importedSeat.visible=visible;
     }
     penthouseFurniture.visible=distance<130 && local.y>76;
     sheets.visible=distance<95;
