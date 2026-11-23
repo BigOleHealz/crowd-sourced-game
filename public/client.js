@@ -36,6 +36,8 @@ import {SnapshotClock} from './snapshot-clock.js';
 import {driverPrediction} from './driver-prediction.js';
 import {launcherSpec,lockLabel} from './handheld-launcher.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
+import {zombieMode} from './zombie-arena.js';
+import {survivalHud} from './zombie-hud.js';
 import {drawMatchMap,updateMatchHud} from './island-hud.js';
 import {church,churchPath,churchLot} from './ridge-church.js';
 import {casaRoomAt} from './casa-luma.js';
@@ -97,19 +99,24 @@ destinationsMenu.onchange=()=>{
 const selector=byId('map-choice');
 const arrival=new URLSearchParams(location.search).get('arrival');
 const chosen=new URLSearchParams(location.search).get('mode');
+const zombies=CITY && chosen===zombieMode;
 const racing=CITY && chosen===marinaMode;
 const mode=CITY && Object.hasOwn(modes,chosen) ? chosen : null;
 const modeGroup=document.createElement('optgroup');
 modeGroup.label='Brickell team games';
 for(const [key,rule] of Object.entries(modes))modeGroup.append(new Option(rule.name,key));
-selector.append(new Option('Brickell · Marina Sprint',marinaMode),modeGroup);
-selector.value=racing?marinaMode:mode ?? (CITY ? 'brickell' : 'outpost');
-selector.addEventListener('change',()=>{ const url=new URL(location.href);if(selector.value===marinaMode || Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
+selector.append(new Option('Zombie Survival · Co-op',zombieMode),new Option('Brickell · Marina Sprint',marinaMode),modeGroup);
+selector.value=zombies?zombieMode:racing?marinaMode:mode ?? (CITY ? 'brickell' : 'outpost');
+selector.addEventListener('change',()=>{ const url=new URL(location.href);if(selector.value===zombieMode || selector.value===marinaMode || Object.hasOwn(modes,selector.value)){url.searchParams.set('map','brickell');url.searchParams.set('mode',selector.value);}else{url.searchParams.set('map',selector.value);url.searchParams.delete('mode');}location.assign(url); });
 if(CITY) {
   document.title='Brickell · Pinewatch';
   document.querySelector('.map-title span').textContent='District map';
   byId('map').setAttribute('aria-label','Brickell streets, waterfront and player locations');
 }
+byId('zombie-start').onclick=()=>{
+  if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'startSurvival'}));
+  canvas.focus({preventScroll:true});
+};
 const step = 1 / 30;
 const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let lastGlass=0;
@@ -328,7 +335,7 @@ function wantedHud(state){
   const key=state?[state.enabled,state.stars,state.phase,state.phase==='search'?state.escapeSeconds:0].join('/'):'offline';
   if(key===lastWantedHud)return;
   lastWantedHud=key;
-  wantedButton.hidden=!!mode;
+  wantedButton.hidden=!!mode || zombies;
   wantedButton.disabled=!state;
   const enabled=!!state?.enabled;
   wantedButton.setAttribute('aria-pressed',String(enabled));wantedButton.textContent=enabled?'Police on':'Police off';
@@ -622,7 +629,7 @@ const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpos
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(racing?'&mode='+marinaMode:mode?'&mode='+mode:resortArrivals.has(arrival)?'&arrival='+arrival:'') : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(zombies?'&mode='+zombieMode:racing?'&mode='+marinaMode:mode?'&mode='+mode:resortArrivals.has(arrival)?'&arrival='+arrival:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -684,6 +691,10 @@ function connect() {
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
+      if(zombies && m.world.survival?.phase==='finished' && world.survival?.phase!=='finished'){
+        if(document.pointerLockElement===canvas)document.exitPointerLock();
+        clearInput();
+      }
       if(m.world.match?.phase!==world.match?.phase){
         clearInput();pending=[];samples=[];
       }
@@ -767,6 +778,7 @@ function connect() {
     audio.reset();
     byId('marina-card').hidden=true;byId('touch-race-tally').hidden=true;hoopsHud.hide();showVolleyScore(null);
     byId('match-card').hidden=true;
+    byId('zombie-card').hidden=true;
     byId('flight-cursor').hidden=true;
     wantedHud();id = null; self = null; world = null; pending = []; samples = [];
     byId('presence').parentElement.classList.remove('online');
@@ -1022,7 +1034,7 @@ function updateEquipment(local) {
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
   byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?(local.scuba?'Scuba':'Swimming')+' · Air '+Math.ceil(local.swimAir??breathSeconds)+'s · '+(local.swimDepth??0).toFixed(1)+' m':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
-  byId('progress').textContent = cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
+  byId('progress').textContent = zombies ? '' : cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const hp = health.hp;
@@ -1030,7 +1042,7 @@ function updateEquipment(local) {
   byId('hp-meter').max = maxHp; byId('hp-meter').value = hp ?? maxHp;
   byId('hp-label').textContent = (boat || atYachtHelm() || gunner==='superyacht' ? 'Hull ' : pilot ? 'Airframe ' : inTank()?'Tank ':trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model]))+' ' : inGT() ? 'Vesper GT ' : isDriving() ? 'Rover ' : 'Health ') + (hp ?? maxHp) + '/' + maxHp;
   byId('flight-cursor').hidden=!jetPilot() || vitals.dead || !byId('guide').hidden || lookPaused;
-  byId('life-status').textContent = vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : unarmedRoad() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
+  byId('life-status').textContent = vitals.dead && zombies ? 'Down · waiting for squad' : vitals.dead ? 'Down · Respawning in ' + Math.ceil(vitals.respawnIn) + 's' : gunner ? 'Hull '+vehicleById(world,gunner).hp+'/'+vehicleById(world,gunner).maxHp : myRoad() && roadImpact?.until>performance.now() ? roadImpact.message : unarmedRoad() ? Math.round(Math.abs(myRoad().speed)*3.6)+' km/h' : vitals.protected ? 'Spawn shield' : '';
   byId('space-action').parentElement.hidden = basketball || isDriving() || jetPilot() || !!gunner;
   byId('shift-action').parentElement.hidden = basketball || local.swimming || isDriving() || jetPilot() || !!gunner;
   byId('space-action').textContent = pilot ? 'Climb' : local.swimming ? 'Rise / climb ashore' : local.parachute === 'packed' ? 'Deploy parachute' : 'Jump';
@@ -1077,7 +1089,8 @@ function updateEquipment(local) {
     prompt.textContent=garage.name+' · '+label;
   }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent=vitals.fall.cause==='skateboard'?'Skateboard wipeout · Getting back up…':'Knocked down · Getting back up…';
-  else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
+  else if (vitals.dead && zombies) prompt.textContent = 'Clear the wave to bring fallen teammates back.';
+    else if (vitals.dead) prompt.textContent = 'Returning to the trailhead…';
   else if(use && !(isDriving() || pilot || gunner))prompt.textContent='E  ·  '+use.label;
   else if(bankDialog.open || market.current || talk.current)prompt.textContent='';
   else if(bank)prompt.textContent=bank.action?'E  ·  '+bank.detail:bulletin?'':bank.detail;
@@ -1100,6 +1113,7 @@ function updateEquipment(local) {
   else if(local.parachute==='packed')prompt.textContent='Free fall · Press Space to deploy parachute';
   else if(local.parachute==='open')prompt.textContent='Parachute open · WASD / arrows to steer';
   else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
+  else if(zombies)prompt.textContent='';
   else prompt.textContent='Helicopter · '+Math.round(distance)+' m';
   if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
@@ -1288,7 +1302,7 @@ function drawMap(player, remotes, yaw) {
   ctx.fillStyle='#f4cc70';ctx.font='bold 10px sans-serif';
   for(const g of roadGarages)ctx.fillText('⚒',sx(g.x)-3,sy(g.z)-3);
   if(world.match)drawMatchMap(ctx,sx,sy,world.match,vitals.team);
-  else drawSupplyMap(ctx,sx,sy,world,player,id);
+  else if(!zombies)drawSupplyMap(ctx,sx,sy,world,player,id);
   if(market.chart && world.market){
     ctx.fillStyle='#d4ff98';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
     for(const d of world.market.drops)ctx.fillText(d.cash?'$':'+',sx(d.x),sy(d.z)-3);
@@ -1404,7 +1418,8 @@ function frame(time) {
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);
       updateEquipment(local);
-      if(world.match)updateMatchHud(world.match,vitals.team,local);
+      if(world.survival)survivalHud(world.survival,remotes.length+1);
+      else if(world.match)updateMatchHud(world.match,vitals.team,local);
       else updateSupplyHud(world,local,id,touch.active);
       if(navigate){
         route=navigate(local.x,local.z,isDriving()?local.yaw:view.yaw);
@@ -1418,7 +1433,7 @@ function frame(time) {
 
 try {
   scene = createScene(canvas);
-  try{lighting.value=localStorage.getItem('pinewatch-lighting')??'day';}catch{}
+  try{lighting.value=localStorage.getItem('pinewatch-lighting')??(zombies?'dusk':'day');}catch{}
   if(!lighting.value)lighting.value='day';
   scene.setLighting(lighting.value);
   lighting.onchange=()=>{

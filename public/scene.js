@@ -47,6 +47,7 @@ import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {teamNames} from './island-rules.js';
+import {buildCordon,poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
 import {addPalms} from './coconut-palms.js';
 import {paneBatch} from './pane-damage-view.js';
@@ -1171,7 +1172,7 @@ export function createScene(canvas) {
   }
   landingMarks(features);const featureMesh=features.mesh(scene,material);
   if(churchPanes)updateChurch=churchPanes.bind(featureMesh);
-  let updateCases;
+  let updateCases, cordon;
   let updateSupplyView;
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
@@ -1229,7 +1230,7 @@ export function createScene(canvas) {
   }
   let nightlifeFaces;
   const volleyballShirts=new Map();
-  function resident(id,name,officer=false,lookId=id){
+  function resident(id,name,officer=false,lookId=id,infected=false){
     const athlete=volleyballLooks[id];
     const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??beachStaffLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
     const faces=officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
@@ -1239,7 +1240,7 @@ export function createScene(canvas) {
     const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
-    dressPerson(rig,look,Batch,material,{faces,shirts});
+    dressPerson(rig,infected ? {...look,skin:0x94a98b,hair:0x413b36,extra:null} : look,Batch,material,{faces,shirts});
     if(dealerLooks[id])uniformDealer(rig,Batch,material);
     if(officer)rig.tools=carriedEquipment(rig.upper,scene,Batch);
     scene.add(rig.root);
@@ -1337,6 +1338,7 @@ export function createScene(canvas) {
     lighting.frame(world,local);
     displayedWorld = world;
     displayedPlayers = remotes;
+    if(world.survival && !cordon)cordon=buildCordon(scene,Batch,material,cube);
     if(world.match){updateCases??=createCaseView(scene);updateCases(world.match);}
     else {updateSupplyView??=createSupplyView(scene);updateSupplyView(world);}
     updateHydrants(world.doors?.hydrants,dt);
@@ -1441,7 +1443,10 @@ export function createScene(canvas) {
       if(a && Boolean(a.scanned)!==scanned){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
-        a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
+        if(state.infected){
+          const looks=['rival-maia','rival-omar','rival-ines','rival-diego'];
+          a=resident(state.id,'Infected',false,looks[state.infected%looks.length],true);
+        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1477,6 +1482,7 @@ export function createScene(canvas) {
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
         pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
+        if(state.infected)poseInfected(a,state,clock);
         if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
