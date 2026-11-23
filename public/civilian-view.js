@@ -81,7 +81,8 @@ function dressPatrolLimb(limb,p,Batch,material){
 
 const faceRows=[[.006,.048,.053,-.025],[.029,.074,.076,-.012],[.080,.093,.090,-.006],[.121,.100,.099],[.169,.101,.102,.003],[.208,.093,.096,.007],[.242,.074,.078,.009],[.263,.045,.051,.011],[.270,.004,.006,.011]];
 function faceGeometry(profile) {
-  const {face:cell,officer}=profile,cols=officer?3:4,rows=officer?2:5;
+  const {officer,infectedFace}=profile,cell=infectedFace??profile.face;
+  const cols=infectedFace!=null?2:officer?3:4,rows=infectedFace!=null || officer?2:5;
   const verts=[],uv=[],idx=[],n=32;
   for(const [y,w,d,center=0] of faceRows) for(let i=0;i<=n;i++){
     const a=(i/n-.5)*2*Math.PI, front=Math.max(0,Math.cos(a));
@@ -152,7 +153,7 @@ const earring=new THREE.TorusGeometry(1,.13,5,12);
 // Each outfit tile has a photographed front panel and a plain fabric back.
 // Split the side seams so UV interpolation never crosses the atlas boundary.
 function shirtGeometry(p){
-  const vertices=[],uv=[],indices=[],rows=[1.01,1.09,1.2,1.34,1.426,1.46,1.483];
+  const vertices=[],uv=[],indices=[],wear=[],rows=[1.01,1.09,1.2,1.34,1.426,1.46,1.483];
   const offsets=[.008,0,0,-.006,0,0,0],depth=[.115,.124,.112,.143,.117,.091,.065];
   const widths=[.174,.181,.158,.201,.213,.163,.080];
   const outfit=p.outfit??p.face;
@@ -163,7 +164,17 @@ function shirtGeometry(p){
     for(let r=0;r<rows.length;r++)for(let i=0;i<=segments;i++){
       const a=(panel-.5+i/segments)*Math.PI;
       const w=widths[r]*(fitted ? (r===2?.91:.95) : jacket ? 1.07 : 1);
-      const y=rows[r]-(jacket && r<2 ? (2-r)*.027 : 0);
+      let y=rows[r]-(jacket && r<2 ? (2-r)*.027 : 0);
+      if(p.infectedFace!=null){
+        // Both panels share the same angles at the side seams. Keep the torn
+        // hem over the belt while giving each garment its own ragged outline.
+        const phase=p.infectedFace*1.73;
+        const thread=.5+.5*Math.cos(11*a+phase);
+        if(r===0)y-=.018+.065*thread**3;
+        const stain=.5+.5*Math.sin(3*a+phase+2*r)*Math.cos(2*a-r*.58);
+        const shade=.48+.47*stain-(r===0?.1:0);
+        wear.push(shade,shade*.92,shade*.77);
+      }
       vertices.push(w*Math.sin(a),y,offsets[r]-depth[r]*Math.cos(a));
       const u=(.5+.485*Math.sin(a))/2+panel*.5;
       const v=(1.483-rows[r])/.473;
@@ -180,6 +191,7 @@ function shirtGeometry(p){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  if(wear.length)g.setAttribute('color',new THREE.Float32BufferAttribute(wear,3));
   g.setIndex(indices);g.computeVertexNormals();
   return g;
 }

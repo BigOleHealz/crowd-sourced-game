@@ -2,12 +2,19 @@ import assert from 'node:assert/strict';
 import { Vector3 } from 'three';
 import { civilianLooks } from '../public/civilian-style.js';
 import { createRangerRig, poseRig } from '../public/ranger-pose.js';
-import { poseInfected } from '../public/zombie-view.js';
+import { dressPerson } from '../public/civilian-view.js';
+import { infectedWardrobe, poseInfected } from '../public/zombie-view.js';
 
 const looks = ['rival-maia', 'rival-omar', 'rival-ines', 'rival-diego'];
 for (const [index, look] of looks.entries()) {
   const avatar = createRangerRig();
-  avatar.civilian = civilianLooks[look];
+  // The shirt is a separate textured mesh from the batched limbs.
+  class EmptyBatch { add(){} beam(){} mesh(){} }
+  const profile = infectedWardrobe(civilianLooks[look],index);
+  dressPerson(avatar,profile,EmptyBatch,undefined,{});
+  const shirt = avatar.upper.children.find(child=>child.isMesh);
+  assert.equal(shirt.geometry.attributes.color.count,shirt.geometry.attributes.position.count);
+  assert.ok(shirt.geometry.attributes.color.array.every(shade=>shade>0 && shade<=1));
   const state = { x: 0, y: 0, z: 0, yaw: 0, hp: 100, infected: index + 1, holstered: true };
   for (let frame = 0; frame < 90; frame++) {
     state.moving = frame >= 20;
