@@ -1,3 +1,4 @@
+import {coastSpeed} from './road-coasting.js';
 import {releaseCruiser} from './cruiser-handoff.js';
 import {gapAhead,roadUsers} from './lane-clearance.js';
 import {CITY,groundHeight} from './world.js';
@@ -43,7 +44,7 @@ function dispatch(officer,target,rank,traffic){
   if(!pose)return;
   const id='patrol-car-'+officer.id;
   const car={id,model:'sedan',patrol:true,officerId:officer.id,targetId:officer.targetId,npcDriver:officer.id,
-    active:true,...pose,y:groundHeight(pose.x,pose.z),speed:0,steer:0,hp:250,maxHp:250,wrecked:false};
+    active:true,...pose,y:groundHeight(pose.x,pose.z),speed:0,fuel:100,steer:0,hp:250,maxHp:250,wrecked:false};
   return {lane,at,goal:best.at,car,lastSeen:{x:target.x,z:target.z}};
 }
 const dt=1/30,brakeRate=5.5;
@@ -125,7 +126,8 @@ export function stepPatrolCruisers(world,officers,players,tick,npcs=officers){
     const turn=Math.abs(Math.atan2(Math.sin(look.yaw-car.yaw),Math.cos(look.yaw-car.yaw)));
     const cornerSpeed=Math.sqrt(3.2*3/Math.max(.025,turn));
     const targetSpeed=distance<.10?0:Math.min(11,cornerSpeed,Math.sqrt(2*brakeRate*distance));
-    const speed=car.speed+clamp(targetSpeed-car.speed,-brakeRate*dt,4.6*dt);
+    const targetPace=car.fuel===0?Math.min(targetSpeed,coastSpeed(car.speed,dt)):targetSpeed;
+    const speed=car.speed+clamp(targetPace-car.speed,-brakeRate*dt,4.6*dt);
     car.braking=speed<car.speed-.025 || speed<.1;
     // Keep the nose behind the stop line if a bridge rises during final braking.
     const at=wrap(unit.at+Math.min(distance,speed*dt),lane.route.length),pose=lane.route.pose(at);
@@ -133,7 +135,7 @@ export function stepPatrolCruisers(world,officers,players,tick,npcs=officers){
     Object.assign(car,pose,{speed,y:surface(pose.x,pose.z)});
     stepSuspension(car,dt,surface);
     unit.wait=speed<.015 && gap<.10?(unit.wait??0)+dt:0;
-    if(speed<.015 && (arrival<.10 || unit.wait>1.9)){
+    if(speed<.015 && (arrival<.10 || unit.wait>1.9 || car.fuel===0)){
       stepExit(officer,car,world);continue;
     }
     unit.at=at;

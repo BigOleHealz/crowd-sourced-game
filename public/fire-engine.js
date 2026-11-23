@@ -1,3 +1,4 @@
+import {coastSpeed} from './road-coasting.js';
 import {CITY,MAP,groundHeight,buildingTopAt,insideTravelArea} from './world.js';
 import {roadway} from './brickell-map.js';
 import {roadContact} from './road-contact.js';
@@ -13,7 +14,7 @@ const snap=x=>Math.round(x*100)/100;
 export function fireEngine(id=0,at=engineBay,yaw=0){
   const key='fire-engine-'+id;
   return {id:key,kind:key,model:'engine',x:at.x,y:groundHeight(at.x,at.z),z:at.z,yaw,
-    speed:0,steer:0,lateralSpeed:0,engineLoad:0,driver:null,npcDriver:null,
+    speed:0,fuel:100,steer:0,lateralSpeed:0,engineLoad:0,driver:null,npcDriver:null,
     hp:450,maxHp:450,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0},
     wrecked:false,monitorYaw:yaw,monitorPitch:0};
 }
@@ -93,7 +94,7 @@ export function driveWater(world,car,input,tick){
     car.monitorYaw=input.aimYaw??car.monitorYaw;car.monitorPitch=clamp(input.aimPitch??car.monitorPitch,-1.18,1.24);
     trigger.set(car,input.fire?tick+4:0);
   }
-  if(car.driver!=null && !car.boarding && !car.takeover && !car.wrecked && !car.sling && tick<(trigger.get(car)??0))stream(world,car,tick);
+  if(car.driver!=null && car.fuel!==0 && !car.boarding && !car.takeover && !car.wrecked && !car.sling && tick<(trigger.get(car)??0))stream(world,car,tick);
   else delete car.water;
 }
 
@@ -164,17 +165,20 @@ export function stepFireEngines(world,players,npcs,tick,dt){
     }
     if(car.sling){delete car.water;continue;}
     const f=active?.[u.site],burning=f?.stage==='burning' && world.doors.fires?.[u.site]===f;
+    const powered=car.fuel!==0;
     if(!burning){car.response='departing';delete car.water;}
     // Retrace the surveyed approach when leaving. This also works in short
     // rural clearings where an engine cannot continue through the hillside.
-    const limit=burning?lane.run:0,reverse=!burning;
+    const reverse=powered?!burning:car.speed<0,limit=reverse?0:lane.run;
     const gap=gapAhead(reverse?{...car,yaw:car.yaw+Math.PI}:car,actors,
       reverse?vehicles.filter(v=>v!==car):vehicles,world.jet);
     const target=Math.min(8.5,Math.sqrt(12*Math.max(0,Math.min(Math.abs(limit-u.distance),gap))));
-    const pace=Math.abs(car.speed)+clamp(target-Math.abs(car.speed),-7*dt,3.6*dt);
+    const pace=powered?Math.abs(car.speed)+clamp(target-Math.abs(car.speed),-7*dt,3.6*dt):
+      Math.min(Math.abs(coastSpeed(car.speed,dt)),target);
     const step=Math.max(0,Math.min(pace*dt,Math.abs(limit-u.distance),gap));
     car.speed=reverse?-pace:pace;u.distance+=(reverse?-1:1)*step;car.x=lane.x+lane.dx*u.distance;car.z=lane.z+lane.dz*u.distance;
-    car.y=groundHeight(car.x,car.z);car.engineLoad=step>0?.65:0;
+    car.y=groundHeight(car.x,car.z);car.engineLoad=powered && step>0?.65:0;
+    if(!powered){delete car.water;continue;}
     // A returning pumper and a civilian waiting behind it can yield to each
     // other indefinitely on a one-lane approach. Release an offscreen crew
     // once stopped; a player in sight of the apparatus always sees it stay.

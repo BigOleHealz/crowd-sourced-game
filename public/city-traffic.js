@@ -1,3 +1,4 @@
+import {coastSpeed} from './road-coasting.js';
 import {stepRoadSinking} from './road-water.js';
 import {displayBays} from './palma-site.js';
 import {updateRoadPose} from './bridge-driving.js';
@@ -43,7 +44,7 @@ function destinationGap(route,car,dt){
 
 function newTrafficCar(id,model,pose,speed,npcDriver,maxHp=250){
   return {id,kind:id,model,...pose,y:groundHeight(pose.x,pose.z),speed,
-    lateralSpeed:0,engineLoad:npcDriver ? .36 : 0,driver:null,npcDriver,takeover:null,hp:maxHp,maxHp,
+    lateralSpeed:0,fuel:100,engineLoad:npcDriver ? .36 : 0,driver:null,npcDriver,takeover:null,hp:maxHp,maxHp,
     wrecked:false,flatTires:0,bodyDamage:{front:0,rear:0,left:0,right:0}};
 }
 
@@ -60,7 +61,7 @@ export function newCityTraffic({resort=false,parked=false}={}){
     const npcDriver='rival-'+name,id=(CITY?'city-car-':'outpost-car-')+(i+1);
     if(parked)return parkedTrafficCar(id,model,...bay);
     const car=newTrafficCar(id,model,pose,cruise??civilianProfiles[model].cruise,npcDriver);
-    const journey={track:route,bay,cruise,distance,wait:0};
+    const journey={track:route,bay,cruise,distance,wait:0,offset:0};
     chooseDestination(journey,car);
     path.set(car,journey);
     return car;
@@ -204,7 +205,7 @@ function recoverTrafficCar(world,car,actors,dt){
   const home=path.get(car),[x,z]=home?.bay??[engineBay.x,engineBay.z],yaw=home?.yaw??0;
   const y=groundHeight(x,z);
   if(roadContact(world,x,z,yaw,x,z,car) || actors.some(a=>Math.abs(a.state.y-y)<2 && Math.hypot(a.state.x-x,a.state.z-z)<3))return;
-  Object.assign(car,{x,y,z,yaw,hp:car.maxHp,flatTires:0,wrecked:false,engineLoad:0,
+  Object.assign(car,{x,y,z,yaw,hp:car.maxHp,fuel:100,flatTires:0,wrecked:false,engineLoad:0,
     bodyDamage:{front:0,rear:0,left:0,right:0}});
   delete car.sinking;delete car.wading;
   delete car.fittingDamage;delete car.contactSound;delete car.suspension;delete car.crushed;
@@ -237,15 +238,17 @@ export function stepCityTraffic(world,players,npcs,dt,tick){
     else route.wait=Math.max(0,route.wait-dt);
     const gap=Math.min(trafficGap,destinationGap(route,car,dt));
     const mobility=flatMobility(car),surface=roadGrip(car.x,car.z);
-    route.offset=passingOffset(world,car,route,actors,dt);
+    const powered=car.fuel!==0;
+    if(powered)route.offset=passingOffset(world,car,route,actors,dt);
     signalLamps(car,route,dt);
     const cruising=(route.cruise??profile.cruise)*(route.offset>.1?.67:1);
-    const target=route.wait?0:Math.min(cruising*mobility*surface.pace,Math.sqrt(2*brake*surface.traction*gap));
+    const poweredTarget=route.wait?0:Math.min(cruising*mobility*surface.pace,Math.sqrt(2*brake*surface.traction*gap));
+    const target=powered?poweredTarget:Math.min(poweredTarget,coastSpeed(car.speed,dt));
     const acceleration=profile.driveForce/profile.mass*.68*mobility*surface.traction;
     const change=clamp(target-car.speed,-brake*surface.traction*dt,acceleration*dt);
     car.speed=Math.min(car.speed+change,gap/dt);
     car.braking=change<-.01 || gap<.07;
-    car.engineLoad=change>.01?.74:car.speed>.15 && change>=0?.36:0;
+    car.engineLoad=!powered?0:change>.01?.74:car.speed>.15 && change>=0?.36:0;
     const travelled=car.speed*dt;
     if(route.stopGap!=null)route.stopGap=Math.max(0,route.stopGap-travelled);
     route.distance+=travelled;

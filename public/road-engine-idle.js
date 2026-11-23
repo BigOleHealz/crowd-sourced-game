@@ -10,7 +10,7 @@ export function roadEngineIdle(model,id=model){
   let phase=0,strength=0;
   for(const c of String(id))phase=(phase*13+c.charCodeAt(0)*.32)%(2*Math.PI);
   return (body,car,dt)=>{
-    const running=!car.wrecked && !car.bridgeFlight && (car.driver!=null || car.npcDriver!=null);
+    const running=car.fuel!==0 && !car.wrecked && !car.bridgeFlight && (car.driver!=null || car.npcDriver!=null);
     const target=running?Math.max(0,1-Math.abs(car.speed??0)/3.5):0;
     const step=Math.max(0,Math.min(.1,dt||0));
     strength+=(target-strength)*(1-Math.exp(-step*12));
