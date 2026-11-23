@@ -1,3 +1,4 @@
+import {sidearmCar,carPistolGrip,carSource} from './car-sidearm.js';
 import {pierFishingView} from './pier-fishing-view.js';
 import {reefChannelView} from './reef-channel-view.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
@@ -1280,7 +1281,9 @@ export function createScene(canvas) {
     // At the pole there is no horizontal bearing to recover from atan2.
     // Keep the input heading so lowering the view returns along the same plane.
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
-    const muzzle=station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const windowCar=station==='car-window' && sidearmCar(displayedWorld,id);
+    if(station==='car-window' && !windowCar)return null;
+    const muzzle=windowCar ? carPistolGrip(windowCar,id) : station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tank' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
@@ -1290,7 +1293,7 @@ export function createScene(canvas) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station);
     let {to}=aimHit;
     if(CITY && to){
       const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);

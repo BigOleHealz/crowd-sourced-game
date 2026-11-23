@@ -1,3 +1,4 @@
+import {sidearmSlot,sidearmCar,hasMountedTool} from './car-sidearm.js';
 import {activeCast,fishingDetail,fishingLabel,fishingSpot} from './pier-fishing.js';
 import {equipmentKeys,meleeItems,nextEquipment} from './arcade-melee.js';
 import {nearDog,carriedDog} from './dog-walkers.js';
@@ -169,6 +170,8 @@ const inEngine=()=>myRoad()?.model==='engine';
 const unarmedRoad=()=>inGT() || Boolean(myRoad()?.model);
 const inGT = () => myRoad()?.kind==='supercar';
 const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id || atYachtHelm());
+let selectedCarPistol=false;
+const carPistol=()=>{const car=sidearmCar(world,id);return car && (!hasMountedTool(car) || selectedCarPistol);};
 const gunnerRole=()=>gunnerVehicle(world,id);
 const jetPilot=()=>id!=null && world?.jet?.pilot===id;
 const isPilot = () => id != null && (world?.heli.pilot === id || jetPilot());
@@ -250,7 +253,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyU','KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','KeyJ',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyP','KeyU','KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','KeyJ',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -447,6 +450,11 @@ function pierAt(feet){
   return CITY && !mode && !atTable() && !inVolleyball() && canChangeStance(feet) && fishingSpot(feet);
 }
 function pressAction(code){
+  if(code==='KeyP'){
+    const car=sidearmCar(world,id);
+    if(car && hasMountedTool(car))selectedCarPistol=!selectedCarPistol;
+    return;
+  }
   if(code==='KeyU'){
     const vehicle=world && !vitals.dead && fuelVehicle(world,id);
     if(vehicle && (vehicle.fuel??100)<100 && fuelSiteFor(world,vehicle))queuedRefuel=true;
@@ -535,7 +543,7 @@ function pressAction(code){
   if (code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
   if (code === 'KeyF') queuedFire = true;
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
-  if ((code==='reload' || code==='KeyJ' || (code==='KeyR' && world?.mission?.stage!=='complete')) && canAim()) queuedReload=true;
+  if ((code==='reload' || code==='KeyJ' || (code==='KeyR' && world?.mission?.stage!=='complete')) && (canAim() || carPistol())) queuedReload=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
   if(code==='Digit0'){if(canHandleGear())setHolster(!manualHolster);return;}
@@ -759,6 +767,7 @@ function connect() {
         roverView = null;
       }
       const gunner=gunnerRole();
+      if(wasDriving!==isDriving() || gunner!==wasGunner)selectedCarPistol=false;
       canvas.classList.toggle('bow-sight',gunner==='superyacht' && !vitals.dead);
       if(gunner && gunner!==wasGunner) {camera.yaw=vehicleById(world,gunner).turretYaw;camera.pitch=0;stopLook();}
       if (changedLife) clearInput();
@@ -839,13 +848,14 @@ function tick() {
   }else if(!trigger || mounted)releaseSwimTrigger=false;
   const hoopShot=basketball && trigger;
   const playingVolleyball=!!inVolleyball();
-  const fire = !self.dive && !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine()) && !holstered && !releaseSwimTrigger && !self.climb && !vitals.dead && !vitals.fall && trigger;
+  const pistol=carPistol();
+  const fire = !self.dive && !basketball && !playingVolleyball && !myBoat()?.boatModel && !self.ride && (!unarmedRoad() || inEngine() || pistol) && !holstered && !releaseSwimTrigger && !self.climb && !vitals.dead && !vitals.fall && trigger;
   const gunner=gunnerRole();
   // Ordinary movement sends camera angles. Only interactions that consume a
   // muzzle-to-target bearing need to raycast the world on this input tick.
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
   const needsAim=(fire && (!meleeItems[weapon] || meleeItems[weapon].posedContact)) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
-  const aim=(inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
+  const aim=(pistol && fire && scene.aimAt(self,id,equipmentSpecs[sidearmSlot].range,'car-window')) || (inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tank')) || (!driving && !pilot && needsAim &&
     (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if(activeCast(vitals.fishing))facing=Math.atan2(vitals.fishing.x-self.x,self.z-vitals.fishing.z);
@@ -855,7 +865,7 @@ function tick() {
   else if (queuedJump && self.swimming) facing = camera.yaw;
   const descending = down('ShiftLeft') || down('ShiftRight');
   const swimY=self.swimming?Number(down('Space'))-Number(down('KeyC')):0;
-  const cmd = { ...(swimY && {swimY}), ...(queuedScuba && {toggleScuba:true}), skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
+  const cmd = { ...(swimY && {swimY}), ...(queuedScuba && {toggleScuba:true}), skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, ...(pistol && {sidearm:true}), lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     ...(holsterSeq && canHandleGear()?{holster:manualHolster}:{}),
     ...(queuedReload && {reload:true}),
@@ -1051,7 +1061,7 @@ function updateEquipment(local) {
   byId('match-deaths').textContent=vitals.score?.deaths??0;
   byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Vesper GT' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter missiles' : local.swimming?(local.scuba?'Scuba':'Swimming')+' · Air '+Math.ceil(local.swimAir??breathSeconds)+'s · '+(local.swimDepth??0).toFixed(1)+' m':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = zombies ? '' : cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
-  canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
+  canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (carPistol() || inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
   const driven=fuelVehicle(world,id);
   const fueled=driven || (gunner && vehicleById(world,gunner));
@@ -1077,14 +1087,15 @@ function updateEquipment(local) {
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
   const gearAvailable=!!canHandleGear();
-  const magazine=gearAvailable && !manualHolster && vitals.magazine?.weapon===weapon && vitals.magazine;
+  const pistol=carPistol();
+  const magazine=pistol ? vitals.magazine?.weapon===sidearmSlot && vitals.magazine : gearAvailable && !manualHolster && vitals.magazine?.weapon===weapon && vitals.magazine;
   const ammo=byId('ammo-readout');
   ammo.hidden=!magazine;
   if(magazine){
     const key=world?.mission?.stage==='complete'?'J':'R';
     const progress=magazine.reloadTicks!=null?' · Reloading '+(magazine.reloadTicks/30).toFixed(1)+'s':
       magazine.rounds<magazine.capacity && !touch.active?' · '+key+' Reload':'';
-    ammo.textContent=(weapon===5?'Fuel ':'Ammo ')+magazine.rounds+' / '+magazine.capacity+progress;
+    ammo.textContent=(magazine.weapon===5?'Fuel ':'Ammo ')+magazine.rounds+' / '+magazine.capacity+progress;
   }
   byId('holster-control').hidden=!gearAvailable || touch.active;
   byId('holster-action').textContent=manualHolster?'Draw':'Put away';
@@ -1103,8 +1114,8 @@ function updateEquipment(local) {
   if(!tracking.hidden)tracking.textContent=lock ? (lock.progress===1?'Locked · ':'Locking '+Math.round(lock.progress*100)+'% · ')+lockLabel(lock.key) :
     touch.active?(camera.sighted?'Hold sight on a vehicle to lock':'Tap Aim to lock on'):
     camera.sighted?'Aim at a vehicle to lock · F fires straight':'Right-click to lock · F / click fires straight';
-  byId('fire-shortcut').hidden = (manualHolster && gearAvailable) || (unarmedRoad() && !inEngine()) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
-  byId('fire-verb').textContent=basketball?'Hold to shoot':inEngine()?'Spray water':weapon===6 && !kind?'Throw':meleeItems[weapon] && !kind?'Swing':'Fire';
+  byId('fire-shortcut').hidden = (manualHolster && gearAvailable) || (unarmedRoad() && !inEngine() && !pistol) || atYachtHelm() || local.swimming || !!local.climb || vitals.dead || (boat && !gunner);
+  byId('fire-verb').textContent=basketball?'Hold to shoot':pistol?'Fire pistol':inEngine()?'Spray water':weapon===6 && !kind?'Throw':meleeItems[weapon] && !kind?'Swing':'Fire';
   const sharkNearby=local.swimming && world.sharks?.some(s=>s.target===id);
   const prompt = byId('field-prompt');
   if(talk.current && !speaker(talk.current))talk.close();
@@ -1156,6 +1167,8 @@ function updateEquipment(local) {
   else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
   else if(zombies)prompt.textContent='';
   else prompt.textContent='Helicopter · '+Math.round(distance)+' m';
+  const roadStation=sidearmCar(world,id);
+  if(roadStation && hasMountedTool(roadStation) && !touch.active)prompt.textContent+='  ·  P  '+(pistol?'Mounted controls':'Draw pistol');
   if(use && !touch.active && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
@@ -1218,7 +1231,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,canRefuel,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,pistol,swapPistol:roadStation && hasMountedTool(roadStation),canRefuel,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage && !refuelSite)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');
@@ -1403,7 +1416,7 @@ function frame(time) {
     const free=!atTable() && vitals.clubSince==null && !vitals.dead && !vitals.fall && !self.climb && !isPilot() && !isDriving() && !gunnerRole() && !frozenPhase(world.match?.phase);
     const motion=free ? movementInput() : null;
     const display=free ? stepPlayer(self,{...motion,swimY:self.swimming?Number(down('Space'))-Number(down('KeyC')):0,throttle:motion.forward,steer:motion.lateral,jump:queuedJump,yaw:facing,stance:requestedStance,deploy:queuedDeploy},accumulator,world.hp,world) : self;
-    const local = { ...display,burning:vitals.burning,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
+    const local = { ...display,carShot:vitals.carShot,burning:vitals.burning,lastDive:vitals.lastDive,paradeCostume:costume.checked,clubSince:vitals.clubSince,beachPose:vitals.beachPose,beachOrder:vitals.beachOrder, race:vitals.race, team:vitals.team, lostParts:vitals.lostParts, hp: vitals.hp, maxHp: vitals.maxHp, dead: vitals.dead, deathKind:vitals.deathKind, protected: vitals.protected, id, yaw: self.fall ? self.yaw : facing,
       moving:motion?.moving??moving, sprint:motion?.sprint??sprint };
     const traffic={...remoteFrame(time)};
     if(predictedDriver){

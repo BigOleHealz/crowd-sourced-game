@@ -55,6 +55,15 @@ try {
     const {x,z}=car(c);
     for(let i=0;i<36;i++){input(c,{throttle:1});await delay(34);}
     await until('replicated driving',()=>car(observer).driver===c.id && Math.hypot(car(observer).x-x,car(observer).z-z)>2);
+    const health=car(c).hp;
+    input(c,{fire:true,sidearm:true,aimYaw:Math.PI/2,aimPitch:.3,throttle:1});
+    await until('window pistol shot seen by observer',()=>observer.frame.world.shots.some(s=>
+      s.weapon==='muzzle' && s.firedWeapon===2 && s.source===car(c).id && s.shooter===c.id));
+    assert.equal(self(c).magazine.weapon,2);
+    assert.equal(self(c).magazine.rounds,11);
+    assert.equal(car(c).hp,health);
+    input(c,{reload:true,sidearm:true});
+    await until('driver reload',()=>self(c).magazine.rounds===12);
     assert.equal(self(c).use.role,'exit');
     interact(c);
     await until('exit seen by observer',()=>car(observer).driver==null);
