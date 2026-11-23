@@ -1,6 +1,6 @@
-import {roofPivot} from './tank-layout.js';
 import {yachtGun,yachtDeckY} from './yacht-layout.js';
 // Offsets in game units from the centre of the vehicle, facing local -Z.
+export const roofPivot=[0,2.43,1.27];
 const boatMount={turret:[0,1.68,1.12]};
 export const mounts = {
   superyacht:{turret:[yachtGun.x,yachtGun.y,yachtGun.z]},

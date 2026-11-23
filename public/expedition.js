@@ -1,5 +1,5 @@
 import {sidearmSlot,carPistolOrigin,carSource} from './car-sidearm.js';
-import { spendRound, startReload } from './magazines.js';
+import { advanceReload, spendRound, startReload } from './magazines.js';
 import {meleeItems,validEquipment} from './arcade-melee.js';
 import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
@@ -329,6 +329,7 @@ export function advanceMelee(world,player,tick,players,npcs){
 }
 
 function readyToFire(player, weapon, tick) {
+  advanceReload(player, tick, false, weapon);
   if (player.life.magazines?.[weapon] === 0) {
     startReload(player, tick, weapon);
     return false;
