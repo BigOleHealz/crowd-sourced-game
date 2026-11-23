@@ -60,6 +60,11 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 
 .health-readout { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11px; font-weight: 600; }
 #hp-meter { width: 72px; height: 11px; accent-color: #c3bea8; }
+#vehicle-fuel { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#vehicle-fuel.low-fuel { color: #ffd082; }
+#fuel-meter { width: 42px; height: 11px; vertical-align: middle; }
+#touch-actions:has([data-action=KeyU]:not([hidden])) [data-action=KeyE] { grid-area: 1/1; }
+#touch-actions [data-action=KeyU] { grid-area: 1/2; }
 #life-status { color: #baf1f4; }
 
 #supply-card { position: fixed; left: 30px; top: 90px; width: 232px; max-width: 45vw; padding: 10px 12px; background: var(--panel); border-left: 3px solid #e2b15f; border-radius: 0 4px 4px 0; pointer-events: none; }

@@ -5,7 +5,7 @@ const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parkedJet(){
   const x=CITY?0:4,z=24;
   return {x,y:groundHeight(x,z),z,yaw:0,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
-    hp:500,maxHp:500,wrecked:false,recoverySeconds:0};
+    fuel:100,hp:500,maxHp:500,wrecked:false,recoverySeconds:0};
 }
 export function nearJet(jet,p){
   return jet?.pilot==null && jet?.grounded && !jet.wrecked && p.grounded &&
@@ -68,19 +68,26 @@ export function stepJet(world,input,dt,players){
   }
   if(j.pilot==null && j.grounded)return;
   const before={...j};
-  const steer=input?.steer??0,lift=input?.jetPitch??input?.lift??0,throttle=input?.throttle??0;
+  const powered=j.fuel!==0;
+  const steer=powered || j.speed>.25 ? input?.steer??0 : 0;
+  const lift=powered ? input?.jetPitch??input?.lift??0 : 0;
+  const throttle=powered ? input?.throttle??0 : 0;
   j.burner=!j.grounded && j.pilot!=null && throttle>.7;
   const max=CITY?33:22;
-  const target=j.grounded ? Math.max(0,throttle)*9 : clamp(j.speed+throttle*12*dt,8,max);
-  j.speed+=clamp(target-j.speed,-12*dt,12*dt);
+  const target=powered ? (j.grounded ? Math.max(0,throttle)*9 : clamp(j.speed+throttle*12*dt,8,max)) : 0;
+  const deceleration=powered || j.grounded ? 12 : 1.25;
+  j.speed+=clamp(target-j.speed,-deceleration*dt,12*dt);
   if(j.grounded && lift>.12){j.grounded=false;j.speed=Math.max(8,j.speed);}
   const response=1-Math.exp(-5*dt);
   j.roll+=((j.grounded?0:-.60*steer)-j.roll)*response;
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;
   // Pitch is continuous across the top of a loop, including during snapshot interpolation.
-  if(j.pilot!=null && !j.grounded)j.pitch+=lift*1.6*dt;
+  if(!j.grounded && !powered){
+    const level=-.14-j.pitch;
+    j.pitch+=Math.atan2(Math.sin(level),Math.cos(level))*response;
+  }else if(j.pilot!=null && !j.grounded)j.pitch+=lift*1.6*dt;
   const horizontal=j.speed*Math.cos(j.pitch);
-  const climb=j.grounded?0:j.pilot==null?-6:j.speed*Math.sin(j.pitch);
+  const climb=j.grounded?0:j.pilot==null?-6:!powered ? -2.4-Math.max(0,8-j.speed)*.3 : j.speed*Math.sin(j.pitch);
   const x=clamp(j.x+Math.sin(j.yaw)*horizontal*dt,flightBounds.west,flightBounds.east);
   const z=clamp(j.z-Math.cos(j.yaw)*horizontal*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);

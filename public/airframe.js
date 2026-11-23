@@ -20,7 +20,7 @@ export function restoreFlightState(heli) {
 export function parkedHelicopter() {
   const heli = {
     ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
-    hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
+    fuel:100, hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
   flightStates.set(heli, { vx: 0, vy: 0, vz: 0, tiltX: 0, tiltZ: 0, yawRate: 0, sideContact: false, floorContact: false });
   return heli;
@@ -164,6 +164,9 @@ export function fly(world, input, dt, players) {
   if(lostRoof(world)){
     h.grounded=false;motion.floorContact=false;motion.roofDrop=true;
   }
+  const outOfFuel=h.fuel===0;
+  // A windmilling rotor lets the mass settle under its remaining momentum.
+  if(outOfFuel)input={x:0,z:0,lift:-.43,aimYaw:h.yaw};
   if(h.grounded && input.lift<=0)return;
   if(input.lift>0)delete motion.roofDrop;
   // The rotor disc tips toward the velocity error. Its horizontal thrust
@@ -198,8 +201,12 @@ export function fly(world, input, dt, players) {
   const yachtLanding=onFlightDeck(world.yacht,h,floor);
   const rubbleLanding=motion.roofDrop && collapsedLot(MAP.buildings,world.doors,h.x,h.z) && Math.abs(floor-groundHeight(h.x,h.z,Infinity,world.doors))<.05;
   const landable = rubbleLanding || yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
-  const minY = floor + (landable ? 0 : 0.22);
+  const minY = floor + (landable || outOfFuel ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
+  if(floorContact && outOfFuel && !landable && floor===MAP.waterY+.6){
+    damageHelicopter(world,h.hp,players);
+    return;
+  }
   if (floorContact && !motion.floorContact) {
     let stoppedSpeed=rooftop?Math.hypot(motion.vx,motion.vy,motion.vz):-motion.vy;
     if(yachtLanding){
@@ -211,7 +218,7 @@ export function fly(world, input, dt, players) {
   motion.floorContact = floorContact;
   h.y = clamp(nextY, minY, flightBounds.ceiling);
   if (floorContact || h.y === (flightBounds.ceiling)) motion.vy = 0;
-  h.grounded = landable && floorContact;
+  h.grounded = (landable || outOfFuel) && floorContact;
   if(h.grounded && yachtLanding)h.onYacht=true;else delete h.onYacht;
   if (h.grounded || h.wrecked) {
     delete motion.roofDrop;

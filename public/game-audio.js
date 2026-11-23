@@ -510,11 +510,11 @@ export function createGameAudio(button,slider,level,caption) {
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
   function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null) {
-    motor('chainGun',heli,chainFiring,1,.94,listener,yaw);
-    motor('engine',rover,rover.driver!=null && !rover.wrecked,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
-    if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'vesper-engine');
+    motor('chainGun',heli,chainFiring && heli.fuel!==0,1,.94,listener,yaw);
+    motor('engine',rover,rover.driver!=null && !rover.wrecked && rover.fuel!==0,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
+    if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked && supercar.fuel!==0,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'vesper-engine');
     const airspeed=Math.hypot(heli.vx??0,heli.vz??0);
-    const drive=(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked;
+    const drive=(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked && heli.fuel!==0;
     const near=Math.hypot(heli.x-listener.x,heli.y-listener.y,heli.z-listener.z)<180;
     motor('rotor',heli,drive && near,heli.grounded?.88:1+Math.min(.085,airspeed*.002),heli.grounded?.41:.61,listener,yaw);
     const present=new Set();
@@ -522,8 +522,10 @@ export function createGameAudio(button,slider,level,caption) {
       if((boat.driver==null && !boat.cruising) || boat.wrecked)continue;
       if(boat.cruising && Math.hypot(boat.x-listener.x,boat.z-listener.z)>45)continue;
       const mix=boatMix(boat), motorKey='boat/motor/'+boat.id, wakeKey='boat/wake/'+boat.id;
-      present.add(motorKey);
-      motor('outboard',boat,true,mix.motorRate,mix.motorVolume,listener,yaw,motorKey);
+      if(boat.fuel!==0){
+        present.add(motorKey);
+        motor('outboard',boat,true,mix.motorRate,mix.motorVolume,listener,yaw,motorKey);
+      }
       if(mix.wakeVolume>.001) {
         present.add(wakeKey);
         motor('wake',boat,true,mix.wakeRate,mix.wakeVolume,listener,yaw,wakeKey);
@@ -534,7 +536,7 @@ export function createGameAudio(button,slider,level,caption) {
   function trafficEngines(listener,yaw,cars){
     const sounding=new Set();
     for(const car of cars){
-      if(car.wrecked || (car.npcDriver==null && car.driver==null) ||
+      if(car.wrecked || car.fuel===0 || (car.npcDriver==null && car.driver==null) ||
         Math.hypot(car.x-listener.x,car.y-listener.y,car.z-listener.z)>65)continue;
       const key='traffic/'+car.id;
       sounding.add(key);
@@ -584,7 +586,7 @@ export function createGameAudio(button,slider,level,caption) {
   }
   function jetEngine(listener,yaw,jet,dt){
     const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
-    if(!jet || jet.wrecked || Math.abs(jet.speed)<.15 || range>225 || !audible()){
+    if(!jet || jet.wrecked || jet.fuel===0 || Math.abs(jet.speed)<.15 || range>225 || !audible()){
       lastJetRange=null;stopMotor('jetFan');stopMotor('jetExhaust');return;
     }
     const closing=lastJetRange==null?0:(lastJetRange-range)/Math.max(.001,dt);

@@ -1,3 +1,4 @@
+import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {ramHouse} from './residential-falls.js';
 import {damageRover} from './rover.js';
@@ -9,7 +10,7 @@ import {tankPad} from './tank-layout.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function parkedTank(){
   return {...tankPad,kind:'tank',y:groundHeight(tankPad.x,tankPad.z),yaw:0,turretYaw:0,turretPitch:0,
-    driver:null,speed:0,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
+    driver:null,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
 }
 export function nearTank(tank,state){
   return !!tank && !tank.wrecked && !tank.sinking && tank.driver==null && state?.grounded &&
@@ -51,8 +52,13 @@ export function stepTank(world,input,dt,players){
   const throttle=input?.throttle??0, steer=input?.steer??0;
   const target=throttle*(throttle<0?2.5:7);
   const accel=throttle && throttle*t.speed>=0?2.9:6;
-  t.speed+=clamp(target-t.speed,-accel*dt,accel*dt);
-  t.turnRate+=(steer*(1.0-.035*Math.abs(t.speed))-t.turnRate)*(1-Math.exp(-4*dt));
+  const powered=t.fuel!==0;
+  if(powered)t.speed+=clamp(target-t.speed,-accel*dt,accel*dt);
+  else if(throttle*t.speed<0)t.speed+=clamp(-t.speed,-6*dt,6*dt);
+  else t.speed=coastSpeed(t.speed,dt);
+  // A tank needs track power to pivot in place. Equalize the tracks on cutoff.
+  if(!powered)t.turnRate=0;
+  else t.turnRate+=(steer*(1.0-.035*Math.abs(t.speed))-t.turnRate)*(1-Math.exp(-4*dt));
   const yaw=t.yaw+t.turnRate*dt;
   if(!roadContact(world,t.x,t.z,yaw,t.x,t.z,t))t.yaw=Math.atan2(Math.sin(yaw),Math.cos(yaw));
   else t.turnRate=0;

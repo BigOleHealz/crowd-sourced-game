@@ -539,7 +539,7 @@ const missileStep=source=>source==='jet'?2:1;
 export function launchMissile(world,kind,player,tick) {
   const v=world[kind];
   const previous=launchState.get(v);
-  if(v.wrecked || (kind==='heli' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
+  if(v.fuel===0 || v.wrecked || (kind==='heli' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
   const offset=[...mounts[kind].launcher];
   const id=nextShotId++;
   const side=kind==='heli' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
@@ -553,7 +553,7 @@ export function launchMissile(world,kind,player,tick) {
 
 export function fireTank(world,player,tick){
   const t=world.tank;
-  if(!t || t.driver!==player.id || !player.life.hp || t.wrecked || tick<(launchState.get(t)?.ready??0))return;
+  if(!t || t.fuel===0 || t.driver!==player.id || !player.life.hp || t.wrecked || tick<(launchState.get(t)?.ready??0))return;
   const from=tankMuzzle(t),id=nextShotId++;
   launchState.set(t,{ready:tick+38});
   world.shots.push({id,shooter:player.id,weapon:'launch',source:'tank',from,to:from,tick});
@@ -565,7 +565,7 @@ export function fireTank(world,player,tick){
 const nextBomb=new WeakMap();
 export function dropJetBomb(world,player,tick){
   const jet=world.jet;
-  if(jet.pilot!==player.id || !player.life.hp || jet.grounded || jet.wrecked || tick<(nextBomb.get(jet)??0))return;
+  if(jet.fuel===0 || jet.pilot!==player.id || !player.life.hp || jet.grounded || jet.wrecked || tick<(nextBomb.get(jet)??0))return;
   const horizontal=jet.speed*Math.cos(jet.pitch);
   const bomb={...mountPosition(jet,[0,-.22,0]),id:nextShotId++,source:'jet',bomb:true,shooter:player.id,
     yaw:jet.yaw,pitch:jet.pitch,vx:Math.sin(jet.yaw)*horizontal,vz:-Math.cos(jet.yaw)*horizontal,
@@ -662,7 +662,7 @@ export function advanceMissiles(world,players,npcs,tick) {
 const nextBullet=new WeakMap();
 export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=vehicleById(world,kind);
-  if(player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
+  if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
   const yaw=kind==='jet'?v.yaw:v.turretYaw, pitch=kind==='jet'?v.pitch:v.turretPitch;
   if(CITY && (kind==='heli' || kind==='jet')) {
     // Five integer time slots per tick put rounds three slots apart (50/s).

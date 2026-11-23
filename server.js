@@ -1,5 +1,6 @@
 import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
 import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDrink} from './club-residents.js';
+import {refuelVehicle,stepVehicleFuel} from './public/vehicle-fuel.js';
 import {compactAmbientView} from './ambient-snapshot.js';
 import {resortArrivals} from './public/palma-site.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
@@ -414,7 +415,7 @@ function acceptInput(player, data, binary) {
   // Limit latency after a stalled connection. Input never controls simulation time.
   if (player.inputs.length >= 8) player.inputs.shift();
   player.inputs.push({
-    handleCase:input.handleCase===true, replaySupply: input.replaySupply === true, deploy: input.deploy === true,
+    refuel:input.refuel===true, handleCase:input.handleCase===true, replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     stance: ['crouch', 'prone', 'stand'].includes(input.stance) ? input.stance : undefined,
     seq: input.seq, x: input.x / scale, z: input.z / scale,
     yaw: input.yaw % (Math.PI * 2), sprint: input.sprint === true, jump: input.jump === true,
@@ -532,11 +533,11 @@ sockets.on('connection', (ws,request) => {
     else if (world.heli.pilot === id) {
       const gunner=players.get(world.heli.gunner);
       if (gunner) interact(world,gunner);
-      world.heli=Object.assign(parkedHelicopter(),{hp:world.heli.hp,cargo:world.heli.cargo});
+      world.heli=Object.assign(parkedHelicopter(),{hp:world.heli.hp,cargo:world.heli.cargo,fuel:world.heli.fuel});
     } else if (world.rover.driver === id) {
       const gunner=players.get(world.rover.gunner);
       if(gunner) interactRover(world,gunner);
-      world.rover={...parkedRover(),hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,fittingDamage:world.rover.fittingDamage,cargo:world.rover.cargo};
+      world.rover={...parkedRover(),fuel:world.rover.fuel,hp:world.rover.hp,flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage,fittingDamage:world.rover.fittingDamage,cargo:world.rover.cargo};
     } else if (world.supercar?.driver===id) {
       interactRover(world,player,'supercar');
     } else {
@@ -581,6 +582,7 @@ function tick() {
     if(++lobbyTicks%2===0)publish();
     return;
   }
+  stepVehicleFuel(world,step);
   stepDrawbridges(world,bridges,step);
   if(CITY && players.size) {
     const pedestrians=[];
@@ -661,7 +663,7 @@ function tick() {
       if(role) vehicleById(world,role).gunner=null;
       const boat=crewBoat(world,player.id);
       if(boat?.driver===player.id){boat.driver=null;boat.throttle=0;}
-      if (world.rover.driver === player.id) world.rover = {...parkedRover(), hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
+      if (world.rover.driver === player.id) world.rover = {...parkedRover(), fuel:world.rover.fuel, hp: world.rover.hp, flatTires:world.rover.flatTires, bodyDamage:world.rover.bodyDamage, cargo: world.rover.cargo};
       if (world.supercar?.driver===player.id) interactRover(world,player,'supercar');
       if ((!zombies || survival.state.phase==='lobby') && respawnDue(player, ticks)) {
         if(zombies)survival.join(player,ticks);
@@ -692,6 +694,7 @@ function tick() {
     }
     const wasPlayingHoops=world.basketball?.players.includes(player.id);
     if (input) {
+      if(input.refuel && !input.interact && !input.seat)refuelVehicle(world,player.id);
       if (!match && input.replaySupply) replaySupplyRun(world);
       if (input.interact && !player.state.climb) {
         const use=nextUse(world,player.state,player.id,input.useTarget);
@@ -761,7 +764,7 @@ function tick() {
       continue;
     }
     if (world.heli.pilot === player.id) {
-      hookInput={lower:input?.lowerHook,release:input?.releaseHook};
+      hookInput={lower:world.heli.fuel!==0 && input?.lowerHook,release:input?.releaseHook};
       const before={...world.heli};
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
       vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);

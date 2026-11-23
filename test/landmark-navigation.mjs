@@ -13,6 +13,8 @@ if(!process.env.NAV_TEST_MAP){
     assert.equal(guide(x,z,0).cue,'Arrived');
   }
   if(process.env.NAV_TEST_MAP==='brickell'){
+    const {fuelStop}=await import('../public/fire-sites.js');
+    assert.equal(landmarkGuide(fuelStop.name)(fuelStop.x,fuelStop.z,0).cue,'Arrived');
     const guide=landmarkGuide('Lantern Point Marina');
     assert.equal(guide(0,-363,0).cue,'Turn right');
     assert.equal(guide(0,-363,0).meters,7);

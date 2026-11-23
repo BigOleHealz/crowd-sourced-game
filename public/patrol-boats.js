@@ -21,7 +21,7 @@ export const boatHelm=boat=>marinaModel(boat)?.helm??patrolHelm;
 const waveClock=new WeakMap();
 function moored(site) {
   const hp=marinaModel(site)?.maxHp??300;
-  return {...site,y:MAP.waterY,yaw:site.yaw??0,pitch:0,roll:0,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,
+  return {...site,fuel:100,y:MAP.waterY,yaw:site.yaw??0,pitch:0,roll:0,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,
     turretYaw:0,turretPitch:0,hp,maxHp:hp,wrecked:false,recoverySeconds:0};
 }
 export const patrolFleet=()=>CITY?berths.map(moored):[];

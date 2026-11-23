@@ -1,3 +1,4 @@
+import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {steerRoadWheels} from './road-steering.js';
 import {beginRoadBoarding} from './road-cabin.js';
@@ -30,12 +31,12 @@ export function stopRover(r) {
 
 export function parkedRover() {
   const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
+  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, fuel:100, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
 }
 
 export function parkedSupercar(){
   const {pad,maxHp}=supercarLayout;
-  return {...pad,kind:'supercar',flatTires:0,y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,lateralSpeed:0,
+  return {...pad,kind:'supercar',flatTires:0,y:groundHeight(pad.x,pad.z),yaw:0,driver:null,speed:0,fuel:100,lateralSpeed:0,
     exhaust:0,steer:0,hp:maxHp,maxHp,bodyDamage:{front:0,rear:0,left:0,right:0},wrecked:false,recoverySeconds:0};
 }
 
@@ -217,20 +218,26 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const drivePower=profile ? profile.driveForce/profile.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1)) : power;
   const brakePower=profile ? profile.brakeForce/profile.mass : braking;
   const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;
-  if(profile)r.engineLoad=Math.abs(throttle);
+  const powered=r.fuel!==0;
+  if(profile)r.engineLoad=powered?Math.abs(throttle):0;
   const oldSpeed=r.speed,direction=Math.sign(throttle);
   if(r.directionChange?.direction!==direction)delete r.directionChange;
   const opposing=oldSpeed*direction<0;
   r.braking=opposing || !!r.directionChange;
   const target=r.braking?0:throttle*(direction<0?reverseLimit:topSpeed)*mobility*surface.pace;
-  r.speed+=clamp(target-r.speed,-acceleration*dt,acceleration*dt);
+  if(powered)r.speed+=clamp(target-r.speed,-acceleration*dt,acceleration*dt);
+  else if(opposing)r.speed+=clamp(-r.speed,-brakePower*dt,brakePower*dt);
+  else r.speed=coastSpeed(r.speed,dt);
   // Reverse and first engage only after the brakes have actually stopped the wheels.
   if(r.directionChange){
     r.directionChange={direction,remaining:r.directionChange.remaining-dt};
     if(r.directionChange.remaining<=.00001)delete r.directionChange;
   }else if(opposing && r.speed===0 && !r.rebounding)r.directionChange={direction,remaining:.3};
   if(r.speed===0)delete r.rebounding;
-  if(sport)tickExhaust(r,throttle,oldSpeed,dt);
+  if(sport){
+    if(powered)tickExhaust(r,throttle,oldSpeed,dt);
+    else{r.exhaust=0;throttleMemory.delete(r);}
+  }
 
   const pace=Math.abs(r.speed);
   const turn=steerRoadWheels(r,steer,dt)*(1-.075*flats)*(1-(1-surface.traction)*Math.min(1,pace/6))*dt;

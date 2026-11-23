@@ -203,7 +203,7 @@ export function touchUseLabel(use){
   return use?.label;
 }
 
-export function touchLayout({role,active,scuba,submerged,jamBoard,fishAction,canReload,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
+export function touchLayout({role,active,canRefuel,scuba,submerged,jamBoard,fishAction,canReload,holsterLabel,onBoard,canOpen,throwable,melee,shoot,use,dogAction,stance,canAim,sighted,jump,sprint,seat,occupancy,hook,caseAction,race,replay,cruiserLights}){
   const foot=role==='foot',heli=role==='heli',jet=role==='jet';
   const quick=[],extra=[];
   if(role==='swimming'){
@@ -219,6 +219,7 @@ export function touchLayout({role,active,scuba,submerged,jamBoard,fishAction,can
   }
   if(fishAction)quick.push(['KeyG',fishAction,fishAction==='Watch the float']);
   if(use)quick.push(['KeyE',use]);
+  if(canRefuel)quick.push(['KeyU','Refuel']);
   if(foot && canReload)quick.push(['reload','Reload']);
   if(foot && holsterLabel)quick.push(['Digit0',holsterLabel]);
   if(foot && dogAction)quick.push(['KeyX',dogAction]);
