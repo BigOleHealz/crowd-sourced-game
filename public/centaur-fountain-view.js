@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {fountainSite} from './centaur-fountain-layout.js';
 
 const verde=0x485747, bronze=0x826445, litBronze=0xae8754, dark=0x594938;
@@ -43,7 +44,7 @@ function sculptedForm(stations){
   return g;
 }
 
-function centaur(group,Batch){
+function proceduralCentaur(group,Batch){
   const {x,z,base}=fountainSite,y=base+1.13,scale=1.48,yaw=sculptureYaw;
   const ball=new THREE.SphereGeometry(1,12,10),horse=new THREE.Group();
   // Build all of the bronze into one static batch. The forelegs paw the air
@@ -194,6 +195,43 @@ function centaur(group,Batch){
   const sculpture=metal.mesh(group,patina);
   sculpture.name='The Tide Bearer · bronze and gilded palmetto';
   sculpture.userData.impactSurface='metal';
+
+  return sculpture;
+}
+
+function centaur(group,Batch){
+  const {x,z,base}=fountainSite,y=base+1.13;
+  // The impact raycaster records this mesh at startup. Keep its identity as
+  // the geometry changes so metal impacts always use the current silhouette.
+  const statue=proceduralCentaur(group,Batch),loader=new GLTFLoader();
+  let far,near,requestedNear=false,usingScan=false;
+  async function load(file,name){
+    const {scene}=await loader.loadAsync(new URL(file,import.meta.url).href);
+    const mesh=scene.children[0];
+    mesh.name=name;
+    return mesh;
+  }
+  load('./young-centaur-far.glb','Centaur silhouette').then(mesh=>{far=mesh;})
+    .catch(()=>{ /* The original bronze covers a failed download. */ });
+  return local=>{
+    if(!local)return;
+    const distance=Math.hypot(local.x-x,(local.y??y)-y,local.z-z);
+    if(!requestedNear && distance<55){
+      requestedNear=true;
+      load('./young-centaur.glb','Young Centaur · bronze and gilded palmetto').then(mesh=>{near=mesh;})
+        .catch(()=>{ /* The distant bronze also works close up. */ });
+    }
+    const showNear=near && (!far || distance<(statue.geometry===near.geometry?60:55));
+    const mesh=showNear?near:far;
+    if(!mesh || statue.geometry===mesh.geometry)return;
+    if(!usingScan){
+      statue.geometry.dispose();statue.material.dispose();
+      statue.position.set(x,y,z);
+      statue.rotation.y=sculptureYaw;
+      usingScan=true;
+    }
+    statue.geometry=mesh.geometry;statue.material=mesh.material;statue.name=mesh.name;
+  };
 }
 
 function waterArches(group) {
@@ -263,6 +301,6 @@ export function centaurFountain(parts,group,Batch,materials){
   }
   disk.dispose();
   water.mesh(group,materials.water,false);
-  centaur(group,Batch);
-  return waterArches(group);
+  const updateStatue=centaur(group,Batch),updateArches=waterArches(group);
+  return (dt,local)=>{updateStatue(local);updateArches(dt,local);};
 }

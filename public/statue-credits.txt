@@ -1,0 +1,18 @@
+Palma de Sal fountain sculpture
+
+Young Centaur (Smiling Centaur), inventory ZKWawel 1770
+Collection of Wawel Royal Castle, Poland
+3D model by Virtual Museums of Małopolska. Digitisation by the Regional
+Digitalisation Lab, Małopolska Institute of Culture (RDW MIC), for the Virtual
+Museums of Małopolska Plus project.
+
+Museum release under the CC0 1.0 Universal Public Domain Dedication
+https://sketchfab.com/3d-models/sculpture-young-centaur-smiling-centaur-fd4e493639f84a6db992ed56d0be5ef4
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Source file fd4e493639f84a6db992ed56d0be5ef4.glb from the public Zenodo archive
+https://doi.org/10.5281/zenodo.21370453
+
+The game adaptation removes the museum display base, fits the figure to the
+fountain plinth, and adds the Tide Bearer’s gilded palmetto. The close model
+uses reduced bronze color and normal maps. The distant model uses vertex colors.
