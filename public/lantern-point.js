@@ -32,7 +32,7 @@ export const lanternPalms=[
   ...[-37,-26,-15,15,26,37].map(x=>({x,z:-473})),
   ...[[-39,-378],[-11,-378],[-39,-412],[-11,-412],[10.5,-457.4],[39.4,-456.2],[40.4,-436.1],
     [10.4,-398.8],[40.3,-398.8],[39.7,-380.9],[-35,-449.3],[-15,-436.7],[-60,-417.3]].map(([x,z])=>({x,z})),
-].map(({x,z})=>({x,z,height:5.9+Math.abs(Math.sin(x+z))*1.7,radius:.22}));
+].map(({x,z})=>({x,z,height:5.9+Math.abs(Math.sin(x+z))*1.7,radius:.22,marinaPalm:x>=39 && z>=-457 && z<=-380}));
 export const lanternSigns=[
   {x:7.8,z:-264,label:'LANTERN POINT',sub:'NORTH VIA LANTERN BRIDGE'},
   {x:7.9,z:-358,label:'LANTERN POINT',sub:'RESIDENCES  /  YACHT CLUB'},

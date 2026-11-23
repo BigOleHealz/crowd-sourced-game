@@ -1,5 +1,6 @@
 import {breezeMaterial} from './waterfront-breeze.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import { MAP, groundHeight } from './world.js';
 import {treeFallAngle} from './tree-fall.js';
 
@@ -78,28 +79,50 @@ export function addPalms(scene,renderer) {
   const material=[new THREE.MeshLambertMaterial({map,vertexColors:true}),
     breezeMaterial('palm',{vertexColors:true,side:THREE.DoubleSide})];
   const transform=new THREE.Object3D();
+  function palmInstances(geometry,materials,capacity){
+    const mesh=new THREE.InstancedMesh(geometry,materials,capacity);
+    mesh.count=0;mesh.visible=false;
+    mesh.userData.impactSurface='palm';
+    mesh.castShadow=mesh.receiveShadow=true;
+    scene.add(mesh);return mesh;
+  }
   const variants = Array.from({length:3}, (_, v) => {
-    const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height,treeId},i)=>{
+    const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height,treeId,marinaPalm},i)=>{
       transform.position.set(x,groundHeight(x,z),z);
       transform.rotation.y=i*2.39996+v;
       transform.scale.setScalar(height/6.9);
       transform.updateMatrix();
-      return {id:treeId,height,position:transform.position.clone(),quaternion:transform.quaternion.clone(),matrix:transform.matrix.clone(),near:null};
+      return {id:treeId,height,position:transform.position.clone(),quaternion:transform.quaternion.clone(),matrix:transform.matrix.clone(),near:null,marinaPalm};
     });
-    const meshes = [false,true].map(distant=>{
-      const mesh=new THREE.InstancedMesh(palmGeometry(v,distant),material,trees.length);
-      mesh.count=0;
-      mesh.userData.impactSurface='palm';
-      mesh.castShadow=mesh.receiveShadow=true;
-      scene.add(mesh);
-      return mesh;
-    });
+    const meshes=[false,true].map(distant=>palmInstances(palmGeometry(v,distant),material,trees.length));
     return {trees,meshes};
   });
   const lastEye=new THREE.Vector3();
   const fallAxis=new THREE.Vector3();
   let lastFalls='';
   let lastFov=0;
+  const marinaTrees=variants.flatMap(group=>group.trees.filter(tree=>tree.marinaPalm));
+  function installMarinaPalm({scene:model}){
+    const near=model.getObjectByName('Near'),far=model.getObjectByName('Far');
+    const leaves=breezeMaterial('palm',{map:near.material.map,vertexColors:true,side:THREE.DoubleSide,alphaTest:.30});
+    const meshes=[near,far].map(({geometry})=>{
+      const points=geometry.getAttribute('position'),flex=new Float32Array(points.count);
+      for(let i=0;i<points.count;i++){
+        // Only the fronds reach beyond the compact cluster of nuts and leaf bases.
+        const reach=Math.hypot(points.getX(i)-.81,points.getZ(i));
+        flex[i]=THREE.MathUtils.smoothstep(reach,.33,2.75);
+        if(points.getY(i)<3.17)flex[i]=0;
+      }
+      geometry.setAttribute('windFlex',new THREE.BufferAttribute(flex,1));
+      return palmInstances(geometry,leaves,marinaTrees.length);
+    });
+    for(const group of variants)group.trees=group.trees.filter(tree=>!tree.marinaPalm);
+    variants.push({trees:marinaTrees,meshes});
+    for(const group of variants)for(const tree of group.trees)tree.near=null;
+    lastFov=0;
+    near.material.dispose();
+  }
+  let requestMarina=marinaTrees.length>0;
   return (camera,doors,tick=0)=>{
     const falls=doors?.fallenTrees??{};
     const revision=Object.keys(falls).join(',');
@@ -111,6 +134,11 @@ export function addPalms(scene,renderer) {
     lastFalls=revision;
     // Keep close fronds detailed through scopes, with a band to avoid flicker.
     const radius=36*Math.tan(THREE.MathUtils.degToRad(55/2))/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
+    if(requestMarina && marinaTrees.some(t=>t.position.distanceToSquared(lastEye)<125**2)){
+      requestMarina=false;
+      // Keep the original trees available while downloading and as an offline fallback.
+      new GLTFLoader().load('./marina-palm.glb',installMarinaPalm,undefined,()=>{});
+    }
     for(const {trees,meshes} of variants){
       let changed=false;
       for(const tree of trees){

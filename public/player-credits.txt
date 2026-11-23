@@ -32,3 +32,11 @@ Creative Commons Attribution 4.0 International
 https://creativecommons.org/licenses/by/4.0/
 Goy Theft Auto adaptation: the source mesh and textures were fitted to the existing
 character skeleton so military island guards can patrol and react to damage.
+
+Coconut Palm by vinish.dev
+https://vinish.dev/free-3d-models/jungle
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Pinewatch modifications: adapted the model to the existing marina plantings,
+simplified the trunk, fronds and fruit, packed the materials into one texture,
+and added two levels of detail with wind animation.
