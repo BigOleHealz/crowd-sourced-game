@@ -37,7 +37,7 @@ import {stepWakeCrossings} from './public/boat-wakes.js';
 import {stepRoadBoarding} from './public/road-cabin.js';
 import {stepPatrolCruisers} from './public/patrol-cruisers.js';
 import {createWanted} from './public/wanted.js';
-import {newCityTraffic,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
+import {newCityTraffic,parkedTrafficCar,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
 import {marinaMode,createMarinaSprint,sprintStart,sprintGates} from './public/marina-sprint.js';
 import {roadContact} from './public/road-contact.js';
 import {stepStructuralFalls} from './public/structural-collapse.js';
@@ -119,8 +119,9 @@ function canFish(player){
     !player.state.dive && !player.state.liftTravel && !world.volleyballActivity?.member(player.id);
 }
 function freshWorld(){
-  const w=newExpedition({civilianMarina:!mode});
-  w.traffic=zombies ? [] : [...newCityTraffic({resort:!mode}),fireEngine()];
+  const w=newExpedition({civilianMarina:!mode || zombies});
+  w.traffic=[...newCityTraffic({resort:!mode || zombies,parked:zombies}),fireEngine()];
+  if(zombies)w.traffic.push(parkedTrafficCar('squad-sedan','sedan',-18,-206,-Math.PI/2));
   if(CITY){
     w.rides=[...(mode?[]:[...boardRacks(groundHeight),...parkRides(groundHeight)]),...shopBicycles(storefrontFaces)];
     for(const r of w.rides)Object.defineProperty(r,'home',{value:{x:r.x,y:r.y,z:r.z,yaw:r.yaw}});
@@ -295,7 +296,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,magazine:magazineView(player,ticks),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:!zombies && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,magazine:magazineView(player,ticks),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -424,12 +425,12 @@ function acceptInput(player, data, binary) {
     holster:typeof input.holster==='boolean'?input.holster:undefined,handheldHeld:input.handheldHeld===true,
     swimY:input.swimY===1 || input.swimY===-1 ? input.swimY : 0, toggleScuba:input.toggleScuba===true,
     fromSwimming:!!player.state.swimming,tracking:input.tracking===true, weapon: validEquipment(input.weapon) ? input.weapon : null,
-    seat: !zombies && (input.seat===1 || input.seat===2) ? input.seat : null,
+    seat: (input.seat===1 || input.seat===2) ? input.seat : null,
     seatKind: typeof input.seatKind==='string' && !!vehicleById(world,input.seatKind) ? input.seatKind : null,
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
     lowerHook:input.lowerHook===true,releaseHook:input.releaseHook===true,
-    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, reload: input.reload === true, interact: !zombies && input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, reload: input.reload === true, interact: input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -600,11 +601,11 @@ function tick() {
   recoverHelicopter(world, step, players);
   recoverRover(world, step);
   recoverRover(world,step,'supercar');
-  if (!zombies && players.size) {
-    stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
-    for(const car of world.traffic)stepRoadBoarding(car,step);
-    stepFireEngines(world,players,npcs,ticks,step);
-    stepCityTraffic(world,players,npcs,step,ticks);
+  stepRoadBoarding(world.rover,step);stepRoadBoarding(world.supercar,step);
+  for(const car of world.traffic)stepRoadBoarding(car,step);
+  if(!zombies)stepFireEngines(world,players,npcs,ticks,step);
+  stepCityTraffic(world,players,npcs,step,ticks);
+  if (!zombies) {
     stepPartyEvacuation(world,npcs,ticks,step);
     stepClubResidents(world,players,ticks,step);
     for(const npc of npcs){
@@ -652,6 +653,7 @@ function tick() {
     if (player.life.hp === 0) {
       delete player.trip;delete player.state.liftTravel;delete player.state.dive;delete player.lastDive;
       if(drivenRoad(world,player.id)?.model)leaveTraffic(world,player);
+      if(world.heli.pilot===player.id)interact(world,player);
       if(world.tank?.driver===player.id)leaveTank(world,player);
       if(world.jet.pilot===player.id)leaveJet(world.jet);
       if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
