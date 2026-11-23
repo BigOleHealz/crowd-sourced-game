@@ -1,3 +1,5 @@
+import {tankWallDebrisView} from './tank-wall-debris-view.js';
+import {cutGrid} from './tank-wall-cuts.js';
 import * as THREE from 'three';
 import {homes,houseRubbleHeight} from './residential-sites.js';
 
@@ -5,8 +7,12 @@ export function residentialRuinView(scene,buildings,renderer){
   // Bind the mask only on the first collapse. Sparse world-space footprints
   // preserve the shared batches for the pier, other houses and storefronts.
   const rects={value:Array.from({length:12},()=>new THREE.Vector4())},count={value:0};
+  const {west,north,width,height,size,low,high}=cutGrid;
+  const pixels=new Uint8Array(width*height);
+  const cutMap=new THREE.DataTexture(pixels,width,height,THREE.RedFormat);
+  const updateDebris=tankWallDebrisView(scene);
   const bound=new Set(),ruins=new Map();
-  let installed=false,key='';
+  let installed=false,key='',cutCount=0,cutLast=-1,observed=false;
   function bind(mat){
     if(!mat || bound.has(mat))return;
     bound.add(mat);
@@ -14,6 +20,7 @@ export function residentialRuinView(scene,buildings,renderer){
     mat.customProgramCacheKey=()=>signature+'-home-ruins';
     mat.onBeforeCompile=function(shader,gpu){
       previous.call(this,shader,gpu);
+      shader.uniforms.tankCutMap={value:cutMap};
       shader.uniforms.homeRects=rects;shader.uniforms.homeCount=count;
       shader.vertexShader='varying vec3 homePoint;\n'+shader.vertexShader.replace('#include <project_vertex>',`#include <project_vertex>
         vec4 hp=vec4(transformed,1.);
@@ -21,7 +28,11 @@ export function residentialRuinView(scene,buildings,renderer){
           hp=instanceMatrix*hp;
         #endif
         homePoint=(modelMatrix*hp).xyz;`);
-      shader.fragmentShader='varying vec3 homePoint; uniform vec4 homeRects[12]; uniform int homeCount;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
+      shader.fragmentShader='varying vec3 homePoint; uniform sampler2D tankCutMap; uniform vec4 homeRects[12]; uniform int homeCount;\n'+shader.fragmentShader.replace('#include <clipping_planes_fragment>',`#include <clipping_planes_fragment>
+        if(homePoint.y>${low} && homePoint.y<${high}){
+          ivec2 cell=ivec2(floor((homePoint.xz-vec2(${west}.0,${north}.0))/${size}.0));
+          if(all(greaterThanEqual(cell,ivec2(0))) && all(lessThan(cell,ivec2(${width},${height}))) && texelFetch(tankCutMap,cell,0).r>.5)discard;
+        }
         if(homePoint.y>.804)for(int i=0;i<12;i++){
           if(i>=homeCount)break;
           vec4 r=homeRects[i];
@@ -37,7 +48,7 @@ export function residentialRuinView(scene,buildings,renderer){
       for(const mat of [].concat(m.material))bind(mat);
       if(m.castShadow){m.customDepthMaterial??=depth;bind(m.customDepthMaterial);}
     });
-    installed=true;
+    cutMap.needsUpdate=true;installed=true;
   }
   const cube=new THREE.BoxGeometry(),stone=new THREE.MeshLambertMaterial();
   let baseStone;
@@ -88,9 +99,19 @@ export function residentialRuinView(scene,buildings,renderer){
     const group=new THREE.Group();group.name=mesh.name;mesh.name='House fragments '+home.id;
     group.add(foundation(home,ruin),mesh);group.position.y=.8;scene.add(group);return group;
   }
-  return doors=>{
+  return (doors,dt)=>{
     const lost=doors?.houseRuins;
-    if(!lost && !key)return;
+    const cuts=doors?.tankWallCuts;
+    if(cuts?.length || cutCount)updateDebris(doors,cutCount,observed?dt:0);
+    observed=true;
+    if(!lost && !key && !cuts && !cutCount)return;
+    const countNow=cuts?.length??0,last=cuts?.at(-1)??-1;
+    if(countNow!==cutCount || last!==cutLast){
+      if(!installed)install();
+      pixels.fill(0);
+      for(const id of cuts??[])pixels[id]=255;
+      cutMap.needsUpdate=true;renderer.shadowMap.needsUpdate=true;cutCount=countNow;cutLast=last;
+    }
     const next=Object.keys(lost??{}).join('|');
     if(next!==key){
       if(!installed)install();
