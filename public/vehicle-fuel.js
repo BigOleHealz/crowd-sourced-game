@@ -20,6 +20,10 @@ export function fuelVehicle(world,id){
   return world.traffic?.find(v=>v.driver===id)??world.boats?.find(v=>v.driver===id)??null;
 }
 
+export function automaticPump(world,v){
+  return v && !('pilot' in v) && v.id!=='superyacht' && !world.boats?.includes(v);
+}
+
 export function fuelSiteFor(world,v){
   if(!v || v.wrecked || v.sinking || v.sling || v.bridgeFlight || v.boarding || v.takeover ||
      Math.hypot(v.speed??0,v.slip??v.lateralSpeed??0)>.45 || Math.abs(v.turnRate??v.yawRate??0)>.18)return null;
@@ -38,7 +42,7 @@ export function fuelSiteFor(world,v){
 const remainder=new WeakMap();
 export function refuelVehicle(world,driverId){
   const v=fuelVehicle(world,driverId);
-  if(!v || (v.fuel??100)>=100 || !fuelSiteFor(world,v))return false;
+  if(!v || automaticPump(world,v) || (v.fuel??100)>=100 || !fuelSiteFor(world,v))return false;
   v.fuel=100;remainder.delete(v);
   return true;
 }
@@ -51,19 +55,33 @@ function useFuel(v,dt,rate,load,running){
   if(tenths)v.fuel=Math.max(0,Math.round((v.fuel??100)*10-tenths)/10);
 }
 
-function roadFuel(v,dt){
+// Five percentage points per second. Carry sub-tenths between simulation ticks.
+const pumpRemainder=new WeakMap();
+function roadFuel(world,v,dt){
   if(!v)return;
+  if(v.driver!=null && fuelSiteFor(world,v)){
+    const fuel=v.fuel??100;
+    if(fuel<100){
+      const fill=(pumpRemainder.get(v)??0)+dt*50;
+      const tenths=Math.floor(fill+1e-9);
+      v.fuel=Math.min(100,(Math.round(fuel*10)+tenths)/10);
+      pumpRemainder.set(v,v.fuel===100?0:fill-tenths);
+    }
+    remainder.delete(v);
+    return;
+  }
+  pumpRemainder.delete(v);
   const running=v.driver!=null || v.npcDriver!=null;
   const demand=Math.max(Math.abs(v.speed??0)/12,v.engineLoad??0,Math.abs(v.turnRate??0),v.water ? .75 : 0);
   useFuel(v,dt,v.kind==='tank' ? .23 : .16,demand,running);
 }
 
 export function stepVehicleFuel(world,dt){
-  roadFuel(world.rover,dt);
-  roadFuel(world.supercar,dt);
-  roadFuel(world.tank,dt);
-  for(const car of world.traffic??[])roadFuel(car,dt);
-  for(const car of world.patrolCars??[])roadFuel(car,dt);
+  roadFuel(world,world.rover,dt);
+  roadFuel(world,world.supercar,dt);
+  roadFuel(world,world.tank,dt);
+  for(const car of world.traffic??[])roadFuel(world,car,dt);
+  for(const car of world.patrolCars??[])roadFuel(world,car,dt);
   for(const h of [world.heli,world.jet]){
     if(!h)continue;
     const demand=h.grounded?Math.abs(h.speed??0)/9:h.burner?1:.8;

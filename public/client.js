@@ -30,7 +30,7 @@ import {nearbySpeaker,conversations} from './brickell-conversations.js';
 import {conversationView} from './conversation-view.js';
 import {boardingSeconds} from './road-cabin.js';
 import {hotelEntrance} from './maravela-hotel.js';
-import {fuelVehicle,fuelSiteFor,fuelSites} from './vehicle-fuel.js';
+import {automaticPump,fuelVehicle,fuelSiteFor,fuelSites} from './vehicle-fuel.js';
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {roadFraming} from './road-chase.js';
 import {SnapshotClock} from './snapshot-clock.js';
@@ -449,7 +449,7 @@ function pierAt(feet){
 function pressAction(code){
   if(code==='KeyU'){
     const vehicle=world && !vitals.dead && fuelVehicle(world,id);
-    if(vehicle && (vehicle.fuel??100)<100 && fuelSiteFor(world,vehicle))queuedRefuel=true;
+    if(vehicle && !automaticPump(world,vehicle) && (vehicle.fuel??100)<100 && fuelSiteFor(world,vehicle))queuedRefuel=true;
     return;
   }
   if(code==='KeyG' && pierAt(self)){
@@ -1058,7 +1058,8 @@ function updateEquipment(local) {
   const fuelReadout=byId('vehicle-fuel');
   fuelReadout.hidden=!fueled || vitals.dead;
   const refuelSite=driven && !vitals.dead && fuelSiteFor(world,driven);
-  const canRefuel=!!refuelSite && (driven.fuel??100)<100;
+  const filling=!!refuelSite && (driven.fuel??100)<100;
+  const canRefuel=filling && !automaticPump(world,driven);
   if(!fuelReadout.hidden){
     const amount=clamp(fueled.fuel??100,0,100);
     byId('fuel-meter').value=amount;
@@ -1126,7 +1127,7 @@ function updateEquipment(local) {
     if(garage && serviceCar.repairPercent!=null)service.push('Repairing · '+serviceCar.repairPercent+'%');
     else if(garage && needsRoadRepair(serviceCar))service.push('Stop in the marked bay for 3 seconds');
     else if(garage && !refuelSite)service.push('Vehicle in full repair');
-    if(refuelSite)service.push(canRefuel?(touch.active?'Tap Refuel':'U  Refuel'):'Tank full');
+    if(refuelSite)service.push(canRefuel?(touch.active?'Tap Refuel':'U  Refuel'):filling?'Refueling · '+Math.floor(driven.fuel)+'%':'Tank full');
     prompt.textContent=(refuelSite??garage).name+' · '+service.join(' · ');
   }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent=vitals.fall.cause==='skateboard'?'Skateboard wipeout · Getting back up…':'Knocked down · Getting back up…';

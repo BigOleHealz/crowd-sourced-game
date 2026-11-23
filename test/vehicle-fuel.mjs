@@ -16,7 +16,10 @@ Object.assign(car,{x:road.x,y:groundHeight(road.x,road.z),z:road.z});
 assert.equal(refuelVehicle(w,driver),false,'pump requires a stopped vehicle');
 car.speed=0;
 assert.equal(refuelVehicle(w,crew),false);
-assert(refuelVehicle(w,driver));
+assert(!refuelVehicle(w,driver),'button cannot bypass pump time');
+for(let i=0;i<6;i++)stepVehicleFuel(w,1/30);
+assert.equal(car.fuel,99.4,'partial fill while stopped with no button press');
+for(let i=0;i<10;i++)stepVehicleFuel(w,1/30);
 assert.equal(car.fuel,100);
 car.driver=null;
 for(let i=0;i<300;i++)stepVehicleFuel(w,1/30);
@@ -25,7 +28,12 @@ car.fuel=.1;car.driver=crew;car.speed=15;
 for(let i=0;i<90;i++)stepVehicleFuel(w,1/30);
 assert.equal(car.fuel,0);
 assert.equal(fuelVehicle(w,crew),car,'same tank after driver change');
-car.speed=0;assert(refuelVehicle(w,crew));
+car.speed=0;
+stepVehicleFuel(w,1);
+assert.equal(car.fuel,5,'empty car starts refilling automatically');
+car.x+=20;
+stepVehicleFuel(w,1);
+assert.equal(car.fuel,5,'leaving the pump stops the fill');
 
 const air=fuelSites.find(s=>s.kind==='air'),marine=fuelSites.find(s=>s.kind==='marine');
 for(const craft of [w.heli,w.jet]){
@@ -39,8 +47,10 @@ for(const hull of [...w.boats,w.yacht]){
 }
 w.tank.fuel=0;w.tank.driver=driver;w.tank.x=road.x;w.tank.y=car.y;w.tank.z=road.z;
 w.doors.fires={'pelican-fuel':{stage:'burning'}};
-assert(!refuelVehicle(w,driver));delete w.doors.fires;
-assert(refuelVehicle(w,driver));
+stepVehicleFuel(w,1);assert.equal(w.tank.fuel,0,'burning station');
+delete w.doors.fires;
+for(let i=0;i<600;i++)stepVehicleFuel(w,1/30);
+assert.equal(w.tank.fuel,100,'twenty seconds for a full tank');
 
 const player={id:driver,life:{hp:100}};
 Object.assign(w.rover,{fuel:0,driver,gunner:driver});
