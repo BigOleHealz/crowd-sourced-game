@@ -62,6 +62,23 @@ export function holdWorld(avatar,arm,forearm,side,target,weight=1){
   gripPose(arm,forearm,grip.x,grip.y,grip.z,side);
 }
 
+// Place the heel in the footwell and let the knee bend forward under the dash.
+function seatRoadLeg(avatar,limb,cabin,weight=1){
+  const {leg,knee,ankle,side}=limb,scale=avatar.root.scale;
+  const thigh=-knee.position.y,shin=-ankle.position.y;
+  // Ankle-to-sole distance at the resting pedal angle for each visible shoe.
+  const soleHeight=avatar.scanned ? .19 : avatar.civilian ? .151 : .138;
+  const down=leg.position.y-(cabin.floorY-cabin.seat[1])/scale.y-soleHeight;
+  const forward=(cabin.seat[2]-cabin.ankleZ)/scale.z+side*.027;
+  const reach=clamp(Math.hypot(down,forward),Math.abs(thigh-shin)+.0001,thigh+shin-.0001);
+  const hip=Math.atan2(forward,down)+Math.acos(clamp((thigh*thigh+reach*reach-shin*shin)/(2*thigh*reach),-1,1));
+  const bend=-Math.acos(clamp((reach*reach-thigh*thigh-shin*shin)/(2*thigh*shin),-1,1));
+  const mix=THREE.MathUtils.lerp;
+  leg.rotation.x=mix(leg.rotation.x,hip,weight);
+  knee.rotation.x=mix(knee.rotation.x,bend,weight);
+  ankle.rotation.x=mix(ankle.rotation.x,.12-hip-bend,weight);
+}
+
 // The same authoritative progress moves the occupant and the hinged door.
 // The tracking hand follows the handle through its swing before both hands settle on the rim.
 export function poseRoadBoarding(avatar,car,action){
@@ -76,10 +93,12 @@ export function poseRoadBoarding(avatar,car,action){
   const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
   body.position.set(0,-crouch,0);
   spine.rotation.set(-.24*approach*(1-enter)+(car.kind==='supercar' ? .35*enter : 0),0,0);
-  for(const {leg,knee,ankle,arm,forearm,side} of limbs){
+  for(const limb of limbs){
+    const {leg,knee,ankle,arm,forearm,side}=limb;
     const bend=crouch*2;
-    leg.rotation.set(1.36*enter+bend,0,side*.075*(1-enter),'ZXY');
-    knee.rotation.set(-1.30*enter-1.8*bend,0,0);ankle.rotation.set(bend*.65,0,0);
+    leg.rotation.set(bend,0,side*.075*(1-enter),'ZXY');
+    knee.rotation.set(-1.8*bend,0,0);ankle.rotation.set(bend*.65,0,0);
+    seatRoadLeg(avatar,limb,cabin,enter);
     const wheel=roadWheelGrip(car,side);
     if(side===1){wheel.x=mix(handle.x,wheel.x,enter);wheel.y=mix(handle.y,wheel.y,enter);wheel.z=mix(handle.z,wheel.z,enter);}
     const weight=side===1?approach:enter;
@@ -181,14 +200,16 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {
-    const feet=gunnerFeet(station,station.id??'rover');
+    const feet=gunnerFeet(station,station.id??station.kind??'rover');
     avatar.root.position.set(feet.x,feet.y,feet.z);
   }
-  const yaw=station ? -station.turretYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
+  const stationYaw=station?.kind==='tank'?station.roofYaw:station?.turretYaw;
+  const stationPitch=station?.kind==='tank'?station.roofPitch:station?.turretPitch;
+  const yaw=station ? -stationYaw : -(Number.isFinite(state.yaw)?state.yaw:0);
   const delta=Math.atan2(Math.sin(yaw-avatar.root.rotation.y),Math.cos(yaw-avatar.root.rotation.y));
   avatar.root.rotation.y = station ? yaw : seated ? -seated.yaw : gait ? gait.yaw : avatar.root.rotation.y+delta*(1-Math.exp(-dt*19));
   const ride=helm ? seated : (seated || station)?.suspension;
-  const deltaHeading=station ? station.turretYaw-station.yaw : 0;
+  const deltaHeading=station ? stationYaw-station.yaw : 0;
   avatar.root.rotation.order='YXZ';
   avatar.root.rotation.x=ride ? ride.pitch*Math.cos(deltaHeading)+ride.roll*Math.sin(deltaHeading) : 0;
   avatar.root.rotation.z=ride ? ride.roll*Math.cos(deltaHeading)-ride.pitch*Math.sin(deltaHeading) : 0;
@@ -297,7 +318,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
     pistol.position.add(grip.set(0,.045,-.04).applyQuaternion(pistol.quaternion));
   }
   avatar.label?.update(state);
-  for(const {leg,arm,forearm,knee,ankle,foot,side} of avatar.limbs) {
+  for(const limb of avatar.limbs) {
+    const {leg,arm,forearm,knee,ankle,foot,side}=limb;
     if(onLadder){
       const reach=side*Math.cos(Math.PI*state.y/rungPitch);
       leg.rotation.set(.62+.40*reach,0,side*.04);
@@ -338,8 +360,9 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       leg.rotation.set(station ? .08 : seated ? 1.36 : airborne ? .20*side : .14,0,0,'ZXY');
       knee.rotation.x=station ? -.15 : seated ? -1.3 : airborne ? -.65 : -.23;
       ankle.rotation.set(0,0,0);
+      if(cabin)seatRoadLeg(avatar,limb,cabin);
     }
-    arm.rotation.x=station ? .64-.34*station.turretPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
+    arm.rotation.x=station ? .64-.34*stationPitch : seated ? 1.04 : side===1 ? .77 : bloom ? .62 : airborne ? -.42 : side*swing*.62;
     arm.rotation.z=side*(station ? -.08 : seated ? -.12 : open ? 2.45 : state.parachute ? 1.1 : side===1 ? .26 : airborne?.20:.065);
     forearm.rotation.set(0,0,0);
     if (fall) {
@@ -378,7 +401,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       arm.rotation.set(shield?.93:.24,side*.06,side*(shield?.49:.24));
       forearm.rotation.x=shield?1.20:.39;
     } else if(station) {
-      const p=station.turretPitch;
+      const p=stationPitch;
       gripPose(arm,forearm,side*.177,2.04-.062*Math.cos(p)-.19*Math.sin(p)-.80,
         -.062*Math.sin(p)+.19*Math.cos(p)-.44,side);
     } else if(avatar.civilian && !seated && !state.dead) {

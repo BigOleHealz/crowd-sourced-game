@@ -258,9 +258,9 @@ for(const face of storefrontFaces){
     entry.leaf=segment(entry.z-half,entry.z+half);
   }
 }
-export function visitRoadPodium(b,x,z,doors,visit){
+export function visitRoadPodium(b,x,z,doors,visit,reach=2.1){
   const pair=buildings.get(b.x+','+b.z);
-  if(Math.abs(x-b.x)>b.w/2+2.1 || Math.abs(z-b.z)>b.d/2+2.1)return;
+  if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)return;
   for(const rect of galleryVehicleRects(b,doors))visit(rect);
   if(!pair)return;
   // Only the near side of the central core can be reached from this face.
@@ -268,7 +268,7 @@ export function visitRoadPodium(b,x,z,doors,visit){
   for(const box of face.solids)if(!box.piece || !doors?.furniture?.[box.piece.id])visit(box);
   if(face.fixtures)for(const p of face.fixtures){
     if(p.piece && doors?.furniture?.[p.piece.id])continue;
-    if(p.bottom<2.43 && p.top>1.00 && Math.abs(p.x-x)<p.w/2+2.1 && Math.abs(p.z-z)<p.d/2+2.1)visit(p);
+    if(p.bottom<2.43 && p.top>1.00 && Math.abs(p.x-x)<p.w/2+reach && Math.abs(p.z-z)<p.d/2+reach)visit(p);
   }
   for(const pane of face.panes){
     if(mask&(1<<pane.index))continue;
@@ -284,15 +284,16 @@ export function visitRoadPodium(b,x,z,doors,visit){
     }else if(!(pane.door && doors?.[pane.door]>.98) && !paneSupportLost(face.glass.bays[pane.index].all,doors))visit(pane);
   }
 }
-export function breakFrontage(doors,hit,rover,onBreak){
+export function breakFrontage(doors,hit,rover,onBreak,hull){
   const sport=rover.kind==='supercar';
-  const halfWidth=sport?supercarLayout.halfWidth:.82,halfLength=sport?supercarLayout.halfLength:1.69;
+  const halfWidth=hull?.halfWidth??(sport?supercarLayout.halfWidth:.82);
+  const halfLength=hull?.halfLength??(sport?supercarLayout.halfLength:1.69);
   if(hit.axis==='x' && doors){
     const extent=Math.abs(Math.cos(rover.yaw))*halfWidth+Math.abs(Math.sin(rover.yaw))*halfLength+.05;
     const broken=doors.brokenPanes??={};
     if(broken[hit.id])return false;
     for(const pane of galleryPlans[hit.building].panes){
-      if(pane.side===hit.side && Math.abs(pane.x-rover.x)<=pane.w/2+extent && !broken[pane.id]){
+      if(pane.side===hit.side && (pane.id===hit.id || Math.abs(pane.x-rover.x)<=pane.w/2+extent) && !broken[pane.id]){
         broken[pane.id]=true;onBreak?.(pane.id);
       }
     }
@@ -302,11 +303,12 @@ export function breakFrontage(doors,hit,rover,onBreak){
   if(!face||!doors)return false;
   const extent=Math.abs(Math.cos(rover.yaw))*halfLength+Math.abs(Math.sin(rover.yaw))*halfWidth+.05;
   const lo=rover.z-extent,hi=rover.z+extent;
-  let mask=doors.broken?.[face.id]??0;
+  const initialMask=doors.broken?.[face.id]??0;
+  let mask=initialMask;
   for(const [i,[start,end]] of face.spans.entries()){
-    if(hi>=start && lo<=end && !(mask & (1<<i))){mask|=1<<i;onBreak?.(face.id+'-'+i);}
+    if((i===hit.index || (hi>=start && lo<=end)) && !(mask & (1<<i))){mask|=1<<i;onBreak?.(face.id+'-'+i);}
   }
-  if(mask===doors.broken?.[face.id])return false;
+  if(mask===initialMask)return false;
   (doors.broken??={})[face.id]=mask;
   return true;
 }

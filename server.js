@@ -81,7 +81,7 @@ import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mo
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
 import { flightState, recoverHelicopter } from './public/airframe.js';
-import { newLife, healthView, damageActor, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
+import { newLife, healthView, damageActor, recoverPlayerHealth, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
 import { advanceFall, startFall } from './public/falls.js';
 
@@ -332,7 +332,15 @@ function acceptInput(player, data, binary) {
     survival.start(players,ticks);
     return;
   }
-  if(zombies && !['input','snapshotEncoding'].includes(input?.type))return;
+  if(zombies && !['input','snapshotEncoding'].includes(input?.type)){
+    // Allow physical navigation without enabling shops or casino games in survival.
+    if(input?.type==='interior' && survival.state.phase!=='finished' &&
+      (Number.isInteger(input.door) || Number.isInteger(input.floor))){
+      const {seq,door,open,building,floor}=input;
+      requestInterior(world,players,player,{seq,door,open,building,floor},ticks);
+    }
+    return;
+  }
   if(input?.type==='fishing'){fishingAction(player,input.action,ticks,canFish(player));return;}
   if(input?.type==='dog'){
     if(!world.dogs || !canPlayVolleyball(world,player) || player.state.ride || player.state.dive ||
@@ -710,6 +718,7 @@ function tick() {
             else takeRide(ride,player);
           }else if(target==='tank'){
             if(use.role==='exit')leaveTank(world,player);
+            else if(use.role==='gunner'){world.tank.gunner=player.id;world.tank.roofYaw=world.tank.yaw;world.tank.roofPitch=0;match?.release(player);}
             else {world.tank.driver=player.id;match?.release(player);}
           }else if(target==='jet'){
             if(use.role==='exit')leaveJet(world.jet,player);
@@ -790,7 +799,8 @@ function tick() {
     if (kind) {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
-        vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
+        if(kind==='tank'){vehicle.roofYaw=input.aimYaw;vehicle.roofPitch=turretPitch(input.aimPitch);}
+        else {vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);}
         if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(kind==='rover' && input.sidearm && sidearmCar(world,player.id)){
           if(input.reload)startReload(player,ticks,sidearmSlot);
@@ -879,11 +889,11 @@ function tick() {
   stepWakeCrossings(world,step);
   world.stepDolphins?.(step);
   world.stepManatees?.(step);
-  for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
+  for(const kind of ['rover','heli',...(world.tank?['tank']:[]),...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
     gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
-    gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
+    gunner.yaw=kind==='tank'?v.roofYaw:v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
   world.stepGulls?.(step);
@@ -924,6 +934,7 @@ function tick() {
   else localWorldReactions(world,npcs,ticks,players);
   if(match){if(world.match.phase!=='finished')match.step(players,world);}
   else if(!zombies)updateSupplyRun(world, step);
+  for(const player of players.values())recoverPlayerHealth(player,ticks);
   for(const car of [world.rover,world.supercar,...(world.traffic??[])])serviceRoadCar(car,step);
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);

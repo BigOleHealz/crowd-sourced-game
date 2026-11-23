@@ -1,6 +1,8 @@
+import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,stepRoadSinking} from './road-water.js';
 import {ramHouse} from './residential-falls.js';
+import {breakRoadObstacle} from './road-obstacle-damage.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
 import {roadContact,sweepRoad} from './road-contact.js';
@@ -10,17 +12,20 @@ import {tankPad} from './tank-layout.js';
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function parkedTank(){
   return {...tankPad,kind:'tank',y:groundHeight(tankPad.x,tankPad.z),yaw:0,turretYaw:0,turretPitch:0,
-    driver:null,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
+    driver:null,gunner:null,roofYaw:0,roofPitch:0,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
 }
 export function nearTank(tank,state){
-  return !!tank && !tank.wrecked && !tank.sinking && tank.driver==null && state?.grounded &&
+  return !!tank && !tank.wrecked && !tank.sinking && (tank.driver==null || tank.gunner==null) && state?.grounded &&
     Math.hypot(tank.x-state.x,tank.y-state.y,tank.z-state.z)<3.15;
 }
 export function leaveTank(world,player){
   const tank=world.tank;
-  if(!tank || tank.driver!==player.id)return false;
-  tank.driver=null;tank.speed=tank.turnRate=0;
-  for(const side of [-1,1])for(const aft of [0,1.3,-1.3,2.8]){
+  if(!tank)return false;
+  const gunner=tank.gunner===player.id;
+  if(tank.driver===player.id){tank.driver=null;tank.speed=tank.turnRate=0;}
+  else if(gunner)tank.gunner=null;
+  else return false;
+  for(const side of gunner?[1,-1]:[-1,1])for(const aft of [0,1.3,-1.3,2.8]){
     const x=tank.x+2.05*side*Math.cos(tank.yaw)-aft*Math.sin(tank.yaw);
     const z=tank.z+2.05*side*Math.sin(tank.yaw)+aft*Math.cos(tank.yaw);
     const y=groundHeight(x,z,tank.y+1.3,world.doors);
@@ -36,9 +41,11 @@ export function damageTank(world,amount,players,owner){
   tank.hp=Math.max(0,tank.hp-amount);
   if(tank.hp)return;
   world.wanted?.record(owner,'wreck');
-  const driver=players?.get(tank.driver);
-  if(driver)leaveTank(world,driver);
-  tank.driver=null;tank.speed=tank.turnRate=0;tank.wrecked=true;tank.recoverySeconds=9;
+  for(const id of [tank.driver,tank.gunner]){
+    const occupant=players?.get(id);
+    if(occupant){leaveTank(world,occupant);if(occupant.inputs)occupant.inputs.length=0;}
+  }
+  tank.driver=tank.gunner=null;tank.speed=tank.turnRate=0;tank.wrecked=true;tank.recoverySeconds=9;
 }
 export function stepTank(world,input,dt,players){
   const t=world.tank;
@@ -65,26 +72,28 @@ export function stepTank(world,input,dt,players){
   if(t.speed){
     const dx=Math.sin(t.yaw)*t.speed*dt,dz=-Math.cos(t.yaw)*t.speed*dt;
     let {fraction,hit}=sweepRoad(world,t,dx,dz);
-    while(hit){
-      if(hit.home && dx*hit.nx+dz*hit.nz<0 &&
-          ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
-        world.rules?.damageProperty(players?.get(t.driver)?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
+    // A thick hull can meet several adjacent bays or pieces in one sweep.
+    // Stop at the next intact contact if a dense pile exhausts this tick's budget.
+    const driver=players?.get(t.driver),vx=Math.sin(t.yaw)*t.speed,vz=-Math.cos(t.yaw)*t.speed;
+    for(let pass=0;hit && pass<12;pass++){
+      const incoming=-(vx*hit.nx+vz*hit.nz);
+      if(hit.home && incoming>0 && ramHouse(world.doors,hit.home,t.x-hit.nx*2,t.z-hit.nz*2,dx,dz)){
+        world.rules?.damageProperty(driver?.team,{x:t.x,y:t.y,z:t.z},'house:'+hit.home,'House facade',250_000);
         t.speed*=.74;
-        ({fraction,hit}=sweepRoad(world,t,dx,dz));continue;
+      }else if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
+        const car=hit.object;
+        if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
+        // The normal lethal damage path ejects the driver and handles credit and recovery.
+        damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
+        car.crushed=true;
       }
-      const car=hit.object;
-      if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
-      // A track can clear an existing wreck too. A fresh crush uses the
-      // normal lethal vehicle damage path for ejection, credit and recovery.
-      const driver=players?.get(t.driver);
-      damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
-      car.crushed=true;
       ({fraction,hit}=sweepRoad(world,t,dx,dz));
     }
     t.x+=dx*fraction;t.z+=dz*fraction;t.y=groundHeight(t.x,t.z,t.y+1,world.doors);
     if(hit)t.speed=0;
     if(enterRoadWater(world,t,players,dt) && t.sinking)return;
   }
+  stepSuspension(t,dt,(x,z)=>groundHeight(x,z,t.y+1.65,world.doors));
   if(Number.isFinite(input?.aimYaw))t.turretYaw=input.aimYaw;
   if(Number.isFinite(input?.aimPitch))t.turretPitch=clamp(input.aimPitch,-.25,.85);
 }

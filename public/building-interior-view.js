@@ -1,7 +1,7 @@
 import {floorIndex} from './grand-resort-layout.js';
 import {outsideWell} from './residential-spirals.js';
 import * as THREE from 'three';
-import {interiorPlans,doorIsOpen,landingValid,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
+import {interiorPlans,elevatorCallOffset,doorIsOpen,landingValid,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {furnishingSupported} from './estate-damage.js';
 import {windowRoomView} from './window-room-view.js';
 import {residentialFurnishingView} from './residential-furnishing-view.js';
@@ -92,6 +92,11 @@ export function buildingInteriorView(scene,Batch){
     carPlaque.rotation.y=angle;carPlaque.visible=true;
     piece(0xcdad70,0,.91,-hole+.14,1.43,.049,.08);
   }
+  function elevatorSign(x,y,z,angle){
+    if(textCount>=labels.instanceMatrix.count)return;
+    temp.position.set(x,y,z);temp.scale.set(1,1,1);temp.rotation.set(0,angle,0);temp.updateMatrix();
+    labels.setMatrixAt(textCount++,temp.matrix);
+  }
   function lift(s,ride,rider){
     const resort=s.p.shaft;
     const {x,y,z,angle:a}=s,c=Math.cos(a),sn=Math.sin(a);
@@ -122,11 +127,10 @@ export function buildingInteriorView(scene,Batch){
         local(0x858d86,sign*.53,1.10,.062,.035,1.96,.026);
       }
       local(0x555e56,0,2.22,0,1.55,.11,.14);
-      local(0x31454a,.90,1.21,.018,.22,.41,.065);
-      local(ride?0xf7ce70:0x98e8ba,.90,1.24,.056,.11,.072,.028);
+      local(0x31454a,elevatorCallOffset,1.21,.018,.22,.41,.065);
+      local(ride?0xf7ce70:0x98e8ba,elevatorCallOffset,1.24,.056,.11,.072,.028);
     }
-    temp.position.set(x+sn*.088,y+2.48,z+c*.088);temp.scale.set(1,1,1);temp.rotation.set(0,a,0);temp.updateMatrix();
-    if(textCount<labels.instanceMatrix.count)labels.setMatrixAt(textCount++,temp.matrix);
+    elevatorSign(x+sn*.088,y+2.48,z+c*.088,a);
   }
   let hadVisibleRider=false;
   return (feet,doors,dt,remotes)=>{
@@ -164,6 +168,9 @@ export function buildingInteriorView(scene,Batch){
     }
     for(const p of nearby){
       if(doors?.beachWood?.[p.wood] || doors?.collapsedTowers?.includes(p.b.towerId) || p.home && doors?.houseRuins?.[p.home])continue;
+      if(p.lobbyEntries && feet.y<4){
+        for(const e of p.lobbyEntries)elevatorSign(e.x,4.21,e.z+e.side*.17,e.side<0?Math.PI:0);
+      }
       for(const s of p.panels)if(Math.abs(s.y-feet.y)<2.0 && landingValid(s,doors))lift(s,ride,p.shaft && (shaft===p.shaft?feet:remoteShaft===p.shaft?remoteRider:null));
       if(p.grandDoors)for(const d of p.grandDoors[floorIndex(feet.y+.16)]??[])leaf(d,doors,dt);
       for(const d of p.entrances)if(Math.abs(d.y-feet.y)<3.5 && (!p.home || furnishingSupported(p.home,d.x,d.y,d.z,doors)))leaf(d,doors,dt);

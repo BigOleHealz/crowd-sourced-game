@@ -54,6 +54,14 @@ export function damageActor(actor, amount, tick, direction) {
   return true;
 }
 
+// The room clock runs at 30 Hz. An actual hit resets the recovery cadence.
+export function recoverPlayerHealth(player,tick){
+  const life=player.life;
+  if(life.hp<=0 || life.hp>=MAX_HP || life.lastHurtTick==null)return;
+  const age=tick-life.lastHurtTick;
+  if(age>=300 && (age-300)%15===0)life.hp=Math.min(MAX_HP,life.hp+1);
+}
+
 export function respawnDue(actor, tick) {
   return actor.life.hp === 0 && tick >= actor.life.returnAt;
 }
@@ -125,7 +133,7 @@ export function vehicleContacts(world, kind, before, actors, tick, dt, players) 
   const speed = Math.hypot(vx, vz, descent);
   if (vehicle.wrecked || speed < 1.8) return;
   const hull=vehicle.model?{traffic:[vehicle]}:{[kind]:vehicle};
-  const crew = [world.tank?.driver,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
+  const crew = [world.tank?.driver,world.tank?.gunner,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
     if ((actor.officer && actor.targetId!==(vehicle.pilot??vehicle.driver)) || crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
