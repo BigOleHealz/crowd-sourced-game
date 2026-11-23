@@ -191,6 +191,7 @@ function shirtGeometry(p){
   const g=new THREE.BufferGeometry();
   g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
   g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+  if(wear.length)g.setAttribute('color',new THREE.Float32BufferAttribute(wear,3));
   g.setIndex(indices);g.computeVertexNormals();
   return g;
 }
