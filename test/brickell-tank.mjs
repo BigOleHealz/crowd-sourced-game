@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {startReload,advanceReload,magazineSpecs} from '../public/magazines.js';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 if(!process.env.TANK_MAP_CHECK){
@@ -39,8 +40,10 @@ if(!process.env.TANK_MAP_CHECK){
     other.weapon=4;other.fireReady=0;fire(w,other,{aimYaw:0,aimPitch:0},150,players,[]);
     for(let n=0;n<10;n++)advanceMissiles(w,players,[],151+n);
     assert.equal(t.hp,hp-500);
-    other.fireReady=0;fire(w,other,{aimYaw:0,aimPitch:0},185,players,[]);
-    for(let n=0;n<10;n++)advanceMissiles(w,players,[],186+n);
+    const ready=160+magazineSpecs[4].reloadTicks;
+    startReload(other,160);advanceReload(other,ready,false);
+    fire(w,other,{aimYaw:0,aimPitch:0},ready,players,[]);
+    for(let n=0;n<10;n++)advanceMissiles(w,players,[],ready+1+n);
     assert(t.wrecked && t.driver==null);
     assert(Math.hypot(p.state.x-t.x,p.state.z-t.z)>1.4);
     for(let n=0;n<280;n++)stepTank(w,null,1/30);

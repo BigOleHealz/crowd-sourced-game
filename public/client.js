@@ -150,7 +150,7 @@ const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
 const mix = (a, b, t) => a + (b - a) * t;
 const angleMix = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
 let scene, socket, id, self, readShots, facing = 0, moving = false, sprint = false;
-let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedFire = false, mouseFire = false;
+let vitals = {}, world = null, weapon = 1, queuedInteract = false, queuedReload = false, queuedFire = false, mouseFire = false;
 const inVolleyball=()=>volleyballMember(world?.volleyball,id);
 const volleyballStatus=()=>volleyballHud(world,self,id,canChangeStance(self) && !world?.basketball?.players.includes(id));
 function volleyballAction(action){
@@ -249,7 +249,7 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
-const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
+const controls = new Set(['KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','KeyJ',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
 function notice(message = '') {
   byId('notice').textContent = message;
@@ -307,7 +307,7 @@ function clearInput() {
   pressedAim = null;
   queuedReplay = queuedDeploy = false;
   queuedSkateTrick=undefined;
-  queuedFlip = queuedJump = queuedInteract = queuedFire = mouseFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedReload = queuedFire = mouseFire = false;
 }
 function stopLook() { lastPointer = null; edgeYaw = 0; edgePitch = 0; }
 function releaseLook(){
@@ -529,6 +529,7 @@ function pressAction(code){
   if (code === 'KeyH' && myRoad() && !inTank())queuedHorn=true;
   if (code === 'KeyF') queuedFire = true;
   if (code === 'KeyB' && jetPilot()) queuedBomb=true;
+  if ((code==='reload' || code==='KeyJ' || (code==='KeyR' && world?.mission?.stage!=='complete')) && canAim()) queuedReload=true;
   if (code === 'KeyR' && jetPilot()) queuedMissile=true;
   if (code === 'KeyR' && !jetPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
   if(code==='Digit0'){if(canHandleGear())setHolster(!manualHolster);return;}
@@ -851,6 +852,7 @@ function tick() {
   const cmd = { ...(swimY && {swimY}), ...(queuedScuba && {toggleScuba:true}), skateTrick:queuedSkateTrick,flipDive:queuedFlip,type: 'input', seq: ++seq, lowerHook:world.heli.pilot===id && down('KeyK'), releaseHook:world.heli.pilot===id && down('KeyL'), horn:queuedHorn, handleCase, x, z, jump: queuedJump && !pilot && !driving, yaw: facing,
     stance: playingVolleyball?'stand':canChangeStance(self)?requestedStance:undefined,
     ...(holsterSeq && canHandleGear()?{holster:manualHolster}:{}),
+    ...(queuedReload && {reload:true}),
     ...(!mounted && trigger && (holstered || releaseSwimTrigger)?{handheldHeld:true}:{}),
     sprint: sprint && !pilot, weapon:holstered?null:weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
@@ -862,7 +864,7 @@ function tick() {
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
   queuedReplay = queuedDeploy = queuedScuba = false;
   queuedSkateTrick=undefined;
-  queuedFlip = queuedJump = queuedInteract = queuedFire = false;
+  queuedFlip = queuedJump = queuedInteract = queuedReload = queuedFire = false;
   queuedSeat=queuedSeatKind=null;
   requestedStance = undefined;
   handleCase=false;
@@ -1056,6 +1058,15 @@ function updateEquipment(local) {
   if (local.parachute === 'open') byId('space-action').parentElement.hidden = true;
   byId('shift-action').textContent = pilot ? 'Descend' : 'Sprint';
   const gearAvailable=!!canHandleGear();
+  const magazine=gearAvailable && !manualHolster && vitals.magazine?.weapon===weapon && vitals.magazine;
+  const ammo=byId('ammo-readout');
+  ammo.hidden=!magazine;
+  if(magazine){
+    const key=world?.mission?.stage==='complete'?'J':'R';
+    const progress=magazine.reloadTicks!=null?' · Reloading '+(magazine.reloadTicks/30).toFixed(1)+'s':
+      magazine.rounds<magazine.capacity && !touch.active?' · '+key+' Reload':'';
+    ammo.textContent=(weapon===5?'Fuel ':'Ammo ')+magazine.rounds+' / '+magazine.capacity+progress;
+  }
   byId('holster-control').hidden=!gearAvailable || touch.active;
   byId('holster-action').textContent=manualHolster?'Draw':'Put away';
   const showStances = canChangeStance(local);
@@ -1184,7 +1195,7 @@ function updateEquipment(local) {
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
-    touch.render(touchLayout({role,active,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
+    touch.render(touchLayout({role,active,scuba:local.scuba,submerged:!!local.swimDepth,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:dogTarget && !dogTarget.held?'Steal dog':useLabel,dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
     if(!volleyball && !talk.current && active && !garage)prompt.textContent=bank && !bank.action && !bulletin?bank.detail:(local.climb?'Pulling up…':local.parachute==='packed'?'Free fall':sharkNearby?'Shark approaching · swim to shallow water':local.swimming?'Swimming':'');

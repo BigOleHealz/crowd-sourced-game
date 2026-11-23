@@ -1,3 +1,4 @@
+import { spendRound } from './magazines.js';
 import {meleeItems,validEquipment} from './arcade-melee.js';
 import {immersedSurface} from './water-impact.js';
 import {hitMarineWildlife,marineContact} from './marine-contacts.js';
@@ -265,7 +266,7 @@ export function trackLauncher(world,player,input,tick,players,npcs){
   updateLock(world,player,{...input,from:{x:p.x,y:p.y+stanceMuzzleHeight(p),z:p.z}},tick,(w,from,dir,range)=>tracePulse(w,targets(w,player.id,players,npcs),from,dir,range,false,'handLauncher'));
 }
 
-function canUseHandheld(world,player){
+export function canUseHandheld(world,player){
   const s=player.state,id=player.id;
   return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute && !s.liftTravel &&
     player.clubSince==null && world.casino?.player!==id && !world.volleyballActivity?.member(id) &&
@@ -334,7 +335,7 @@ export function fire(world, player, input, tick, players, npcs) {
     return;
   }
   const spec=player.weapon===6 ? arcadeMolotov : player.weapon===5 ? flameProjector : player.weapon===4 ? launcherSpec : firearmSpecs[player.weapon];
-  if(!spec)return;
+  if(!spec || !spendRound(player))return;
   player.fireReady=tick+spec.cooldown;
   const from={x:player.state.x,y:player.state.y+stanceMuzzleHeight(player.state),z:player.state.z};
   if(player.weapon===6){

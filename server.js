@@ -72,7 +72,8 @@ import { deflateSync } from 'node:zlib';
 import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import {validEquipment} from './public/arcade-melee.js';
-import { advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { advanceReload, magazineView, startReload } from './public/magazines.js';
+import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -294,7 +295,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:!zombies && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,magazine:magazineView(player,ticks),...(player.fishing && {fishing:player.fishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:!zombies && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -428,7 +429,7 @@ function acceptInput(player, data, binary) {
     useTarget:typeof input.useTarget==='string'?input.useTarget.slice(0,64):undefined,
     useRole:typeof input.useRole==='string'?input.useRole.slice(0,12):undefined,
     lowerHook:input.lowerHook===true,releaseHook:input.releaseHook===true,
-    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, interact: !zombies && input.interact === true,
+    horn:input.horn===true, bomb:input.bomb===true, missile:input.missile===true, fire: input.fire === true, reload: input.reload === true, interact: !zombies && input.interact === true,
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
@@ -614,6 +615,11 @@ function tick() {
   }
   for (const player of players.values()) {
     const input = player.inputs.shift();
+    if(player.life.reload){
+      const interrupt=player.holstered || input?.holster || input?.interact || input?.seat ||
+        (input?.weapon != null && input.weapon!==player.weapon) || !canUseHandheld(world,player);
+      advanceReload(player,ticks,interrupt);
+    }
     if(player.fishing){
       stepFishing(player,ticks,canFish(player));
       if(input && activeCast(player.fishing))input.fire=input.tracking=false;
@@ -824,6 +830,7 @@ function tick() {
         world.hoops.input(player,input);
       }else if(!wasPlayingHoops && handheld){
         if(player.weapon===4 || player.launcherLock)trackLauncher(world,player,input,ticks,players,npcs);
+        if (input.reload && !input.interact && !input.seat && canUseHandheld(world,player)) startReload(player,ticks);
         if (input.fire) fire(world, player, input, ticks, players, npcs);
       }
     }
