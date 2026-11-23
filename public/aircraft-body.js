@@ -12,7 +12,7 @@ function surfaceNormal(t,theta) {
 export function aircraftBody(hull,glazing,panes) {
   const paint={p:[],n:[],c:[]},glass=new Map();
   const paintTint=new THREE.Color(),rings=last*3,slices=48;
-  const points=[],normals=[];
+  const points=[],normals=[],liner=new THREE.Color();
   for(let r=0;r<=rings;r++) for(let j=0;j<=slices;j++) {
     points.push(skin(r/3,j*tau/slices));normals.push(surfaceNormal(r/3,j*tau/slices));
   }
@@ -25,6 +25,16 @@ export function aircraftBody(hull,glazing,panes) {
     const a=r*(slices+1)+j,b=a+slices+1;
     for(const k of [a,b,b+1,a,b+1,a+1]) {
       bucket.p.push(...points[k].toArray());bucket.n.push(...normals[k].toArray());bucket.c.push(paintTint.r,paintTint.g,paintTint.b);
+    }
+    // Give the opaque cabin skin an inner face. Leave each window aperture
+    // open so a missing pane still frames the seats and remaining windows.
+    if(!pane && t<10.7){
+      liner.setHex(angle>2.10?0x414440:angle<.84?0xb2ae98:0x818372);
+      for(const k of [a,b+1,b,a,a+1,b+1]){
+        const p=points[k],n=normals[k];
+        paint.p.push(p.x-.023*n.x,p.y-.023*n.y,p.z-.023*n.z);
+        paint.n.push(-n.x,-n.y,-n.z);paint.c.push(liner.r,liner.g,liner.b);
+      }
     }
   }
   // Continue the first skin ring into a shallow domed chin. Sharing the

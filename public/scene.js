@@ -497,7 +497,26 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   lining.quadraticCurveTo(-.66,1.63,-.68,1.42);lining.closePath();
   const bulkhead=new THREE.ShapeGeometry(lining,4);
   hull.add(bulkhead,0x343a34,0,0,-.69,1,1,1,0,Math.PI);
+  // Close the partition on the passenger-cabin side as well.
+  hull.add(bulkhead,0x858474,0,0,-.675);
   bulkhead.dispose();
+  // A continuous footwell, raised cargo deck and rear bench give each bay
+  // its own depth when either the windshield or a sliding window is lost.
+  hull.add(cube,0x474a43,0,.749,-1.28,1.20,.058,1.12);
+  hull.add(cube,0x595c50,0,.691,.29,1.30,.055,1.90);
+  hull.add(cube,0x7b796a,0,1.14,1.17,1.29,.82,.056);
+  hull.add(cube,0x525950,0,.878,.84,1.15,.10,.40);
+  hull.add(cube,0x626758,0,1.08,1.025,1.16,.38,.085);
+  for(const x of [-.44,-.22,0,.22,.44])
+    hull.add(cube,0x82877a,x,.726,.24,.018,.012,1.59);
+  for(const x of [-.35,.35]){
+    hull.add(cube,0x464d47,x,1.385,-.88,.21,.15,.095);
+    hull.beam(0x393e39,[x,.79,-1.48],[x,1.00,-1.49],.023);
+    hull.beam(0x5b6259,[x-.055,1.003,-1.49],[x+.055,1.003,-1.49],.024);
+    hull.add(cube,0x242c2b,x,1.089,-1.58,.25,.112,.018);
+    hull.add(cube,0x81ab9f,x,1.096,-1.567,.153,.052,.007);
+    hull.add(cube,0x383e38,x,1.117,1.07,.057,.27,.025);
+  }
   hull.add(cube,0x42483f,0,1.18,-.70,.30,.77,.024);
   hull.add(cube,0x72766a,.113,1.18,-.718,.033,.065,.017);
   for(const side of [-1,1]) {
