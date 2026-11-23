@@ -13,6 +13,11 @@ if(!process.env.NAV_TEST_MAP){
     assert.equal(guide(x,z,0).cue,'Arrived');
   }
   if(process.env.NAV_TEST_MAP==='brickell'){
+    const {reefDiveSite,reefTrail}=await import('../public/reef-channel.js');
+    const reef=landmarkGuide(reefDiveSite.name),[x,z]=reefTrail[0];
+    assert.deepEqual(reef(87,-419,0).line,[[87,-419],[x,z]]);
+    assert.equal(reef(x,z+6,0).cue,'Dive buoy');
+    assert.equal(reef(x,z+4,0).cue,'Arrived');
     const {fuelStop}=await import('../public/fire-sites.js');
     assert.equal(landmarkGuide(fuelStop.name)(fuelStop.x,fuelStop.z,0).cue,'Arrived');
     const guide=landmarkGuide('Lantern Point Marina');

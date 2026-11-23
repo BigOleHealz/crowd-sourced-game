@@ -1,3 +1,4 @@
+import {reefDiveSite} from './reef-channel.js';
 import {clubDoor} from './club-lucero.js';
 import {drive,valet} from './palma-site.js';
 import {casinoName,casinoEntrance} from './casino-layout.js';
@@ -13,6 +14,7 @@ import {basketballCourt} from './basketball-layout.js';
 
 export const destinations=CITY?new Map([
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['East Quay Jetty',[87,-408.7]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
+  [reefDiveSite.name,[reefDiveSite.x,reefDiveSite.z]],
   [skatePark.name,[39.35,-156.35]],
   [casinoName,[valet.x,valet.z]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
@@ -66,12 +68,14 @@ function project(p,a,b){
 
 export function landmarkGuide(name){
   const service=fuelSites.find(site=>site.name===name);
-  if(service && (service.kind==='marine' || service.kind==='air')){
-    const goal=[service.x,service.z];
+  const reef=CITY && name===reefDiveSite.name;
+  if(reef || service?.kind==='marine' || service?.kind==='air'){
+    const site=reef?reefDiveSite:service, goal=[site.x,site.z];
+    const radius=reef?5:service.radius;
+    const approach=reef?'Dive buoy':service.kind==='marine'?'Fuel buoy':'Fuel apron';
     return (x,z)=>{
-      const distance=Math.round(Math.hypot(x-service.x,z-service.z));
-      const cue=distance<=service.radius?'Arrived':service.kind==='marine'?'Fuel buoy':'Fuel apron';
-      return {line:[[x,z],goal],goal,cue,meters:distance,distance};
+      const distance=Math.round(Math.hypot(x-site.x,z-site.z));
+      return {line:[[x,z],goal],goal,cue:distance<=radius?'Arrived':approach,meters:distance,distance};
     };
   }
   const goal=points.get(key(destinations.get(name)??[]));
