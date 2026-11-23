@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {addMarinaLifebuoys} from './marina-lifebuoys.js';
 import {addDivingTower} from './marina-platform-view.js';
 import {berthDeckY,jettyY,jettySections,jettyRail,jettyBitts,jettyBeacon,marinaFingers,marinaRamp,marinaSpine} from './marina-docks.js';
 import {dockPileSpan} from './dock-piles.js';
@@ -181,6 +182,7 @@ export function addMarinaDocks(scene,batch){
     block(navy,73.7,.84,f.z-.92,.10,.54,.52);
     face(.48,.36,73.643,.87,f.z-.92,-Math.PI/2,i*336/1024,.04,(i*336+332)/1024,.45);
   });
+  addMarinaLifebuoys(scene,batch);
   addDivingTower(scene,batch);
   box.dispose();tube.dispose();
 }
