@@ -753,7 +753,7 @@ function tick() {
       }
       if(road.model)driveTrafficCar(world,road,roadInput,step,players);
       else driveRover(world,roadInput,step,players,kind);
-      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step);
+      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step,players);
       if(road.driver!==player.id)continue;
       if(road.model==='engine')driveWater(world,road,input,ticks);
       if(kind==='rover' && input?.fire)launchMissile(world,kind,player,ticks);
