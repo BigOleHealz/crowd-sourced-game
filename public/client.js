@@ -1062,7 +1062,7 @@ function updateEquipment(local) {
   if(!fuelReadout.hidden){
     const amount=clamp(fueled.fuel??100,0,100);
     byId('fuel-meter').value=amount;
-    byId('fuel-label').textContent=amount===0?'Out of fuel':'Fuel '+Math.ceil(amount)+'%';
+    byId('fuel-label').textContent=amount===0?'Out of fuel':'Fuel '+Math.max(1,Math.floor(amount))+'%';
     fuelReadout.classList.toggle('low-fuel',amount<=15);
   }
   const hp = health.hp;
@@ -1121,11 +1121,13 @@ function updateEquipment(local) {
   const person=!talk.current && speaker();
   const use=vitals.use,helmPrompt=yachtPrompt(world,local,id);
   const serviceCar=drivenRoad(world,id),garage=serviceCar && garageAt(serviceCar);
-  if(refuelSite){
-    prompt.textContent=refuelSite.name+' · '+(canRefuel?(touch.active?'Tap Refuel':'U  Refuel'):'Tank full');
-  }else if(garage && !vitals.dead){
-    const label=serviceCar.repairPercent!=null?'Repairing · '+serviceCar.repairPercent+'%' : needsRoadRepair(serviceCar)?'Stop in the marked bay for 3 seconds':'Vehicle in full repair';
-    prompt.textContent=garage.name+' · '+label;
+  if((refuelSite || garage) && !vitals.dead){
+    const service=[];
+    if(garage && serviceCar.repairPercent!=null)service.push('Repairing · '+serviceCar.repairPercent+'%');
+    else if(garage && needsRoadRepair(serviceCar))service.push('Stop in the marked bay for 3 seconds');
+    else if(garage && !refuelSite)service.push('Vehicle in full repair');
+    if(refuelSite)service.push(canRefuel?(touch.active?'Tap Refuel':'U  Refuel'):'Tank full');
+    prompt.textContent=(refuelSite??garage).name+' · '+service.join(' · ');
   }else if (local.climb) prompt.textContent = 'Pulling up…';
   else if (vitals.fall && !vitals.dead) prompt.textContent=vitals.fall.cause==='skateboard'?'Skateboard wipeout · Getting back up…':'Knocked down · Getting back up…';
   else if (vitals.dead && zombies) prompt.textContent = 'Clear the wave to bring fallen teammates back.';
@@ -1154,7 +1156,7 @@ function updateEquipment(local) {
   else if(heli.wrecked)prompt.textContent='Helicopter recovering · '+Math.ceil(heli.recoverySeconds)+'s';
   else if(zombies)prompt.textContent='';
   else prompt.textContent='Helicopter · '+Math.round(distance)+' m';
-  if(use && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
+  if(use && !touch.active && (isDriving() || pilot || gunner))prompt.textContent+='  ·  E  ·  '+use.label;
   if(CITY && local.grounded && !vitals.dead && !isDriving() && !pilot && !gunner && hotelEntrance(local))
     prompt.textContent=(use?prompt.textContent+'  ·  ':'')+'Hotel Maravela · Walk through the automatic doors';
   const building=interiorAction();
@@ -1186,7 +1188,7 @@ function updateEquipment(local) {
   }
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
-  if(kind && !vitals.dead) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
+  if(kind && !vitals.dead && !touch.active) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   const volleyballVisible=volleyball && !vitals.dead && !bankDialog.open && !market.current && !talk.current;
   showVolleyScore(volleyballVisible?volleyball:null);
   if(volleyballVisible){
