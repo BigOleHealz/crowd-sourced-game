@@ -1,0 +1,6 @@
+"Low poly 1:1 USAF F35A" by Yi Tsung Lee (WTigerTw)
+https://sketchfab.com/3d-models/low-poly-11-usaf-f35a-dc727cb5c1404f26b3a29a7e2d50bb2b
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The model is scaled and oriented for Pinewatch. Its fixed landing gear and open weapon bay are hidden. The game supplies retracting gear, flight controls, weapons, and effects.
