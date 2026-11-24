@@ -82,6 +82,7 @@ import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
 import {preloadScubaDiver, useScubaDiver, fitScubaDiver} from './scuba-diver-view.js';
+import {preloadNathan, useNathan, fitNathan, poseNathan} from './player-nathan.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
@@ -965,7 +966,7 @@ function characterLabel(root, name) {
 }
 
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=null,diver=false) {
+function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,appearance=null,diver=false) {
   const rig=createRangerRig(), {root,body,upper,limbs}=rig;
   scene.add(root);
   if(diver) {
@@ -974,8 +975,9 @@ function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scan
     rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
     return finishAvatar(scene,rig,material,shadowMap,name);
   }
-  if(scanned) {
-    fitPlayerScan(rig,scanned);
+  if(appearance) {
+    if(appearance==='nathan')fitNathan(rig);
+    else fitPlayerScan(rig,appearance);
     rig.tools=carriedEquipment(upper,scene,Batch);
     rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
     return finishAvatar(scene,rig,material,shadowMap,name);
@@ -1230,6 +1232,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas) {
   preloadPlayerScan();
+  preloadNathan();
   const profileFrames=new URLSearchParams(location.search).get('perf')==='1';
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
@@ -1580,13 +1583,13 @@ export function createScene(canvas) {
       }
       if(state.scuba)preloadScubaDiver();
       const diver=useScubaDiver(state);
-      const scanned=!diver && usePlayerScan(state);
-      if(a && ((a.scanned??null)!==scanned || Boolean(a.scubaDiver)!==diver)){removeAvatar(a);a=null;}
+      const appearance=diver ? null : typeof state.id==='number' && useNathan(state) ? 'nathan' : usePlayerScan(state);
+      if(a && ((a.scanned??null)!==appearance || Boolean(a.scubaDiver)!==diver)){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){
           a=resident(state.id,'Infected',false,infectedLook(state.infected),state.infected);
-        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned,diver);
+        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,appearance,diver);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1662,6 +1665,7 @@ export function createScene(canvas) {
         }
         if(aboardYacht(world.yacht,state))a.shadow.position.y=state.y+.027;
       }
+      if(a.nathan)poseNathan(a);
       applyLostParts(a,state,scene,world.hp,dt);
     }
     showSwordContacts(players,local,attackTick,remoteAttackTick);

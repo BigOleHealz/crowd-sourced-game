@@ -16,3 +16,12 @@ https://creativecommons.org/licenses/by/4.0/
 Pinewatch modifications: fitted all seven skinned meshes to the existing player
 skeleton, repacked skin weights, scaled to player height, and converted the
 source specular/glossiness material to a glTF metallic/roughness material.
+
+Nathan Animated 003 - Walking 3D Man by Renderpeople
+https://sketchfab.com/3d-models/nathan-animated-003-walking-3d-man-143a2b1ea5eb4385ae90a73657aca3bc
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Pinewatch adaptation: the original skinned mesh and texture are kept; the game
+drives its skeleton from the existing player pose system. The supplied walking
+animation remains in the source GLB but is not used at runtime.
