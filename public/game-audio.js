@@ -169,7 +169,7 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net','shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net','shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+'.ogg');
         if(!res.ok)return;
@@ -497,7 +497,7 @@ export function createGameAudio(button,slider,level,caption) {
       return;
     }
     let track=loops.get(key);
-    if(track && name==='rotor' && track.source.buffer!==buffers.get(name)){
+    if(track && (name==='rotor' || name==='tank-engine') && track.source.buffer!==buffers.get(name)){
       stopMotor(key);track=null;
     }
     if(!track) {

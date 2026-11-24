@@ -1,5 +1,7 @@
 # Recorded sound credits
 
+The tank engine uses [Engine-loop heavy vehicle/tank by Nayckron, with qubodup](https://opengameart.org/content/engine-loop-heavy-vehicletank), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). The game uses the supplied `engine_heavy_loop.ogg` recording, renamed `tank-engine-heavy.ogg`, and changes its playback speed and volume as the tank moves. No audio samples were edited. The synthesized engine remains as a fallback if the recording fails to load.
+
 Club Lucero and the Harbor Key beach DJ play these artist-supplied tracks on shuffle:
 
 - Big Ole Healz Greatest Rhymes Ever
