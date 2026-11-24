@@ -1,7 +1,10 @@
 import {fishPose,fishSchools,fishSpecies} from './reef-fish.js';
+import {sharkContact,damageShark} from './shark-swim.js';
+import {dolphinContact,damageDolphin} from './dolphin-swim.js';
+import {manateeContact,damageManatee} from './manatee-swim.js';
 
 export const spearRange=9;
-const recoveryTicks=30, restockTicks=45*30;
+const recoveryTicks=30, restockTicks=45*30, animalDamage=40;
 
 export const reefFishKey=(schoolIndex,fishIndex)=>schoolIndex+'-'+fishIndex;
 export const spearOrigin=state=>({x:state.x,y:state.y+.45,z:state.z});
@@ -59,8 +62,25 @@ export function spearCast(world,player,input,tick,waterY,floorAt){
       }
     }
   }
+  let animalHit;
+  const end=point(reach);
+  for(const [kind,states,contact,damage] of [
+    ['shark',world.sharks,sharkContact,damageShark],
+    ['dolphin',world.dolphins,dolphinContact,damageDolphin],
+    ['manatee',world.manatees,manateeContact,damageManatee],
+  ]){
+    const found=contact(states,from,end);
+    if(found && (!animalHit || found.t<animalHit.t))
+      animalHit={...found,kind,states,damage};
+  }
+  if(animalHit){
+    reach*=animalHit.t;
+    hit=undefined;
+    animalHit.damage(animalHit.states,animalHit.index,animalDamage,'spear',point(reach));
+  }
   const stats=player.spearfishing??={score:0,count:0,log:[]};
   stats.last={tick,from,to:point(reach)};
+  if(animalHit)stats.last.hitKind=animalHit.kind;
   if(hit){
     (world.spearedFish??={})[hit.key]=tick+restockTicks;
     const landed={species:hit.species,lengthCm:hit.lengthCm,points:hit.lengthCm,tick};
