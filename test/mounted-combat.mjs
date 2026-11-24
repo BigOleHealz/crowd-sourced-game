@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {newExpedition, fire, fireTurret, advanceRounds, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
+import {newExpedition, fire, firePilotGuns, fireTurret, advanceRounds, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
 import {mountPosition,mounts} from '../public/mounts.js';
 import {CITY} from '../public/world.js';
 import {newLife} from '../public/rivals.js';
@@ -38,6 +38,27 @@ for(const kind of ['rover','heli']){
   target.state={x:m.x+2,y:m.y-1.3,z:m.z};target.life={...newLife(0,false),hp:250,maxHp:250};
   advanceMissiles(world,players,[target],62);advanceMissiles(world,players,[target],63);
   assert.equal(target.life.hp,100,kind+' missile deals exactly 150 body damage');assert.equal(world.missiles.length,0);
+}
+{
+  const world=newExpedition(),heli=world.heli;
+  Object.assign(heli,{x:0,y:15,z:0,yaw:Math.PI/2,pitch:.12,roll:.08,pilot:1,gunner:2,turretYaw:0,turretPitch:0});
+  const pilot={id:1,life:newLife(0,false),state:{x:0,y:15,z:0}},gunner={id:2,life:newLife(0,false),state:{x:0,y:15,z:0}};
+  assert.equal(firePilotGuns(world,gunner,0),false,'the passenger cannot fire pilot guns');
+  assert.equal(firePilotGuns(world,pilot,0),true);
+  const first=world.bullets[0],point=mountPosition(heli,mounts.heli.pilotGun);
+  assert.deepEqual([first.x,first.y,first.z],[point.x,point.y,point.z]);
+  assert.equal(first.weapon,'pilotGun');assert.equal(first.source,'heli');
+  assert.ok(first.vx>79 && first.vy>0 && Math.abs(first.vz)<1e-8,'pilot guns follow the airframe, not the turret');
+  assert.equal(firePilotGuns(world,pilot,1),false,'pilot guns have their own cooldown');
+  assert.equal(firePilotGuns(world,pilot,2),true);
+  assert.ok(world.bullets[1].z<first.z,'successive rounds alternate the two fixed muzzles');
+  fireTurret(world,'heli',gunner,2,new Map(),[]);
+  assert.ok(world.bullets.some(r=>r.weapon==='turret' && r.vz<0),'the passenger turret still aims independently');
+  const target={id:'pilot-gun-target',life:newLife(0,false),state:{x:first.x+8,y:first.y+.96-1,z:first.z}};
+  for(let tick=0;tick<7;tick++)advanceRounds(world,new Map([[1,pilot],[2,gunner]]),[target],tick);
+  assert.ok(target.life.hp<100,'forward rounds damage targets through the normal bullet simulation');
+  heli.pilot=null;
+  assert.equal(firePilotGuns(world,pilot,8),false,'leaving the pilot seat disables its guns');
 }
 // Unrelated missile IDs and rejected attempts cannot change which helicopter pod fires next.
 {
@@ -86,4 +107,4 @@ for(const [z,hp] of [[1.3,75],[2.6,100]]){
   advanceRounds(world,players,[],1);
   assert.equal(actor.life.hp,hp);
 }
-console.log('PASS: both forward missiles, independent turret direction, map-specific turret cadence, direct headshots and single-target sidearm impacts.');
+console.log('PASS: forward pilot guns, alternating muzzles, independent passenger turret, missiles, and mounted impacts.');

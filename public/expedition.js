@@ -672,6 +672,21 @@ export function advanceMissiles(world,players,npcs,tick) {
 }
 
 const nextBullet=new WeakMap();
+const nextPilotBullet=new WeakMap(), pilotGunSide=new WeakMap();
+export function firePilotGuns(world,player,tick){
+  const heli=world.heli;
+  if(heli.pilot!==player.id || heli.wrecked || heli.fuel===0 || player.life.hp<=0)return false;
+  heli.chainFiring=true;
+  const ready=nextPilotBullet.get(heli)??tick;
+  if(tick<ready)return false;
+  nextPilotBullet.set(heli,tick+firearmSpecs.pilotGun.cooldown);
+  const side=-(pilotGunSide.get(heli)??-1);
+  pilotGunSide.set(heli,side);
+  const [offset,height,forward]=mounts.heli.pilotGun;
+  const muzzle=mountPosition(heli,[side*offset,height,forward]);
+  sendRound(world,player,'pilotGun','heli',muzzle,heli.yaw,heli.pitch,tick);
+  return true;
+}
 export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=vehicleById(world,kind);
   if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;

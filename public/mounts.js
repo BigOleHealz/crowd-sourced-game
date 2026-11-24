@@ -7,7 +7,7 @@ export const mounts = {
   boat:boatMount,'bay-rhib':boatMount,'key-rhib':boatMount,
   tank:{turret:roofPivot},
   jet: {launcher:[1.70,.70,-.9],turret:[0,1.03,-2.78]},
-  heli: { launcher: [2.05,.86,-.21], turret: [0,.49,-.97] },
+  heli: { launcher: [2.05,.86,-.21], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
   rover: { launcher: [.84,.82,-1.16], turret: [0,2.04,.96] },
 };
 

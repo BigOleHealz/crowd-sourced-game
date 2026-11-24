@@ -76,7 +76,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import {validEquipment} from './public/arcade-melee.js';
 import { advanceReload, magazineView, startReload } from './public/magazines.js';
-import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, firePilotGuns, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -193,7 +193,7 @@ function worldView() {
     return r.source==='jet' ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
   }) : world.bullets;
   const heli=world.heli;
-  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
+  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && (heli.gunner!=null || heli.pilot!=null) && !heli.wrecked} : heli;
   const sports=world.hoops?{
     basketball:{...world.basketball,npcs:world.hoops.roster.view(ticks)},
     volleyball:world.volleyball.map((game,i)=>({...game,athletes:world.volleyballActivity.rosters[i].view(ticks)})),
@@ -612,7 +612,7 @@ function tick() {
   }
   world.jet.chainFiring=false;
   if(world.jet.pilot==null)stepJet(world,null,step,players);
-  if(CITY)world.heli.chainFiring=false;
+  world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   let yachtInput,hookInput;
   if(world.tank?.wrecked || world.tank?.sinking)stepTank(world,null,step);
@@ -791,7 +791,8 @@ function tick() {
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
       vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);
       if (world.heli.pilot !== player.id) continue;
-      if (input?.fire) launchMissile(world,'heli',player,ticks);
+      if (input?.fire) firePilotGuns(world,player,ticks);
+      if (input?.missile) launchMissile(world,'heli',player,ticks);
       const { x, y, z, yaw, grounded } = world.heli;
       player.state = { x, y, z, vy: 0, grounded };
       player.yaw = yaw;
