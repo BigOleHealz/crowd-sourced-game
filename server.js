@@ -231,7 +231,7 @@ async function serve(request, response) {
   let file;
   if (vendorFiles.includes(pathname)) {
     file = join(threeBuild, pathname.slice('/vendor/'.length));
-  } else if (pathname === '/vendor/loaders/GLTFLoader.js' || pathname === '/vendor/utils/BufferGeometryUtils.js') {
+  } else if (pathname === '/vendor/loaders/GLTFLoader.js' || pathname === '/vendor/utils/BufferGeometryUtils.js' || pathname === '/vendor/utils/SkeletonUtils.js') {
     file = join(threeBuild, '../examples/jsm', pathname.slice('/vendor/'.length));
   } else {
     file = resolve(publicDir, '.' + (pathname === '/' ? '/index.html' : pathname));
