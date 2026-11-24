@@ -67,7 +67,7 @@ import { fork } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 import { stat, readdir, readFile } from 'node:fs/promises';
 import {harborTrade,newWallet,walletView} from './harbor-trade.js';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -299,7 +299,7 @@ server.on('upgrade', (request, socket, head) => {
 
 function playerState(player) {
   const lock=lockStatus(player,ticks);
-  return { ...player.state,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.spearfishing && {spearfishing:player.spearfishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
+  return { ...player.state,character:player.character,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.spearfishing && {spearfishing:player.spearfishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
@@ -478,7 +478,7 @@ function updateRoom() {
     p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;
     parkedRound={world,npcs,tick:ticks,player:p};
     world=freshWorld();npcs=freshResidents();
-    players.set(p.id,{id:p.id,ws:p.ws,team:p.team,slot:p.slot,scoreKey:p.scoreKey,
+    players.set(p.id,{id:p.id,ws:p.ws,team:p.team,slot:p.slot,scoreKey:p.scoreKey,character:p.character,
       alive:p.alive,packedSnapshots:p.packedSnapshots,lastSeq:p.lastSeq,ack:p.lastSeq,inputs:[],
       state:teamSpawn(p.team,p.slot),life:newLife(ticks),score:{kills:0,deaths:0,team:p.team},
       yaw:0,moving:false,sprint:false,weapon:4,fireReady:0});
@@ -498,7 +498,7 @@ sockets.on('connection', (ws,request) => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), character:['classic','mike','pink'][randomInt(3)], life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   const arrival=arrivalRoutes.get(request.url);

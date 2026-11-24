@@ -226,6 +226,12 @@ async function withLocalServer(check) {
 async function checkPeerMovement(host) {
   const first = await join(host), second = await join(host);
   assert.notEqual(first.id, second.id);
+  for(const [guest,observer] of [[first,second],[second,first]]) {
+    const selected=guest.welcome.state.character;
+    assert.ok(['classic','mike','pink'].includes(selected), 'join assigns an available character');
+    await until(() => player(observer,guest.id)?.character===selected, 'character replication');
+    assert.equal(player(guest).character,selected,'character remains stable in snapshots');
+  }
   await checkMotion(first, second);
   await checkMotion(second, first);
   await leave(first);
