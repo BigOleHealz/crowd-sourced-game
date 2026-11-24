@@ -1129,6 +1129,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
 import {createSprintGate} from './marina-sprint-view.js';
 export function createScene(canvas) {
   preloadPlayerScan();
+  const profileFrames=new URLSearchParams(location.search).get('perf')==='1';
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio||1,1.5));
@@ -1338,6 +1339,7 @@ export function createScene(canvas) {
   const drawStreetRides=streetRideView(scene,Batch);
   let localActorId;
   function render(local,remotes,view,dt,world) {
+    const updateStart=profileFrames?performance.now():0;
     localActorId=local?.id;
     if(local && world.rides)drawStreetRides(world.rides,local,remotes,dt);
     if(world.market){drawMarket??=marketStockView(scene);drawMarket(world.market);}
@@ -1762,6 +1764,7 @@ export function createScene(canvas) {
     }
     pendingMuzzles.length=0;
     updateRounds(world.bullets,visibleMuzzle);
+    const drawStart=profileFrames?performance.now():0;
     if((localDefeat || exploring) && camera.position.y<cameraWater){
       if(!diveBackdrop){
         diveBackdrop=new THREE.Mesh(new THREE.SphereGeometry(12,24,12),new THREE.ShaderMaterial({
@@ -1786,6 +1789,7 @@ export function createScene(canvas) {
       renderer.render(scene,camera);
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
+    if(profileFrames)return {updateMs:drawStart-updateStart,drawMs:performance.now()-drawStart};
   }
   const pendingMuzzles=[];
   const muzzlePoint=new THREE.Vector3();
