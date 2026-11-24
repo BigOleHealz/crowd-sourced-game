@@ -46,7 +46,14 @@ const partyModel=makeModel({
     rudder:.60,flow:2.7,response:1.8,grip:4},
   wave:{rise:.035,roll:.50,trim:.029},motorPitch:.70,
 });
-export const marinaModel=boat=>boat?.partyYacht?partyModel:marinaModels[boat?.boatModel];
+// Paloma keeps the cruiser handling, but the model's helm is on the flybridge.
+const minnowModel={...marinaModels.cruiser,roof:2.75,helm:{
+  ...marinaModels.cruiser.helm,
+  cushion:{x:.43,y:2.14,z:.4},
+  offset:[.43,2.14-.893*.85,.4],
+  wheel:{...marinaModels.cruiser.helm.wheel,y:2.337,z:.05},
+}};
+export const marinaModel=boat=>boat?.partyYacht?partyModel:boat?.id==='marina-paloma'?minnowModel:marinaModels[boat?.boatModel];
 
 function east(id,name,boatModel,hull,z,side){
   const besidePier=1.1+marinaModels[boatModel].halfWidth+.28;
