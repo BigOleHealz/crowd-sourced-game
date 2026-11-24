@@ -964,11 +964,11 @@ function characterLabel(root, name) {
 }
 
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=false) {
+function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=null) {
   const rig=createRangerRig(), {root,body,upper,limbs}=rig;
   scene.add(root);
   if(scanned) {
-    fitPlayerScan(rig);
+    fitPlayerScan(rig,scanned);
     rig.tools=carriedEquipment(upper,scene,Batch);
     rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
     return finishAvatar(scene,rig,material,shadowMap,name);
@@ -1572,7 +1572,7 @@ export function createScene(canvas) {
         continue;
       }
       const scanned=usePlayerScan(state);
-      if(a && Boolean(a.scanned)!==scanned){removeAvatar(a);a=null;}
+      if(a && (a.scanned??null)!==scanned){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){

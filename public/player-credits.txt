@@ -8,3 +8,11 @@ Source conversion: Taz33m/FlyFireFighter, public/actors/occupant.glb
 https://github.com/Taz33m/FlyFireFighter/blob/e440c9f384cb97f30b1d7196dceb504aeb0a0dbd/public/actors/occupant.provenance.json
 Pinewatch modifications: removed animation clips, fitted the scanned mesh to the
 existing player skeleton and repacked the skin weights. Original color texture retained.
+
+Pink Girl by samsikua
+https://sketchfab.com/3d-models/pink-girl-8580d3949b374493b6f34416f315efca
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Pinewatch modifications: fitted all seven skinned meshes to the existing player
+skeleton, repacked skin weights, scaled to player height, and converted the
+source specular/glossiness material to a glTF metallic/roughness material.
