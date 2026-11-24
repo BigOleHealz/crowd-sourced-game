@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {fishSpecies,fishSchools,fishPose} from './reef-fish.js';
 import {reefFishKey} from './spearfishing.js';
+import {loadCoralFishAsset} from './coral-fish-asset.js';
 
 export function fishGeometry(id,species) {
   const positions=[],colors=[],ink=new THREE.Color();
@@ -107,7 +108,7 @@ export function reefFishView(scene,waterY) {
     const schools=fishSchools.filter(s=>s.species===id);
     const material=new THREE.MeshLambertMaterial({side:THREE.DoubleSide,vertexColors:true});
     const clock={value:0};
-    material.onBeforeCompile=shader=>{
+    const animate=material=>{material.onBeforeCompile=shader=>{
       shader.uniforms.fishSeconds=clock;
       shader.vertexShader='uniform float fishSeconds;\n'+shader.vertexShader;
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',
@@ -116,11 +117,18 @@ export function reefFishView(scene,waterY) {
          transformed.x += ${(.11*species.length).toFixed(3)} * tail * tail
            * sin(fishSeconds*6.2 + instanceMatrix[3].x*1.7 + tail*2.3);`);
     };
-    material.customProgramCacheKey=()=>id;
+    material.customProgramCacheKey=()=>id+'-swim';};
+    animate(material);
     const mesh=new THREE.InstancedMesh(fishGeometry(id,species),material,schools.reduce((n,s)=>n+s.count,0));
     mesh.name=species.name;mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.frustumCulled=false;mesh.visible=false;scene.add(mesh);
     schoolsBySpecies.set(id,{mesh,schools:schools.map(school=>({school,index:fishSchools.indexOf(school)})),clock});
+    if(id==='coral-fish' && typeof window!=='undefined')loadCoralFishAsset().then(asset=>{
+      animate(asset.material);
+      mesh.geometry.dispose();
+      mesh.geometry=asset.geometry;
+      mesh.material=asset.material;
+    }).catch(error=>console.warn('Coral fish asset failed to load',error));
   }
   return (viewer,tick,spearedFish)=>{
     const seconds=tick/30;
