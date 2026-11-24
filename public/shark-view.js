@@ -1,5 +1,7 @@
 import {floatingBody} from './marine-float.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
 import {manateeMaterial} from './manatee-model.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {sharkFeedingSpray} from './shark-feeding-spray.js';
@@ -88,6 +90,40 @@ export function sharkView(scene,waterline){
   const spray=sharkFeedingSpray(scene,waterline,sharkSizes.length);
   const models=[],clock={value:0};
   let bodyShape,tailShape,jawShape,material;
+  let sharkAsset;
+  // Keep the procedural shark visible while the licensed art loads, and if
+  // the download is unavailable. The loaded rig replaces it in place.
+  if(typeof window!=='undefined')new GLTFLoader().load('./great-white-shark.glb',asset=>{
+    sharkAsset=asset;
+    for(const instance of models)if(instance)installAsset(instance);
+  },undefined,error=>console.warn('Great white shark model unavailable; using procedural art.',error));
+
+  function installAsset(instance){
+    if(instance.mixer || !sharkAsset)return;
+    const visual=cloneSkeleton(sharkAsset.scene);
+    const oriented=new THREE.Group();
+    // The asset's snout points toward +Z; Pinewatch sharks travel toward -Z.
+    // Preserve the existing 3.75 m visual length used by their hit volumes.
+    oriented.rotation.y=Math.PI;
+    oriented.add(visual);
+    oriented.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(oriented),size=bounds.getSize(new THREE.Vector3());
+    const center=bounds.getCenter(new THREE.Vector3()),scale=3.75/size.z;
+    oriented.scale.setScalar(scale);
+    oriented.position.copy(center.multiplyScalar(-scale));
+    visual.traverse(part=>{if(part.isSkinnedMesh)part.frustumCulled=false;});
+    instance.hull.remove(instance.body,instance.jawMesh);
+    // The hidden tail pivot still anchors the existing surface spray.
+    instance.tailMesh.visible=false;
+    instance.hull.add(oriented);
+    const mixer=new THREE.AnimationMixer(visual);
+    const swim=sharkAsset.animations.find(clip=>clip.name==='Swim');
+    const bite=sharkAsset.animations.find(clip=>clip.name==='Bite');
+    const swimAction=swim&&mixer.clipAction(swim).play();
+    const biteAction=bite&&mixer.clipAction(bite).play();
+    if(biteAction)biteAction.setEffectiveWeight(0);
+    Object.assign(instance,{mixer,swimAction,biteAction,visual:oriented});
+  }
   function model(index){
     bodyShape??=sharkGeometry('body');tailShape??=sharkGeometry('tail');jawShape??=sharkGeometry('jaw');
     if(!material){
@@ -102,7 +138,9 @@ export function sharkView(scene,waterline){
     grip.add(hull);root.add(grip);hull.add(jaw);
     root.name='Offshore shark';root.scale.setScalar(sharkSizes[index]);
     root.renderOrder=1;hull.add(body,tail);tail.position.z=1.02;scene.add(root);
-    return {root,hull,tail,jaw,grip};
+    const instance={root,hull,tail,jaw,grip,body,tailMesh:tail,jawMesh:jaw};
+    installAsset(instance);
+    return instance;
   }
   return (states,local,tick,dt,defeats)=>{
     impacts(states,local,dt);clock.value=(tick??0)/30;
@@ -112,7 +150,8 @@ export function sharkView(scene,waterline){
         if(models[i])models[i].root.visible=false;
         continue;
       }
-      const {root,hull,tail,jaw,grip}=models[i]??=model(i);
+      const instance=models[i]??=model(i);
+      const {root,hull,tail,jaw,grip}=instance;
       if(!root.visible || root.position.distanceToSquared(s)>36){
         root.position.set(s.x,s.y,s.z);root.rotation.y=-s.yaw;
       }
@@ -138,6 +177,11 @@ export function sharkView(scene,waterline){
       root.rotation.z=s.hp ? .055*Math.sin(s.stroke):floatingBody(s.deathY,waterline,s.size,s.ageSinceHit).roll;
       const bite=chewing?.32+.24*Math.sin(beat):dogStrike ? .58*Math.sin(Math.min(1,s.dogEncounter.t/.72)*Math.PI) : s.phase==='feeding' ? .34+.34*Math.exp(-elapsed*2.25)+.21*Math.sin(elapsed*9) : 0;
       jaw.rotation.x=-bite;
+      if(instance.mixer){
+        instance.swimAction?.setEffectiveWeight(1-Math.min(1,bite));
+        instance.biteAction?.setEffectiveWeight(Math.min(1,bite));
+        instance.mixer.update(dt);
+      }
       const kick=beat-.82+i*.45;
       tail.rotation.x+=((thrashing?.23*Math.cos(kick):0)-tail.rotation.x)*mix;
       tail.rotation.y+=((thrashing?.69*Math.sin(kick):s.hp?.26*Math.sin(s.stroke):0)-tail.rotation.y)*mix;

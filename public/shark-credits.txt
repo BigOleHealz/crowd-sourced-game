@@ -1,0 +1,8 @@
+"Great White Shark" by Sealife Fan 3 (Sketchfab display name)
+https://sketchfab.com/3d-models/great-white-shark-bf81b64f0121443da38112f706b7356f
+The downloaded GLB's embedded author metadata names charliegodofsharks:
+https://sketchfab.com/charliegodofsharks
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Pinewatch rotates and scales the model and uses its Swim and Bite animations.
