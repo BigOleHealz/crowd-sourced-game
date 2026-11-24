@@ -16,7 +16,8 @@ const helicopter = [
 ];
 const pickup = [[.85,-1.73,1.75,.05,1.01],[.67,-.62,.46,1.01,1.66]];
 const jeep = [[.85,-1.55,1.62,.05,.99],[.66,-.60,.38,.99,1.60]];
-const sport=[[supercarLayout.halfWidth,-2.32,2.32,.10,.73],[.71,-.74,1.11,.73,supercarLayout.roof]];
+const sport=[[supercarLayout.halfWidth,-supercarLayout.halfLength,supercarLayout.halfLength,.10,.73],
+  [.84,-.98,1.10,.73,supercarLayout.roof]];
 const tracks=[[tankHull.halfWidth,-tankHull.halfLength,tankHull.halfLength,.05,1.20*tankScale],
   [.77*tankScale,-.85*tankScale,.95*tankScale,1.20*tankScale,tankHull.height]];
 const boatHull=[[.57,-2.65,-1.87,-.60,.43],[1.04,-1.87,2.15,-.62,.50],[.86,2.15,2.65,-.50,.45]];

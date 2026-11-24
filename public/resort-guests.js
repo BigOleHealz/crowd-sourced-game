@@ -13,8 +13,8 @@ export const resortConversations={
     name:'Mateus Costa',age:34,
     greeting:'Evening. I’m Mateus, on valet tonight. You can take either of the display cars for a spin.',
     topics:[
-      ['Which one would you drive?','The green Lamborghini. You sit so low you see your own reflection in the puddles. The red Ferrari sounds better off the line, though.'],
-      ['Where are the cars?','Take the avenue south to the raised fountain court. The Lamborghini and Ferrari are in the two display bays on the city side of the fountain.'],
+      ['Which one would you drive?','The green Cheetah. You sit so low you see your own reflection in the puddles. The red one looks sharp too.'],
+      ['Where are the cars?','Take the avenue south to the raised fountain court. The two Cheetahs are in the display bays on the city side of the fountain.'],
       ['Where’s the lounge?','The south arcade has sofas facing the bay. Take either guest lift up to Overture and walk across the glass bridge.'],
     ],
   },
