@@ -666,10 +666,18 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
       for(let i=0;i<indices.count;i+=3){
         const vertices=[indices.getX(i),indices.getX(i+1),indices.getX(i+2)];
         const bounds=components.get(root(vertices[0]));
-        const isMain=bounds.minZ>.20 && bounds.maxZ<.38 &&
-          Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY)>.48;
-        const isTail=!isMain && bounds.minX>-.85 && bounds.maxX<-.77 &&
-          bounds.minY>.88 && bounds.maxY<1 && bounds.maxZ-bounds.minZ>.10;
+        const bladeSpan=Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY);
+        const tipRadius=Math.max(
+          Math.hypot(bounds.minX-mainPivot.x,bounds.minY-mainPivot.y),
+          Math.hypot(bounds.maxX-mainPivot.x,bounds.maxY-mainPivot.y)
+        );
+        const nearTail=bounds.minX>-.85 && bounds.maxX<-.77 &&
+          bounds.minY>.88 && bounds.maxY<1 && bounds.minZ>-.16 && bounds.maxZ<.35;
+        // The coloured blade tips are separate tiny components in the GLB.
+        // Keep them with the long blades instead of leaving them in midair.
+        const isMain=!nearTail && bounds.minZ>.20 && bounds.maxZ<.38 &&
+          (bladeSpan>.48 || (bounds.maxZ<.365 && tipRadius>1));
+        const isTail=nearTail;
         (isMain?main:isTail?tail:body).push(...vertices);
       }
       for(const [part,pivot,indices] of [[modelMainRotor,mainPivot,main],[modelTailRotor,tailPivot,tail]]){
@@ -710,7 +718,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   return { group, crewSeat(pilot) {
     if(replacementFrame){
       // Both seats lie just behind the Little Bird's open cockpit frame.
-      crewPoint.set(pilot ? .40 : .30,pilot ? -.40 : -.32,-.07);
+      crewPoint.set(pilot ? .15 : .04,pilot ? -.15 : -.12,-.20);
       return replacementFrame.localToWorld(crewPoint);
     }
     crewPoint.set(pilot ? -.35 : .35,.72,-.78);
@@ -1611,10 +1619,10 @@ export function createScene(canvas) {
         pose(a,posedState,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
         if(heliCrew){
           a.root.rotation.set(heli.pitch||0,-heli.yaw,heli.roll||0,'YXZ');
-          a.root.scale.multiplyScalar(.68);
+          a.root.scale.multiplyScalar(.60);
           for(const limb of a.limbs){
-            limb.leg.rotation.x=-.65;limb.knee.rotation.x=1.05;
-            limb.arm.rotation.x=.35;limb.forearm.rotation.x=.70;
+            limb.leg.rotation.x=1.36;limb.knee.rotation.x=-1.30;
+            limb.arm.rotation.x=1.04;limb.forearm.rotation.x=.50;
           }
           for(const tool of a.tools)tool.visible=false;
         }
