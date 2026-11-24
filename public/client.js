@@ -1432,23 +1432,27 @@ function drawMap(player, remotes, yaw) {
 const frameReadout = new URLSearchParams(location.search).get('perf') === '1' ? document.createElement('small') : null;
 const frameTimes = [];
 let previousRender = 0;
+let worstFrame={preMs:0,updateMs:0,drawMs:0,totalMs:0};
 if (frameReadout) {
   byId('location').parentElement.append(frameReadout);
   document.addEventListener('visibilitychange', () => { previousRender = 0; frameTimes.length = 0; });
 }
-function measureFrame(time, players) {
+function measureFrame(time, players, cost) {
   if (previousRender) frameTimes.push(time - previousRender);
   previousRender = time;
+  for(const key of Object.keys(worstFrame))worstFrame[key]=Math.max(worstFrame[key],cost[key]);
   if (frameTimes.length < 120) return;
   const elapsed = frameTimes.reduce((sum, t) => sum + t, 0);
   frameTimes.sort((a, b) => a - b);
   const p95 = frameTimes[Math.ceil(frameTimes.length * .95) - 1];
-  frameReadout.textContent = (1000 * frameTimes.length / elapsed).toFixed(0) + ' FPS · 95th ' + p95.toFixed(0) + ' ms · ' + players + ' online';
+  frameReadout.textContent = (1000 * frameTimes.length / elapsed).toFixed(0) + ' FPS · 95th ' + p95.toFixed(0) + ' ms · ' + players + ' online · worst pre/update/draw/total ' + Object.values(worstFrame).map(ms=>ms.toFixed(0)).join('/') + ' ms';
   frameTimes.length = 0;
+  worstFrame={preMs:0,updateMs:0,drawMs:0,totalMs:0};
 }
 function frame(time) {
   // On high-refresh displays keep the prototype's visual workload near 60 frames/s.
   if (time+.75 < nextFrame) { requestAnimationFrame(frame); return; }
+  const frameStart=frameReadout?performance.now():0;
   const interval=1000/60;
   nextFrame=nextFrame && time-nextFrame<interval ? nextFrame+interval : time+interval;
   const dt = clamp((time - lastTime) / 1000, 0, .14);
@@ -1515,8 +1519,9 @@ function frame(time) {
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
-    if (frameReadout) measureFrame(time, remotes.length + 1);
-    scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
+    const sceneStart=frameReadout?performance.now():0;
+    const frameCost=scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
+    if(frameReadout)measureFrame(time,remotes.length+1,{preMs:sceneStart-frameStart,...frameCost,totalMs:performance.now()-frameStart});
     if (time >= nextHud) {
       nextHud = time + 80;
       hoopsHud.update(world.basketball,local,view.yaw,touch.active);

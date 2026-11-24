@@ -1,0 +1,6 @@
+"Low poly Humvee" by SIpriv (S1Priv)
+https://sketchfab.com/3d-models/low-poly-humvee-1183335985d34497a5b4be723758c0ba
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The model was scaled and positioned for Pinewatch. Its wheel groups are animated by the game.
