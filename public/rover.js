@@ -150,7 +150,7 @@ function damagePanel(world,car,panel,amount,players,team,owner){
   damageRover(world,amount,players,car.kind,team,owner);
 }
 
-const roadMass=car=>civilianProfiles[car.model]?.mass??(car.kind==='supercar'?1540:CITY?2070:1630);
+const roadMass=car=>civilianProfiles[car.model]?.mass??(car.kind==='supercar'?supercarLayout.mass:CITY?2070:1630);
 
 function registerImpact(world,r,hit,speed,players){
   if(speed<.4)return;
@@ -213,8 +213,9 @@ export function driveRover(world, input, dt, players,kind='rover') {
   const flats=flatTireCount(r);
   const mobility=flatMobility(r);
   // Torque tapers as speed builds. Reverse remains a low-range depot gear.
-  const power = throttle>0 ? (sport?15.2:8.6) - (sport?6.5:4.8)*clamp(r.speed/topSpeed,0,1) : (sport?11.2:CITY?9:7.2);
-  const braking=sport && throttle ? 30 : 18;
+  const power = sport ? supercarLayout.driveForce/supercarLayout.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1))
+    : throttle>0 ? 8.6-4.8*clamp(r.speed/topSpeed,0,1) : CITY?9:7.2;
+  const braking=sport ? supercarLayout.brakeForce/supercarLayout.mass : 18;
   const drivePower=profile ? profile.driveForce/profile.mass*(1-.52*clamp(Math.abs(r.speed)/topSpeed,0,1)) : power;
   const brakePower=profile ? profile.brakeForce/profile.mass : braking;
   const acceleration = (throttle && r.speed*throttle>=0 ? drivePower*mobility : brakePower)*surface.traction;

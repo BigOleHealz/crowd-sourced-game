@@ -11,7 +11,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {mountPosition} from './mounts.js';
-import {valetSportBody,valetPaints} from './valet-sport-view.js';
+import {createCheetahView} from './cheetah-view.js';
 
 import {alpineGlass} from './landscape.js';
 
@@ -20,6 +20,7 @@ const fleet={
   hatchback:{paint:0x287f76,roofEnd:.84,cabinEnd:1.47,topFront:-.40},
   van:{paint:0xdacfb8,roofEnd:1.91,cabinEnd:2.16,topFront:-.43},
 };
+const cheetahModels=new Set(['falco','veloce']);
 const cube=new THREE.BoxGeometry(), roller=new THREE.CylinderGeometry(1,1,1,20),bore=new THREE.CylinderGeometry(1,1,1,10);
 const seatPad=new THREE.SphereGeometry(1,10,6),ring=new THREE.TorusGeometry(.145,.018,7,20);
 const rubber=0x22262a,trim=0x323a40,alloy=0xaeb7b9;
@@ -68,10 +69,6 @@ function wheelModel(Batch,tire,depth,van,patrol){
 }
 
 function model(Batch,type,materials,patrol=false){
-  if(valetPaints[type]){
-    const car=valetSportBody(Batch,type,{skin,pane,run,box});
-    return finishTrafficModel(Batch,type,materials,car);
-  }
   if(type==='engine')return finishTrafficModel(Batch,type,materials,buildPumper(Batch,materials,{skin,pane,run,box}));
   const {roofEnd,cabinEnd,topFront}=fleet[type];
   const paint=patrol?0x20292e:fleet[type].paint;
@@ -392,11 +389,14 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
         continue;
       }
       if(!view){
-        view=model(Batch,car.model,materials,car.patrol);
+        if(cheetahModels.has(car.model)){
+          const cheetah=createCheetahView(scene,shadowMap,car.model);
+          view={root:cheetah.root,cheetah};
+        }else view=model(Batch,car.model,materials,car.patrol);
         if(car.patrol)patrolViews[index]=view;else views.set(car.id,view);
-        view.idle=roadEngineIdle(car.model,car.id);
-        view.root.name='Traffic '+car.id;scene.add(view.root);
+        if(!view.cheetah){view.idle=roadEngineIdle(car.model,car.id);view.root.name='Traffic '+car.id;scene.add(view.root);}
       }
+      if(view.cheetah){view.cheetah(car,dt);continue;}
       const {root,chassis,wheels,door,brake}=view;
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       if(view.appliance)view.appliance(car,performance.now()*.001);

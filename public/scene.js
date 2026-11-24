@@ -94,7 +94,7 @@ import {marinaHullContains,marinaModel} from './marina-fleet-layout.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
-import { createSupercarView } from './supercar-view.js';
+import {createCheetahView} from './cheetah-view.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
@@ -1310,7 +1310,7 @@ export function createScene(canvas) {
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
-  const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
+  const updateSupercar=CITY && createCheetahView(scene,shadowMap);
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
