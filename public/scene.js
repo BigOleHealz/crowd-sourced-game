@@ -81,6 +81,7 @@ import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
@@ -585,7 +586,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   airframe.scale.setScalar(1.23);group.add(airframe);
   const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
-  Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  const legacyHull=hull.mesh(airframe,paint,false);
+  Object.assign(legacyHull.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   const windows=glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false);
   Object.assign(windows.userData,{impactSurface:'solid',vehicle:'heli'});
@@ -597,10 +599,11 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-2});
   const placard=new THREE.PlaneGeometry(.69,.105);
+  const legacyPlacards=[];
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
     id.position.set(side*.773,.928,.12);id.rotation.y=side*Math.PI/2;
-    airframe.add(id);
+    airframe.add(id);legacyPlacards.push(id);
   }
   const blade=aerofoil([[-.06,.28],[.08,.28],[.13,.62],[.135,3.98],[-.035,4.40],[-.21,4.39],[-.11,3.92],[-.11,.62]],.026);
   for(let i=0;i<4;i++){
@@ -617,10 +620,28 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const tailHub=new THREE.Group();
   tailHub.position.set(.17,2.72,5.09);tailHub.rotation.z=.29;airframe.add(tailHub);
   const tailRotor=fan.mesh(tailHub,material,false);
+  const replacementMaterials=new Set();
+  new GLTFLoader().load('./mh-6-little-bird.glb',({scene:model})=>{
+    // Sketchfab's root is already upright; turn its diagonal nose toward -Z.
+    model.rotation.y=-43*Math.PI/180;
+    model.scale.setScalar(2.7);
+    model.position.y=1.3;
+    model.traverse(node=>{
+      if(node.isMesh){
+        Object.assign(node.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+        for(const mat of Array.isArray(node.material)?node.material:[node.material])replacementMaterials.add(mat);
+      }
+    });
+    airframe.add(model);
+    legacyHull.visible=false;windows.visible=false;
+    for(const placard of legacyPlacards)placard.visible=false;
+    // The downloaded mesh includes fixed blades; avoid drawing a second rotor.
+    mainRotor.visible=false;tailRotor.visible=false;
+  },undefined,error=>console.warn('Little Bird model unavailable; showing original helicopter.',error));
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.0,7.8).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const healthLabel=objectHealthLabel(scene,'BLACK HAWK');
+  const healthLabel=objectHealthLabel(scene,'LITTLE BIRD');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -646,6 +667,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
+    for(const mat of replacementMaterials)mat.color?.setHex(wrecked ? 0x666666 : smoking ? 0xb3a29b : 0xffffff);
     smoke.visible=smoking;
     if(smoking) {
       phase=(phase+dt*.72)%1;
