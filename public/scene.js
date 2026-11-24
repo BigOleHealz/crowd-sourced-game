@@ -588,7 +588,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const paint=fieldPaint();
   const legacyHull=hull.mesh(airframe,paint,false);
   Object.assign(legacyHull.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
-  Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  const legacyLaunchers=launchers.mesh(group,paint,false);
+  Object.assign(legacyLaunchers.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   const windows=glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false);
   Object.assign(windows.userData,{impactSurface:'solid',vehicle:'heli'});
   const updateGlass=helicopterPanes.bind(windows);
@@ -621,6 +622,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   tailHub.position.set(.17,2.72,5.09);tailHub.rotation.z=.29;airframe.add(tailHub);
   const tailRotor=fan.mesh(tailHub,material,false);
   const replacementMaterials=new Set();
+  let replacementFrame=null, modelMainRotor=null, modelTailRotor=null;
   new GLTFLoader().load('./mh-6-little-bird.glb',({scene:model})=>{
     // Sketchfab's root is already upright; turn its diagonal nose toward -Z.
     model.rotation.y=-43*Math.PI/180;
@@ -632,10 +634,61 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
         for(const mat of Array.isArray(node.material)?node.material:[node.material])replacementMaterials.add(mat);
       }
     });
+    // The Sketchfab export merged both fixed rotors into the body mesh. Move
+    // their triangles into separate meshes so they can spin without a second
+    // set of blades being drawn over them.
+    const mainPivot=new THREE.Vector3(.08,-.02,.30);
+    const tailPivot=new THREE.Vector3(-.803,.94,.097);
+    modelMainRotor=new THREE.Group();modelMainRotor.position.copy(mainPivot);
+    modelTailRotor=new THREE.Group();modelTailRotor.position.copy(tailPivot);
+    let rotorParent=null;
+    model.traverse(node=>{
+      if(!node.isMesh || !node.geometry.index)return;
+      const geometry=node.geometry,positions=geometry.getAttribute('position');
+      const body=[],main=[],tail=[],indices=geometry.index;
+      const parent=Array.from({length:positions.count},(_,i)=>i);
+      const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+      for(let i=0;i<indices.count;i+=3){
+        const a=root(indices.getX(i)),b=root(indices.getX(i+1)),c=root(indices.getX(i+2));
+        parent[b]=a;parent[c]=a;
+      }
+      const components=new Map();
+      for(let v=0;v<positions.count;v++){
+        const key=root(v),bounds=components.get(key)??{
+          minX:Infinity,minY:Infinity,minZ:Infinity,maxX:-Infinity,maxY:-Infinity,maxZ:-Infinity
+        };
+        const x=positions.getX(v),y=positions.getY(v),z=positions.getZ(v);
+        bounds.minX=Math.min(bounds.minX,x);bounds.maxX=Math.max(bounds.maxX,x);
+        bounds.minY=Math.min(bounds.minY,y);bounds.maxY=Math.max(bounds.maxY,y);
+        bounds.minZ=Math.min(bounds.minZ,z);bounds.maxZ=Math.max(bounds.maxZ,z);
+        components.set(key,bounds);
+      }
+      for(let i=0;i<indices.count;i+=3){
+        const vertices=[indices.getX(i),indices.getX(i+1),indices.getX(i+2)];
+        const bounds=components.get(root(vertices[0]));
+        const isMain=bounds.minZ>.20 && bounds.maxZ<.38 &&
+          Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY)>.48;
+        const isTail=!isMain && bounds.minX>-.85 && bounds.maxX<-.77 &&
+          bounds.minY>.88 && bounds.maxY<1 && bounds.maxZ-bounds.minZ>.10;
+        (isMain?main:isTail?tail:body).push(...vertices);
+      }
+      for(const [part,pivot,indices] of [[modelMainRotor,mainPivot,main],[modelTailRotor,tailPivot,tail]]){
+        if(!indices.length)continue;
+        const bladeGeometry=geometry.clone();bladeGeometry.setIndex(indices);
+        bladeGeometry.translate(-pivot.x,-pivot.y,-pivot.z);
+        const blades=new THREE.Mesh(bladeGeometry,node.material);
+        Object.assign(blades.userData,node.userData);
+        part.add(blades);
+      }
+      if(main.length || tail.length)rotorParent=node.parent;
+      geometry.setIndex(body);
+    });
+    rotorParent?.add(modelMainRotor,modelTailRotor);
     airframe.add(model);
-    legacyHull.visible=false;windows.visible=false;
+    replacementFrame=rotorParent;
+    legacyHull.visible=false;legacyLaunchers.visible=false;windows.visible=false;
     for(const placard of legacyPlacards)placard.visible=false;
-    // The downloaded mesh includes fixed blades; avoid drawing a second rotor.
+    // The replacement now owns the animated blades.
     mainRotor.visible=false;tailRotor.visible=false;
   },undefined,error=>console.warn('Little Bird model unavailable; showing original helicopter.',error));
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.0,7.8).rotateX(-Math.PI/2),
@@ -653,7 +706,16 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   airframe.add(smoke);
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
-  return { group, update(heli,dt,crewView) {
+  const crewPoint=new THREE.Vector3();
+  return { group, crewSeat(pilot) {
+    if(replacementFrame){
+      // Both seats lie just behind the Little Bird's open cockpit frame.
+      crewPoint.set(pilot ? .40 : .30,pilot ? -.40 : -.32,-.07);
+      return replacementFrame.localToWorld(crewPoint);
+    }
+    crewPoint.set(pilot ? -.35 : .35,.72,-.78);
+    return airframe.localToWorld(crewPoint);
+  }, update(heli,dt,crewView) {
     const maxHp=Math.max(1,heli.maxHp??500);
     const hp=clamp(heli.hp??maxHp,0,maxHp);
     const wrecked=heli.wrecked===true;
@@ -687,6 +749,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     const rotorTarget=heli.fuel===0 ? (heli.grounded?0:7) : heli.pilot!=null ? 20 : heli.abandonedFor!=null ? Math.max(5,18-3*drift) : 0;
     speed=wrecked ? 0 : mix(speed,rotorTarget,1-Math.exp(-dt*4));
     mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
+    if(modelMainRotor)modelMainRotor.rotation.z += speed*dt;
+    if(modelTailRotor)modelTailRotor.rotation.x -= speed*dt*2;
     const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
     shadow.position.set(heli.x,floor+.07,heli.z);
     shadow.rotation.y = -heli.yaw;
@@ -1516,10 +1580,13 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
-      a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
+      const heliPilot=state.id===heli.pilot,heliGunner=state.id===heli.gunner;
+      const heliCrew=heliPilot || heliGunner;
+      a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
+      if(heliCrew)a.shadow.visible=false;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
+      if(state.id===world.tank?.driver || seated || entering || station || heliCrew || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
       if(state.scuba && !a.scubaTank){
@@ -1537,9 +1604,21 @@ export function createScene(canvas) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
+        const crewSeat=heliCrew ? helicopter.crewSeat(heliPilot) : null;
+        const posedState=heliCrew ? {...state,x:crewSeat.x,y:crewSeat.y,z:crewSeat.z,yaw:heli.yaw,moving:false,grounded:false,swimming:false,parachute:'packed'} :
+          skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state;
+        pose(a,posedState,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
+        if(heliCrew){
+          a.root.rotation.set(heli.pitch||0,-heli.yaw,heli.roll||0,'YXZ');
+          a.root.scale.multiplyScalar(.68);
+          for(const limb of a.limbs){
+            limb.leg.rotation.x=-.65;limb.knee.rotation.x=1.05;
+            limb.arm.rotation.x=.35;limb.forearm.rotation.x=.70;
+          }
+          for(const tool of a.tools)tool.visible=false;
+        }
         if(state.infected)poseInfected(a,state,clock);
-        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
+        if(!seated && !station && !entering && !skipper && !heliCrew)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
@@ -1700,7 +1779,8 @@ export function createScene(canvas) {
       camera.position.lerp(overheadEye,overhead);
     }
     const localBody=avatars.get(local.id)?.root;
-    if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
+    if(localBody)localBody.visible=!blastDeath && !inTank && ((local.id===heli.pilot || local.id===heli.gunner) ||
+      (!piloting && (nearInterior || distance>.86) && (!onFoot || overhead<.48)));
     const sighted = onFoot && !local.holstered && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming && !isArcadeMelee(local.weapon);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;
