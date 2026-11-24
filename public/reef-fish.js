@@ -1,6 +1,6 @@
 // Body length is in metres. The identifiers are shared by schools and fishing.
 export const fishSpecies={
-  'yellowtail-snapper':{name:'Yellowtail snapper',length:.58,height:.18,width:.106,habitat:'reef'},
+  'coral-fish':{name:'Coral fish',length:.58,height:.40,width:.12,habitat:'reef'},
   'atlantic-spadefish':{name:'Atlantic spadefish',length:.52,height:.37,width:.103,habitat:'marina'},
   'great-barracuda':{name:'Great barracuda',length:1.20,height:.18,width:.139,habitat:'offshore'},
 };
@@ -8,13 +8,13 @@ export const fishSpecies={
 // Keep each oval inside a known stretch of open water, clear of pilings and hulls.
 export const fishSchools=[
   {species:'atlantic-spadefish',x:82,z:-426,depth:1.64,rx:3,rz:1.8,count:7},
-  {species:'yellowtail-snapper',x:94,z:-411,depth:1.34,rx:3,rz:2,count:9},
-  {species:'yellowtail-snapper',x:76,z:-377,depth:1.39,rx:3.5,rz:2.4,count:10},
+  {species:'coral-fish',x:94,z:-411,depth:1.34,rx:3,rz:2,count:9},
+  {species:'coral-fish',x:76,z:-377,depth:1.39,rx:3.5,rz:2.4,count:10},
   {species:'great-barracuda',x:96,z:-369,depth:1.83,rx:5.6,rz:3,count:3},
   {species:'atlantic-spadefish',x:8,z:-317,depth:1.56,rx:4.5,rz:2.4,count:6},
-  {species:'yellowtail-snapper',x:-4,z:-315,depth:1.23,rx:3.4,rz:1.8,count:8},
+  {species:'coral-fish',x:-4,z:-315,depth:1.23,rx:3.4,rz:1.8,count:8},
   {species:'great-barracuda',x:89,z:-243,depth:1.71,rx:6.4,rz:3.2,count:3},
-  {species:'yellowtail-snapper',x:80,z:-215,depth:1.12,rx:4.0,rz:2.3,count:8},
+  {species:'coral-fish',x:80,z:-215,depth:1.12,rx:4.0,rz:2.3,count:8},
 ];
 
 export function fishPose(school,index,seconds,out={}) {
