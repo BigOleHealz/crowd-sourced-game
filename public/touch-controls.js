@@ -228,10 +228,10 @@ export function touchLayout({role,active,pistol,swapPistol,canRefuel,canSpear,sc
   if(shoot)quick.push(['KeyF','Shoot']);
   if(canAim && !melee)quick.push(['aim',sighted?'Lower sight':'Aim']);
   if((foot || role==='volleyball' || role==='skateboard') && jump)quick.push(['Space',jump]);
-  if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend']);
+  if(heli)quick.push(['Space','Climb'],['ShiftLeft','Descend'],['KeyR','Missile']);
   if(jet)quick.push(['KeyR','Missile'],['KeyB','Bomb']);
   if(pistol || (foot?canAim:['heli','jet','armed-car','turret','tank','engine'].includes(role))){
-    const label=pistol?'Fire pistol':role==='engine'?'Spray water':heli || role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':foot && melee?'Swing':foot && throwable?'Throw':'Fire';
+    const label=pistol?'Fire pistol':role==='engine'?'Spray water':heli?'Forward guns':role==='armed-car'?'Fire missile':role==='turret'?'Fire turret':jet || role==='tank'?'Cannon':foot && melee?'Swing':foot && throwable?'Throw':'Fire';
     quick.push(['KeyF',label]);
   }
   if(foot){

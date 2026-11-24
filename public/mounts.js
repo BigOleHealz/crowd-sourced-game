@@ -1,13 +1,12 @@
 import {yachtGun,yachtDeckY} from './yacht-layout.js';
 // Offsets in game units from the centre of the vehicle, facing local -Z.
-export const roofPivot=[0,2.43,1.27];
 const boatMount={turret:[0,1.68,1.12]};
 export const mounts = {
   superyacht:{turret:[yachtGun.x,yachtGun.y,yachtGun.z]},
   boat:boatMount,'bay-rhib':boatMount,'key-rhib':boatMount,
-  tank:{turret:roofPivot},
   jet: {launcher:[1.70,.70,-.9],turret:[0,1.03,-2.78]},
-  heli: { launcher: [2.05,.86,-.21], turret: [0,.49,-.97] },
+  // The Little Bird GLB's rocket pod mouths sit just outside x=+/-1.44, y=.64, z=-1.47.
+  heli: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
   rover: { launcher: [.84,.82,-1.16], turret: [0,2.04,.96] },
 };
 
@@ -31,7 +30,6 @@ export function vehicleById(world,id){
 }
 export function gunnerVehicle(world,id) {
   if(id==null || !world) return null;
-  if(world.tank?.gunner===id)return 'tank';
   if(world.yacht?.gunner===id)return 'superyacht';
   if(world.rover.gunner===id) return 'rover';
   return world.heli.gunner===id ? 'heli' : world.boats?.find(b=>b.gunner===id)?.id??null;
@@ -39,8 +37,8 @@ export function gunnerVehicle(world,id) {
 
 export function gunnerFeet(vehicle,kind) {
   if(kind==='heli') return mountPosition(vehicle,[0,.52,0]);
-  const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:kind==='rover'?.80:kind==='tank'?1.17:.45,mounts[kind].turret[2]]);
-  const yaw=kind==='tank'?vehicle.roofYaw:vehicle.turretYaw;
+  const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:kind==='rover'?.80:.45,mounts[kind].turret[2]]);
+  const yaw=vehicle.turretYaw;
   feet.x-=.44*Math.sin(yaw);
   feet.z+=.44*Math.cos(yaw);
   return feet;

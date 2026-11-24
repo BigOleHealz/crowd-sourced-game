@@ -133,12 +133,21 @@ async function checkExpedition(host) {
   assert.ok(!airborne.grounded && airborne.y > groundHeight(airborne.x, airborne.z) + 1);
   assert.ok(airborne.z < HELIPAD.z - .35, 'helicopter travels over the ground');
   await until(() => Math.abs(world(b).heli.z - airborne.z) < .5 && !world(b).heli.grounded, 'observed aircraft motion');
+  assert.equal(world(b).heli.gunner,b.id,'the second player owns the independent belly turret');
+  await drive(a,{fire:true},3);
+  await until(()=>world(b).shots.some(s=>s.weapon==='muzzle' && s.firedWeapon==='pilotGun'),'observer sees pilot gunfire');
+  assert.equal(world(b).missiles.length,0,'pilot trigger fires guns without launching a missile');
+  await drive(b,{fire:true,aimYaw:Math.PI,aimPitch:0},3);
+  await until(()=>world(a).shots.some(s=>s.weapon==='muzzle' && s.firedWeapon==='turret'),'pilot sees passenger turret fire');
+  await drive(a,{missile:true});
+  await until(()=>world(b).shots.some(s=>s.weapon==='launch' && s.shooter===a.id),'observer sees pilot missile on separate input');
 
+  const beforeArrival=world(a).heli;
   const late = await join(host);
   const arrival = late.welcome.world;
   assert.equal(arrival.heli.pilot, a.id);
   assert.equal(arrival.heli.grounded, false);
-  assert.ok(Math.abs(arrival.heli.z - airborne.z) < .6, 'late guest sees the current aircraft location');
+  assert.ok(Math.abs(arrival.heli.z - beforeArrival.z) < .6, 'late guest sees the current aircraft location');
   assert.deepEqual(arrival.hp, world(a).hp, 'late guest sees all previous scenery changes');
   await drive(a, { z: 1 }, 10);
   await drive(a, { lift: -1 }, 60);

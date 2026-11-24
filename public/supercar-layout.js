@@ -1,9 +1,10 @@
 // Metres in chassis coordinates. The body and the collision hull share these
 // outer dimensions, with two exhaust tips aft of the rear lamps.
 export const supercarLayout = {
-  name:'Vesper GT', pad:{x:-4,z:-385},
-  halfWidth:1.02,halfLength:2.32,corner:.20,roof:1.23,
-  wheels:[-1.47,1.47],axle:.855,tire:.35,archRadius:.425,bumpTravel:.045,
-  exhaust:[[-.47,.43,2.29],[.47,.43,2.29]],
-  maxSpeed:33,reverseSpeed:6.2,maxHp:190,
+  name:'Cheetah', pad:{x:-4,z:-385},
+  halfWidth:1.17,halfLength:2.45,corner:.20,roof:1.20,
+  wheels:[-1.28,1.39],wheelTrack:[.92,.967],axle:.945,tire:.342,archRadius:.41,bumpTravel:.06,
+  exhaust:[[-.47,.43,2.42],[.47,.43,2.42]],
+  mass:1450,driveForce:24000,brakeForce:43500,
+  maxSpeed:30,reverseSpeed:5.8,maxHp:190,
 };

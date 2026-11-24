@@ -1,6 +1,7 @@
 import {requestEveningSky} from './evening-sky.js';
 import * as THREE from 'three';
 import {civilianProfiles} from './civilian-fleet.js';
+import {supercarLayout} from './supercar-layout.js';
 import {patrolLampSide} from './pursuit-signals.js';
 import {lampWorking} from './road-fittings.js';
 import {CITY,groundHeight} from './world.js';
@@ -13,7 +14,7 @@ const presets={
 };
 export function lampPose(car,side,rear=false){
   const profile=civilianProfiles[car.model],gt=car.kind==='supercar';
-  const span=profile?.bodyWidth??(gt?1.02:.82),nose=profile?.nose??(gt?-2.32:-1.67),tail=profile?.tail??(gt?2.32:1.69);
+  const span=profile?.bodyWidth??(gt?supercarLayout.halfWidth:.82),nose=profile?.nose??(gt?-supercarLayout.halfLength:-1.67),tail=profile?.tail??(gt?supercarLayout.halfLength:1.69);
   const yaw=car.yaw,pitch=car.suspension?.pitch??0,roll=car.suspension?.roll??0;
   const along=rear?tail:nose,across=side*span*.70,c=Math.cos(yaw),s=Math.sin(yaw);
   const y=car.y+(gt||profile?.cabin ? .52 : .80)+(car.suspension?.heave??0)-along*Math.sin(pitch)+across*Math.sin(roll);

@@ -672,10 +672,26 @@ export function advanceMissiles(world,players,npcs,tick) {
 }
 
 const nextBullet=new WeakMap();
+const nextPilotBullet=new WeakMap(), pilotGunSide=new WeakMap();
+export function firePilotGuns(world,player,tick){
+  const heli=world.heli;
+  if(heli.pilot!==player.id || heli.wrecked || heli.fuel===0 || player.life.hp<=0)return false;
+  heli.chainFiring=true;
+  const ready=nextPilotBullet.get(heli)??tick;
+  if(tick<ready)return false;
+  nextPilotBullet.set(heli,tick+firearmSpecs.pilotGun.cooldown);
+  const side=-(pilotGunSide.get(heli)??-1);
+  pilotGunSide.set(heli,side);
+  const [offset,height,forward]=mounts.heli.pilotGun;
+  const muzzle=mountPosition(heli,[side*offset,height,forward]);
+  sendRound(world,player,'pilotGun','heli',muzzle,heli.yaw,heli.pitch,tick);
+  return true;
+}
 export function fireTurret(world,kind,player,tick,players,npcs) {
+  if(kind==='tank')return;
   const v=vehicleById(world,kind);
   if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
-  const yaw=kind==='jet'?v.yaw:kind==='tank'?v.roofYaw:v.turretYaw, pitch=kind==='jet'?v.pitch:kind==='tank'?v.roofPitch:v.turretPitch;
+  const yaw=kind==='jet'?v.yaw:v.turretYaw, pitch=kind==='jet'?v.pitch:v.turretPitch;
   if(CITY && (kind==='heli' || kind==='jet')) {
     // Five integer time slots per tick put rounds three slots apart (50/s).
     // Reset the phase after a pause so idle time never accrues ammunition.
@@ -696,10 +712,6 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
-  if(kind==='tank'){
-    const reach=.83*Math.cos(pitch);
-    pivot.x+=reach*Math.sin(yaw);pivot.y+=.015+.83*Math.sin(pitch);pivot.z-=reach*Math.cos(yaw);
-  }
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);
 }
 

@@ -15,7 +15,7 @@ function tick(world,kind,throttle,steer,ticks){
 }
 
 const world=newExpedition(), car=world.supercar, pickup=world.rover;
-assert(onLantern(car.x,car.z),'Vesper starts on Lantern Point');
+assert(onLantern(car.x,car.z),'Cheetah starts on Lantern Point');
 const player={id:1,inputs:[],life:newLife(0,false),fireReady:0,weapon:1,
   state:{x:car.x+1.65,z:car.z,y:groundHeight(car.x+1.65,car.z),grounded:true}};
 const visitor={id:2,inputs:[],state:{...player.state}};
@@ -28,7 +28,7 @@ assert.equal(drivenRoad(world,visitor.id),null);
 assert.equal(car.gunner,undefined);
 assert.equal(pickup.driver,null);
 fire(world,player,{aimYaw:0,aimPitch:0},1,new Map([[player.id,player]]),[]);
-assert.equal(world.bullets.length,0,'a seated Vesper driver has no weapon to fire');
+assert.equal(world.bullets.length,0,'a seated Cheetah driver has no weapon to fire');
 tick(world,'supercar',1,0,1);
 assert(car.exhaust>0 && car.exhaust<=.30);
 tick(world,'supercar',1,0,29);
@@ -81,4 +81,4 @@ for(let i=0;i<180;i++)recoverRover(world,dt,'supercar');
 assert.equal(world.supercar.hp,supercarLayout.maxHp);
 assert.deepEqual({x:world.supercar.x,z:world.supercar.z},supercarLayout.pad,'wreck recovery returns to the estate');
 assert.deepEqual(world.rover,parkedRover());
-console.log('PASS Vesper single-seat entry/exit, unarmed use, 33 vs 16 m/s, independent pickup, rapid braking, cornering, physical collision, exhaust, and recovery.');
+console.log('PASS Cheetah single-seat entry/exit, unarmed use, 30 vs 16 m/s, independent pickup, rapid braking, cornering, physical collision, exhaust, and recovery.');

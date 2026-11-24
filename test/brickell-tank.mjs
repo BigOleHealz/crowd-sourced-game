@@ -10,7 +10,7 @@ if(!process.env.TANK_MAP_CHECK){
 }else{
   const {newExpedition,fireTank,advanceMissiles,fire,advanceRounds}=await import('../public/expedition.js');
   const {nearTank,stepTank,leaveTank}=await import('../public/tank.js');
-  const {tankMuzzle}=await import('../public/tank-layout.js');
+  const {tankMuzzle,tankPad}=await import('../public/tank-layout.js');
   const {roadContact}=await import('../public/road-contact.js');
   const {newLife}=await import('../public/rivals.js');
   const w=newExpedition(),t=w.tank;
@@ -20,10 +20,10 @@ if(!process.env.TANK_MAP_CHECK){
     const other={id:2,life:newLife(0,false),state:{...p.state},score:{kills:0,deaths:0}};
     const players=new Map([[p.id,p],[other.id,other]]);
     assert(nearTank(t,p.state));assert(!roadContact(w,t.x,t.z,0,t.x,t.z,t));
-    t.driver=p.id;assert(nearTank(t,other.state),'the roof seat is available');
+    t.driver=p.id;assert(!nearTank(t,other.state),'the rear roof seat is gone');
     fireTank(w,other,0);assert.equal(w.missiles.length,0);
     for(let n=0;n<15;n++)stepTank(w,{throttle:1,steer:.25,aimYaw:Math.PI/2,aimPitch:.12},1/30);
-    assert(t.z<14 && t.yaw>0 && t.speed<2);assert.equal(t.turretYaw,Math.PI/2);
+    assert(t.z<tankPad.z && t.yaw>0 && t.speed<2);assert.equal(t.turretYaw,Math.PI/2);
     fireTank(w,p,1);fireTank(w,p,2);assert.equal(w.missiles.length,1);
     const shot=w.missiles[0],origin=tankMuzzle(t);
     assert(Math.abs(origin.x-shot.x)<1e-8 && shot.source==='tank');
@@ -47,7 +47,7 @@ if(!process.env.TANK_MAP_CHECK){
     assert(t.wrecked && t.driver==null);
     assert(Math.hypot(p.state.x-t.x,p.state.z-t.z)>1.4);
     for(let n=0;n<280;n++)stepTank(w,null,1/30);
-    assert(!t.wrecked && t.hp===750 && t.x===8 && t.z===14);
+    assert(!t.wrecked && t.hp===750 && t.x===tankPad.x && t.z===tankPad.z);
     t.driver=p.id;assert(leaveTank(w,p) && t.driver==null);
     console.log('PASS Brickell tank seats, tracks, turret-directed cooldown, incoming bullets/launcher, ejection and recovery.');
   }

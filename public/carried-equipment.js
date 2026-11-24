@@ -1,12 +1,35 @@
 // Exterior display meshes. The local actor, remote actors and aim camera clone
 // the same equipment templates. Nothing in this module participates in simulation.
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {capsuleProp} from './molotov-view.js';
 import {carriedFinish,equipmentPlate} from './equipment-finish.js';
 
 const metal=0x606b72, edge=0x9ca39e, black=0x242c30, rubber=0x343739;
 const clay=0x8c775d, darkEarth=0x686357, walnut=0x91674a;
 const shapesByScene=new WeakMap();
+let coltModel;
+function loadColtModel(){
+  coltModel??=new GLTFLoader().loadAsync('./low-poly-colt-m4a1.glb').then(({scene})=>{
+    // The source material colors are nearly zero. Lift them enough for the
+    // receiver, handguard and stock to read under the game's outdoor light.
+    const finishes={Black_Metal:0x303537,Black_Plastic:0x25292b,Grey_Metal:0x5b6060,Grey_Plastic:0x4b4e4d};
+    scene.traverse(part=>{
+      if(!part.isMesh)return;
+      part.material.color.setHex(finishes[part.material.name]??0x404447);
+    });
+    // The source muzzle points toward +X. Face it along the game's -Z
+    // so the stock stays behind the hands and the muzzle stays ahead.
+    scene.rotation.y=Math.PI/2;
+    scene.scale.setScalar(1.15);
+    scene.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(scene);
+    const center=bounds.getCenter(new THREE.Vector3());
+    scene.position.set(-center.x,.12-center.y,-.15-center.z);
+    return scene;
+  }).catch(error=>{console.error('Could not load Colt M4A1 model',error);return null;});
+  return coltModel;
+}
 const box=new THREE.BoxGeometry(), cylinder=new THREE.CylinderGeometry(1,1,1,14);
 
 function panel(b,color,outline,width,bevel=.004,cutouts=[]){
@@ -244,7 +267,20 @@ export function carriedEquipment(parent,scene,Batch){
     });
     shapesByScene.set(scene,templates);
   }
-  const copies=templates.map(mesh=>mesh.clone());
+  const copies=templates.map((mesh,index)=>{
+    if(index!==0)return mesh.clone();
+    const holder=new THREE.Group(),fallback=mesh.clone();
+    holder.name='Colt M4A1';
+    holder.position.copy(mesh.position);
+    fallback.position.set(0,0,0);
+    holder.add(fallback);
+    loadColtModel().then(model=>{
+      if(!model)return;
+      holder.add(model.clone(true));
+      fallback.visible=false;
+    });
+    return holder;
+  });
   parent.add(...copies);
   return copies;
 }

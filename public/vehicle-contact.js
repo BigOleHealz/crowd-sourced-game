@@ -3,6 +3,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {yachtFloorAt,yachtCeilingAt} from './yacht-layout.js';
 import {supercarLayout} from './supercar-layout.js';
 import {marinaModel} from './marina-fleet-layout.js';
+import {tankScale,tankHull} from './tank-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
 // The helicopter includes the 1.23 airframe model scale. Separating its cabin,
 // boom and landing gear leaves the sidewalk open underneath the elevated tail.
@@ -15,8 +16,10 @@ const helicopter = [
 ];
 const pickup = [[.85,-1.73,1.75,.05,1.01],[.67,-.62,.46,1.01,1.66]];
 const jeep = [[.85,-1.55,1.62,.05,.99],[.66,-.60,.38,.99,1.60]];
-const sport=[[supercarLayout.halfWidth,-2.32,2.32,.10,.73],[.71,-.74,1.11,.73,supercarLayout.roof]];
-const tracks=[[1.18,-2.09,2.09,.05,1.20],[.77,-.85,.95,1.20,1.91]];
+const sport=[[supercarLayout.halfWidth,-supercarLayout.halfLength,supercarLayout.halfLength,.10,.73],
+  [.84,-.98,1.10,.73,supercarLayout.roof]];
+const tracks=[[tankHull.halfWidth,-tankHull.halfLength,tankHull.halfLength,.05,1.20*tankScale],
+  [.77*tankScale,-.85*tankScale,.95*tankScale,1.20*tankScale,tankHull.height]];
 const boatHull=[[.57,-2.65,-1.87,-.60,.43],[1.04,-1.87,2.15,-.62,.50],[.86,2.15,2.65,-.50,.45]];
 const trafficShapes=Object.fromEntries(Object.entries(civilianProfiles).map(([model,p])=>[model,
   [[p.halfWidth,-p.halfLength,p.halfLength,.10,p.belt??.90],

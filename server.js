@@ -76,7 +76,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import {validEquipment} from './public/arcade-melee.js';
 import { advanceReload, magazineView, startReload } from './public/magazines.js';
-import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, fireTurret } from './public/expedition.js';
+import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, firePilotGuns, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -193,7 +193,7 @@ function worldView() {
     return r.source==='jet' ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
   }) : world.bullets;
   const heli=world.heli;
-  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && heli.gunner!=null && !heli.wrecked} : heli;
+  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && (heli.gunner!=null || heli.pilot!=null) && !heli.wrecked} : heli;
   const sports=world.hoops?{
     basketball:{...world.basketball,npcs:world.hoops.roster.view(ticks)},
     volleyball:world.volleyball.map((game,i)=>({...game,athletes:world.volleyballActivity.rosters[i].view(ticks)})),
@@ -612,7 +612,7 @@ function tick() {
   }
   world.jet.chainFiring=false;
   if(world.jet.pilot==null)stepJet(world,null,step,players);
-  if(CITY)world.heli.chainFiring=false;
+  world.heli.chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   let yachtInput,hookInput;
   if(world.tank?.wrecked || world.tank?.sinking)stepTank(world,null,step);
@@ -725,7 +725,6 @@ function tick() {
             else takeRide(ride,player);
           }else if(target==='tank'){
             if(use.role==='exit')leaveTank(world,player);
-            else if(use.role==='gunner'){world.tank.gunner=player.id;world.tank.roofYaw=world.tank.yaw;world.tank.roofPitch=0;match?.release(player);}
             else {world.tank.driver=player.id;match?.release(player);}
           }else if(target==='jet'){
             if(use.role==='exit')leaveJet(world.jet,player);
@@ -791,7 +790,8 @@ function tick() {
       fly(world, input || { ...idle, aimYaw: world.heli.yaw }, step, players);
       vehicleContacts(world,'heli',before,[...players.values(),...npcs],ticks,step);
       if (world.heli.pilot !== player.id) continue;
-      if (input?.fire) launchMissile(world,'heli',player,ticks);
+      if (input?.fire) firePilotGuns(world,player,ticks);
+      if (input?.missile) launchMissile(world,'heli',player,ticks);
       const { x, y, z, yaw, grounded } = world.heli;
       player.state = { x, y, z, vy: 0, grounded };
       player.yaw = yaw;
@@ -806,8 +806,7 @@ function tick() {
     if (kind) {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
-        if(kind==='tank'){vehicle.roofYaw=input.aimYaw;vehicle.roofPitch=turretPitch(input.aimPitch);}
-        else {vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);}
+        vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
         if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(kind==='rover' && input.sidearm && sidearmCar(world,player.id)){
           if(input.reload)startReload(player,ticks,sidearmSlot);
@@ -896,11 +895,11 @@ function tick() {
   stepWakeCrossings(world,step);
   world.stepDolphins?.(step);
   world.stepManatees?.(step);
-  for(const kind of ['rover','heli',...(world.tank?['tank']:[]),...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
+  for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
     gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
-    gunner.yaw=kind==='tank'?v.roofYaw:v.turretYaw;gunner.moving=gunner.sprint=false;
+    gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
   world.stepGulls?.(step);

@@ -7,7 +7,7 @@ const {storefrontFaces,visitRoadPodium,retailSurface}=await import('../public/fr
 const {tipFurniture,stepFurniture,fallenTop}=await import('../public/shop-furniture.js');
 const {furnitureRanges,updateShopFurniture}=await import('../public/shop-furniture-view.js');
 const dt=1/30,face=storefrontFaces[9],world=newExpedition(),r=world.rover;
-// Keep the parked Vesper out of this scripted pickup-to-furniture collision.
+// Keep the parked Cheetah out of this scripted pickup-to-furniture collision.
 Object.assign(world.supercar,{x:30,z:23});
 Object.assign(r,{x:-4,z:9.05,y:.8,driver:1,yaw:-Math.PI/2,speed:9});
 for(let i=0;i<100;i++){driveRover(world,{throttle:1},dt);stepFurniture(world.doors,dt);}

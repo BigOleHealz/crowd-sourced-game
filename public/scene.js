@@ -81,6 +81,7 @@ import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
 import {poseRagdoll,releaseRagdoll} from './ragdoll-view.js';
@@ -93,7 +94,7 @@ import {marinaHullContains,marinaModel} from './marina-fleet-layout.js';
 import { missileLaunchers, missileView, turretView } from './mount-view.js';
 import { mounts, mountPosition, vehicleById } from './mounts.js';
 import { tracePulse } from './expedition.js';
-import { createSupercarView } from './supercar-view.js';
+import {createCheetahView} from './cheetah-view.js';
 import { createRoverView } from './rover-view.js';
 import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
@@ -585,8 +586,10 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   airframe.scale.setScalar(1.23);group.add(airframe);
   const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
-  Object.assign(hull.mesh(airframe,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
-  Object.assign(launchers.mesh(group,paint,false).userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  const legacyHull=hull.mesh(airframe,paint,false);
+  Object.assign(legacyHull.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+  const legacyLaunchers=launchers.mesh(group,paint,false);
+  Object.assign(legacyLaunchers.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
   const windows=glazing.mesh(airframe,alpineGlass(panorama,{transparent:true,opacity:.83,depthWrite:false}),false);
   Object.assign(windows.userData,{impactSurface:'solid',vehicle:'heli'});
   const updateGlass=helicopterPanes.bind(windows);
@@ -597,10 +600,11 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-2});
   const placard=new THREE.PlaneGeometry(.69,.105);
+  const legacyPlacards=[];
   for(const side of [-1,1]){
     const id=new THREE.Mesh(placard,lettering);
     id.position.set(side*.773,.928,.12);id.rotation.y=side*Math.PI/2;
-    airframe.add(id);
+    airframe.add(id);legacyPlacards.push(id);
   }
   const blade=aerofoil([[-.06,.28],[.08,.28],[.13,.62],[.135,3.98],[-.035,4.40],[-.21,4.39],[-.11,3.92],[-.11,.62]],.026);
   for(let i=0;i<4;i++){
@@ -617,10 +621,88 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const tailHub=new THREE.Group();
   tailHub.position.set(.17,2.72,5.09);tailHub.rotation.z=.29;airframe.add(tailHub);
   const tailRotor=fan.mesh(tailHub,material,false);
+  const replacementMaterials=new Set();
+  let replacementFrame=null, modelMainRotor=null, modelTailRotor=null;
+  new GLTFLoader().load('./mh-6-little-bird.glb',({scene:model})=>{
+    // Sketchfab's root is already upright; turn its diagonal nose toward -Z.
+    model.rotation.y=-43*Math.PI/180;
+    model.scale.setScalar(2.7);
+    model.position.y=1.3;
+    model.traverse(node=>{
+      if(node.isMesh){
+        Object.assign(node.userData,{impactSurface:'metal',vehicle:'heli',target:'heli'});
+        for(const mat of Array.isArray(node.material)?node.material:[node.material])replacementMaterials.add(mat);
+      }
+    });
+    // The Sketchfab export merged both fixed rotors into the body mesh. Move
+    // their triangles into separate meshes so they can spin without a second
+    // set of blades being drawn over them.
+    const mainPivot=new THREE.Vector3(.08,-.02,.30);
+    const tailPivot=new THREE.Vector3(-.803,.94,.097);
+    modelMainRotor=new THREE.Group();modelMainRotor.position.copy(mainPivot);
+    modelTailRotor=new THREE.Group();modelTailRotor.position.copy(tailPivot);
+    let rotorParent=null;
+    model.traverse(node=>{
+      if(!node.isMesh || !node.geometry.index)return;
+      const geometry=node.geometry,positions=geometry.getAttribute('position');
+      const body=[],main=[],tail=[],indices=geometry.index;
+      const parent=Array.from({length:positions.count},(_,i)=>i);
+      const root=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;};
+      for(let i=0;i<indices.count;i+=3){
+        const a=root(indices.getX(i)),b=root(indices.getX(i+1)),c=root(indices.getX(i+2));
+        parent[b]=a;parent[c]=a;
+      }
+      const components=new Map();
+      for(let v=0;v<positions.count;v++){
+        const key=root(v),bounds=components.get(key)??{
+          minX:Infinity,minY:Infinity,minZ:Infinity,maxX:-Infinity,maxY:-Infinity,maxZ:-Infinity
+        };
+        const x=positions.getX(v),y=positions.getY(v),z=positions.getZ(v);
+        bounds.minX=Math.min(bounds.minX,x);bounds.maxX=Math.max(bounds.maxX,x);
+        bounds.minY=Math.min(bounds.minY,y);bounds.maxY=Math.max(bounds.maxY,y);
+        bounds.minZ=Math.min(bounds.minZ,z);bounds.maxZ=Math.max(bounds.maxZ,z);
+        components.set(key,bounds);
+      }
+      for(let i=0;i<indices.count;i+=3){
+        const vertices=[indices.getX(i),indices.getX(i+1),indices.getX(i+2)];
+        const bounds=components.get(root(vertices[0]));
+        const bladeSpan=Math.max(bounds.maxX-bounds.minX,bounds.maxY-bounds.minY);
+        const tipRadius=Math.max(
+          Math.hypot(bounds.minX-mainPivot.x,bounds.minY-mainPivot.y),
+          Math.hypot(bounds.maxX-mainPivot.x,bounds.maxY-mainPivot.y)
+        );
+        const nearTail=bounds.minX>-.85 && bounds.maxX<-.77 &&
+          bounds.minY>.88 && bounds.maxY<1 && bounds.minZ>-.16 && bounds.maxZ<.35;
+        // The coloured blade tips are separate tiny components in the GLB.
+        // Keep them with the long blades instead of leaving them in midair.
+        const isMain=!nearTail && bounds.minZ>.20 && bounds.maxZ<.38 &&
+          (bladeSpan>.48 || (bounds.maxZ<.365 && tipRadius>1));
+        const isTail=nearTail;
+        (isMain?main:isTail?tail:body).push(...vertices);
+      }
+      for(const [part,pivot,indices] of [[modelMainRotor,mainPivot,main],[modelTailRotor,tailPivot,tail]]){
+        if(!indices.length)continue;
+        const bladeGeometry=geometry.clone();bladeGeometry.setIndex(indices);
+        bladeGeometry.translate(-pivot.x,-pivot.y,-pivot.z);
+        const blades=new THREE.Mesh(bladeGeometry,node.material);
+        Object.assign(blades.userData,node.userData);
+        part.add(blades);
+      }
+      if(main.length || tail.length)rotorParent=node.parent;
+      geometry.setIndex(body);
+    });
+    rotorParent?.add(modelMainRotor,modelTailRotor);
+    airframe.add(model);
+    replacementFrame=rotorParent;
+    legacyHull.visible=false;legacyLaunchers.visible=false;windows.visible=false;
+    for(const placard of legacyPlacards)placard.visible=false;
+    // The replacement now owns the animated blades.
+    mainRotor.visible=false;tailRotor.visible=false;
+  },undefined,error=>console.warn('Little Bird model unavailable; showing original helicopter.',error));
   const shadow = new THREE.Mesh(new THREE.PlaneGeometry(4.0,7.8).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x27382e,transparent:true,opacity:.38,depthWrite:false}));
   scene.add(shadow);
-  const healthLabel=objectHealthLabel(scene,'BLACK HAWK');
+  const healthLabel=objectHealthLabel(scene,'LITTLE BIRD');
   // One instanced draw for the exhaust plume. Each puff grows, drifts, and
   // shrinks out at the top; the entire plume disappears when the craft recovers.
   const puffCount=9;
@@ -632,7 +714,16 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   airframe.add(smoke);
   const puff=new THREE.Object3D();
   let phase=0, speed=0;
-  return { group, update(heli,dt,crewView) {
+  const crewPoint=new THREE.Vector3();
+  return { group, crewSeat(pilot) {
+    if(replacementFrame){
+      // Both seats lie just behind the Little Bird's open cockpit frame.
+      crewPoint.set(pilot ? .15 : .04,pilot ? -.15 : -.12,-.20);
+      return replacementFrame.localToWorld(crewPoint);
+    }
+    crewPoint.set(pilot ? -.35 : .35,.72,-.78);
+    return airframe.localToWorld(crewPoint);
+  }, update(heli,dt,crewView) {
     const maxHp=Math.max(1,heli.maxHp??500);
     const hp=clamp(heli.hp??maxHp,0,maxHp);
     const wrecked=heli.wrecked===true;
@@ -646,6 +737,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     group.position.set(heli.x,heli.y,heli.z);
     group.rotation.set((heli.pitch || 0)-Math.min(.43,drift*.14),-heli.yaw,wrecked ? -.29 : (heli.roll || 0)-Math.min(.48,drift*.15),'YXZ');
     paint.color.setHex(wrecked ? 0x535253 : smoking ? 0xb3a29b : 0xffffff);
+    for(const mat of replacementMaterials)mat.color?.setHex(wrecked ? 0x666666 : smoking ? 0xb3a29b : 0xffffff);
     smoke.visible=smoking;
     if(smoking) {
       phase=(phase+dt*.72)%1;
@@ -665,6 +757,8 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     const rotorTarget=heli.fuel===0 ? (heli.grounded?0:7) : heli.pilot!=null ? 20 : heli.abandonedFor!=null ? Math.max(5,18-3*drift) : 0;
     speed=wrecked ? 0 : mix(speed,rotorTarget,1-Math.exp(-dt*4));
     mainRotor.rotation.y += speed*dt; tailRotor.rotation.x -= speed*dt*2;
+    if(modelMainRotor)modelMainRotor.rotation.z += speed*dt;
+    if(modelTailRotor)modelTailRotor.rotation.x -= speed*dt*2;
     const floor = groundHeight(heli.x,heli.z), height = Math.max(0,heli.y-floor);
     shadow.position.set(heli.x,floor+.07,heli.z);
     shadow.rotation.y = -heli.yaw;
@@ -773,7 +867,7 @@ function fieldEffects(scene) {
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
     if(s.hitKind==='dolphin' || s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
-    if(CITY && sourceVehicle==='heli' && s.weapon==='turret'){
+    if(CITY && sourceVehicle==='heli' && (s.weapon==='turret' || s.weapon==='pilotGun')){
       // Rapid fire already supplies the contact point. Recasting every impact
       // against Brickell's batched meshes can stall an entire snapshot.
       if(b.y<=MAP.waterY || (s.tick>=lastChainChipTick && s.tick-lastChainChipTick<2))return;
@@ -1217,7 +1311,7 @@ export function createScene(canvas) {
   const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
-  const updateSupercar=CITY && createSupercarView(scene,Batch,shadowMap,panorama);
+  const updateSupercar=CITY && createCheetahView(scene,shadowMap);
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
@@ -1229,7 +1323,8 @@ export function createScene(canvas) {
   const updateSpears=CITY?spearfishingView(scene,camera):null;
   const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
-  sightModels[0].position.set(0,-.214,-.40);
+  // Give the Colt's solid stock enough eye relief to keep the aim point clear.
+  sightModels[0].position.set(0,-.265,-.68);
   sightModels[1].position.set(0,-.125,-.40);
   sightModels[4].position.set(.15,-.203,-.80);
   sightModels[4].rotation.set(.04,.23,-.04);
@@ -1496,10 +1591,13 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
-      a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot && state.id!==heli.pilot && state.id!==heli.gunner;
+      const heliPilot=state.id===heli.pilot,heliGunner=state.id===heli.gunner;
+      const heliCrew=heliPilot || heliGunner;
+      a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
+      if(heliCrew)a.shadow.visible=false;
       if(!a.root.visible && a.ripples) for(const ring of a.ripples.rings) ring.visible=false;
-      if(state.id===world.tank?.driver || seated || entering || station || state.id===world.jet?.pilot) a.label.sprite.visible=false;
+      if(state.id===world.tank?.driver || seated || entering || station || heliCrew || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
       if(state.scuba && !a.scubaTank){
@@ -1517,9 +1615,21 @@ export function createScene(canvas) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        pose(a,skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
+        const crewSeat=heliCrew ? helicopter.crewSeat(heliPilot) : null;
+        const posedState=heliCrew ? {...state,x:crewSeat.x,y:crewSeat.y,z:crewSeat.z,yaw:heli.yaw,moving:false,grounded:false,swimming:false,parachute:'packed'} :
+          skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state;
+        pose(a,posedState,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
+        if(heliCrew){
+          a.root.rotation.set(heli.pitch||0,-heli.yaw,heli.roll||0,'YXZ');
+          a.root.scale.multiplyScalar(.60);
+          for(const limb of a.limbs){
+            limb.leg.rotation.x=1.36;limb.knee.rotation.x=-1.30;
+            limb.arm.rotation.x=1.04;limb.forearm.rotation.x=.50;
+          }
+          for(const tool of a.tools)tool.visible=false;
+        }
         if(state.infected)poseInfected(a,state,clock);
-        if(!seated && !station && !entering && !skipper)contacts.boots(a,state,local);
+        if(!seated && !station && !entering && !skipper && !heliCrew)contacts.boots(a,state,local);
         if(state.casinoDealer || world.casino?.player===state.id)poseAtTable(a,!!state.casinoDealer,world.casino,clock);
         if(state.bankRole)poseBankGuest(a,state,bankVisual,(world.simTick??clock*30)/30);
         const volley=state.volleyball??volleyballMember(world.volleyball,state.id);
@@ -1585,7 +1695,7 @@ export function createScene(canvas) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(road.model==='engine'?monitorHeight:inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?3.6:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
@@ -1627,7 +1737,7 @@ export function createScene(canvas) {
       target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats);
@@ -1680,7 +1790,8 @@ export function createScene(canvas) {
       camera.position.lerp(overheadEye,overhead);
     }
     const localBody=avatars.get(local.id)?.root;
-    if(localBody)localBody.visible=!blastDeath && !inTank && !piloting && local.id!==heli.gunner && (nearInterior || distance>.86) && (!onFoot || overhead<.48);
+    if(localBody)localBody.visible=!blastDeath && !inTank && ((local.id===heli.pilot || local.id===heli.gunner) ||
+      (!piloting && (nearInterior || distance>.86) && (!onFoot || overhead<.48)));
     const sighted = onFoot && !local.holstered && Boolean(view.sighted) && !local.dead && !local.fall && !local.climb && !local.swimming && !isArcadeMelee(local.weapon);
     sightModels[0].visible=sighted && local.weapon===1;
     sightModels[1].visible=sighted && local.weapon===2;

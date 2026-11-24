@@ -27,6 +27,7 @@ export const firearmSpecs={
   3:{name:'Meridian scoped rifle',speed:2 * carbineSpeed,range:204,damage:80,headshotDamage:150,vehicleDamage:45,cooldown:33,propDamage:2},
   yachtGun:{name:'Solana bow gun',speed:76,range:160,damage:80,cooldown:3,propDamage:80},
   turret:{name:'Vehicle turret',speed:62,range:160,damage:34,cooldown:7.5,propDamage:34},
+  pilotGun:{name:'Helicopter forward guns',speed:80,range:160,damage:24,cooldown:2,propDamage:24},
 };
 
 // Swept segments use a 0..1 fraction; this includes contacts between ticks.
