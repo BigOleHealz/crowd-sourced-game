@@ -1,7 +1,7 @@
 import {mountPosition} from './mounts.js';
 
 // The footwell is the top of the chassis floor and the ankle's fore/aft position, in vehicle metres.
-const rover={seat:[-.322,.11,-.085],scale:.85,floorY:.65,ankleZ:-.59,wheel:[-.36,1.195,-.29],radius:.117,tilt:-.50,handle:[-.738,.964,.204]};
+const rover={seat:[-.702,.11,-1.65],scale:.85,floorY:.65,ankleZ:-2.155,wheel:[-.74,1.195,-1.855],radius:.117,tilt:-.50,handle:[-1.118,.964,-1.361]};
 const gt={seat:[-.365,-.27,-.070],scale:.8,floorY:.235,ankleZ:-.61,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-1.15,.604,.28]};
 function traffic(width,lift,floorY,van=false){
   return {seat:[-.43,-.22+lift,-.28],scale:.91,floorY,ankleZ:-.86,wheel:[-.43,1.05+lift,-.65],radius:.145,tilt:-.42,
