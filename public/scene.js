@@ -1314,7 +1314,8 @@ export function createScene(canvas) {
   const updateSpears=CITY?spearfishingView(scene,camera):null;
   const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
-  sightModels[0].position.set(0,-.214,-.40);
+  // Give the Colt's solid stock enough eye relief to keep the aim point clear.
+  sightModels[0].position.set(0,-.265,-.68);
   sightModels[1].position.set(0,-.125,-.40);
   sightModels[4].position.set(.15,-.203,-.80);
   sightModels[4].rotation.set(.04,.23,-.04);
