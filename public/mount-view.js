@@ -202,10 +202,10 @@ export function turretView(scene,kind,Batch,material) {
   box.dispose();cylinder.dispose();
   const offset=mounts[kind].turret;
   const aim=new THREE.Quaternion(),desired=new THREE.Euler(0,0,0,'YXZ');
-  return v=>{
+  return (v,visible=true)=>{
     const pivot=mountPosition(v,offset);
     base.position.set(pivot.x,pivot.y,pivot.z);
-    base.visible=!v.wrecked;
+    base.visible=visible && !v.wrecked;
     if(kind==='rover'||kind==='boat'||kind==='superyacht') {
       const deck=kind==='boat'?v:v.suspension;
       base.rotation.set(deck?.pitch ?? 0,-v.yaw,deck?.roll ?? 0,'YXZ');

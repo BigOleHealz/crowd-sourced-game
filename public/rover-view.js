@@ -18,6 +18,7 @@ import {damagedFittings} from './road-fittings.js';
 import {crushedScale} from './vehicle-wreck-view.js';
 
 export function createRoverView(scene, Batch, material, shadowMap, panorama) {
+  const humveeScale=.27*2.2;
   const root = new THREE.Group(), chassis = new Batch();
   const axles=new THREE.Group();
   scene.add(root,axles);
@@ -287,21 +288,31 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   root.add(fallback);
   const modelWheels=[];
   const modelMaterials=new Map();
+  const up=new THREE.Vector3(0,1,0);
+  const spinRotation=new THREE.Quaternion(),steerRotation=new THREE.Quaternion();
+  let modelGun=null;
   let replacementReady=false,burned=false;
   new GLTFLoader().load('./low-poly-humvee.glb',({scene:model})=>{
-    model.scale.setScalar(.27);
-    model.position.set(0,.40,-.09);
+    model.scale.setScalar(humveeScale);
+    // Scale the original placement as well, leaving the tires on the ground.
+    model.position.set(0,.40*2.2,-.09*2.2);
     for(const [name,index,axis,sign] of [
       ['cylinder_11',0,'x',-1],['cylinder_selection_2',1,'y',-1],
       ['cylinder_0',2,'x',-1],['cylinder_selection_1',3,'y',1]]){
       const wheel=model.getObjectByName(name);
       if(wheel) modelWheels[index]={node:wheel,y:wheel.position.y,
-        baseX:wheel.rotation.x,baseY:wheel.rotation.y,axis,sign,spin:0};
+        baseRotation:wheel.quaternion.clone(),spinAxis:axis==='x'?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0),sign,spin:0};
     }
-    // The game's aimable roof weapon replaces the model's fixed weapon.
-    for(const name of ['group11_24','group21_35']){
-      const fixedWeapon=model.getObjectByName(name);
-      if(fixedWeapon) fixedWeapon.visible=false;
+    // The supplied model includes its own roof gun. Use it in place of the
+    // generated turret, and swivel it with the existing gunner aim state.
+    const gun=model.getObjectByName('group21_35');
+    if(gun){
+      const pivot=new THREE.Group();
+      pivot.position.set(0,2.788,.437);
+      gun.parent.add(pivot);
+      model.updateMatrixWorld(true);
+      pivot.attach(gun);
+      modelGun=pivot;
     }
     model.traverse(node=>{
       if(!node.isMesh)return;
@@ -314,9 +325,10 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     root.add(model);
     fallback.visible=false;
     replacementReady=true;
+    update.usesModel=true;
     if(burned)for(const [mat,color] of modelMaterials)mat.color.copy(color).multiplyScalar(.42);
   },undefined,error=>console.warn('Humvee model unavailable; using generated truck',error));
-  return function update(r,dt) {
+  function update(r,dt) {
     root.scale.y=axles.scale.y=crushedScale(r);root.visible=root.scale.y>0;
     axles.visible=!replacementReady && root.visible;
     updatePanes(r.brokenGlass);
@@ -349,12 +361,19 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     modelWheels.forEach((entry,i)=>{
       if(!entry)return;
       const {node,y}=entry;
-      node.position.y=y+((pose?.wheels[i]??0)-(isFlat(r,i)?flatWheelDrop:0))/.27;
-      entry.spin+=entry.sign*r.speed*dt/.31;
-      node.rotation.x=entry.baseX+(entry.axis==='x'?entry.spin:0);
-      node.rotation.y=entry.baseY+(entry.axis==='y'?entry.spin:0)+(i%2===0?-frontWheelAngle(r):0);
+      node.position.y=y+((pose?.wheels[i]??0)-(isFlat(r,i)?flatWheelDrop:0))/humveeScale;
+      entry.spin+=entry.sign*r.speed*dt/(.31*2.2);
+      steerRotation.setFromAxisAngle(up,i%2===0?-frontWheelAngle(r):0);
+      spinRotation.setFromAxisAngle(entry.spinAxis,entry.spin);
+      node.quaternion.copy(steerRotation).multiply(entry.baseRotation).multiply(spinRotation);
     });
+    if(modelGun){
+      modelGun.rotation.y=r.gunner==null?0:r.yaw-r.turretYaw;
+      modelGun.rotation.x=r.gunner==null?0:r.turretPitch;
+    }
     idle(root,r,dt);
     for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);
-  };
+  }
+  update.usesModel=false;
+  return update;
 }
