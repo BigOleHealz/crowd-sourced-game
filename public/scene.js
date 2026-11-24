@@ -867,7 +867,7 @@ function fieldEffects(scene) {
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
     if(s.hitKind==='dolphin' || s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
-    if(CITY && sourceVehicle==='heli' && s.weapon==='turret'){
+    if(CITY && sourceVehicle==='heli' && (s.weapon==='turret' || s.weapon==='pilotGun')){
       // Rapid fire already supplies the contact point. Recasting every impact
       // against Brickell's batched meshes can stall an entire snapshot.
       if(b.y<=MAP.waterY || (s.tick>=lastChainChipTick && s.tick-lastChainChipTick<2))return;

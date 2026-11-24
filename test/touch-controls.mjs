@@ -5,7 +5,11 @@ for(const [role,fire] of [['foot',true],['armed-car',true],['turret',true],['car
   const {quick,tools}=touchLayout({role,active:true,canAim:role==='foot',jump:'Jump',use:'Exit',seat:null,stance:role==='foot'?'stand':null});
   assert.equal(has(quick,'KeyF'),fire,role);
   assert(has(quick,'KeyE'));
-  if(role==='heli'){assert(has(quick,'Space')&&has(quick,'ShiftLeft')&&has(tools,'KeyK'));}
+  if(role==='heli'){
+    assert(has(quick,'Space')&&has(quick,'ShiftLeft')&&has(tools,'KeyK'));
+    assert(quick.some(([code,label])=>code==='KeyF'&&label==='Forward guns'));
+    assert(quick.some(([code,label])=>code==='KeyR'&&label==='Missile'));
+  }
   if(role==='jet'){assert(has(quick,'KeyR')&&has(quick,'KeyB'));}
   if(role==='foot'){assert(has(tools,'KeyC')&&has(tools,'KeyZ')&&has(tools,'tool'));}
 }
