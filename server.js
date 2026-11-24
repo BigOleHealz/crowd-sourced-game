@@ -498,7 +498,7 @@ sockets.on('connection', (ws,request) => {
   let id = 1;
   while (players.has(id)) id++;
   const player = {
-    id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), character:['classic','mike','pink'][randomInt(3)], life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
+    id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), character:['classic','mike','pink','nathan'][randomInt(4)], life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
   const arrival=arrivalRoutes.get(request.url);
