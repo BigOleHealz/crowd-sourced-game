@@ -1,7 +1,7 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {tankPivot,tankBarrel,roofPivot} from './tank-layout.js';
+import {tankPivot,tankBarrel,roofPivot,tankScale} from './tank-layout.js';
 
 const cube=new THREE.BoxGeometry(),disc=new THREE.CylinderGeometry(1,1,1,18);
 function plate(batch,tint,rings){
@@ -10,16 +10,6 @@ function plate(batch,tint,rings){
   idx.push(0,1,2,0,2,3,4,6,5,4,7,6);
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();
   batch.add(g,tint,0,0,0);g.dispose();
-}
-
-// A closed belt follows two straight runs and two semicircular sprockets.
-const run=2.99,r=.34,arc=Math.PI*r,loop=2*run+2*arc,links=32;
-function linkPose(distance){
-  let d=(distance%loop+loop)%loop;
-  if(d<run)return [.43+r,-run/2+d,0];
-  d-=run;if(d<arc){const a=d/r;return [.43+r*Math.cos(a),run/2+r*Math.sin(a),a];}
-  d-=arc;if(d<run)return [.43-r,run/2-d,Math.PI];
-  const a=(d-run)/r;return [.43-r*Math.cos(a),-run/2-r*Math.sin(a),Math.PI+a];
 }
 
 export function tankView(scene,Batch,shadowMap){
@@ -40,8 +30,8 @@ export function tankView(scene,Batch,shadowMap){
   top.beam(trim,[.53,.22,.61],[.55,.78,.65],.018);
   gun.add(cube,dark,0,0,-.60,.47,.35,.54);
   gun.add(disc,sand,0,0,-1.41,.091,1.38,.091,Math.PI/2);
-  gun.add(disc,dark,0,0,-(tankBarrel-.11),.128,.23,.128,Math.PI/2);
-  gun.add(disc,0x212923,0,0,-(tankBarrel+.005),.086,.01,.086,Math.PI/2);
+  gun.add(disc,dark,0,0,-(tankBarrel/tankScale-.11),.128,.23,.128,Math.PI/2);
+  gun.add(disc,0x212923,0,0,-(tankBarrel/tankScale+.005),.086,.01,.086,Math.PI/2);
   // The outer canvas cover bunches against the cast mantlet and moves with it.
   const curved=new THREE.SphereGeometry(1,18,10);
   gun.add(curved,0x556049,0,.010,-.69,.252,.202,.294);
@@ -74,21 +64,21 @@ export function tankView(scene,Batch,shadowMap){
     for(let j=0;j<8;j++)art.add(cube,dark,side*.38,1.18,1.06+j*.079,.50,.025,.038);
   }
   const oldHull=art.mesh(root,mat,false),oldTurret=top.mesh(turret,equipmentFinish(),false),oldBarrel=gun.mesh(barrel,equipmentFinish(),false);
+  oldHull.scale.setScalar(tankScale);oldTurret.scale.setScalar(tankScale);oldBarrel.scale.setScalar(tankScale);
   const roofRing=new THREE.Group(),roofGun=new THREE.Group(),cradle=new Batch(),receiver=new Batch();
   root.add(roofRing);roofRing.add(roofGun);roofRing.position.fromArray(roofPivot);
+  roofRing.scale.setScalar(tankScale);
   cradle.add(disc,dark,0,-.13,0,.11,.28,.11);
   cradle.add(disc,trim,0,-.02,0,.17,.06,.17);
   receiver.add(cube,0x444b43,0,0,-.21,.15,.15,.45);
   receiver.add(disc,0x363d36,0,.015,-.59,.043,.48,.043,Math.PI/2);
   for(const side of [-1,1])receiver.add(cube,dark,side*.07,-.04,.11,.035,.14,.075);
   cradle.mesh(roofRing,mat,false);receiver.mesh(roofGun,mat,false);
-  const belt=new THREE.InstancedMesh(cube,new THREE.MeshPhongMaterial({color:0x454740,shininess:33}),links*2);
-  belt.instanceMatrix.setUsage(THREE.DynamicDrawUsage);belt.frustumCulled=false;root.add(belt);
   // The downloaded GLB has ten material meshes but no moving-part hierarchy.
-  // Its vertices are in centimetres and its nose faces +Z. Keep the game's
-  // track links, roof gun and collision; replace the three visible shell parts.
+  // Its vertices are in centimetres and its nose faces +Z. The model has
+  // complete tracks, so only the roof gun and collision come from the game.
   const model=new THREE.Group(),modelTurret=new THREE.Group(),modelBarrel=new THREE.Group();
-  model.scale.setScalar(.005);model.rotation.y=Math.PI;model.position.z=-.45;root.add(model);
+  model.scale.setScalar(.005*tankScale);model.rotation.y=Math.PI;model.position.z=-.45*tankScale;root.add(model);
   modelTurret.position.set(0,155,-100);model.add(modelTurret);
   modelBarrel.position.set(0,43,168);modelTurret.add(modelBarrel);
   new GLTFLoader().load(new URL('./simple-tank.glb',import.meta.url).href,({scene:loaded})=>{
@@ -110,10 +100,9 @@ export function tankView(scene,Batch,shadowMap){
   },undefined,error=>console.warn('Simple Tank unavailable; using the original shell.',error));
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3.15,5.3),new THREE.MeshBasicMaterial({map:shadowMap,color:0x1e2a26,opacity:.48,transparent:true,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.position.y=.025;root.add(shadow);
+  shadow.scale.setScalar(tankScale);
   const localAim=new THREE.Vector3(),inverseHull=new THREE.Quaternion();
-  const stamp=new THREE.Object3D(),phase=[0,0];
-  let lastDriver,previousYaw;
-  return (tank,dt)=>{
+  return tank=>{
     root.visible=!!tank;if(!tank)return;
     const ride=tank.suspension;
     root.position.set(tank.x,tank.y+(ride?.heave??0),tank.z);
@@ -131,19 +120,5 @@ export function tankView(scene,Batch,shadowMap){
     localAim.applyQuaternion(inverseHull);
     roofRing.rotation.y=Math.atan2(-localAim.x,-localAim.z);
     roofGun.rotation.x=Math.asin(THREE.MathUtils.clamp(localAim.y,-1,1));
-    const firstFrame=previousYaw==null;
-    const turn=lastDriver===tank.driver && previousYaw!=null ? Math.atan2(Math.sin(tank.yaw-previousYaw),Math.cos(tank.yaw-previousYaw)):0;
-    if(!firstFrame && Math.abs(tank.speed)<.0001 && Math.abs(turn)<.00001){lastDriver=tank.driver;previousYaw=tank.yaw;return;}
-    for(let k=0;k<2;k++){
-      const side=k*2-1;
-      phase[k]=(phase[k]-tank.speed*dt+side*turn)%loop;
-      for(let j=0;j<links;j++){
-        const [y,z,tilt]=linkPose(j*loop/links+phase[k]);
-        stamp.position.set(side*.91,y,z);stamp.rotation.x=tilt;
-        stamp.scale.set(.11,.032,loop/links*.93);stamp.updateMatrix();
-        belt.setMatrixAt(k*links+j,stamp.matrix);
-      }
-    }
-    belt.instanceMatrix.needsUpdate=true;previousYaw=tank.yaw;lastDriver=tank.driver;
   };
 }

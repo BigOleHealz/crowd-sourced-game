@@ -7,7 +7,7 @@ import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
 import {roadContact,sweepRoad} from './road-contact.js';
 import {vehicleContact} from './vehicle-contact.js';
-import {tankPad} from './tank-layout.js';
+import {tankPad,tankHull} from './tank-layout.js';
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 export function parkedTank(){
@@ -15,8 +15,12 @@ export function parkedTank(){
     driver:null,gunner:null,roofYaw:0,roofPitch:0,speed:0,fuel:100,turnRate:0,hp:750,maxHp:750,wrecked:false,recoverySeconds:0};
 }
 export function nearTank(tank,state){
+  if(!tank || !state)return false;
+  const dx=state.x-tank.x,dz=state.z-tank.z,c=Math.cos(tank.yaw),s=Math.sin(tank.yaw);
+  const side=dx*c+dz*s,along=-dx*s+dz*c;
+  const edge=Math.hypot(Math.max(0,Math.abs(side)-tankHull.halfWidth),Math.max(0,Math.abs(along)-tankHull.halfLength));
   return !!tank && !tank.wrecked && !tank.sinking && (tank.driver==null || tank.gunner==null) && state?.grounded &&
-    Math.hypot(tank.x-state.x,tank.y-state.y,tank.z-state.z)<3.15;
+    Math.abs(tank.y-state.y)<2.2 && edge<1.1;
 }
 export function leaveTank(world,player){
   const tank=world.tank;
@@ -25,9 +29,10 @@ export function leaveTank(world,player){
   if(tank.driver===player.id){tank.driver=null;tank.speed=tank.turnRate=0;}
   else if(gunner)tank.gunner=null;
   else return false;
-  for(const side of gunner?[1,-1]:[-1,1])for(const aft of [0,1.3,-1.3,2.8]){
-    const x=tank.x+2.05*side*Math.cos(tank.yaw)-aft*Math.sin(tank.yaw);
-    const z=tank.z+2.05*side*Math.sin(tank.yaw)+aft*Math.cos(tank.yaw);
+  for(const side of gunner?[1,-1]:[-1,1])for(const aft of [0,2.3,-2.3,4.5]){
+    const offset=tankHull.halfWidth+.85;
+    const x=tank.x+offset*side*Math.cos(tank.yaw)-aft*Math.sin(tank.yaw);
+    const z=tank.z+offset*side*Math.sin(tank.yaw)+aft*Math.cos(tank.yaw);
     const y=groundHeight(x,z,tank.y+1.3,world.doors);
     if(y<MAP.waterY+.1 || Math.abs(y-tank.y)>1 || blocked(x,y,z,world.hp,world.doors) || vehicleContact(x,y,z,world,CITY).depth)continue;
     player.state={x,y,z,grounded:true,vy:0};return true;

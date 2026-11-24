@@ -1685,7 +1685,7 @@ export function createScene(canvas) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(road.model==='engine'?monitorHeight:inTank?2.25:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?3.6:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
@@ -1727,7 +1727,7 @@ export function createScene(canvas) {
       target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,7.5) + (piloting ? 6.0 : boat ? 2.5 : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
+    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats);
