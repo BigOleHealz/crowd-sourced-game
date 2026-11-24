@@ -5,6 +5,7 @@ import {glassQuads} from './vehicle-glass-layout.js';
 import {paneBatch} from './pane-damage-view.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {roverPanelDamage} from './rover-panel-damage.js';
 import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
@@ -279,15 +280,52 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   sheet.dispose(); cube.dispose(); disc.dispose();
   const scorchedGlass=new THREE.MeshLambertMaterial({color:0x272e2d,vertexColors:true,side:THREE.DoubleSide});
   const crumpled={front:.92,rear:.42,left:.65,right:.26};
-  let burned=false;
+  // Keep the generated truck visible until the credited Sketchfab model loads.
+  // Its four wheels are separate nodes, so steering, suspension and spin stay live.
+  const fallback=new THREE.Group();
+  while(root.children.length) fallback.add(root.children[0]);
+  root.add(fallback);
+  const modelWheels=[];
+  const modelMaterials=new Map();
+  let replacementReady=false,burned=false;
+  new GLTFLoader().load('./low-poly-humvee.glb',({scene:model})=>{
+    model.scale.setScalar(.27);
+    model.position.set(0,.40,-.09);
+    for(const [name,index,axis,sign] of [
+      ['cylinder_11',0,'x',-1],['cylinder_selection_2',1,'y',-1],
+      ['cylinder_0',2,'x',-1],['cylinder_selection_1',3,'y',1]]){
+      const wheel=model.getObjectByName(name);
+      if(wheel) modelWheels[index]={node:wheel,y:wheel.position.y,
+        baseX:wheel.rotation.x,baseY:wheel.rotation.y,axis,sign,spin:0};
+    }
+    // The game's aimable roof weapon replaces the model's fixed weapon.
+    for(const name of ['group11_24','group21_35']){
+      const fixedWeapon=model.getObjectByName(name);
+      if(fixedWeapon) fixedWeapon.visible=false;
+    }
+    model.traverse(node=>{
+      if(!node.isMesh)return;
+      node.castShadow=true;
+      Object.assign(node.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
+      for(const original of Array.isArray(node.material)?node.material:[node.material]){
+        if(original && !modelMaterials.has(original)) modelMaterials.set(original,original.color.clone());
+      }
+    });
+    root.add(model);
+    fallback.visible=false;
+    replacementReady=true;
+    if(burned)for(const [mat,color] of modelMaterials)mat.color.copy(color).multiplyScalar(.42);
+  },undefined,error=>console.warn('Humvee model unavailable; using generated truck',error));
   return function update(r,dt) {
-    root.scale.y=axles.scale.y=crushedScale(r);root.visible=axles.visible=root.scale.y>0;
+    root.scale.y=axles.scale.y=crushedScale(r);root.visible=root.scale.y>0;
+    axles.visible=!replacementReady && root.visible;
     updatePanes(r.brokenGlass);
     if(burned!==r.wrecked){
       burned=r.wrecked;
       paint.color.setHex(burned ? 0x62584f : 0xffffff);
       facingMaterial.color.setHex(burned ? 0x504b46 : 0xffffff);
       windows.material=burned ? scorchedGlass : glassMat;tailTag.visible=!burned;
+      for(const [mat,color] of modelMaterials)mat.color.copy(color).multiplyScalar(burned?.42:1);
     }
     const rebuilt=updatePanelDamage(burned ? crumpled : r.bodyDamage);
     fittings(r,rebuilt);
@@ -307,6 +345,14 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
       wheel.rotation.x-=r.speed*dt/.36;
       wheel.rotation.y=wheel.position.z<0?-frontWheelAngle(r):0;
       wheel.userData.rubberState.value.set(isFlat(r,i)?flatWheelDrop:0,Math.cos(wheel.rotation.x),Math.sin(wheel.rotation.x));
+    });
+    modelWheels.forEach((entry,i)=>{
+      if(!entry)return;
+      const {node,y}=entry;
+      node.position.y=y+((pose?.wheels[i]??0)-(isFlat(r,i)?flatWheelDrop:0))/.27;
+      entry.spin+=entry.sign*r.speed*dt/.31;
+      node.rotation.x=entry.baseX+(entry.axis==='x'?entry.spin:0);
+      node.rotation.y=entry.baseY+(entry.axis==='y'?entry.spin:0)+(i%2===0?-frontWheelAngle(r):0);
     });
     idle(root,r,dt);
     for(let i=0;i<cargo.length;i++) cargo[i].visible=!burned && i<(r.cargo||0);

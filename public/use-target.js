@@ -1,4 +1,3 @@
-import {CITY} from './world.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {drivenRoad,nearestVehicle} from './rover.js';
 import {nearestTraffic} from './city-traffic.js';
@@ -8,7 +7,7 @@ import {nearBoat,crewBoat} from './patrol-boats.js';
 import {yachtPrompt} from './yacht-layout.js';
 import {basketballUse} from './basketball-layout.js';
 
-const names={rover:CITY?'pickup':'jeep',supercar:'Cheetah',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
+const names={rover:'Humvee',supercar:'Cheetah',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
 const action=(target,role,label)=>({target,role,label});
 export function nextUse(world,feet,id,wanted){
   if(!world || !feet || feet.climb || id==null)return null;
