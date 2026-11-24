@@ -81,6 +81,7 @@ import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
 import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
+import {preloadScubaDiver, useScubaDiver, fitScubaDiver} from './scuba-diver-view.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createRangerRig,poseBasketball,poseRoadBoarding,poseRig} from './ranger-pose.js';
 import {sharkDefeatCamera,poseBittenSwimmer} from './shark-defeat.js';
@@ -964,9 +965,15 @@ function characterLabel(root, name) {
 }
 
 // Parts are assembled in model space about real joints. Forward is local -Z.
-function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=null) {
+function hiker(scene,id,tint,material,uniform,visorMaterials,shadowMap,name,scanned=null,diver=false) {
   const rig=createRangerRig(), {root,body,upper,limbs}=rig;
   scene.add(root);
+  if(diver) {
+    fitScubaDiver(rig);
+    rig.tools=carriedEquipment(upper,scene,Batch);
+    rig.tools.push(...arcadeMeleeEquipment(limbs[1].forearm,Batch));
+    return finishAvatar(scene,rig,material,shadowMap,name);
+  }
   if(scanned) {
     fitPlayerScan(rig,scanned);
     rig.tools=carriedEquipment(upper,scene,Batch);
@@ -1571,13 +1578,15 @@ export function createScene(canvas) {
         }
         continue;
       }
-      const scanned=usePlayerScan(state);
-      if(a && (a.scanned??null)!==scanned){removeAvatar(a);a=null;}
+      if(state.scuba)preloadScubaDiver();
+      const diver=useScubaDiver(state);
+      const scanned=!diver && usePlayerScan(state);
+      if(a && ((a.scanned??null)!==scanned || Boolean(a.scubaDiver)!==diver)){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){
           a=resident(state.id,'Infected',false,infectedLook(state.infected),state.infected);
-        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned);
+        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,scanned,diver);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }
@@ -1600,7 +1609,7 @@ export function createScene(canvas) {
       if(state.id===world.tank?.driver || seated || entering || station || heliCrew || state.id===world.jet?.pilot) a.label.sprite.visible=false;
       const skipper=world.yacht?.driver===state.id;
       if(typeof state.id==='number' && state.paradeCostume && !a.parade)a.parade=fitParadeBreeches(a.body,Batch);
-      if(state.scuba && !a.scubaTank){
+      if(state.scuba && !a.scubaDiver && !a.scubaTank){
         const gear=new Batch();
         gear.add(trunk,0xc8cabc,0,1.275,.29,.095,.40,.095);
         for(const y of [1.09,1.29,1.42])gear.add(round,0x38454b,0,y,.29,.102,.022,.102);

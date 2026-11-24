@@ -1,0 +1,7 @@
+Scuba Diver by turelljc
+https://sketchfab.com/3d-models/scuba-diver-3cffae9b572d4506b3025e29d6ff068c
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Pinewatch modifications: attached the unrigged T-pose mesh to the existing
+player skeleton with generated skin weights for swimming and movement poses.
