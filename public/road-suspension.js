@@ -1,4 +1,4 @@
-import {supercarLayout as gt} from './supercar-layout.js';
+import {supercarLayout as gt,isCheetahCar} from './supercar-layout.js';
 import { groundHeight } from './world.js';
 
 import { wheelsFor,flatWheelDrop,isFlat } from './road-wheel-layout.js';
@@ -25,7 +25,7 @@ export function stepSuspension(rover,dt,surface=groundHeight) {
   }
   const ax=(vx-state.vx)/dt,az=(vz-state.vz)/dt;
   state.vx=vx;state.vz=vz;
-  const sport=rover.kind==='supercar';
+  const sport=isCheetahCar(rover);
   const pitchLoad=clamp((ax*s-az*c)*(sport?.005:.012),sport?-.12:-.60,sport?.09:.60);
   const rollLoad=clamp((ax*c+az*s)*.010,-.40,.40);
   for(let i=0;i<4;i++) {

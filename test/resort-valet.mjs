@@ -9,6 +9,7 @@ const {damageRover,clearRoadExit,driveRover}=await import('../public/rover.js');
 const {stepRoadBoarding}=await import('../public/road-cabin.js');
 const {nextUse}=await import('../public/use-target.js');
 const {newCityTraffic,tryTrafficInteract,driveTrafficCar,leaveTraffic,stepCityTraffic}=await import('../public/city-traffic.js');
+const {supercarLayout}=await import('../public/supercar-layout.js');
 
 const dt=1/30;
 const newResort=()=>{
@@ -36,6 +37,8 @@ for(const [model,name,throttle,steer,departed] of [
   ['veloce','Cheetah',.28,-.83,car=>car.z<64.2],
 ]){
   const world=newResort(),car=world.traffic.find(car=>car.model===model);
+  assert.equal(car.maxHp,world.supercar.maxHp,'Valet Cheetahs match the Lantern Point car health');
+  assert.equal(car.maxHp,supercarLayout.maxHp);
   // Sample the full body footprint, including the bumpers, on the actual forecourt.
   for(let front=-2.7;front<=2.71;front+=.3)for(let side=-1.51;side<=1.52;side+=.15){
     const x=car.x+Math.sin(car.yaw)*front+Math.cos(car.yaw)*side;

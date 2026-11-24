@@ -8,3 +8,5 @@ export const supercarLayout = {
   mass:1450,driveForce:24000,brakeForce:43500,
   maxSpeed:30,reverseSpeed:5.8,maxHp:190,
 };
+
+export const isCheetahCar = car => car?.kind === 'supercar' || car?.model === 'falco' || car?.model === 'veloce';

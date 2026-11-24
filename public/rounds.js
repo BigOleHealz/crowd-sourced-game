@@ -11,7 +11,7 @@ import {estateSolids} from './estate-damage.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
 import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
-import {supercarLayout} from './supercar-layout.js';
+import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {postDown,damagePost} from './street-lamps.js';
 import {flatWheelDrop,isFlat,wheelsFor} from './road-wheel-layout.js';
@@ -140,16 +140,16 @@ export function roverRoundContact(rover,start,delta){
   const c=Math.cos(rover.yaw),s=Math.sin(rover.yaw);
   const point={x:dx*c+dz*s,y:start.y-rover.y,z:-dx*s+dz*c};
   const step={x:delta.x*c+delta.z*s,y:delta.y,z:-delta.x*s+delta.z*c};
-  const sport=rover.kind==='supercar',profile=civilianProfiles[rover.model],wheelStations=wheelsFor(rover);
-  const breadth=profile?2*(profile.bodyWidth+.18):sport?2.18:1.84;
-  const length=profile?2*Math.max(-profile.nose,profile.tail):sport?4.68:3.56;
+  const sport=isCheetahCar(rover),profile=civilianProfiles[rover.model],wheelStations=wheelsFor(rover);
+  const breadth=sport?2.18:profile?2*(profile.bodyWidth+.18):1.84;
+  const length=sport?4.68:profile?2*Math.max(-profile.nose,profile.tail):3.56;
   if(box(point,step,{x:0,y:-.34,z:0},breadth,Math.max(2.34,(profile?.skinHeight??0)+.36),length)===Infinity)return null;
   // Sheet metal above the axles, narrower underbody, and the end bumpers.
   // Their overlaps leave the four visually exposed wheel wells selectable.
   let t=Infinity,wheel=null;
-  for(const [x,y,z,w,h,d] of (trafficBodies[rover.model]??(sport?sportBody:roverBody)))t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  for(const [x,y,z,w,h,d] of (sport?sportBody:trafficBodies[rover.model]??roverBody))t=Math.min(t,box(point,step,{x,y,z},w,h,d));
   const across={x:point.y,y:point.x,z:point.z}, travel={x:step.y,y:step.x,z:step.z};
-  const radius=profile?.tire??(sport?supercarLayout.tire:.36),halfTread=profile?.halfTread??(sport?.128:.14);
+  const radius=sport?supercarLayout.tire:profile?.tire??.36,halfTread=sport?.128:profile?.halfTread??.14;
   for(let i=0;i<wheelStations.length;i++){
     const [side,length]=wheelStations[i],drop=isFlat(rover,i)?flatWheelDrop:0;
     const height=(profile || sport ? radius : .368)+(rover.suspension?.wheels[i] ?? -drop);

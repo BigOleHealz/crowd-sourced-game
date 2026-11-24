@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {stepSuspension, interpolateSuspension} from '../public/road-suspension.js';
 import {mountPosition} from '../public/mounts.js';
+import {roadCabin} from '../public/road-cabin.js';
 
 const dt=1/30, flat=()=>0;
 const truck={x:0,z:0,y:0,yaw:0,speed:0};
@@ -40,3 +41,14 @@ for(let i=0;i<45;i++){
 assert(peak>.04 && peak<.085,'sports springs retain acceleration feedback without excessive squat');
 assert(gt.suspension.wheels.every(h=>Math.abs(h)<.001),'four tyres stay on the road');
 console.log('GT peak acceleration pitch', (peak*180/Math.PI).toFixed(1), 'degrees');
+
+const cheetahs=[{kind:'supercar'},{kind:'valet-falco',model:'falco'},{kind:'valet-veloce',model:'veloce'}]
+  .map(car=>({...car,x:0,z:0,y:0,yaw:0,speed:0}));
+const uneven=(x,z)=>x<0 && z<0 ? .13 : 0;
+for(let i=0;i<60;i++){
+  for(const car of cheetahs){car.speed=i<25?i*.4:Math.max(0,10-(i-25)*.4);stepSuspension(car,dt,uneven);}
+  for(const valet of cheetahs.slice(1))assert.deepEqual(valet.suspension,cheetahs[0].suspension,
+    'Every Cheetah must have the same curb response, spring travel, and acceleration/braking attitude');
+}
+for(const valet of cheetahs.slice(1))assert.deepEqual(roadCabin(valet),roadCabin(cheetahs[0]),
+  'All Cheetahs use the same driving position');

@@ -1,5 +1,6 @@
 import {MAP,solidTopAt,insideTravelArea} from './world.js';
 import {civilianProfiles} from './civilian-fleet.js';
+import {isCheetahCar} from './supercar-layout.js';
 
 export const bellyHeight=.55;
 const attachments=new WeakMap();
@@ -10,7 +11,7 @@ export function slingVehicle(world,id){
   return world.traffic?.find(v=>v.id===id)??world.boats?.find(v=>v.id===id)??world.patrolCars?.find(v=>v.id===id);
 }
 export function slingHitch(v){
-  return civilianProfiles[v.model]?.skinHeight??(v.kind==='supercar'?1.05:v.id?.endsWith('rhib')?1.1:1.65);
+  return isCheetahCar(v)?1.05:civilianProfiles[v.model]?.skinHeight??(v.id?.endsWith('rhib')?1.1:1.65);
 }
 function support(world,v,x,z){
   return Math.max(MAP.waterY,solidTopAt(x,z,world.hp,.36,v.y+.28,world.doors));

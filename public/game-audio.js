@@ -14,6 +14,7 @@ import {clubSpeaker} from './club-lucero.js';
 import {ambientScene,ambientBuffer} from './district-ambience.js';
 import {doorBuffer,doorCue} from './car-door-sound.js';
 import {roadHandle} from './road-cabin.js';
+import {isCheetahCar} from './supercar-layout.js';
 import {fallAudioTracker} from './collapse-sound-cues.js';
 import {MAP} from './world.js';
 import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
@@ -519,7 +520,7 @@ export function createGameAudio(button,slider,level,caption) {
   function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null) {
     motor('chainGun',heli,chainFiring && heli.fuel!==0,1,.94,listener,yaw);
     motor('engine',rover,rover.driver!=null && !rover.wrecked && rover.fuel!==0,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
-    if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked && supercar.fuel!==0,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'vesper-engine');
+    if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked && supercar.fuel!==0,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'cheetah-engine');
     const airspeed=Math.hypot(heli.vx??0,heli.vz??0);
     const drive=(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked && heli.fuel!==0;
     const near=Math.hypot(heli.x-listener.x,heli.y-listener.y,heli.z-listener.z)<180;
@@ -547,6 +548,10 @@ export function createGameAudio(button,slider,level,caption) {
         Math.hypot(car.x-listener.x,car.y-listener.y,car.z-listener.z)>65)continue;
       const key='traffic/'+car.id;
       sounding.add(key);
+      if(isCheetahCar(car)){
+        motor('engine',car,true,1.12+Math.abs(car.speed)*.064,.27,listener,yaw,key);
+        continue;
+      }
       const mix=civilianEngineMix(car);
       motor('civilian/'+car.model,car,true,mix.rate,mix.gain,listener,yaw,key);
       if(car.model==='engine' && car.water){

@@ -1,7 +1,7 @@
 import {jetWalkContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {yachtFloorAt,yachtCeilingAt} from './yacht-layout.js';
-import {supercarLayout} from './supercar-layout.js';
+import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {marinaModel} from './marina-fleet-layout.js';
 import {tankScale,tankHull} from './tank-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
@@ -42,7 +42,7 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
     const vehicle=kind==='traffic'?(traffic[index-firstCar]??patrol[index-firstCar-traffic.length]):kind==='boat'?boats[index-4]:world[kind];
     if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || vehicle.crushed || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='tank'?tracks:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli' ? helicopter : kind==='supercar' ? sport : city ? pickup : jeep;
+    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli' ? helicopter : city ? pickup : jeep;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;
