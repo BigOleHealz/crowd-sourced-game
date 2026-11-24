@@ -52,7 +52,9 @@ const minnowModel={...marinaModels.cruiser,roof:2.75,helm:{
   cushion:{x:.43,y:2.14,z:.4},
   offset:[.43,2.14-.893*.85,.4],
   wheel:{...marinaModels.cruiser.helm.wheel,y:2.337,z:.05},
-}};
+},shapes:marinaModels.cruiser.shapes.map((shape,index)=>
+  index===marinaModels.cruiser.shapes.length-1?[...shape.slice(0,4),2.75]:shape),
+};
 export const marinaModel=boat=>boat?.partyYacht?partyModel:boat?.id==='marina-paloma'?minnowModel:marinaModels[boat?.boatModel];
 
 function east(id,name,boatModel,hull,z,side){
