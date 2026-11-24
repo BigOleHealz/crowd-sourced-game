@@ -1,5 +1,6 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {tankPivot,tankBarrel,roofPivot} from './tank-layout.js';
 
 const cube=new THREE.BoxGeometry(),disc=new THREE.CylinderGeometry(1,1,1,18);
@@ -72,17 +73,41 @@ export function tankView(scene,Batch,shadowMap){
     art.add(cube,0xa44836,side*.84,.93,1.83,.13,.071,.08);
     for(let j=0;j<8;j++)art.add(cube,dark,side*.38,1.18,1.06+j*.079,.50,.025,.038);
   }
-  art.mesh(root,mat,false);top.mesh(turret,equipmentFinish(),false);gun.mesh(barrel,equipmentFinish(),false);
+  const oldHull=art.mesh(root,mat,false),oldTurret=top.mesh(turret,equipmentFinish(),false),oldBarrel=gun.mesh(barrel,equipmentFinish(),false);
   const roofRing=new THREE.Group(),roofGun=new THREE.Group(),cradle=new Batch(),receiver=new Batch();
   root.add(roofRing);roofRing.add(roofGun);roofRing.position.fromArray(roofPivot);
-  cradle.add(disc,dark,0,-.63,0,.18,1.24,.18);
-  cradle.add(disc,trim,0,-.12,0,.21,.09,.21);
+  cradle.add(disc,dark,0,-.13,0,.11,.28,.11);
+  cradle.add(disc,trim,0,-.02,0,.17,.06,.17);
   receiver.add(cube,0x444b43,0,0,-.21,.15,.15,.45);
   receiver.add(disc,0x363d36,0,.015,-.59,.043,.48,.043,Math.PI/2);
   for(const side of [-1,1])receiver.add(cube,dark,side*.07,-.04,.11,.035,.14,.075);
   cradle.mesh(roofRing,mat,false);receiver.mesh(roofGun,mat,false);
   const belt=new THREE.InstancedMesh(cube,new THREE.MeshPhongMaterial({color:0x454740,shininess:33}),links*2);
   belt.instanceMatrix.setUsage(THREE.DynamicDrawUsage);belt.frustumCulled=false;root.add(belt);
+  // The downloaded GLB has ten material meshes but no moving-part hierarchy.
+  // Its vertices are in centimetres and its nose faces +Z. Keep the game's
+  // track links, roof gun and collision; replace the three visible shell parts.
+  const model=new THREE.Group(),modelTurret=new THREE.Group(),modelBarrel=new THREE.Group();
+  model.scale.setScalar(.005);model.rotation.y=Math.PI;model.position.z=-.45;root.add(model);
+  modelTurret.position.set(0,155,-100);model.add(modelTurret);
+  modelBarrel.position.set(0,43,168);modelTurret.add(modelBarrel);
+  new GLTFLoader().load(new URL('./simple-tank.glb',import.meta.url).href,({scene:loaded})=>{
+    const pieces=[];loaded.traverse(object=>{if(object.isMesh)pieces.push(object);});
+    const names=new Set(pieces.map(piece=>piece.material.name));
+    if(!['Hull_477','Turret_229','Cannon_13','Wheels_334'].every(name=>names.has(name)))
+      throw new Error('Simple Tank is missing a required mesh');
+    for(const piece of pieces){
+      const name=piece.material.name;
+      piece.parent.remove(piece);
+      piece.castShadow=false;
+      if(name==='Cannon_13'){
+        piece.position.set(0,-198,-68);modelBarrel.add(piece);
+      }else if(name==='Turret_229'||name==='Gear_980'||name==='Gear_24'){
+        piece.position.set(0,-155,100);modelTurret.add(piece);
+      }else model.add(piece);
+    }
+    oldHull.visible=oldTurret.visible=oldBarrel.visible=false;
+  },undefined,error=>console.warn('Simple Tank unavailable; using the original shell.',error));
   const shadow=new THREE.Mesh(new THREE.PlaneGeometry(3.15,5.3),new THREE.MeshBasicMaterial({map:shadowMap,color:0x1e2a26,opacity:.48,transparent:true,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.position.y=.025;root.add(shadow);
   const localAim=new THREE.Vector3(),inverseHull=new THREE.Quaternion();
@@ -98,6 +123,9 @@ export function tankView(scene,Batch,shadowMap){
     localAim.applyQuaternion(inverseHull.copy(root.quaternion).invert());
     turret.rotation.y=Math.atan2(-localAim.x,-localAim.z);turret.rotation.z=tank.wrecked?.20:0;
     barrel.rotation.x=tank.wrecked?-.22:Math.asin(THREE.MathUtils.clamp(localAim.y,-1,1));
+    modelTurret.rotation.y=turret.rotation.y;
+    modelTurret.rotation.z=-turret.rotation.z;
+    modelBarrel.rotation.x=-barrel.rotation.x;
     const roofForward=Math.cos(tank.roofPitch);
     localAim.set(Math.sin(tank.roofYaw)*roofForward,Math.sin(tank.roofPitch),-Math.cos(tank.roofYaw)*roofForward);
     localAim.applyQuaternion(inverseHull);
@@ -111,8 +139,8 @@ export function tankView(scene,Batch,shadowMap){
       phase[k]=(phase[k]-tank.speed*dt+side*turn)%loop;
       for(let j=0;j<links;j++){
         const [y,z,tilt]=linkPose(j*loop/links+phase[k]);
-        stamp.position.set(side*1.02,y,z);stamp.rotation.x=tilt;
-        stamp.scale.set(.385,.057,loop/links*.93);stamp.updateMatrix();
+        stamp.position.set(side*.91,y,z);stamp.rotation.x=tilt;
+        stamp.scale.set(.11,.032,loop/links*.93);stamp.updateMatrix();
         belt.setMatrixAt(k*links+j,stamp.matrix);
       }
     }

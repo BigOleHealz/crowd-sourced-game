@@ -3,10 +3,11 @@ import {mountPosition} from './mounts.js';
 export const tankHull={halfWidth:1.18,halfLength:2.09,corner:.24,height:1.91};
 export {roofPivot} from './mounts.js';
 export const tankPad={x:8,z:14};
-export const tankPivot=1.60, tankBarrel=2.30;
+// The replacement barrel pivots ahead of the turret centre and ends three units ahead.
+export const tankPivot=1.00, tankBarrel=2.20;
 export function tankMuzzle(tank){
   const reach=tankBarrel*Math.cos(tank.turretPitch);
-  const pivot=mountPosition(tank,[0,tankPivot,0]);
+  const pivot=mountPosition(tank,[0,tankPivot,-.80]);
   return {x:pivot.x+reach*Math.sin(tank.turretYaw),y:pivot.y+tankBarrel*Math.sin(tank.turretPitch),
     z:pivot.z-reach*Math.cos(tank.turretYaw)};
 }

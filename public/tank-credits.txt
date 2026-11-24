@@ -1,0 +1,9 @@
+Simple Tank by Haider Al_Asady (@haiderhabbeb313)
+https://sketchfab.com/3d-models/simple-tank-db0f1bde8e1648d2963f16b372d069ed
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Pinewatch changes: reduced color maps to 1024 pixels and normal and material
+maps to 512 pixels, separated the turret and cannon for the game's aiming
+controls, added moving links over the source tracks, and fitted the model to
+the existing vehicle scale and collision.
