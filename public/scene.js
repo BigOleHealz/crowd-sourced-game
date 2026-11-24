@@ -1214,7 +1214,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
     const gap=Math.hypot(dx,dz)-radius;
     distance=gap>0 ? mix(near,distance,THREE.MathUtils.smoothstep(gap,0,margin)) : near;
   };
-  for(const tree of MAP.trees) test(tree,tree.radius+.2);
+  for(const tree of MAP.trees)if(!doors?.fallenTrees?.[tree.treeId])test(tree,tree.radius+.2);
   for(const rock of MAP.rocks) test(rock,rock.radius+.16);
   for(const prop of BREAKABLES) if (hp?.[prop.id] !== 0) test(prop,prop.radius+.12);
   return distance;
@@ -1254,7 +1254,7 @@ export function createScene(canvas) {
   const rng=random(4863), material=vertexMaterial(), uniform=rangerMaterial(renderer);
   const visorMaterials=[0x4a544d,0x44545b,0x46554d,0x5a5044].map(color=>
     alpineGlass(panorama,{color,vertexColors:false,shininess:102}));
-  const updatePalms=CITY ? addPalms(scene) : null;
+  const updatePalms=CITY ? addPalms(scene,renderer) : null;
   const updateDogs=CITY?dogView(scene,Batch):null;
   const updateReef=CITY?reefChannelView(scene,Batch):null;
   const updateGulls=CITY ? gullView(scene,groundHeight,MAP.waterY) : null;
@@ -1864,7 +1864,7 @@ export function createScene(canvas) {
     updateManatees?.(world.manatees,local,world.simTick,dt);
     updateReef?.(camera,MAP.waterY);
     updateCreek?.(clock);
-    if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera);}
+    if(updatePalms){updateWaterfrontBreeze(clock);updatePalms(camera,world.doors,world.simTick);}
     // Sample once the visible gun, avatar and camera all have their current-frame pose.
     for(const flash of pendingMuzzles){
       if(flash.source==='jet'){

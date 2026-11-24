@@ -46,5 +46,6 @@ for(const object of [lamp,looseFooting,{woodId:'beach-test'},{net:1}]){
   assert(breakRoadObstacle(world,t,object,0,-.04,.04));
   assert(!breakRoadObstacle(world,t,object,0,-.04,.04),'resweep only after a real state change');
 }
-assert(!breakRoadObstacle(world,t,MAP.trees[0],0,-7,7));
+assert.equal(breakRoadObstacle(world,t,MAP.trees[0],0,-7,7),'tree');
+assert(!breakRoadObstacle(world,t,MAP.trees[0],0,-7,7),'a fallen tree cannot crack twice');
 console.log('PASS enlarged tank breaks the Mangle Café storefront but remains outside, reverses clear without repeat billing, and leaves fixed structures standing.');

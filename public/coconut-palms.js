@@ -1,6 +1,7 @@
 import {breezeMaterial} from './waterfront-breeze.js';
 import * as THREE from 'three';
 import { MAP, groundHeight } from './world.js';
+import {treeFallAngle} from './tree-fall.js';
 
 // Build three palm crowns once, then instance them along the avenues.
 function palmGeometry(variant, distant=false) {
@@ -71,19 +72,19 @@ function palmGeometry(variant, distant=false) {
   g.setIndex(indices);g.computeVertexNormals();return g;
 }
 
-export function addPalms(scene) {
+export function addPalms(scene,renderer) {
   const map=new THREE.TextureLoader().load('./palm-bark.webp');
   map.colorSpace=THREE.SRGBColorSpace;map.wrapS=map.wrapT=THREE.RepeatWrapping;
   const material=[new THREE.MeshLambertMaterial({map,vertexColors:true}),
     breezeMaterial('palm',{vertexColors:true,side:THREE.DoubleSide})];
   const transform=new THREE.Object3D();
   const variants = Array.from({length:3}, (_, v) => {
-    const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height},i)=>{
+    const trees = MAP.trees.filter((_,i)=>i%3===v).map(({x,z,height,treeId},i)=>{
       transform.position.set(x,groundHeight(x,z),z);
       transform.rotation.y=i*2.39996+v;
       transform.scale.setScalar(height/6.9);
       transform.updateMatrix();
-      return {position:transform.position.clone(), matrix:transform.matrix.clone(), near:null};
+      return {id:treeId,height,position:transform.position.clone(),quaternion:transform.quaternion.clone(),matrix:transform.matrix.clone(),near:null};
     });
     const meshes = [false,true].map(distant=>{
       const mesh=new THREE.InstancedMesh(palmGeometry(v,distant),material,trees.length);
@@ -96,11 +97,18 @@ export function addPalms(scene) {
     return {trees,meshes};
   });
   const lastEye=new THREE.Vector3();
+  const fallAxis=new THREE.Vector3();
+  let lastFalls='';
   let lastFov=0;
-  return camera=>{
-    if(camera.fov===lastFov && camera.position.distanceToSquared(lastEye)<4)return;
+  return (camera,doors,tick=0)=>{
+    const falls=doors?.fallenTrees??{};
+    const revision=Object.keys(falls).join(',');
+    const fallsChanged=revision!==lastFalls;
+    const animating=Object.values(falls).some(f=>tick-f.tick<21);
+    if(camera.fov===lastFov && camera.position.distanceToSquared(lastEye)<4 && !fallsChanged && !animating)return;
     lastEye.copy(camera.position);
     lastFov=camera.fov;
+    lastFalls=revision;
     // Keep close fronds detailed through scopes, with a band to avoid flicker.
     const radius=36*Math.tan(THREE.MathUtils.degToRad(55/2))/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));
     for(const {trees,meshes} of variants){
@@ -110,11 +118,19 @@ export function addPalms(scene) {
         const near=tree.position.distanceToSquared(lastEye)<limit*limit;
         if(near!==tree.near){tree.near=near;changed=true;}
       }
-      if(!changed)continue;
+      if(!changed && !fallsChanged && !animating)continue;
       for(const mesh of meshes)mesh.count=0;
       for(const tree of trees){
         const mesh=meshes[tree.near?0:1];
-        mesh.setMatrixAt(mesh.count++,tree.matrix);
+        const fall=falls[tree.id];
+        if(fall){
+          transform.position.copy(tree.position);
+          fallAxis.set(fall.z,0,-fall.x);
+          transform.quaternion.setFromAxisAngle(fallAxis,treeFallAngle(fall,tick)).multiply(tree.quaternion);
+          transform.scale.setScalar(tree.height/6.9);
+          transform.updateMatrix();
+          mesh.setMatrixAt(mesh.count++,transform.matrix);
+        }else mesh.setMatrixAt(mesh.count++,tree.matrix);
       }
       for(const mesh of meshes){
         mesh.visible=mesh.count>0;
@@ -122,5 +138,6 @@ export function addPalms(scene) {
         mesh.computeBoundingSphere();
       }
     }
+    if(fallsChanged || animating)renderer.shadowMap.needsUpdate=true;
   };
 }
