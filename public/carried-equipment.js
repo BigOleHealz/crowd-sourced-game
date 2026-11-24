@@ -18,9 +18,9 @@ function loadColtModel(){
       if(!part.isMesh)return;
       part.material.color.setHex(finishes[part.material.name]??0x404447);
     });
-    // The source points down -X. Face the game prop's -Z and fit its
-    // stock and muzzle to the existing hand and shot offsets.
-    scene.rotation.y=-Math.PI/2;
+    // The source muzzle points toward +X. Face it along the game's -Z
+    // so the stock stays behind the hands and the muzzle stays ahead.
+    scene.rotation.y=Math.PI/2;
     scene.scale.setScalar(1.15);
     scene.updateMatrixWorld(true);
     const bounds=new THREE.Box3().setFromObject(scene);
