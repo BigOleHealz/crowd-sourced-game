@@ -71,7 +71,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const b of MAP.buildings){
     if(towerCollapsed(b,world.doors) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>{
-      const destructible=b.towerId!=null || b.finish;
+      const destructible=b.finish && b.towerId==null;
       consider(destructible && !box.piece && !box.fixedFixture ? wall(box) : contact(box));
     },reach);
     else consider(boxContact(x,z,s,c,b,shape));
@@ -94,7 +94,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
-    consider(roundContact(x,z,s,c,prop,prop.radius,shape));
+    if(prop.treeId==null || !world.doors?.fallenTrees?.[prop.treeId])
+      consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   consider(jetRoadContact(world.jet,x,base,z,yaw,shape));
   const heli=world.heli;
   const roof=shape.roof??shape.height??1.66;

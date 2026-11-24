@@ -5,6 +5,7 @@ export function collapseSoundCues(event,buildings){
   if(!plan.pieces.length)return [];
   const pieces=[...plan.pieces].sort((a,b)=>a.land-b.land);
   const cues=[];
+  if(event.home && event.entry)cues.push({at:.015,x:event.entry.x,y:.9,z:event.entry.z});
   for(const fraction of [0,.56,1]){
     const piece=pieces[Math.round((pieces.length-1)*fraction)];
     const at=piece.land+(fraction===1?.21:0);

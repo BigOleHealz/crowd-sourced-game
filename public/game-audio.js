@@ -21,6 +21,7 @@ import {tireMix,tireLoop} from './tire-road-sound.js';
 import {acousticSpace,transmission} from './acoustic-space.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {tankDriveLoop,tankDriveMix} from './tank-drive-audio.js';
+import {treeCrackBuffer} from './tree-crack-audio.js';
 import {jetLoop,jetMix} from './jet-audio.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
@@ -47,6 +48,7 @@ function synth(context,name) {
   if(name.startsWith('amb/'))return ambientBuffer(context,name.slice(4));
   if(name==='door-open' || name==='door-close')return doorBuffer(context,name==='door-close');
   if(name==='patrol-siren')return sirenLoop(context);
+  if(name==='tree-crack')return treeCrackBuffer(context);
   if(name==='branch-alarm'){
     const rate=context.sampleRate,buffer=context.createBuffer(1,Math.round(rate*1.6),rate);
     const wave=buffer.getChannelData(0);
@@ -148,7 +150,7 @@ export function createGameAudio(button,slider,level,caption) {
   let listenerSpace=acousticSpace(null,null);
   let priorSharks,priorManatees;
   let previousDolphins,previousSharkDefeats;
-  let previousVehicles={},lastGlass=0,nextEnvironment=0;
+  let previousVehicles={},lastGlass=0,lastTree=0,nextEnvironment=0;
   const civilianVoices=crowdPanicAudio(),thefts=dogOwnerDialogue(),ownerLine=ownerSpeech();
   let captionTimer;
   const sprayLines=new Map();
@@ -284,6 +286,7 @@ export function createGameAudio(button,slider,level,caption) {
     for(const v of voices)v.source.stop();
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
+    lastTree=world?.doors?.treeSeq??0;
     previousVehicles={};
     sprayLines.clear();
     civilianVoices.reset(audibleResidents(world));
@@ -404,6 +407,8 @@ export function createGameAudio(button,slider,level,caption) {
     if(reflection)reflection.gain.setTargetAtTime(listenerSpace.reflection,context.currentTime,.11);
     for(const e of world.doors?.glassSounds??[])if(e.seq>lastGlass)burst('glass',e,listener,yaw,.95,e.seq);
     lastGlass=world.doors?.glassSeq??0;
+    for(const e of world.doors?.treeSounds??[])if(e.seq>lastTree)burst('tree-crack',e,listener,yaw,1.1,e.seq);
+    lastTree=world.doors?.treeSeq??0;
     collapse.step(world.doors?.structureFalls??[],cue=>{
       if(voices.size>=24)return;
       burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
