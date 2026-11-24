@@ -27,8 +27,9 @@ function read(index) {
   for(let i=0;i<a.count;i++)for(let j=0;j<width;j++)result[i*width+j]=data[getter](i*stride+j*Type.BYTES_PER_ELEMENT,true);
   return result;
 }
-// The source is in centimetres. Size it for the existing 1.8 m character rig.
-const turn = new Matrix4().makeScale(.01,.01,.01);
+// The source is in centimetres and faces +Z. Size it for the 1.8 m rig and
+// turn it toward the game's -Z forward direction before fitting the joints.
+const turn = new Matrix4().makeRotationY(Math.PI).multiply(new Matrix4().makeScale(.01,.01,.01));
 const skin = original.skins[0], inverse = read(skin.inverseBindMatrices);
 const names = skin.joints.map(i => original.nodes[i].name.replace(/^mixamorig:/, '').replace(/_0\d+$/, ''));
 const points = Object.fromEntries(names.map((name, i) => [name, new Vector3().setFromMatrixPosition(new Matrix4().fromArray(inverse, i * 16).invert()).applyMatrix4(turn)]));
