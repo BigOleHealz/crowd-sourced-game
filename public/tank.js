@@ -19,7 +19,7 @@ export function nearTank(tank,state){
   const dx=state.x-tank.x,dz=state.z-tank.z,c=Math.cos(tank.yaw),s=Math.sin(tank.yaw);
   const side=dx*c+dz*s,along=-dx*s+dz*c;
   const edge=Math.hypot(Math.max(0,Math.abs(side)-tankHull.halfWidth),Math.max(0,Math.abs(along)-tankHull.halfLength));
-  return !!tank && !tank.wrecked && !tank.sinking && (tank.driver==null || tank.gunner==null) && state?.grounded &&
+  return !!tank && !tank.wrecked && !tank.sinking && tank.driver==null && state?.grounded &&
     Math.abs(tank.y-state.y)<2.2 && edge<1.1;
 }
 export function leaveTank(world,player){

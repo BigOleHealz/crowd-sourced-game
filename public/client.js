@@ -1128,7 +1128,7 @@ function updateEquipment(local) {
   byId('prone-action').textContent = local.stance === 'prone' ? 'Stand' : 'Prone';
   if (local.stance) byId('shift-action').parentElement.hidden = true;
   const kind=seatVehicle(world,id);
-  byId('tool-shortcut').hidden=!!marina || basketball || jetPilot() || unarmedRoad() || atYachtHelm() || gunner==='superyacht' || local.swimming || vitals.dead;
+  byId('tool-shortcut').hidden=!!marina || basketball || jetPilot() || unarmedRoad() || atYachtHelm() || kind==='tank' || gunner==='superyacht' || local.swimming || vitals.dead;
   byId('number-action').textContent=kind ? 'Seats' : 'Weapons';
   byId('third-tool-key').hidden=byId('fourth-tool-key').hidden=byId('fifth-tool-key').hidden=byId('sixth-tool-key').hidden=Boolean(kind);
   byId('look-back-control').hidden=!drivenRoad(world,id);
@@ -1224,7 +1224,7 @@ function updateEquipment(local) {
   }
   const tableHint=tablePrompt(local);
   if(tableHint)prompt.textContent=world.casino.player==null?'E  ·  '+tableHint:tableHint;
-  if(kind && !vitals.dead && !touch.active) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
+  if(kind && kind!=='tank' && !vitals.dead && !touch.active) prompt.textContent += '  ·  '+seatChoices(world,kind,id);
   const volleyballVisible=volleyball && !vitals.dead && !bankDialog.open && !market.current && !talk.current;
   showVolleyScore(volleyballVisible?volleyball:null);
   if(volleyballVisible){
@@ -1252,7 +1252,7 @@ function updateEquipment(local) {
     const role=board || diving?'diving':local.swimming?'swimming':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
-    const seat=kind && !['jet','supercar','superyacht'].includes(kind) && !myRoad()?.model
+    const seat=kind && !['jet','supercar','superyacht','tank'].includes(kind) && !myRoad()?.model
       ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
     const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');

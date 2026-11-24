@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+process.env.PINEWATCH_MAP='brickell';
+const {newExpedition,fireTank,fireTurret}=await import('../public/expedition.js');
+const {newLife}=await import('../public/rivals.js');
+const {selectSeat}=await import('../public/seat-selection.js');
+const {nextUse}=await import('../public/use-target.js');
+const {nearTank,damageTank}=await import('../public/tank.js');
+
+const world=newExpedition(),tank=world.tank;
+const actor=id=>({id,life:newLife(0,false),state:{x:tank.x+2,y:tank.y,z:tank.z,grounded:true},inputs:[]});
+const driver=actor(1),other=actor(2),players=new Map([[1,driver],[2,other]]);
+assert.equal(nextUse(world,driver.state,driver.id,'tank').role,'drive');
+tank.driver=driver.id;
+assert(!nearTank(tank,other.state));
+assert.equal(nextUse(world,other.state,other.id,'tank'),null);
+assert(!selectSeat(world,driver,'tank',2));
+fireTurret(world,'tank',other,100,players,[]);
+assert.equal(world.bullets.length,0);
+fireTank(world,driver,100);
+assert.equal(world.missiles.length,1,'the main turret remains armed');
+damageTank(world,tank.hp,players);
+assert(tank.wrecked && tank.driver==null && tank.gunner==null);
+console.log('PASS the tank has one driver seat and only its main turret fires.');

@@ -6,7 +6,7 @@ import {hitMarineWildlife,marineContact} from './marine-contacts.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
 import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
 import {burnableContact,hitFireSite} from './district-fire.js';
-import {tankMuzzle,tankScale} from './tank-layout.js';
+import {tankMuzzle} from './tank-layout.js';
 import {parkedTank,damageTank} from './tank.js';
 import {breachTower} from './tower-damage.js';
 import {parkedJet,damageJet} from './jet.js';
@@ -688,9 +688,10 @@ export function firePilotGuns(world,player,tick){
   return true;
 }
 export function fireTurret(world,kind,player,tick,players,npcs) {
+  if(kind==='tank')return;
   const v=vehicleById(world,kind);
   if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
-  const yaw=kind==='jet'?v.yaw:kind==='tank'?v.roofYaw:v.turretYaw, pitch=kind==='jet'?v.pitch:kind==='tank'?v.roofPitch:v.turretPitch;
+  const yaw=kind==='jet'?v.yaw:v.turretYaw, pitch=kind==='jet'?v.pitch:v.turretPitch;
   if(CITY && (kind==='heli' || kind==='jet')) {
     // Five integer time slots per tick put rounds three slots apart (50/s).
     // Reset the phase after a pause so idle time never accrues ammunition.
@@ -711,10 +712,6 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
-  if(kind==='tank'){
-    const reach=.83*tankScale*Math.cos(pitch);
-    pivot.x+=reach*Math.sin(yaw);pivot.y+=.015*tankScale+.83*tankScale*Math.sin(pitch);pivot.z-=reach*Math.cos(yaw);
-  }
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);
 }
 

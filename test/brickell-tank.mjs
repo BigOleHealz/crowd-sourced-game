@@ -20,7 +20,7 @@ if(!process.env.TANK_MAP_CHECK){
     const other={id:2,life:newLife(0,false),state:{...p.state},score:{kills:0,deaths:0}};
     const players=new Map([[p.id,p],[other.id,other]]);
     assert(nearTank(t,p.state));assert(!roadContact(w,t.x,t.z,0,t.x,t.z,t));
-    t.driver=p.id;assert(nearTank(t,other.state),'the roof seat is available');
+    t.driver=p.id;assert(!nearTank(t,other.state),'the rear roof seat is gone');
     fireTank(w,other,0);assert.equal(w.missiles.length,0);
     for(let n=0;n<15;n++)stepTank(w,{throttle:1,steer:.25,aimYaw:Math.PI/2,aimPitch:.12},1/30);
     assert(t.z<tankPad.z && t.yaw>0 && t.speed<2);assert.equal(t.turretYaw,Math.PI/2);

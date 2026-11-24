@@ -725,7 +725,6 @@ function tick() {
             else takeRide(ride,player);
           }else if(target==='tank'){
             if(use.role==='exit')leaveTank(world,player);
-            else if(use.role==='gunner'){world.tank.gunner=player.id;world.tank.roofYaw=world.tank.yaw;world.tank.roofPitch=0;match?.release(player);}
             else {world.tank.driver=player.id;match?.release(player);}
           }else if(target==='jet'){
             if(use.role==='exit')leaveJet(world.jet,player);
@@ -807,8 +806,7 @@ function tick() {
     if (kind) {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
-        if(kind==='tank'){vehicle.roofYaw=input.aimYaw;vehicle.roofPitch=turretPitch(input.aimPitch);}
-        else {vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);}
+        vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
         if(CITY && (kind==='heli' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(kind==='rover' && input.sidearm && sidearmCar(world,player.id)){
           if(input.reload)startReload(player,ticks,sidearmSlot);
@@ -897,11 +895,11 @@ function tick() {
   stepWakeCrossings(world,step);
   world.stepDolphins?.(step);
   world.stepManatees?.(step);
-  for(const kind of ['rover','heli',...(world.tank?['tank']:[]),...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
+  for(const kind of ['rover','heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
     gunner.state={...gunnerFeet(v,kind),grounded:kind!=='heli' || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
-    gunner.yaw=kind==='tank'?v.roofYaw:v.turretYaw;gunner.moving=gunner.sprint=false;
+    gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
   world.stepGulls?.(step);
