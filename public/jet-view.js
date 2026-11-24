@@ -1,6 +1,7 @@
 import {missileLaunchers} from './mount-view.js';
 import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 // Cross-sections along the fuselage and engine pods, in the model's -Z nose frame.
 function loft(rings){
@@ -76,8 +77,46 @@ export function jetView(scene,Batch){
   for(const side of [-1,1])body.add(box,0xa6aaa1,side*.865,.966,.075,.033,.012,.195,0,side*.20);
   const hull=body.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.55,metalness:.30}));
   hull.userData.impactSurface='metal';
-  glass.mesh(group,new THREE.MeshPhysicalMaterial({color:0x38515b,metalness:.38,roughness:.16,clearcoat:1,transparent:true,opacity:.88}),false);
+  const oldGlass=glass.mesh(group,new THREE.MeshPhysicalMaterial({color:0x38515b,metalness:.38,roughness:.16,clearcoat:1,transparent:true,opacity:.88}),false);
   const wheels=gear.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8}));
+  if(typeof window!=='undefined')new GLTFLoader().load(new URL('./f35a.glb',import.meta.url).href,({scene:model})=>{
+    // Sketchfab's airframe faces +Z; Pinewatch aircraft face -Z.
+    model.rotation.y=Math.PI;
+    model.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(model);
+    const size=bounds.getSize(new THREE.Vector3());
+    if(!Number.isFinite(size.z) || size.z<=0)return;
+    const scale=6.03/size.z;
+    model.scale.setScalar(scale);
+    model.position.set(-scale*(bounds.min.x+bounds.max.x)/2,
+      .12-scale*bounds.min.y,
+      -scale*(bounds.min.z+bounds.max.z)/2);
+    model.name='F-35A airframe';
+    model.traverse(part=>{
+      if(part.name.startsWith('WEAPON'))part.visible=false;
+      if(!part.isMesh)return;
+      if(part.name==='Object_6'){
+        // This export bakes its deployed wheels into the fuselage. Their
+        // vertices occupy the low local Z slice; use the game's moving gear.
+        const shape=part.geometry.clone(),positions=shape.getAttribute('position'),indices=shape.getIndex(),kept=[];
+        for(let i=0;i<indices.count;i+=3){
+          const a=indices.getX(i),b=indices.getX(i+1),c=indices.getX(i+2);
+          if(positions.getZ(a)<=-.9 && positions.getZ(b)<=-.9 && positions.getZ(c)<=-.9)kept.push(a,b,c);
+        }
+        shape.setIndex(kept);
+        part.geometry=shape;
+      }
+      part.castShadow=true;part.receiveShadow=true;part.userData.impactSurface='metal';
+    });
+    group.add(model);
+    hull.visible=false;
+    oldGlass.visible=false;
+    exhaust.clear();
+    const fire=new THREE.Mesh(plume,flameMaterial);
+    exhaust.add(fire);
+    exhaust.position.x=0;
+    exhaust.position.z=2.85;
+  },undefined,error=>console.warn('F-35A model unavailable; using procedural jet.',error));
   const flameMaterial=new THREE.ShaderMaterial({
     uniforms:{power:{value:0},clock:{value:0}},transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
     vertexShader:`varying float axial;
