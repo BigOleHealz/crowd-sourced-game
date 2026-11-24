@@ -6,7 +6,7 @@ import {hitMarineWildlife,marineContact} from './marine-contacts.js';
 import {arcadeMolotov,throwCapsule} from './arcade-molotov.js';
 import {flameProjector,fuelStop,stationContact} from './fire-sites.js';
 import {burnableContact,hitFireSite} from './district-fire.js';
-import {tankMuzzle} from './tank-layout.js';
+import {tankMuzzle,tankScale} from './tank-layout.js';
 import {parkedTank,damageTank} from './tank.js';
 import {breachTower} from './tower-damage.js';
 import {parkedJet,damageJet} from './jet.js';
@@ -697,8 +697,8 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   if(kind==='tank'){
-    const reach=.83*Math.cos(pitch);
-    pivot.x+=reach*Math.sin(yaw);pivot.y+=.015+.83*Math.sin(pitch);pivot.z-=reach*Math.cos(yaw);
+    const reach=.83*tankScale*Math.cos(pitch);
+    pivot.x+=reach*Math.sin(yaw);pivot.y+=.015*tankScale+.83*tankScale*Math.sin(pitch);pivot.z-=reach*Math.cos(yaw);
   }
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);
 }
