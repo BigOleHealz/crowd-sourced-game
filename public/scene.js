@@ -1298,7 +1298,7 @@ export function createScene(canvas) {
   let updateCases;
   let updateSupplyView;
   const shadowMap=contactShadowMap();
-  const roverLabel=objectHealthLabel(scene,CITY ? 'CREW PICKUP' : 'FIELD JEEP');
+  const roverLabel=objectHealthLabel(scene,'HUMVEE');
   const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
   const updateRounds=flightRounds(scene);
   const marks=surfaceMarks(scene);

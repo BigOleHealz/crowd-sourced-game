@@ -18,7 +18,7 @@ world.rover ??= {x:-3,z:17,speed:0,driver:null};
 const rover = world.rover;
 replaySupplyRun(world);
 waitStage('pickup');
-assert.equal(supplyGuidance(world,rover,1).label,'Trail rover');
+assert.equal(supplyGuidance(world,rover,1).label,'Humvee');
 
 // Drive the shipping route using real rover physics whenever both features are installed.
 if (combined) {
