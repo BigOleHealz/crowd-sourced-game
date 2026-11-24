@@ -52,8 +52,7 @@ export function nextUse(world,feet,id,wanted){
   const car=nearestTraffic(world,feet);
   if(car)offer(car,car.id,'drive',(car.npcDriver?'Take the wheel of the ':'Drive ')+(car.patrol?'patrol cruiser':(civilianProfiles[car.model]?.name??names[car.model])));
   if(nearTank(world.tank,feet)){
-    const driving=world.tank.driver==null;
-    offer(world.tank,'tank',driving?'drive':'gunner',driving?'Drive tracked tank':'Use tank roof gun');
+    offer(world.tank,'tank','drive','Drive tracked tank');
   }
   if(nearJet(world.jet,feet))offer(world.jet,'jet','drive','Pilot strike jet');
   const near=nearBoat(world,feet);

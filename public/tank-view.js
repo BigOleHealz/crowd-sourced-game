@@ -1,7 +1,8 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {tankPivot,tankBarrel,roofPivot,tankScale} from './tank-layout.js';
+import {tankPivot,tankBarrel,tankScale} from './tank-layout.js';
+import {splitTankTracks,advanceTankTracks,splitTankDetail} from './tank-model-rig.js';
 
 const cube=new THREE.BoxGeometry(),disc=new THREE.CylinderGeometry(1,1,1,18);
 function plate(batch,tint,rings){
@@ -65,22 +66,13 @@ export function tankView(scene,Batch,shadowMap){
   }
   const oldHull=art.mesh(root,mat,false),oldTurret=top.mesh(turret,equipmentFinish(),false),oldBarrel=gun.mesh(barrel,equipmentFinish(),false);
   oldHull.scale.setScalar(tankScale);oldTurret.scale.setScalar(tankScale);oldBarrel.scale.setScalar(tankScale);
-  const roofRing=new THREE.Group(),roofGun=new THREE.Group(),cradle=new Batch(),receiver=new Batch();
-  root.add(roofRing);roofRing.add(roofGun);roofRing.position.fromArray(roofPivot);
-  roofRing.scale.setScalar(tankScale);
-  cradle.add(disc,dark,0,-.13,0,.11,.28,.11);
-  cradle.add(disc,trim,0,-.02,0,.17,.06,.17);
-  receiver.add(cube,0x444b43,0,0,-.21,.15,.15,.45);
-  receiver.add(disc,0x363d36,0,.015,-.59,.043,.48,.043,Math.PI/2);
-  for(const side of [-1,1])receiver.add(cube,dark,side*.07,-.04,.11,.035,.14,.075);
-  cradle.mesh(roofRing,mat,false);receiver.mesh(roofGun,mat,false);
   // The downloaded GLB has ten material meshes but no moving-part hierarchy.
-  // Its vertices are in centimetres and its nose faces +Z. The model has
-  // complete tracks, so only the roof gun and collision come from the game.
+  // Its vertices are in centimetres and its nose faces +Z.
   const model=new THREE.Group(),modelTurret=new THREE.Group(),modelBarrel=new THREE.Group();
   model.scale.setScalar(.005*tankScale);model.rotation.y=Math.PI;model.position.z=-.45*tankScale;root.add(model);
   modelTurret.position.set(0,155,-100);model.add(modelTurret);
   modelBarrel.position.set(0,43,168);modelTurret.add(modelBarrel);
+  let belts=[];
   new GLTFLoader().load(new URL('./simple-tank.glb',import.meta.url).href,({scene:loaded})=>{
     const pieces=[];loaded.traverse(object=>{if(object.isMesh)pieces.push(object);});
     const names=new Set(pieces.map(piece=>piece.material.name));
@@ -90,7 +82,14 @@ export function tankView(scene,Batch,shadowMap){
       const name=piece.material.name;
       piece.parent.remove(piece);
       piece.castShadow=false;
-      if(name==='Cannon_13'){
+      if(name==='Tracks_420'){
+        belts=splitTankTracks(piece);
+        for(const belt of belts)model.add(belt.mesh);
+      }else if(name==='Applique_176'||name==='Glass_13'){
+        const {fixed,moving}=splitTankDetail(piece);
+        if(fixed)model.add(fixed);
+        if(moving){moving.position.set(0,-155,100);modelTurret.add(moving);}
+      }else if(name==='Cannon_13'){
         piece.position.set(0,-198,-68);modelBarrel.add(piece);
       }else if(name==='Turret_229'||name==='Gear_980'||name==='Gear_24'){
         piece.position.set(0,-155,100);modelTurret.add(piece);
@@ -102,7 +101,7 @@ export function tankView(scene,Batch,shadowMap){
   shadow.rotation.x=-Math.PI/2;shadow.position.y=.025;root.add(shadow);
   shadow.scale.setScalar(tankScale);
   const localAim=new THREE.Vector3(),inverseHull=new THREE.Quaternion();
-  return tank=>{
+  return (tank,dt)=>{
     root.visible=!!tank;if(!tank)return;
     const ride=tank.suspension;
     root.position.set(tank.x,tank.y+(ride?.heave??0),tank.z);
@@ -115,10 +114,6 @@ export function tankView(scene,Batch,shadowMap){
     modelTurret.rotation.y=turret.rotation.y;
     modelTurret.rotation.z=-turret.rotation.z;
     modelBarrel.rotation.x=-barrel.rotation.x;
-    const roofForward=Math.cos(tank.roofPitch);
-    localAim.set(Math.sin(tank.roofYaw)*roofForward,Math.sin(tank.roofPitch),-Math.cos(tank.roofYaw)*roofForward);
-    localAim.applyQuaternion(inverseHull);
-    roofRing.rotation.y=Math.atan2(-localAim.x,-localAim.z);
-    roofGun.rotation.x=Math.asin(THREE.MathUtils.clamp(localAim.y,-1,1));
+    if(belts.length)advanceTankTracks(belts,tank.speed,tank.turnRate,dt);
   };
 }
