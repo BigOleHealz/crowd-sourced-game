@@ -75,7 +75,7 @@ for(const kind of ['rover','heli']){
   assert.deepEqual(shots.map(m=>m.side),[1,-1,1]);
   assert.equal(b.missiles[0].side,1);
   for(const shot of shots){
-    const [x,y,z]=mounts.heli.launcher, pos=mountPosition(a.heli,[x*shot.side,y,z]);
+    const pos=mountPosition(a.heli,[1.44*shot.side,.64,-1.49]);
     assert.deepEqual({x:shot.x,y:shot.y,z:shot.z},pos);
   }
 }
