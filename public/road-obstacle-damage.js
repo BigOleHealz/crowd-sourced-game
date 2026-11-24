@@ -3,12 +3,14 @@ import {noteGlass} from './pane-damage.js';
 import {tipFurniture} from './shop-furniture.js';
 import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {tankHull} from './tank-layout.js';
+import {fellTree} from './tree-fall.js';
 
 // Return the impact response only after the authoritative obstacle state changes.
 // Tracks can push through from a standstill; wheeled vehicles need impact speed.
 export function breakRoadObstacle(world,vehicle,object,vx,vz,incoming,team){
   const {doors}=world,tracks=vehicle.kind==='tank';
   if(!doors || incoming<=0 || !object)return;
+  if(tracks && object.treeId!=null && fellTree(doors,object,vx,vz,world.simTick))return 'tree';
   if((tracks || incoming>.12) && tipFurniture(doors,object.piece,vx,vz))return 'furniture';
   if((object.paneId || object.sillPaneId) && (tracks || incoming>2.3)){
     const sill=object.sillPaneId;
