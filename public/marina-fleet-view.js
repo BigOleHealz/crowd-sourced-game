@@ -1,5 +1,6 @@
 import {sinkingHull} from './sinking-hull.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {marinaModel} from './marina-fleet-layout.js';
 import {wakeTrail} from './boat-wake-view.js';
 
@@ -181,15 +182,37 @@ function buildBoat(scene,Batch,boat,glass){
   for(const mesh of meshes)Object.assign(mesh.userData,{target:boat.id,impactSurface:'metal'});
   for(const mesh of glazed)Object.assign(mesh.userData,{target:boat.id,impactSurface:'solid'});
   const rooftopDepth=deck+3.3;
-  let wrecked=false;
-  return {root,wake,update(b,dt,local){
+  let wrecked=false,imported=null,importedFinishes=[];
+  const paintWreck=()=>{
+    for(const {material,color} of importedFinishes)material.color.copy(color).multiplyScalar(wrecked ? .34 : 1);
+  };
+  return {root,wake,useImported(model){
+    root.clear();
+    imported=model;
+    // The Sketchfab scene is already Y-up. Its bow points toward local -Z.
+    model.scale.set(1.15,.87,.87);
+    model.position.y=-.50;
+    model.traverse(object=>{
+      if(!object.isMesh)return;
+      Object.assign(object.userData,{target:boat.id,impactSurface:'solid'});
+      const source=Array.isArray(object.material)?object.material:[object.material];
+      object.material=source.map(material=>material.clone());
+      if(object.material.length===1)object.material=object.material[0];
+      for(const material of Array.isArray(object.material)?object.material:[object.material])
+        if(material.color)importedFinishes.push({material,color:material.color.clone()});
+    });
+    root.add(model);paintWreck();
+  },update(b,dt,local){
     const sink=sinkingHull(b,rooftopDepth);
     root.position.set(b.x,b.y-sink.drop,b.z);
     root.rotation.set(b.pitch+sink.trim,-b.yaw,b.roll+sink.list,'YXZ');
     if(wrecked!==b.wrecked){
       wrecked=b.wrecked;
-      meshes.forEach((mesh,i)=>{mesh.material=wrecked?scorched:finishes[i];});
-      for(const pane of glazed)pane.visible=!wrecked;
+      if(imported)paintWreck();
+      else{
+        meshes.forEach((mesh,i)=>{mesh.material=wrecked?scorched:finishes[i];});
+        for(const pane of glazed)pane.visible=!wrecked;
+      }
     }
     wake(b,dt,local);
   }};
@@ -197,6 +220,7 @@ function buildBoat(scene,Batch,boat,glass){
 
 export function marinaFleetView(scene,Batch){
   const views=new Map();
+  let minnowLoad=null;
   const glass=new THREE.MeshStandardMaterial({
     color:0xbbd3d6,transparent:true,opacity:.40,roughness:.21,metalness:.19,side:THREE.DoubleSide,depthWrite:false,
   });
@@ -206,6 +230,11 @@ export function marinaFleetView(scene,Batch){
       if(!boat.boatModel || boat.partyYacht || Math.hypot(boat.x-local.x,boat.z-local.z)>190)continue;
       let view=views.get(boat.id);
       if(!view){view=buildBoat(scene,Batch,boat,glass);views.set(boat.id,view);}
+      if(boat.id==='marina-paloma' && !minnowLoad){
+        minnowLoad=new GLTFLoader().loadAsync(new URL('./ss-minnow-iii.glb',import.meta.url).href)
+          .then(({scene:model})=>view.useImported(model))
+          .catch(error=>console.warn('SS Minnow III could not load; using cabin cruiser fallback',error));
+      }
       live.add(boat.id);view.root.visible=true;view.update(boat,dt,local);
     }
     for(const [id,view] of views)if(!live.has(id)){
