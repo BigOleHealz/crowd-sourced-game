@@ -40,7 +40,6 @@ import {addMilitaryIsland} from './military-island-view.js';
 import * as THREE from 'three';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, causeway, streetPlan, bayfrontLawns } from './brickell-map.js';
-import {runway,taxiway} from './runway-layout.js';
 
 import {breakablePostView} from './breakable-post-view.js';
 export function cityStreets(scene,renderer,Batch,panorama) {
@@ -76,19 +75,6 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   lightBaySurface(bay.material,panorama);
   addMilitaryIsland(scene,Batch);
   ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.flatMap(r=>verges(r,estatePoolHoles)).map(r=>patch(r,.70))],5);
-  ground('asphalt',[patch(runway,.705),patch(taxiway,.705)],5);
-  for(const area of [runway,taxiway])
-    solids.add(box,0x817b71,(area.west+area.east)/2,-2.3,(area.north+area.south)/2,
-      area.east-area.west,6,area.south-area.north);
-  // Painted edges, threshold bars and dashed centreline make the strip readable
-  // from both the cockpit and the approach, without adding collision objects.
-  const runwayCenter=(runway.west+runway.east)/2;
-  for(const x of [runway.west+.38,runway.east-.38])
-    solids.add(box,0xf2f1e9,x,.721,(runway.north+runway.south)/2,.16,.012,runway.south-runway.north-2);
-  for(let z=runway.north+10;z<runway.south-7;z+=11)
-    solids.add(box,0xf2f1e9,runwayCenter,.722,z,.22,.012,4);
-  for(const z of [runway.north+4,runway.south-4])for(const x of [-5.5,-3.3,-1.1,1.1,3.3,5.5])
-    solids.add(box,0xf2f1e9,runwayCenter+x,.723,z,1.1,.012,3.2);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
   for(const lot of [...lots,...lawns]) {
     const [x,,z,w,d]=patch(lot,.80);

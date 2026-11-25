@@ -49,7 +49,7 @@ import {inPalazzoMare} from './palazzo-mare.js';
 import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
-import {militaryShore,militaryRunway,militaryTaxiway,militaryHelipads,militaryDecks,insideMilitary,militaryDockHeight} from './military-island.js';
+import {militaryShore,militaryRunway,militaryTaxiway,militaryHelipads,militaryDecks,militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryDockHeight} from './military-island.js';
 import {viewPitch,sightedCarbineAim} from './view-pitch.js';
 import {shotDamageVignette} from './shot-damage-vignette.js';
 import {liveShots} from './shot-events.js';
@@ -1341,7 +1341,7 @@ function drawMap(player, remotes, yaw) {
     for(const pad of militaryHelipads){ctx.beginPath();ctx.arc(sx(pad.x),sy(pad.z),pad.r*scale,0,Math.PI*2);ctx.stroke();}
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
     ctx.fillStyle='#b1aba0';
-    for(const road of [causeway,lanternBridge,...streetPlan.roads,...lanternRoads])
+    for(const road of [causeway,lanternBridge,militaryBridge,militaryAccessRoad,...streetPlan.roads,...lanternRoads])
       ctx.fillRect(sx(road.west),sy(road.north),(road.east-road.west)*scale,(road.south-road.north)*scale);
     if(Math.hypot(player.x-marinaPlatform.x,player.z-marinaPlatform.near)<102){
       const px=sx(marinaPlatform.x),py=sy(marinaPlatform.near);
@@ -1572,7 +1572,7 @@ function frame(time) {
       byId('right-bearing').textContent = headings[(direction + 1) % 8];
       const upstairs=roomAtFeet(local,world.doors);
       const interior=CITY && (storefrontRoom(local.x,local.y,local.z) || retailRoom(local.x,local.y,local.z) || galleryRoomAt(local.x,local.y,local.z) || (casaRoomAt(local.x,local.y,local.z) && {name:'Casa de Luma'}));
-      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY && Math.hypot(local.x-valet.x,local.z-valet.z)<6?'Palma de Sal · Valet' : CITY ? (insideMilitary(local.x,local.z)||militaryDockHeight(local.x,local.z)!==undefined?'West Harbor Military Base':lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : atBeachClub(local) ? 'Harbor Key Beach Club' : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
+      byId('location').textContent = (atYachtHelm() || aboardYacht(yacht,local)) ? 'Solana · Superyacht' : CITY && inClub(local)?'Club Lucero':upstairs ? (upstairs.l?upstairs.p.name+' · Floor '+(upstairs.l.n+2)+' · '+(upstairs.label==='Hall'?'Hall':'Room '+upstairs.label):upstairs.label) :interior ? interior.name : CITY && inPalazzoMare(local.x,local.y,local.z) ? 'Palazzo Mare' : CITY && Math.hypot(local.x-valet.x,local.z-valet.z)<6?'Palma de Sal · Valet' : CITY ? (onMilitaryBridge(local.x,local.z)?'Military Bridge':insideMilitary(local.x,local.z)||militaryDockHeight(local.x,local.z)!==undefined?'West Harbor Military Base':lanternLocation(local.x,local.z) ?? (onBasketballCourt(local) && Math.abs(local.y-basketballCourt.y)<3 ? basketballCourt.name : atBeachClub(local) ? 'Harbor Key Beach Club' : onBeach(local.x,local.z) ? 'Harbor Key Beach' : local.z<harbor.south ? 'Harbor Key' : local.z<coast.north ? 'North Causeway' : local.x>24 || local.z < -48 ? 'Biscayne Bayfront' : 'Brickell Avenue')) : Math.hypot(local.x - MAP.lookout.x, local.z - MAP.lookout.z) < 6 ? 'The Lookout'
         : Math.abs(local.z) < 5.2 ? (Math.abs(local.x) < 2.5 ? 'Timber Bridge' : 'Cedar Creek')
         : churchLot(local.x,local.z) ? 'North Meadow Church' : local.z< -68 ? 'Granite Ridge' : local.z< -37 ? 'North Meadow' : local.z < -5 ? 'Summit Trail' : Math.hypot(local.x,local.z - 15) < 6 ? 'Trailhead' : 'Pine Loop';
       if(racing)sprintHud(byId('marina-card'),vitals.race,drivenRoad(world,id),local,sprintBoard,touch.active);

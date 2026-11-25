@@ -35,6 +35,7 @@ import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround, coastalBedHeight, parapetTop, waterfront } from './brickell-map.js';
 import {onRunway} from './runway-layout.js';
+import {militaryHelipads} from './military-island.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
   : typeof process !== 'undefined' && process.env.GOY_THEFT_AUTO_MAP === 'brickell';
@@ -86,7 +87,7 @@ export function insideTravelArea(x,z,halfX=0,halfZ=halfX) {
     z-halfZ>=travelBounds.north && z+halfZ<=travelBounds.south;
 }
 
-export const HELIPAD = CITY ? {x:15,z:12} : { x: 4, z: 14 };
+export const HELIPAD = CITY ? {x:militaryHelipads[0].x,z:militaryHelipads[0].z} : { x: 4, z: 14 };
 MAP.barriers=[...(MAP.barriers ?? []), ...(CITY ? facadePiers : [])];
 if (!CITY) {
   MAP.rocks.push(...northRocks);

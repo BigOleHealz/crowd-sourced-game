@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import {militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks} from './military-island.js';
+import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {coastalBedHeight} from './brickell-map.js';
 
 function addRockShore(base){
   // Match the reef's two-metre grid so the exposed bank has no collision seam.
-  const west=-234,east=-96,north=-320,south=-140,step=2;
+  const west=Math.floor((militaryIsland.west-10)/2)*2,east=Math.ceil((militaryIsland.east+10)/2)*2;
+  const north=Math.floor((militaryIsland.north-10)/2)*2,south=Math.ceil((militaryIsland.south+10)/2)*2,step=2;
   const columns=(east-west)/step+1,rows=(south-north)/step+1;
   const positions=[],uvs=[],colors=[],indices=[];
   const shade=new THREE.Color();
@@ -57,7 +58,6 @@ function addRockShore(base){
   if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
   stones.name='Military island shore boulders';stones.userData.impactSurface='solid';base.add(stones);
 }
-
 export function addMilitaryIsland(scene,Batch){
   const base=new THREE.Group();base.name='West Harbor military base';scene.add(base);
   const positions=[],colors=[],indices=[];
@@ -65,7 +65,7 @@ export function addMilitaryIsland(scene,Batch){
     const tint=new THREE.Color(color),index=positions.length/3;
     positions.push(x,y,z);colors.push(tint.r,tint.g,tint.b);return index;
   };
-  const center=addVertex(-165.5,.8,-230,0x69766a);
+  const center=addVertex(-191.5,.8,-230,0x69766a);
   const rim=militaryShore.map(([x,z],i)=>addVertex(x,.8,z,i%2?0x788172:0x69776a));
   for(let i=0;i<rim.length;i++)indices.push(center,rim[(i+1)%rim.length],rim[i]);
   for(let i=0;i<rim.length;i++){
@@ -83,13 +83,28 @@ export function addMilitaryIsland(scene,Batch){
   const blocks=new Batch(),box=new THREE.BoxGeometry();
   const block=(color,x,y,z,w,h,d)=>blocks.add(box,color,x,y,z,w,h,d);
   const rect=(r,color,y=.825)=>block(color,(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,.05,r.south-r.north);
-  rect(militaryRunway,0x343d3d);rect(militaryTaxiway,0x535b58);
+  rect(militaryRunway,0x343d3d);rect(militaryTaxiway,0x535b58);rect(militaryAccessRoad,0x505b57);
   for(const x of [militaryRunway.west+.55,militaryRunway.east-.55])
-    block(0xf2eee0,x,.859,-230,.18,.012,130);
+    block(0xf2eee0,x,.859,(militaryRunway.north+militaryRunway.south)/2,.18,.012,130);
   for(let z=militaryRunway.north+11;z<militaryRunway.south-6;z+=12)
-    block(0xf4f1e6,-199,.861,z,.25,.014,4);
-  for(const z of [militaryRunway.north+5,militaryRunway.south-5])for(const x of [-205,-202,-199,-196,-193])
+    block(0xf4f1e6,(militaryRunway.west+militaryRunway.east)/2,.861,z,.25,.014,4);
+  for(const z of [militaryRunway.north+5,militaryRunway.south-5])for(const x of [-231,-228,-225,-222,-219])
     block(0xf4f1e6,x,.864,z,1.35,.014,2.8);
+  const bridge=militaryBridge,bridgeZ=(bridge.north+bridge.south)/2;
+  for(let x=bridge.west;x<bridge.east-.01;x+=2){
+    const end=Math.min(x+2,bridge.east),a=bridge.height(x),b=bridge.height(end),mid=(a+b)/2;
+    const angle=Math.atan2(b-a,end-x),length=Math.hypot(end-x,b-a);
+    blocks.add(box,0x505b57,(x+end)/2,mid-.13,bridgeZ,length,.26,bridge.south-bridge.north,0,0,angle);
+    blocks.add(box,0xd8d4bd,(x+end)/2,mid+.018,bridgeZ,length-.04,.015,.12,0,0,angle);
+    for(const side of [-1,1]){
+      blocks.add(box,0x8d978d,(x+end)/2,mid+.40,bridgeZ+side*4.78,length,.80,.30,0,0,angle);
+      blocks.add(box,0xd7d3bf,(x+end)/2,mid+.82,bridgeZ+side*4.78,length,.07,.34,0,0,angle);
+    }
+  }
+  for(const x of [bridge.west+5,bridge.east-5])for(const z of [bridge.north+.8,bridge.south-.8]){
+    const top=bridge.height(x)-.2;
+    block(0x7d8b83,x,(top-2.9)/2,z,1.3,top+2.9,1.3);
+  }
   const h=militaryHangar;
   block(0x354b48,h.x,.84,h.z,h.w,.08,h.d);
   for(const side of [-1,1])block(0x56645d,h.x,3.45,h.z+side*(h.d/2-.4),h.w,5.3,.8);
@@ -119,8 +134,8 @@ export function addMilitaryIsland(scene,Batch){
   const rampMesh=new THREE.Mesh(slope,new THREE.MeshLambertMaterial({color:0x696454,side:THREE.DoubleSide}));
   rampMesh.receiveShadow=true;base.add(rampMesh);
   for(const z of [-268,-236]){
-    block(0x2d3d3d,-84.5,.84,z,.38,.56,.38);
-    block(0xd8b669,-84.5,1.14,z,.62,.08,.62);
+    block(0x2d3d3d,-110.5,.84,z,.38,.56,.38);
+    block(0xd8b669,-110.5,1.14,z,.62,.08,.62);
   }
   const structures=blocks.mesh(base,new THREE.MeshLambertMaterial({vertexColors:true}));
   structures.userData.impactSurface='solid';

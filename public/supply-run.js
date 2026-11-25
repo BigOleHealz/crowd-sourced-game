@@ -54,7 +54,7 @@ export function supplyGuidance(world, local, id, touch=false) {
   const guide = (label, action, point) => ({ label, action, point });
   const boardRover = () => guide('Humvee', rover.driver != null ? 'Your teammate is driving.' :
     touch ? 'Approach the Humvee and tap Get in Humvee.' : near(local, rover, 2.6) ? 'Press E to drive the Humvee.' : 'Reach the Humvee and press E to drive.', rover);
-  const returnHeli = () => guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Fly back and land on the H.', HELIPAD);
+  const returnHeli = () => guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Fly back and land on the H.', HELIPAD);
   if (mission.stage === 'complete') return guide('Delivery complete', touch?'Three cases delivered. Tap Replay in Gear for another run.':'Three cases delivered. Press R for another run.', null);
   if (rover.wrecked && (mission.stage === 'pickup' || mission.stage === 'transfer')) return guide('Humvee','Replacement Humvee returning to the trailhead.',ROVER_PAD);
   if (mission.stage === 'pickup') {
@@ -64,18 +64,18 @@ export function supplyGuidance(world, local, id, touch=false) {
     if (!driving && rover.driver == null) return boardRover();
     return guide(CITY ? 'Brickell Depot' : 'Pine Depot', driving ? 'Park inside the amber posts to load three cases.' : 'Your driver is collecting the supplies.', DEPOT);
   }
-  if (heli.abandonedFor != null) return guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Aircraft unpiloted. A replacement will return to the H after the crash.', HELIPAD);
+  if (heli.abandonedFor != null) return guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Aircraft unpiloted. A replacement will return to the H after the crash.', HELIPAD);
   if (mission.stage === 'transfer') {
     if (flying && !home) return returnHeli();
-    if (heli.wrecked) return guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Park the loaded Humvee at the H for aircraft recovery.', HELIPAD);
+    if (heli.wrecked) return guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Park the loaded Humvee at the H for aircraft recovery.', HELIPAD);
     if (!home && !driving && heli.pilot == null)
       return guide('Trail helicopter', 'Board the helicopter and return it to the H.', heli);
     if (!home && driving && near(rover, HELIPAD, 4.6))
       return guide('Trail helicopter', 'Leave the Humvee here. Bring the helicopter back to the H.', heli);
     if (!driving && !flying && rover.driver == null) return boardRover();
-    return guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Park the loaded Humvee beside the helicopter.', HELIPAD);
+    return guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Park the loaded Humvee beside the helicopter.', HELIPAD);
   }
-  if (heli.wrecked) return guide(CITY ? 'Waterfront helipad' : 'Trailhead helipad', 'Replacement aircraft and cargo are returning to the H.', HELIPAD);
+  if (heli.wrecked) return guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Replacement aircraft and cargo are returning to the H.', HELIPAD);
   if (driving) return guide('Trail helicopter', touch?'Tap Exit, then board the helicopter.':'Press E to exit the Humvee, then board the helicopter.', heli);
   if (!flying && heli.pilot == null) return guide('Trail helicopter', touch?'Approach the helicopter and tap Pilot helicopter.':'Reach the helicopter and press E to fly the cargo.', heli);
   return guide(CITY ? 'Bayfront Landing' : 'Ridge Outpost', flying ? 'Land inside the amber ring to deliver the cases.' : 'Your pilot is delivering the supplies.', OUTPOST);
