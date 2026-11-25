@@ -3,6 +3,7 @@ import {addMarinaDocks} from './marina-dock-view.js';
 import * as THREE from 'three';
 import {verges} from './waterfront-roads.js';
 import {lanternLand,lanternRoads,lanternSigns,ferrySlip,slipHeight,marketPiers,pierDeck,bollards,benches,gardens,quayLamps} from './lantern-point.js';
+import {dockPileSpan} from './dock-piles.js';
 
 export function addLanternPoint(scene,solids,ground,patch,posts) {
   const box=new THREE.BoxGeometry(),post=new THREE.CylinderGeometry(.5,.5,1,12);
@@ -41,7 +42,8 @@ export function addLanternPoint(scene,solids,ground,patch,posts) {
     for(let x=pier.west+.125;x<pier.east;x+=.25)
       solids.add(box,0xa68b6b,x,pierDeck-.075,z,.245,.15,d);
     for(let x=pier.west+.6;x<pier.east;x+=3.7)for(const side of [-1,1]){
-      solids.add(post,0x685d50,x,-.79,z+side*.74,.24,2.43,.24);
+      const pileZ=z+side*.74,{y,height}=dockPileSpan(x,pileZ,pierDeck-.155);
+      solids.add(post,0x685d50,x,y,pileZ,.24,height,.24);
       solids.add(box,0x54524a,x,pierDeck-.17,z+side*.80,.35,.16,.31);
     }
   }
