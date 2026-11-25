@@ -12,9 +12,12 @@ import {churchPath} from './ridge-church.js';
 import {skatePark} from './skate-park.js';
 import {basketballCourt} from './basketball-layout.js';
 import {runwayStart,outpostRunwayStart} from './runway-layout.js';
+import {militaryRunway,militaryDock} from './military-island.js';
 
 export const destinations=CITY?new Map([
   ['Airstrip · Jet',[runwayStart.x,runwayStart.z]],
+  ['Military Base · Runway',[(militaryRunway.west+militaryRunway.east)/2,militaryRunway.south-12]],
+  ['Military Base · Boat Dock',[militaryDock.pier.east-3,(militaryDock.pier.north+militaryDock.pier.south)/2]],
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['East Quay Jetty',[87,-408.7]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
   [reefDiveSite.name,[reefDiveSite.x,reefDiveSite.z]],
   [skatePark.name,[39.35,-156.35]],
@@ -71,6 +74,13 @@ function project(p,a,b){
 }
 
 export function landmarkGuide(name){
+  if(CITY && name.startsWith('Military Base ·')){
+    const goal=destinations.get(name);
+    return (x,z)=>{
+      const distance=Math.round(Math.hypot(x-goal[0],z-goal[1]));
+      return {line:[[x,z],goal],goal,cue:distance<8?'Arrived':'Travel by boat or aircraft',meters:distance,distance};
+    };
+  }
   const service=fuelSites.find(site=>site.name===name);
   const reef=CITY && name===reefDiveSite.name;
   if(reef || service?.kind==='marine' || service?.kind==='air'){

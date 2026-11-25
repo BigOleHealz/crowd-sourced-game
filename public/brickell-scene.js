@@ -36,6 +36,7 @@ import { addApartmentBalconies } from './apartment-balconies.js';
 import {addBeachClub} from './beach-club-view.js';
 import { addBeach } from './beach-view.js';
 import { addHarborKeyStructures } from './harbor-key-structure-view.js';
+import {addMilitaryIsland} from './military-island-view.js';
 import * as THREE from 'three';
 import { MAP } from './world.js';
 import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './brickell-map.js';
@@ -73,6 +74,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   const bay=ground('water',verges({west:-750,east:750,north:-902,south:698},estatePoolHoles).map(r=>patch(r,MAP.waterY)),14,{roughness:.30});
   lightBaySurface(bay.material,panorama);
+  addMilitaryIsland(scene,Batch);
   ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.flatMap(r=>verges(r,estatePoolHoles)).map(r=>patch(r,.70))],5);
   ground('asphalt',[patch(runway,.705),patch(taxiway,.705)],5);
   for(const area of [runway,taxiway])
