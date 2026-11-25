@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {touchLayout,touchUseLabel} from '../public/touch-controls.js';
 const has=(list,code)=>list.some(a=>a[0]===code);
-for(const [role,fire] of [['foot',true],['armed-car',true],['turret',true],['car',false],['helm',false],['heli',true],['jet',true],['tank',true]]){
+for(const [role,fire] of [['foot',true],['turret',true],['car',false],['helm',false],['heli',true],['jet',true],['tank',true]]){
   const {quick,tools}=touchLayout({role,active:true,canAim:role==='foot',jump:'Jump',use:'Exit',seat:null,stance:role==='foot'?'stand':null});
   assert.equal(has(quick,'KeyF'),fire,role);
   assert(has(quick,'KeyE'));
@@ -15,8 +15,8 @@ for(const [role,fire] of [['foot',true],['armed-car',true],['turret',true],['car
 }
 console.log('PASS phone action layouts for on-foot play and seven vehicle roles');
 
-const driver=touchLayout({role:'armed-car',active:true,use:'Exit pickup',seat:['Driver','Gunner']});
-assert.equal(driver.axis,'Steer');assert(driver.quick.some(([code,label])=>code==='KeyF'&&label==='Fire missile'));
+const driver=touchLayout({role:'car',active:true,use:'Exit Humvee',seat:['Driver','Gunner']});
+assert.equal(driver.axis,'Steer');assert(!has(driver.quick,'KeyF'));
 assert(driver.tools.some(([,label])=>label==='Gunner seat'));assert(driver.quick.some(([,label])=>label==='Driver tools'));
 const gunner=touchLayout({role:'turret',active:true,use:'Exit pickup',seat:['Driver','Gunner']});
 assert.equal(gunner.axis,undefined);assert(gunner.quick.some(([,label])=>label==='Fire turret'));
@@ -28,17 +28,17 @@ for(const [target,label] of [['tank','Drive tracked tank'],['jet','Pilot strike 
   assert.equal(touchUseLabel({target,role:'drive',label}),label);
 }
 
-const seats=touchLayout({role:'armed-car',active:true,seat:['Driver','Gunner'],occupancy:['You','Taken']});
+const seats=touchLayout({role:'car',active:true,seat:['Driver','Gunner'],occupancy:['You','Taken']});
 assert.deepEqual(seats.tools.slice(0,2),[['Digit1','Driver · You',true],['Digit2','Gunner · Taken',true]]);
 
-for(const role of ['car','armed-car','engine','tank','helm','heli','jet']){
+for(const role of ['car','engine','tank','helm','heli','jet']){
   const eligible=touchLayout({role,active:true,canRefuel:true,use:'Exit vehicle'});
   assert(eligible.quick.some(([code,label])=>code==='KeyU' && label==='Refuel'),role);
   assert(has(eligible.quick,'KeyE'),role+' retains exit at the pump');
   assert(!has(touchLayout({role,active:true,canRefuel:false}).quick,'KeyU'));
 }
 
-for(const role of ['car','armed-car','turret','engine']){
+for(const role of ['car','turret','engine']){
   const canSwap=role!=='car';
   const window=touchLayout({role,active:true,pistol:true,canReload:true,swapPistol:canSwap});
   assert(window.quick.some(([key,label])=>key==='KeyF' && label==='Fire pistol'));

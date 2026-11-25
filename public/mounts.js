@@ -7,7 +7,7 @@ export const mounts = {
   jet: {launcher:[1.70,.70,-.9],turret:[0,1.03,-2.78]},
   // The Little Bird GLB's rocket pod mouths sit just outside x=+/-1.44, y=.64, z=-1.47.
   heli: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
-  rover: { launcher: [.84,.82,-1.16], turret: [0,2.54,.06] },
+  rover: { turret: [0,2.54,.06] },
 };
 
 export function mountPosition(vehicle, [side,height,z]) {

@@ -777,7 +777,7 @@ function tick() {
       if(pistol){
         if(input?.reload && !input.interact && !input.seat)startReload(player,ticks,sidearmSlot);
         if(input?.fire)fireCarPistol(world,road,player,input,ticks);
-      }else if(kind==='rover' && !road.model && input?.fire)launchMissile(world,kind,player,ticks);
+      }
       const {x,y,z,yaw}=road;
       player.state = { x,y,z,vy:0,grounded:true };
       player.yaw = yaw;

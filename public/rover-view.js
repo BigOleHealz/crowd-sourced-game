@@ -8,7 +8,6 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {rigHumveeWheels} from './humvee-wheel-rig.js';
 import {roverPanelDamage} from './rover-panel-damage.js';
-import { missileLaunchers } from './mount-view.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
 import { CITY } from './world.js';
 import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
@@ -192,7 +191,6 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   box(darkGreen,0,.87,1.496,1.048,.124,.027);
   box(steel,0,.51,1.49,1.53,.122,.123);
   box(rubber,0,.558,1.532,.94,.052,.115);
-  missileLaunchers(chassis,'rover');
   for(const side of [-1,1]){
     const hub=side*.7;
     for(const z of [-.94,.95]) {

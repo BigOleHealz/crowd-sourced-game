@@ -170,7 +170,7 @@ const inTank=()=>id!=null && world?.tank?.driver===id;
 const myRoad = () => inTank()?world.tank:drivenRoad(world,id);
 const carNames={hatchback:'Hatchback',sedan:'Sedan',van:'Delivery van',engine:'Fire engine'};
 const inEngine=()=>myRoad()?.model==='engine';
-const unarmedRoad=()=>inGT() || Boolean(myRoad()?.model);
+const unarmedRoad=()=>inGT() || Boolean(myRoad()?.model) || myRoad()===world?.rover;
 const inGT = () => myRoad()?.kind==='supercar';
 const isDriving = () => id != null && (Boolean(myRoad()) || myBoat()?.driver===id || atYachtHelm());
 let selectedCarPistol=false;
@@ -1082,7 +1082,7 @@ function updateEquipment(local) {
   const gunner=gunnerRole(),basketball=playingHoops();
   byId('match-kills').textContent=vitals.score?.kills??0;
   byId('match-deaths').textContent=vitals.score?.deaths??0;
-  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : gunner==='tank' ? 'Tank roof gun' : 'Rover turret') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Cheetah' : isDriving() ? 'Rover missiles' : pilot ? 'Helicopter forward guns · R missile' : local.swimming?(local.scuba?'Scuba':'Swimming')+' · Air '+Math.ceil(local.swimAir??breathSeconds)+'s · '+(local.swimDepth??0).toFixed(1)+' m':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
+  byId('kit').textContent = marina?boat.name+' · '+marina.title:basketball?basketballTeams[world.basketball.players.indexOf(id)].name:inTank()?'Tank · Arcade cannon':jetPilot() ? 'Strike jet · Cannon, missiles and bombs' : atYachtHelm() ? 'Solana · Yacht helm' : boat ? (gunner?'Boat turret':'Patrol boat helm') : gunner ? (gunner==='superyacht' ? 'Solana · Bow gun' : gunner==='heli' ? 'Helicopter turret' : gunner==='tank' ? 'Tank roof gun' : 'Humvee roof gun') : trafficCar ? (trafficCar.patrol?'Patrol cruiser':(civilianProfiles[trafficCar.model]?.name??carNames[trafficCar.model])) : inGT() ? 'Cheetah' : isDriving() ? 'Humvee' : pilot ? 'Helicopter forward guns · R missile' : local.swimming?(local.scuba?'Scuba':'Swimming')+' · Air '+Math.ceil(local.swimAir??breathSeconds)+'s · '+(local.swimDepth??0).toFixed(1)+' m':manualHolster?'Unarmed · '+equipmentSpecs[weapon].name+' put away':weapon+' · '+equipmentSpecs[weapon].name;
   byId('progress').textContent = zombies ? '' : cleared + ' / ' + BREAKABLES.length + ' roadblocks cleared';
   canvas.classList.toggle('armed', (!manualHolster || isDriving() || gunner) && !basketball && !volleyball?.member && !local.swimming && !pilot && (carPistol() || inTank() || inEngine() || !isDriving()) && !vitals.dead && byId('guide').hidden);
   const health = ((atYachtHelm() || gunner==='superyacht') && world.yacht) || boat || (pilot ? heli : myRoad() || vitals);
@@ -1250,7 +1250,7 @@ function updateEquipment(local) {
   if(liftLabel && !touch.active)prompt.textContent='E  ·  '+liftLabel;
   const pier=pierAt(local),fish=vitals.fishing;
   if(touch.active){
-    const role=board || diving?'diving':local.swimming?'swimming':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?(unarmedRoad()?'car':'armed-car'):local.ride?.kind==='board'?'skateboard':'foot';
+    const role=board || diving?'diving':local.swimming?'swimming':basketball?'basketball':volleyball?.member?'volleyball':vitals.clubSince!=null?'seat':jetPilot()?'jet':pilot?'heli':gunner?'turret':inTank()?'tank':boat || atYachtHelm()?'helm':inEngine()?'engine':isDriving()?'car':local.ride?.kind==='board'?'skateboard':'foot';
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','supercar','superyacht','tank'].includes(kind) && !myRoad()?.model

@@ -31,6 +31,11 @@ for(const kind of ['rover','heli']){
   assert.ok(world.shots.filter(s=>s.weapon==='muzzle').every(s=>s.firedWeapon==='turret'));
   assert.equal(v.hp,v.maxHp);
   launchMissile(world,kind,{id:2},60);assert.equal(world.missiles.length,0);
+  if(kind==='rover'){
+    launchMissile(world,kind,{id:1},60);
+    assert.equal(world.missiles.length,0,'Humvee has no rockets');
+    continue;
+  }
   launchMissile(world,kind,{id:1},60);
   const m=world.missiles[0],start={...m};v.yaw=0;
   assert.deepEqual(world.shots.filter(s=>s.weapon==='launch').map(s=>s.id),[m.id]);
@@ -68,6 +73,7 @@ for(const kind of ['rover','heli']){
   launchMissile(a,'heli',pilot,10);
   launchMissile(a,'heli',pilot,12);
   launchMissile(a,'rover',{id:2},15);
+  assert.equal(a.missiles.filter(m=>m.source==='rover').length,0);
   launchMissile(a,'heli',pilot,40);
   launchMissile(b,'heli',pilot,40);
   launchMissile(a,'heli',pilot,70);

@@ -549,6 +549,7 @@ export function firePatrolShot(world,officer,player,sight,tick,damage){
 const launchState=new WeakMap();
 const missileStep=source=>source==='jet'?2:1;
 export function launchMissile(world,kind,player,tick) {
+  if(kind==='rover')return;
   const v=world[kind];
   const previous=launchState.get(v);
   if(v.fuel===0 || v.wrecked || (kind==='heli' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;

@@ -21,11 +21,11 @@ for(const kind of ['rover','heli','bay-rhib','key-rhib']){
   const player={id:2,state:{},life:newLife(0,false)};
   fireTurret(w,kind,player,2);
   assert(w.bullets.length>0);w.bullets.forEach(checkVertical);
-  if(kind==='rover'||kind==='heli'){
-    v[kind==='rover'?'driver':'pilot']=1;
+  if(kind==='heli'){
+    v.pilot=1;
     launchMissile(w,kind,{id:1,life:newLife(0,false)},2);
     assert.equal(w.missiles[0].yaw,v.yaw);
     assert.equal(w.missiles[0].pitch,v.pitch??0);
   }
 }
-console.log('PASS zenith for three personal game weapons, all four turret stations and vehicle-heading launchers');
+console.log('PASS zenith for three personal game weapons, all four turret stations and helicopter-heading launchers');
