@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import {bridgeMiddle,leafLength,leafGeometry} from './drawbridges.js';
 import {causeway} from './brickell-map.js';
 
-export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
-  const {sections,west,east,parapetWidth,parapetHeight}=bridge;
-  const roadBatch=new Batch(true), geometry=new THREE.BufferGeometry();
+export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway, pavers=asphalt) {
+  const {sections,west,east,walkWest,walkEast,sidewalkWidth,sidewalkRise,parapetWidth,parapetHeight}=bridge;
+  const roadBatch=new Batch(true),walkBatch=new Batch(true), geometry=new THREE.BufferGeometry();
   const index=[0,1,2,0,2,3];
   geometry.setIndex(index);
   function quad(points,batch,tint) {
     geometry.setAttribute('position',new THREE.Float32BufferAttribute(points.flat(),3));
     geometry.computeVertexNormals();
-    if (batch===roadBatch) {
-      geometry.setAttribute('batchUv',new THREE.Float32BufferAttribute(points.flatMap(([x,,z])=>[x/5,z/5]),2));
+    if (batch===roadBatch || batch===walkBatch) {
+      const period=batch===roadBatch?5:2.6;
+      geometry.setAttribute('batchUv',new THREE.Float32BufferAttribute(points.flatMap(([x,,z])=>[x/period,z/period]),2));
     }
     batch.add(geometry,tint,0,0,0);
   }
@@ -21,13 +22,14 @@ export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
     function strip(x1,y1,x2,y2,tint,batch=solids) {
       quad([[x1,y1(a),a.z],[x1,y1(b),b.z],[x2,y2(b),b.z],[x2,y2(a),a.z]],batch,tint);
     }
-    const road=s=>s.road, soffit=s=>s.soffit;
+    const road=s=>s.road, soffit=s=>s.soffit,walk=s=>s.road+sidewalkRise;
     const rim=s=>s.soffit+.42, cornice=s=>s.road-.24;
     strip(west,road,east,road,0xffffff,roadBatch);
     strip(east,soffit,west,soffit,0x939388);
     // The stone arch ring follows the vault down to the submerged springings.
     for(const side of [-1,1]) {
       const edge=side<0?west:east, inner=edge-side*parapetWidth;
+      const outer=side<0?walkWest:walkEast,guardInner=outer-side*parapetWidth;
       const cap=s=>s.road+parapetHeight, lip=s=>cap(s)-.12;
       function face(x,lower,upper,tint,outward) {
         const positive=outward ? side>0 : side<0;
@@ -41,6 +43,16 @@ export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
       face(inner,road,cap,0xc4c0b0,false);
       const x1=Math.min(inner,edge),x2=Math.max(inner,edge);
       strip(x1,cap,x2,cap,0xdad5c6);
+      // A paved pedestrian shelf continues the island promenade alongside
+      // both arched approaches. The outer stone guard follows its rise.
+      const wx1=Math.min(outer,edge),wx2=Math.max(outer,edge);
+      strip(wx1,walk,wx2,walk,0xffffff,walkBatch);
+      strip(wx2,soffit,wx1,soffit,0x939388);
+      const walkCap=s=>walk(s)+parapetHeight;
+      face(outer,soffit,walk,0xc4c0b0,true);
+      face(outer,walk,walkCap,0xd7cdb7,true);
+      face(guardInner,walk,walkCap,0xc4c0b0,false);
+      strip(Math.min(outer,guardInner),walkCap,Math.max(outer,guardInner),walkCap,0xdad5c6);
       for(const [s,atEnd] of [[a,i===1],[b,i===sections.length-1]]) {
         if(!atEnd)continue;
         const pts=[[x1,road(s),s.z],[x1,cap(s),s.z],[x2,cap(s),s.z],[x2,road(s),s.z]];
@@ -52,6 +64,7 @@ export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
     for(const x of [west+.65,east-.65]) strip(x-.055,paint,x+.055,paint,0xe5e0ce);
   }
   roadBatch.mesh(scene,asphalt).userData.impactSurface='asphalt';
+  walkBatch.mesh(scene,pavers).userData.impactSurface='solid';
   geometry.dispose();
   const middle=bridgeMiddle(bridge), leaf=leafGeometry(bridge,0);
   const steel=new THREE.MeshLambertMaterial({vertexColors:true});
@@ -69,6 +82,18 @@ export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
     surface.position.set(0,-.24,side*length/2);surface.receiveShadow=true;
     surface.userData.impactSurface='asphalt';deck.add(surface);
     for(const edge of [-1,1]){
+      const center=edge*(width/2+sidewalkWidth/2),outer=edge*(width/2+sidewalkWidth-.12);
+      pieces.add(box,0xbdb9ad,center,-.20,side*length/2,sidewalkWidth,.64,length);
+      pieces.add(box,0xdad5c6,outer,.52,side*length/2,.24,.80,length);
+      const paving=new THREE.PlaneGeometry(sidewalkWidth,length).rotateX(-Math.PI/2);
+      const uv=paving.attributes.uv;
+      for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*sidewalkWidth/2.6,uv.getY(i)*length/2.6);
+      paving.setAttribute('color',new THREE.Float32BufferAttribute(Array(paving.attributes.position.count*3).fill(1),3));
+      const walkSurface=new THREE.Mesh(paving,pavers);
+      walkSurface.position.set(center,sidewalkRise+.003,side*length/2);
+      walkSurface.receiveShadow=true;walkSurface.userData.impactSurface='solid';deck.add(walkSurface);
+    }
+    for(const edge of [-1,1]){
       const x=edge*(width/2-.16);
       pieces.add(box,0x555d61,x,-.38,side*length/2,.30,.54,length);
       pieces.add(box,0xc8c5ab,x,.72,side*length/2,.13,.14,length);
@@ -77,7 +102,7 @@ export function addCauseway(scene, Batch, solids, asphalt, bridge=causeway) {
       pieces.add(box,0xe5dfcd,edge*(width/2-.65),.012,side*length/2,.10,.016,length);
     }
     for(let z=1;z<length-1;z+=3)pieces.add(box,0xe0b567,0,.012,side*z,.14,.018,1.65);
-    pieces.add(hinge,0x626968,0,-.25,0,1,width+.23,1,0,0,Math.PI/2);
+    pieces.add(hinge,0x626968,0,-.25,0,1,walkEast-walkWest+.23,1,0,0,Math.PI/2);
     pieces.mesh(deck,steel);group.add(deck);scene.add(group);
     return {group,side};
   });

@@ -39,7 +39,7 @@ import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import {addMilitaryIsland} from './military-island-view.js';
 import * as THREE from 'three';
 import { MAP } from './world.js';
-import { avenues, streets, coast, harbor, streetPlan, bayfrontLawns } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway, streetPlan, bayfrontLawns } from './brickell-map.js';
 import {runway,taxiway} from './runway-layout.js';
 
 import {breakablePostView} from './breakable-post-view.js';
@@ -96,8 +96,9 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addQuayMasonry(scene,solids,renderer);
-  const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'));
-  const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge);
+  const bridgePavers=material('pavers');
+  const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'),causeway,bridgePavers);
+  const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge,bridgePavers);
   addLanternPoint(scene,solids,ground,patch,posts);
   const estateStart=scene.children.length;
   const updateEstates=addLanternBuildings(scene,Batch,panorama,()=>{renderer.shadowMap.needsUpdate=true;});

@@ -25,7 +25,7 @@ export const onBeach=(x,z)=>x>=beach.west && x<=beach.east && z>=beach.north && 
 export const onBeachTerrain=(x,z)=>x>=beachTerrain.west && x<=beachTerrain.east &&
   z>=beachTerrain.north && z<=beachTerrain.south &&
   (x<beachIsland.west || x>=beachIsland.east || z<beachIsland.north || z>=beachIsland.south) &&
-  !((z>=beachIsland.south || z<beachIsland.north) && x>=-10 && x<10);
+  !((z>=beachIsland.south || z<beachIsland.north) && x>=-10.4 && x<10.4);
 export const onRockShore=(x,z)=>x<beachIsland.east && onBeachTerrain(x,z);
 export const onSandShore=(x,z)=>x>=beachIsland.east && onBeachTerrain(x,z);
 export function sandHeight(x,z) {

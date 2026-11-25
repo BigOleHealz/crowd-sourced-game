@@ -48,7 +48,7 @@ export function returnToSharkPatrol(shark){
   const bridge=bridgeDogSplash(shark);
   if(bridge)bridgeReturns.set(shark,bridge);
 }
-const bridgeLane=(bridge,x)=>x<(bridge.east+bridge.west)/2?bridge.west-4:bridge.east+4;
+const bridgeLane=(bridge,x)=>x<(bridge.east+bridge.west)/2?bridge.walkWest-4:bridge.walkEast+4;
 
 export function bridgeSharkWaypoint(from,to,bridge){
   if(clearCourse(from,to,bridge))return to;

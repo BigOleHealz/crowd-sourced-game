@@ -27,5 +27,7 @@ export function causewayArch(west, east, north, south) {
     const i = Math.min(count - 1, Math.floor(t));
     return sections[i][surface] + (sections[i+1][surface] - sections[i][surface]) * (t-i);
   }
-  return {west, east, north, south, sections, height, parapetWidth: .32, parapetHeight: .82};
+  const sidewalkWidth=4.4,sidewalkRise=.116;
+  return {west, east, walkWest:west-sidewalkWidth, walkEast:east+sidewalkWidth,
+    sidewalkWidth,sidewalkRise,north,south,sections,height,parapetWidth:.32,parapetHeight:.82};
 }

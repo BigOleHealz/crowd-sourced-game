@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 process.env.GOY_THEFT_AUTO_MAP='brickell';
-const {createSharks,sharkContact,damageShark,sharkSizes}=await import('../public/shark-swim.js');
+const {createSharks,sharkContact,damageShark,sharkSizes,sharkSeabed}=await import('../public/shark-swim.js');
 const {newExpedition,fire,updateHandheldGear}=await import('../public/expedition.js');
 const {damageActor,newLife}=await import('../public/rivals.js');
-const {brickellMap,cityGround}=await import('../public/brickell-map.js');
+const {brickellMap}=await import('../public/brickell-map.js');
 const {touchLayout}=await import('../public/touch-controls.js');
 const water=brickellMap.waterY;
 const player=(id,x,z)=>({id,yaw:0,state:{x,y:water-.72,z,swimming:true},life:newLife(0,false),score:{deaths:0}});
@@ -33,7 +33,8 @@ bayfront.step(30);
 assert.equal(near.life.hp,hp);
 assert.equal(shore.life.hp,100);assert.equal(deck.life.hp,100);
 assert(bayfront.game.state.every(s=>s.target==null));
-for(const s of bayfront.game.state)assert(water-cityGround(s.x,s.z)>2.05);
+for(const s of bayfront.game.state)assert(water-sharkSeabed(s.x,s.z)>2.05,
+  'patrolling sharks remain in deep water, including beneath a bridge sidewalk');
 const alone=player(2,105,-500),open=bay(alone);
 open.step(130);
 assert.equal(alone.life.hp,0,'Sustained swimming in another offshore channel can be lethal');
