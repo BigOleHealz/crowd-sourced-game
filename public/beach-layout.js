@@ -1,5 +1,7 @@
-export const beach={west:38,east:76,north:-280,south:-152};
-export const beachTerrain={...beach,east:beach.east+12,north:beach.north-12,south:beach.south+12};
+export const beachIsland={west:-61,east:38,north:-280,south:-152};
+export const beach={west:beachIsland.east,east:76,north:beachIsland.north,south:beachIsland.south};
+export const beachTerrain={west:beachIsland.west-13,east:beach.east+12,
+  north:beachIsland.north-12,south:beachIsland.south+12};
 export const courts=[{x:45,z:-191},{x:45,z:-239}];
 export const stations=[{x:53,z:-176,number:'01'},{x:54,z:-223,number:'02'}];
 // Canopy profiles in local (east, height) coordinates. Each panel and its clearance
@@ -19,8 +21,11 @@ export const shadeSpots=[
   {x:53,z:-235,color:0xdf9272}, {x:48,z:-272,color:0x248da1},
 ];
 export const onBeach=(x,z)=>x>=beach.west && x<=beach.east && z>=beach.north && z<=beach.south;
+// The two bridge openings retain their surveyed underwater channels.
 export const onBeachTerrain=(x,z)=>x>=beachTerrain.west && x<=beachTerrain.east &&
-  z>=beachTerrain.north && z<=beachTerrain.south;
+  z>=beachTerrain.north && z<=beachTerrain.south &&
+  (x<beachIsland.west || x>=beachIsland.east || z<beachIsland.north || z>=beachIsland.south) &&
+  !((z>=beachIsland.south || z<beachIsland.north) && x>=-10 && x<10);
 export function sandHeight(x,z) {
   const swash=62+1.75*Math.sin(z*.112)+.8*Math.sin(z*.215);
   const dry=.80+.16*Math.sin((x-38)*.29)*Math.sin((z+154)*.13);

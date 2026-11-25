@@ -18,7 +18,7 @@ import {skateParkFloor} from './skate-park.js';
 import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
-import {beach,onBeach,onBeachTerrain, sandHeight, beachBarriers} from './beach-layout.js';
+import {beach,beachIsland,onBeach,onBeachTerrain, sandHeight, beachBarriers} from './beach-layout.js';
 import {beachClubFixtures,beachClubFloor} from './beach-club.js';
 import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
@@ -29,7 +29,7 @@ export const streets = [-45, -9, 27, 61];
 export const coast = { west: -76, east: 43, north: -60, south: 76 };
 export const bayfrontLawns=[[-60,-49.1],[-40.9,-13.1],[-4.9,22.9],[31.1,56.9],[65.1,76]]
   .map(([north,south])=>({west:39.025,east:41.675,north:north+1,south:south-1}));
-export const harbor={west:-61,east:38,north:-280,south:-152,avenue:0,crossing:-205};
+export const harbor={...beachIsland,avenue:0,crossing:-205};
 export const causeway=causewayArch(-6,6,harbor.south,coast.north);
 export const within=contains;
 export const streetPlan=waterfrontRoads(avenues,streets,coast,harbor);
