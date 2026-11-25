@@ -1,5 +1,6 @@
 import {yachtGun,yachtDeckY} from './yacht-layout.js';
 import {jetScale} from './jet-size.js';
+import {humveePassengerSeat} from './humvee-layout.js';
 // Offsets in game units from the centre of the vehicle, facing local -Z.
 const boatMount={turret:[0,1.68,1.12]};
 export const mounts = {
@@ -39,7 +40,8 @@ export function gunnerVehicle(world,id) {
 
 export function gunnerFeet(vehicle,kind) {
   if(kind==='heli') return mountPosition(vehicle,[0,.52,0]);
-  const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:kind==='rover'?.80:.45,mounts[kind].turret[2]]);
+  if(kind==='rover') return mountPosition(vehicle,humveePassengerSeat);
+  const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:.45,mounts[kind].turret[2]]);
   const yaw=vehicle.turretYaw;
   feet.x-=.44*Math.sin(yaw);
   feet.z+=.44*Math.cos(yaw);
