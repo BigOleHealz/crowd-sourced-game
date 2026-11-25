@@ -2,8 +2,6 @@ import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,leaveSinkingRoad,stepRoadSinking} from './road-water.js';
 import {openTankWall} from './tank-wall-cuts.js';
-import {ramHouse} from './residential-falls.js';
-import {houseAtPoint} from './residential-sites.js';
 import {breakRoadObstacle} from './road-obstacle-damage.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
@@ -86,10 +84,7 @@ export function stepTank(world,input,dt,players){
     for(let pass=0;hit && pass<12;pass++){
       const incoming=-(vx*hit.nx+vz*hit.nz);
       if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
-        const home=hit.wallCell!=null && houseAtPoint(hit.object?.x,hit.object?.z,.25);
-        if(incoming>0 && home && ramHouse(world.doors,home.id,hit.object.x,hit.object.z,vx,vz)){
-          world.rules?.damageProperty?.(driver?.team,{x:t.x,y:t.y,z:t.z},'house:'+home.id,'House collapse',5_000);
-        }else if(incoming>0 && openTankWall(world.doors,hit.wallCell)){
+        if(incoming>0 && openTankWall(world.doors,hit.wallCell)){
           world.rules?.damageProperty?.(driver?.team,{x:t.x,y:t.y,z:t.z},'wall:'+hit.wallCell,'Wall section',5_000);
         }else{
           const car=hit.object;
