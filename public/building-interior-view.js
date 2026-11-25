@@ -60,9 +60,14 @@ export function buildingInteriorView(scene,Batch){
     for(const s of [-1,1]){
       const w=d.width*.5*(1-next),u=s*(d.width-w)*.5;
       if(w>.008){
-        add(0x766653,u,1.03,w,2.06,.060);
-        add(0xb39c75,u,1.52,w*.82,.55,.066);
-        add(0x514c46,u,.56,w*.80,.69,.066);
+        add(d.glazed?0x34736f:0x766653,u,1.03,w,2.06,.060);
+        if(d.glazed){
+          add(0x9bc9b7,u,1.06,w*.88,1.89,.068);
+          add(0xb69b68,u,1.06,w,.038,.075);
+        }else{
+          add(0xb39c75,u,1.52,w*.82,.55,.066);
+          add(0x514c46,u,.56,w*.80,.69,.066);
+        }
         if(w>.14)add(0xcbbb8e,u-s*w*.29,1.05,.035,.23,.078);
       }
       add(0x6d695e,s*(d.width/2+.025),1.05,.047,2.10,.09);
