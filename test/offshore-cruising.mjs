@@ -30,6 +30,7 @@ for(const shore of keyShores){
     }
   }
 }
+assert.equal(keyGround(NaN,0),-2.8,'invalid coordinates cannot index a shore profile');
 const world=newExpedition(),b=world.boats[1];Object.assign(b,{x:82,z:-56,yaw:Math.PI/2,driver:1});
 for(let i=0;i<120;i++)stepBoat(world,b,{throttle:1},dt,new Map());
 assert(b.x<96 && b.x>83,'hull stops on the visible island shore before the chart edge');

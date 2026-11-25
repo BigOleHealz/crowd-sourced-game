@@ -5,9 +5,11 @@ import { CITY, MAP, travelBounds, blocked, groundHeight, solidTopAt } from './wo
 // Movement and contact are resolved on the server. The pose uses the same clock on every client.
 export function startFall(actor, tick, impulse, cause) {
   const s = actor.state;
-  s.vx = (s.vx || 0) + impulse.x;
-  s.vz = (s.vz || 0) + impulse.z;
-  s.vy = (s.vy || 0) + impulse.y;
+  const finite = value => Number.isFinite(value) ? value : 0;
+  const origin = {x:s.x,y:s.y,z:s.z};
+  s.vx = finite(s.vx) + finite(impulse.x);
+  s.vz = finite(s.vz) + finite(impulse.z);
+  s.vy = finite(s.vy) + finite(impulse.y);
   s.grounded = false;
   delete s.climb;
   delete s.grab;
@@ -15,7 +17,7 @@ export function startFall(actor, tick, impulse, cause) {
   delete s.swimming;
   delete s.stance;
   const speed = Math.hypot(s.vx, s.vz);
-  actor.life.fall = { cause, started: tick, yaw: speed > .05 ? Math.atan2(s.vx, -s.vz) : actor.yaw || 0,
+  actor.life.fall = { cause, started: tick, origin, yaw: speed > .05 ? Math.atan2(s.vx, -s.vz) : actor.yaw || 0,
     speed, settled: null };
   actor.moving = actor.sprint = false;
 }
@@ -24,6 +26,12 @@ export function advanceFall(actor, tick, dt, hp, world) {
   const f = actor.life.fall;
   if (!f) return false;
   const s = actor.state;
+  // A malformed impact must not poison the next terrain lookup and kill the room.
+  for (const [axis, index] of [['x',0],['z',1],['y',null]]) {
+    if (!Number.isFinite(s[axis])) s[axis] = Number.isFinite(f.origin?.[axis]) ? f.origin[axis]
+      : (index === null ? 0 : (actor.route?.points?.[0]?.[index] ?? 0));
+  }
+  for (const velocity of ['vx','vy','vz']) if (!Number.isFinite(s[velocity])) s[velocity] = 0;
   if (f.settled !== null) {
     if (actor.life.hp && tick - f.settled >= 16) delete actor.life.fall;
     return true;
