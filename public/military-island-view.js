@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
-import {coastalBedHeight} from './brickell-map.js';
+import {brickellMap,coastalBedHeight} from './brickell-map.js';
+import {shoreRockPile} from './shore-rock-piles.js';
 
 function addRockShore(base){
   // Match the reef's two-metre grid so the exposed bank has no collision seam.
@@ -45,8 +46,9 @@ function addRockShore(base){
     const n=Math.sin(x*127.1+z*311.7)*43758.5453,random=n-Math.floor(n);
     const px=x+(random-.5)*.75,pz=z+Math.sin(n*1.37)*.3;
     if(!onMilitaryRockShore(px,pz))continue;
-    const floor=coastalBedHeight(px,pz),radius=.85+random*.75,height=.38+random*.35;
-    dummy.position.set(px,floor+height*.13,pz);
+    const floor=coastalBedHeight(px,pz);
+    const {radius,height,centerY}=shoreRockPile(floor,brickellMap.waterY,random);
+    dummy.position.set(px,centerY,pz);
     dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
     dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
     stones.setMatrixAt(count,dummy.matrix);
