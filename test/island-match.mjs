@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {assignTeam,createMatch,propertyTeam,teamSpawn}=await import('../island-match.js');
 const {groundHeight,blocked}=await import('../public/world.js');
 const {newExpedition,advanceRounds,fire}=await import('../public/expedition.js');

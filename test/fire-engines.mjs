@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 if(!process.env.FIRE_TEST_REGION){
   for(const map of ['brickell','outpost']){
-    const r=spawnSync(process.execPath,[process.argv[1]],{stdio:'inherit',env:{...process.env,PINEWATCH_MAP:map,FIRE_TEST_REGION:map}});
+    const r=spawnSync(process.execPath,[process.argv[1]],{stdio:'inherit',env:{...process.env,GOY_THEFT_AUTO_MAP:map,FIRE_TEST_REGION:map}});
     assert.equal(r.status,0);
   }
 }else{

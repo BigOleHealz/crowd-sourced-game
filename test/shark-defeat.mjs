@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {createSharks,damageShark}=await import('../public/shark-swim.js');
 const {damageActor,newLife,respawnDue}=await import('../public/rivals.js');
 const {sharkDefeatPose}=await import('../public/shark-defeat.js');

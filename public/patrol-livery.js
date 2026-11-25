@@ -12,7 +12,7 @@ function lettering(){
     ink.scale(2,2);ink.clearRect(0,0,256,72);
     ink.fillStyle='#bd934a';ink.fillRect(18,55,220,2);
     ink.textAlign='center';ink.fillStyle='#203841';ink.font='italic 900 37px system-ui';ink.fillText(CITY?'POLICE':'SHERIFF',128,39,226);
-    ink.font='bold 12px system-ui';ink.fillText(CITY?'P I N E W A T C H':'PINEWATCH COUNTY',128,54,210);
+    ink.font='bold 12px system-ui';ink.fillText(CITY?'G O Y  T H E F T  A U T O':'GOY THEFT AUTO COUNTY',128,54,210);
     const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
     doorMaterial=new THREE.MeshLambertMaterial({map,transparent:true,alphaTest:.08,depthWrite:false});
   }

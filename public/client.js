@@ -86,9 +86,9 @@ const damageEdges=shotDamageVignette(byId('damage-edges'));
 const canvas = byId('game');
 const lighting=byId('lighting-choice');
 const costume=byId('parade-costume');
-try{costume.checked=localStorage.getItem('pinewatch.paradeCostume')==='on';}catch{}
+try{costume.checked=localStorage.getItem('goy-theft-auto.paradeCostume')==='on';}catch{}
 costume.onchange=()=>{
-  try{localStorage.setItem('pinewatch.paradeCostume',costume.checked?'on':'off');}catch{}
+  try{localStorage.setItem('goy-theft-auto.paradeCostume',costume.checked?'on':'off');}catch{}
   if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'paradeCostume',enabled:costume.checked}));
 };
 const audio=createGameAudio(byId('sound-mute'),byId('sound-volume'),byId('sound-level'),byId('owner-caption'));
@@ -1584,12 +1584,12 @@ function frame(time) {
 
 try {
   scene = createScene(canvas);
-  try{lighting.value=localStorage.getItem('pinewatch-lighting')??(zombies?'dusk':'day');}catch{}
+  try{lighting.value=localStorage.getItem('goy-theft-auto-lighting')??(zombies?'dusk':'day');}catch{}
   if(!lighting.value)lighting.value='day';
   scene.setLighting(lighting.value);
   lighting.onchange=()=>{
     scene.setLighting(lighting.value);
-    try{localStorage.setItem('pinewatch-lighting',lighting.value);}catch{}
+    try{localStorage.setItem('goy-theft-auto-lighting',lighting.value);}catch{}
     canvas.focus({preventScroll:true});
   };
   window.addEventListener('resize', () => scene.resize());
@@ -1599,5 +1599,5 @@ try {
 } catch (error) {
   console.error(error);
   byId('presence').textContent = 'Unavailable';
-  notice('goy theft auto could not initialize 3D graphics. Open it in a desktop browser with WebGL 2 enabled.');
+  notice('Goy Theft Auto could not initialize 3D graphics. Open it in a desktop browser with WebGL 2 enabled.');
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {MAP}=await import('../public/world.js');
 const {collapseSoundCues,fallAudioTracker}=await import('../public/collapse-sound-cues.js');
 const event={key:'tower-0',tower:0,missing:[],age:0},cues=collapseSoundCues(event,MAP.buildings);

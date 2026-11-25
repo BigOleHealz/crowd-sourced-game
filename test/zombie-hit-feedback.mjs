@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-process.env.PINEWATCH_MAP = 'brickell';
+process.env.GOY_THEFT_AUTO_MAP = 'brickell';
 const {zombieSurvival} = await import('../zombie-survival.js');
 const {newExpedition} = await import('../public/expedition.js');
 const {healthView} = await import('../public/rivals.js');

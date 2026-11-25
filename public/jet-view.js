@@ -82,7 +82,7 @@ export function jetView(scene,Batch){
   const oldGlass=glass.mesh(group,new THREE.MeshPhysicalMaterial({color:0x38515b,metalness:.38,roughness:.16,clearcoat:1,transparent:true,opacity:.88}),false);
   const wheels=gear.mesh(group,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.8}));
   if(typeof window!=='undefined')new GLTFLoader().load(new URL('./f35a.glb',import.meta.url).href,({scene:model})=>{
-    // Sketchfab's airframe faces +Z; Pinewatch aircraft face -Z.
+    // Sketchfab's airframe faces +Z; Goy Theft Auto aircraft face -Z.
     model.rotation.y=Math.PI;
     model.updateMatrixWorld(true);
     const bounds=new THREE.Box3().setFromObject(model);

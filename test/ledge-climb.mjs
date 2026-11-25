@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {MAP,groundHeight,stepPlayer}=await import('../public/world.js');
 const {startFall}=await import('../public/falls.js');
 const dt=1/30, jump={jump:true,x:0,z:0,yaw:Math.PI}, idle={x:0,z:0};

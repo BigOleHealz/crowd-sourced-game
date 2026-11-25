@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 if(!process.env.TANK_MAP_CHECK){
   for(const map of ['brickell','outpost']){
-    const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,TANK_MAP_CHECK:'1',PINEWATCH_MAP:map},stdio:'inherit'});
+    const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,TANK_MAP_CHECK:'1',GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
     assert.equal(r.status,0);
   }
 }else{
@@ -14,7 +14,7 @@ if(!process.env.TANK_MAP_CHECK){
   const {roadContact}=await import('../public/road-contact.js');
   const {newLife}=await import('../public/rivals.js');
   const w=newExpedition(),t=w.tank;
-  if(process.env.PINEWATCH_MAP==='outpost'){assert.equal(t,undefined);console.log('PASS no tank on Outpost');}
+  if(process.env.GOY_THEFT_AUTO_MAP==='outpost'){assert.equal(t,undefined);console.log('PASS no tank on Outpost');}
   else{
     const p={id:1,life:newLife(0,false),state:{x:t.x-2,y:t.y,z:t.z,grounded:true},score:{kills:0,deaths:0}};
     const other={id:2,life:newLife(0,false),state:{...p.state},score:{kills:0,deaths:0}};

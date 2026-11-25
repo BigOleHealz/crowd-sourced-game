@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {roadSurfaceAt} from '../public/road-surface.js';
 import {tireMix,tireLoop} from '../public/tire-road-sound.js';
-const city=process.env.PINEWATCH_MAP==='brickell';
+const city=process.env.GOY_THEFT_AUTO_MAP==='brickell';
 assert.equal(roadSurfaceAt(0,city?-100:0),'deck');
 assert.equal(roadSurfaceAt(city?0:-21,city?-190:10.2),city?'asphalt':'gravel');
 const car={x:0,z:0,speed:-4,flatTires:5};

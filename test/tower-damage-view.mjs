@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {MAP}=await import('../public/world.js');
 const {towerCell,towerBase,bandHeight}=await import('../public/tower-damage.js');
 const {towerDamageView}=await import('../public/tower-damage-view.js');

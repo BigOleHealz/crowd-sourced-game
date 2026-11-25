@@ -140,7 +140,7 @@ function placement(listener,yaw,point) {
 
 export function createGameAudio(button,slider,level,caption) {
   const action=button.querySelector('#sound-action');
-  const key='pinewatch.audio.v1';
+  const key='goy-theft-auto.audio.v1';
   let settings={muted:false,volume:.6};
   try {
     const saved=JSON.parse(localStorage.getItem(key));

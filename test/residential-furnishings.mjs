@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 if(!process.env.RESIDENTIAL_TEST_MAP){
   for(const map of ['brickell','outpost']){
     const child=spawnSync(process.execPath,[process.argv[1]],{stdio:'inherit',
-      env:{...process.env,RESIDENTIAL_TEST_MAP:map,PINEWATCH_MAP:map}});
+      env:{...process.env,RESIDENTIAL_TEST_MAP:map,GOY_THEFT_AUTO_MAP:map}});
     assert.equal(child.status,0);
   }
 }else{

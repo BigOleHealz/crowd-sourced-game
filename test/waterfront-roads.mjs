@@ -1,6 +1,6 @@
 import {approachPoint} from './helpers/rover-route.mjs';
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {streetPlan,roadway,cityGround,harbor,coast,causeway,within}=await import('../public/brickell-map.js');
 const {verges}=await import('../public/waterfront-roads.js');
 const {blocked}=await import('../public/world.js');

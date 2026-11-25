@@ -37,7 +37,7 @@ import { brickellMap, cityGround, coastalBedHeight, parapetTop, waterfront } fro
 import {onRunway} from './runway-layout.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
-  : typeof process !== 'undefined' && process.env.PINEWATCH_MAP === 'brickell';
+  : typeof process !== 'undefined' && process.env.GOY_THEFT_AUTO_MAP === 'brickell';
 export const MAP = CITY ? brickellMap : {
   bounds:38, northBound:-90, flightNorth:-84, northTrail,
   waterY: -1.2,

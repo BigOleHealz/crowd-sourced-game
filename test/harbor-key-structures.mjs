@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {beachHut,harborHouses}=await import('../public/harbor-key-structures.js');
 const {buildingTopAt,blocked,groundHeight,stepPlayer}=await import('../public/world.js');
 const {galleryPlans}=await import('../public/gallery-lobbies.js');

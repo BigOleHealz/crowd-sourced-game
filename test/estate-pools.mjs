@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer,groundHeight,waterBlend,waterSurfaceAt}=await import('../public/world.js');
 const {estatePools}=await import('../public/swimming-pools.js');
 for(const p of estatePools){

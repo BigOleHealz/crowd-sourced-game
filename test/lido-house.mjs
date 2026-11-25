@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer,buildingTopAt}=await import('../public/world.js');
 const {roomAtFeet,interiorCeiling,buildingAction}=await import('../public/building-interiors.js');
 const {nearBlackjack}=await import('../public/casino-layout.js');

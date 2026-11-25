@@ -1,6 +1,6 @@
-name: pinewatch-local
+name: goy-theft-auto-local
 x-runtime: &runtime
-  image: pinewatch-local:dev
+  image: goy-theft-auto-local:dev
   user: node
   read_only: true
   cap_drop: [ALL]

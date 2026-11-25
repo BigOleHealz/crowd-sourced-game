@@ -23,10 +23,10 @@ export function createTouchControls(canvas,{wake,look,endLook,action,menuOpened,
   const quick=byId('touch-actions'),tools=byId('touch-tools'),opener=byId('touch-menu-open');
   const tip=byId('touch-tip'),lookCue=byId('touch-look'),reference=byId('touch-reference');
   const seen=new Set();
-  try{for(const role of JSON.parse(localStorage.getItem('pinewatch.touchTips.v1')||'[]'))seen.add(role);}catch{}
+  try{for(const role of JSON.parse(localStorage.getItem('goy-theft-auto.touchTips.v1')||'[]'))seen.add(role);}catch{}
   let tipRole=null,lastRole=null,sawStick=false,sawLook=false;
   function dismissTip(){
-    if(tipRole){seen.add(tipRole);try{localStorage.setItem('pinewatch.touchTips.v1',JSON.stringify([...seen]));}catch{}}
+    if(tipRole){seen.add(tipRole);try{localStorage.setItem('goy-theft-auto.touchTips.v1',JSON.stringify([...seen]));}catch{}}
     tip.hidden=true;tipRole=null;
   }
   function showTip(){

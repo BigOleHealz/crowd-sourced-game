@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {Scene} from 'three';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {surfaceMarks}=await import('../public/surface-marks.js');
 const {sandHeight}=await import('../public/beach-layout.js');
 const scene=new Scene(),marks=surfaceMarks(scene),mesh=scene.getObjectByName('Fading surface marks');

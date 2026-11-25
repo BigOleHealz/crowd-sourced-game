@@ -107,7 +107,7 @@ export function sharkView(scene,waterline){
     if(instance.mixer || !sharkAsset)return;
     const visual=cloneSkeleton(sharkAsset.scene);
     const oriented=new THREE.Group();
-    // The asset's snout points toward +Z; Pinewatch sharks travel toward -Z.
+    // The asset's snout points toward +Z; Goy Theft Auto sharks travel toward -Z.
     // Preserve the existing 3.75 m visual length used by their hit volumes.
     oriented.rotation.y=Math.PI;
     oriented.add(visual);

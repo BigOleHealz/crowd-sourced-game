@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 // Server and browser use these same map-specific simulation modules.
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newExpedition,fireTurret,advanceRounds}=await import('../public/expedition.js');
 const {nearBoat,interactBoat,stepBoat,damageBoat,nearbyHull,localBoatFrame}=await import('../public/patrol-boats.js');
 const {selectSeat}=await import('../public/seat-selection.js');

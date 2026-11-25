@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 if(!process.env.GLASS_TEST_MAP){
   for(const map of ['outpost','brickell']){
-    const run=spawnSync(process.execPath,[new URL(import.meta.url).pathname],{env:{...process.env,GLASS_TEST_MAP:map,PINEWATCH_MAP:map},stdio:'inherit'});
+    const run=spawnSync(process.execPath,[new URL(import.meta.url).pathname],{env:{...process.env,GLASS_TEST_MAP:map,GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
     assert.equal(run.status,0);
   }
   process.exit(0);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {Scene,Mesh,BoxGeometry,MeshBasicMaterial,Matrix4} from 'three';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {contactShadows,furnitureFootprint}=await import('../public/contact-shadows.js');
 const {furnitureRanges}=await import('../public/shop-furniture-view.js');
 const {skyDarkness}=await import('../public/road-lighting.js');

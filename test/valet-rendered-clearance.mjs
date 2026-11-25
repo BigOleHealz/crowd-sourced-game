@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {Batch}=await import('../public/scene.js');
 const {displayBays}=await import('../public/palma-site.js');
 const {cityStreets}=await import('../public/brickell-scene.js');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {waterfront}=await import('../public/brickell-map.js');
 const {travelBounds,groundHeight}=await import('../public/world.js');
 const {resortLevels,grandTopAt}=await import('../public/grand-resort-layout.js');

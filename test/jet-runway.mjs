@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 
 if(!process.env.RUNWAY_TEST){
   for(const map of ['outpost','brickell'])execFileSync(process.execPath,[fileURLToPath(import.meta.url)],
-    {env:{...process.env,RUNWAY_TEST:'1',PINEWATCH_MAP:map},stdio:'inherit'});
+    {env:{...process.env,RUNWAY_TEST:'1',GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
 }else{
   const {newExpedition}=await import('../public/expedition.js');
   const {stepJet,parkedJet}=await import('../public/jet.js');
@@ -26,5 +26,5 @@ if(!process.env.RUNWAY_TEST){
   Object.assign(j,reset,{pilot:1,x:CITY?-62:19});
   for(let n=0;n<130;n++)stepJet(w,{throttle:1,jetPitch:1},1/30,crew);
   assert(j.grounded || j.wrecked,'off-runway pitch cannot launch the jet');
-  console.log('PASS',process.env.PINEWATCH_MAP,'runway spawn, minimum rotation speed and off-runway gate');
+  console.log('PASS',process.env.GOY_THEFT_AUTO_MAP,'runway spawn, minimum rotation speed and off-runway gate');
 }

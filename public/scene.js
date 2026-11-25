@@ -599,7 +599,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   const updateGlass=helicopterPanes.bind(windows);
   const stencil=document.createElement('canvas');stencil.width=512;stencil.height=112;
   const st=stencil.getContext('2d');st.fillStyle='#a7ad98';st.textAlign='center';
-  st.font='bold 76px sans-serif';st.fillText('PINEWATCH',256,88);
+  st.font='bold 76px sans-serif';st.fillText('GOY THEFT AUTO',256,88);
   const decal=new THREE.CanvasTexture(stencil);decal.colorSpace=THREE.SRGBColorSpace;
   const lettering=new THREE.MeshBasicMaterial({map:decal,transparent:true,depthWrite:false,
     polygonOffset:true,polygonOffsetFactor:-2});
@@ -1384,11 +1384,11 @@ export function createScene(canvas) {
   function resident(id,name,officer=false,lookId=id,infected=0){
     const athlete=volleyballLooks[id];
     const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??beachStaffLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
-    const faces=infected?(infectedFaces??=civilianTexture('./infected-faces.webp')):officer?(patrolFaces??=civilianTexture('./pinewatch-patrol-faces.webp')):
+    const faces=infected?(infectedFaces??=civilianTexture('./infected-faces.webp')):officer?(patrolFaces??=civilianTexture('./goy-theft-auto-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
       volleyballShirts.set(look.top,new THREE.MeshLambertMaterial({color:look.top}));
-    const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./pinewatch-patrol-shirt.webp':'./pinewatch-county-shirt.webp')):
+    const shirts=athlete?volleyballShirts.get(look.top):officer?(patrolShirts??=civilianTexture(CITY?'./goy-theft-auto-patrol-shirt.png':'./goy-theft-auto-county-shirt.png')):
       (civilianShirts??=civilianTexture('./brickell-clothing.webp'));
     const rig=createRangerRig();
     if(infected && !infectedShirts){
