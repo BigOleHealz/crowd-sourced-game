@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 // The held and moving spear use the same short, brightly banded shaft.
-export function spearfishingView(scene,camera){
+export function spearfishingView(scene){
   const shaft=new THREE.CylinderGeometry(.012,.016,.59,6),grip=new THREE.CylinderGeometry(.024,.024,.16,8);
   const tip=new THREE.ConeGeometry(.026,.115,6);
   const blue=new THREE.MeshLambertMaterial({color:0x34565c}),gold=new THREE.MeshLambertMaterial({color:0xe8b344});
@@ -12,12 +12,14 @@ export function spearfishingView(scene,camera){
   }
   const up=new THREE.Vector3(0,1,0),dir=new THREE.Vector3();
   const held=spear.clone();held.name='Scuba hand spear';held.visible=false;
-  held.position.set(.18,-.15,-.43);
-  held.quaternion.setFromUnitVectors(up,dir.set(-.14,.11,-1).normalize());camera.add(held);
+  held.position.set(0,-.22,-.27);
+  held.quaternion.setFromUnitVectors(up,dir.set(0,.08,-1).normalize());
   const passing=new Map(),launch=new THREE.Vector3(),right=new THREE.Vector3(),end=new THREE.Vector3();
-  return (players,local,sighted,tick)=>{
+  return (players,local,sighted,tick,avatar)=>{
     const age=tick-(local.spearfishing?.last?.tick??-Infinity);
-    held.visible=sighted && (age<0 || age>12);
+    const hand=avatar?.limbs?.[1]?.forearm;
+    if(hand && held.parent!==hand)hand.add(held);
+    held.visible=!!hand && sighted && (age<0 || age>12);
     for(const shot of passing.values())shot.visible=false;
     for(const who of players){
       const last=who.spearfishing?.last,elapsed=tick-last?.tick;

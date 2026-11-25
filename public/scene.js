@@ -1330,7 +1330,7 @@ export function createScene(canvas) {
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
-  const updateSpears=CITY?spearfishingView(scene,camera):null;
+  const updateSpears=CITY?spearfishingView(scene):null;
   const drawCapsules=airborneCapsules(scene,Batch);
   const sightModels=carriedEquipment(camera,scene,Batch);
   // Give the Colt's solid stock enough eye relief to keep the aim point clear.
@@ -1415,7 +1415,7 @@ export function createScene(canvas) {
     if(direction.y>1-1e-12)return {yaw:viewHeading,pitch:zenith};
     const windowCar=station==='car-window' && sidearmCar(displayedWorld,id);
     if(station==='car-window' && !windowCar)return null;
-    const muzzle=windowCar ? carPistolGrip(windowCar,id) : station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tankCannon' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
+    const muzzle=windowCar ? carPistolGrip(windowCar,id) : station==='spear' ? spearOrigin(feet) : station==='engine' ? {x:feet.x,y:feet.y+monitorHeight,z:feet.z} : station==='tankCannon' ? {x:feet.x,y:feet.y+tankPivot,z:feet.z} : station ? mountPosition(vehicleById(displayedWorld,station),mounts[station].turret) : {x:feet.x,y:feet.y+stanceMuzzleHeight(feet),z:feet.z};
     const muzzleY=muzzle.y;
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
@@ -1425,7 +1425,7 @@ export function createScene(canvas) {
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
       .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
-    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station==='tankCannon'?'tank':station);
+    const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station==='tankCannon'?'tank':station==='spear'?null:station);
     let {to}=aimHit;
     if(CITY && to){
       const depth=Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z);
@@ -1433,7 +1433,7 @@ export function createScene(canvas) {
     }
     // An obstruction between the chase camera and the turret cannot be an aim point
     // for the barrel. Keep its forward sightline while the camera passes that cover.
-    if(station && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
+    if(station && station!=='spear' && Math.hypot(to.x-origin.x,to.y-origin.y,to.z-origin.z)<cameraOffset+1) {
       const depth=range+cameraOffset;
       to={x:origin.x+direction.x*depth,y:origin.y+direction.y*depth,z:origin.z+direction.z*depth};
     }
@@ -1825,12 +1825,6 @@ export function createScene(canvas) {
       camera.rotation.set(pitch,-yaw,0,'YXZ');
       if(localBody)localBody.visible=false;
     }
-    if(view.spearSight){
-      const eye=spearOrigin(local);
-      camera.position.set(eye.x,eye.y,eye.z);
-      camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
-      if(localBody)localBody.visible=false;
-    }
     if(ridingHotelShaft(local)){
       camera.position.set(local.x,local.y+1.59,local.z);
       camera.rotation.set(view.pitch,-view.yaw,0,'YXZ');
@@ -1869,7 +1863,7 @@ export function createScene(canvas) {
     updateGulls?.(world.gulls,local,world.simTick,dt);
     updateDogSpray?.(world.sharks,local,world.dogs,attackTick);
     updateFish?.(camera.position,attackTick,world.spearedFish);
-    updateSpears?.(players,local,view.spearSight,attackTick);
+    updateSpears?.(players,local,view.spearSight,attackTick,avatars.get(local.id));
     updateDolphins?.(world.dolphins,local,world.simTick,dt);
     swimmerImpacts.frame(local,dt);
     updateSharks?.(world.sharks,local,attackTick,dt,world.sharkDefeats);

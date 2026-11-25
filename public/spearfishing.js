@@ -80,7 +80,11 @@ export function spearCast(world,player,input,tick,waterY,floorAt){
   }
   const stats=player.spearfishing??={score:0,count:0,log:[]};
   stats.last={tick,from,to:point(reach)};
-  if(animalHit)stats.last.hitKind=animalHit.kind;
+  if(animalHit){
+    stats.last.hitKind=animalHit.kind;
+    stats.last.hitHp=animalHit.states[animalHit.index].hp;
+    stats.last.hitDead=stats.last.hitHp===0;
+  }
   if(hit){
     (world.spearedFish??={})[hit.key]=tick+restockTicks;
     const landed={species:hit.species,lengthCm:hit.lengthCm,points:hit.lengthCm,tick};

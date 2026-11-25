@@ -56,6 +56,8 @@ for(const kind of ['shark','dolphin','manatee']){
     assert.equal(animal.hitSeq,shot);
     assert.equal(animal.ageSinceHit,0);
     assert.equal(hunter.spearfishing.last.hitKind,kind);
+    assert.equal(hunter.spearfishing.last.hitHp,animal.hp);
+    assert.equal(hunter.spearfishing.last.hitDead,shot===3);
     assert(hunter.spearfishing.last.to.z>31 && hunter.spearfishing.last.to.z<34,
       'the spear stops at the animal instead of passing through');
   }
