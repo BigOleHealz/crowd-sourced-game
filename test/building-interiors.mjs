@@ -21,6 +21,7 @@ if(!process.env.INTERIOR_TEST_MAP){
     assert.equal(buildingAction(p.state,w.doors)?.s,from,'reachable panel '+from.p.name);
     send({building:from.p.id,floor:to.index});
     assert(p.trip);assert.equal(p.state.liftTravel,to.index+1);
+    assert.equal(p.trip.time,30,'one-second elevator ride at 30 ticks per second');
     for(let i=0;p.trip && i<650;i++)advanceElevator(w,p,++t);
     assert.equal(p.trip,undefined);assert(p.state.grounded);
     assert.equal(p.state.y,to.y);assert(Math.abs(groundHeight(p.state.x,p.state.z,p.state.y+1.6,w.doors)-to.y)<.00001);
@@ -50,7 +51,7 @@ if(!process.env.INTERIOR_TEST_MAP){
         p.state=feet(d.x-dir*.72,d.y,d.z);send({door:d.id,open:false});assert(!doorIsOpen(d,w.doors));rooms++;
       }
     }
-    assert.equal(rooms,292);assert.equal(trips,260);
+    assert.equal(rooms,302);assert.equal(trips,270);
 
     for(const building of interiorPlans)for(const d of building.entrances){
       const doors={};setDoorOpen(d,doors,true);
@@ -75,6 +76,7 @@ if(!process.env.INTERIOR_TEST_MAP){
       assert(!blocked(d.x,d.y,d.z,w.hp,w.doors),'open bank '+d.label);
     }
     const hotel=interiorPlans.find(p=>p.name==='Hotel Maravela');
+    assert(hotel.panels.length>=12,'hotel lift serves guest floors above seven');
     p.state=feet(0,0,15);send({building:hotel.id,floor:1});assert(!p.trip);
     p.state=feet(hotel.panels[0].exitX,.824,hotel.panels[0].exitZ);send({building:hotel.id,floor:999});assert(!p.trip);
     send({building:hotel.id,floor:1});assert(p.trip);

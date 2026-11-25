@@ -41,7 +41,7 @@ export function balconySurfaces(buildings){
       const first=ceiling?Math.max(0,Math.ceil((maxY-start+slabThickness-.0001)/story)):
         Math.min(floors-1,Math.floor((maxY-start+slabThickness+.0001)/story));
       for(let i=first;i>=0 && i<floors;i+=ceiling?1:-1){
-        const top=start+i*story;
+        const top=start+i*story-(b.towerId===9?.04:0);
         if(breachedFloor(b,x,z,top-.002,doors)!=null)continue;
         let found=false;
         for(const s of slabs){
@@ -60,7 +60,7 @@ export function balconySurfaces(buildings){
                 if(Math.abs(railHeight-guardHeight)>.028 && Math.abs(railHeight-.12)>.025 &&
                    Math.abs(along-Math.round(along/spacing)*spacing)>.028)continue;
               }
-              result=Math.max(result,top+guardHeight);
+              result=Math.max(result,top+guardHeight+(b.towerId===9?.04:0));
             }
           }
           found=true;

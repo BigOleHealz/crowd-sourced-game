@@ -20,3 +20,16 @@ for(const facade of [0,3]){
   assert(tick(p,{},{collapsedTowers:[b.towerId]}).y<deck);
 }
 console.log('PASS fall, stand, walk and jump on both balcony styles, and fall through a destroyed slab');
+const hotel=MAP.buildings.find(b=>b.towerId===9);
+const {floors,story}=towerStories(hotel,3.9);
+for(const floor of [0,Math.floor(floors/2),floors-1])for(const side of [-1,1]){
+  const y=4.70+floor*story,z=hotel.z-2;
+  let p={x:hotel.x+side*4.5,y,z,vy:0,grounded:true};
+  for(let i=0;i<36;i++)p=stepPlayer(p,{x:side},1/30,{}, {doors:{}});
+  assert(p.x*side>hotel.x*side+hotel.w/2+.45,'walk from room onto balcony');
+  assert(p.grounded && Math.abs(p.y-y)<.001,'level balcony threshold');
+  for(let i=0;i<36;i++)p=stepPlayer(p,{x:-side},1/30,{}, {doors:{}});
+  assert(p.x*side<hotel.x*side+hotel.w/2-1,'walk back into hotel room');
+  assert(p.grounded && Math.abs(p.y-y)<.001,'level room threshold');
+}
+console.log('PASS Hotel Maravela room to balcony and back without jumping');

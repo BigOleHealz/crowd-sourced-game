@@ -4,6 +4,10 @@ import {paneKey} from './pane-damage.js';
 import {paneSupportLost} from './glass-support.js';
 export const hasApartmentBalconies=facade=>facade===0 || facade===3;
 export const guardHeight=1.07;
+// The north hotel's west and east rooms share a clear balcony doorway.
+export function hotelBalconyDoor(b,side,along){
+  return b.towerId===9 && (side===1 || side===3) && Math.abs(along-(side===1?2:-2))<1.67;
+}
 export function chamferedOutline(x,z,cut){
   return [[-x+cut,-z],[x-cut,-z],[x,-z+cut],[x,z-cut],[x-cut,z],[-x+cut,z],[-x,z-cut],[-x,-z+cut]];
 }
@@ -62,6 +66,7 @@ export function towerGlassIndex(buildings){
         const {bays,bay,pier}=towerBays(length,wrap);
         for(let j=0;j<bays;j++){
           const u=-length/2+(j+.5)*bay;
+          if(hotelBalconyDoor(b,side,u))continue;
           add(b.x+c*u+s*(edge-.375), b.z-s*u+c*(edge-.375),
             bay-pier,level+.12,level+Math.min(2.61,story-.36),yaw,.39);
         }
@@ -99,6 +104,8 @@ export function upperShellTop(b,x,z,y,roof){
   if(!tower){[tower]=towerGlassIndex([b]);shellCache.set(b,tower);}
   const row=Math.floor((y-tower.start)/tower.story);
   const level=tower.start+row*tower.story;
+  if(b.towerId===9 && Math.abs(Math.abs(x-b.x)-b.w/2)<.55 &&
+    Math.abs(z-(b.z-2))<1.67 && y>level+.11 && y<level+Math.min(2.61,tower.story-.36))return -Infinity;
   if(y-level<.12 || (!b.finish && tower.story-(y-level)<.16))return roof;
   const dx=x-b.x,dz=z-b.z,nearX=b.w/2-Math.abs(dx),nearZ=b.d/2-Math.abs(dz);
   if(Math.min(nearX,nearZ)>(b.finish ? .22 : .43))return -Infinity;
