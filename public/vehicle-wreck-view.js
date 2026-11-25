@@ -20,6 +20,16 @@ export function vehicleWreckBurst(event,puff,particle,random){
   }
 }
 
+export function vehicleCrushDust(event,puff,random){
+  const center=new THREE.Vector3().copy(event.to);
+  for(let i=0;i<8;i++){
+    const angle=i*Math.PI/4,dx=Math.cos(angle),dz=Math.sin(angle);
+    const at=center.clone().add(new THREE.Vector3(dx*.75,-.55,dz*.75));
+    puff(at,new THREE.Vector3(dx*(.8+random()),.3+random()*.5,dz*(.8+random())),
+      .35,.65+random()*.4,.38,i%2?0x827b70:0x655f58,.55);
+  }
+}
+
 export function crushedScale(car){
   if(!car.crushed)return 1;
   return car.recoverySeconds>4.6 ? .24 : 0;
@@ -32,16 +42,16 @@ const burnedMetal=new THREE.MeshLambertMaterial({color:0x4f4340,vertexColors:tru
 export function roadWreckFinish(group){
   let originals;
   return car=>{
-    if(car.wrecked && !originals){
+    if(car.wrecked && !car.crushed && !originals){
       originals=new Map();
       group.traverse(mesh=>{
         if(!mesh.isMesh)return;
         originals.set(mesh,mesh.material);mesh.material=burnedMetal;
       });
-    }else if(!car.wrecked && originals){
+    }else if((!car.wrecked || car.crushed) && originals){
       for(const [mesh,material] of originals)mesh.material=material;
       originals=null;
     }
-    return car.wrecked ? 1-Math.exp(-3*Math.max(0,6-car.recoverySeconds)) : 0;
+    return car.wrecked && !car.crushed ? 1-Math.exp(-3*Math.max(0,6-car.recoverySeconds)) : 0;
   };
 }

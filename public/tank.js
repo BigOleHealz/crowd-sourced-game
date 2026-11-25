@@ -94,8 +94,8 @@ export function stepTank(world,input,dt,players){
         }else{
           const car=hit.object;
           if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
-          // The normal lethal damage path ejects the driver and handles credit and recovery.
-          damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver));
+          // The lethal path releases the crew; the tracks leave a flattened wreck.
+          damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver),'crush');
           car.crushed=true;
         }
       }

@@ -51,7 +51,7 @@ export function reportVehicleWreck(world,vehicle,source,surface,tick) {
   if(reportedWrecks.has(vehicle))return;
   reportedWrecks.add(vehicle);
   const at={x:vehicle.x,y:vehicle.y+(surface==='water' ? .47 : .85),z:vehicle.z};
-  world.shots.push({id:nextShotId++,weapon:'vehicleWreck',source,surface,from:at,to:at,tick});
+  world.shots.push({id:nextShotId++,weapon:vehicle.crushed?'vehicleCrush':'vehicleWreck',source,surface,from:at,to:at,tick});
 }
 
 export function newExpedition({civilianMarina=true}={}) {

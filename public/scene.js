@@ -72,7 +72,7 @@ import {retailRoom} from './frontage-glass.js';
 import {doorwayProximity} from './doorway-camera.js';
 import {galleryRoomAt,galleryEntryDepth} from './gallery-lobbies.js';
 import {roadLighting,skyDarkness} from './road-lighting.js';
-import {vehicleWreckBurst} from './vehicle-wreck-view.js';
+import {vehicleWreckBurst,vehicleCrushDust} from './vehicle-wreck-view.js';
 import {roadSplashView} from './road-splash-view.js';
 import {doorX,storefrontRoom} from './storefront-layout.js';
 import { applyLostParts, clearLostParts, characterBurst } from './character-hit-view.js';
@@ -861,6 +861,7 @@ function fieldEffects(scene) {
     }
     if(s.weapon==='roadSplash'){roadSplash.enter(s);return;}
     if(s.weapon==='vehicleWreck'){vehicleWreckBurst(s,plume.puff,particle,rng);return;}
+    if(s.weapon==='vehicleCrush'){vehicleCrushDust(s,plume.puff,rng);return;}
     if(s.weapon==='launch') return;
     if(s.weapon==='muzzle'){
       particle(new THREE.Vector3(s.from.x,s.from.y,s.from.z),new THREE.Vector3(),new THREE.Vector3(.068,.054,.068),0xffd395,.065);
