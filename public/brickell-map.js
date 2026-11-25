@@ -12,6 +12,7 @@ import {estateBarriers,berthing} from './lantern-buildings-layout.js';
 import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
 import {militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
+import {carrierHullSections} from './eisenhower-carrier-layout.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
 import {onAirfield} from './runway-layout.js';
@@ -160,7 +161,7 @@ for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-
   palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-275, southBound:118, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...militaryBarriers,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
+  barriers:[...carrierHullSections,...militaryBarriers,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

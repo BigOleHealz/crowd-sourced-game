@@ -70,6 +70,7 @@ import { onBeach, beach, courts } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
+import {eisenhowerCarrier,carrierHullSections} from './eisenhower-carrier-layout.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
@@ -1337,6 +1338,8 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle='#69776a';ctx.beginPath();
     militaryShore.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));
     ctx.closePath();ctx.fill();
+    ctx.fillStyle='#aabac0';
+    for(const section of carrierHullSections)ctx.fillRect(sx(section.x-section.w/2),sy(section.z-section.d/2),section.w*scale,section.d*scale);
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
     for(const r of [...shorePads,...lanternLand,ferrySlip,...marketPiers,...marinaDecks,...militaryDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
@@ -1435,6 +1438,12 @@ function drawMap(player, remotes, yaw) {
     ctx.fillStyle=b.wrecked?'#7b8181':b.boatModel?'#edcf9b':'#eff3df';ctx.fillText(b.boatModel?'◆':'B',sx(b.x),sy(b.z));
   }
   if(world.yacht){ctx.fillStyle='#f5dba7';ctx.fillText('Y',sx(world.yacht.x),sy(world.yacht.z)-4);}
+  if(CITY){
+    ctx.save();ctx.fillStyle='#dceaf0';ctx.strokeStyle='#244858';ctx.lineWidth=2;
+    ctx.strokeText('CARRIER',sx(eisenhowerCarrier.x),sy(eisenhowerCarrier.z)-4);
+    ctx.fillText('CARRIER',sx(eisenhowerCarrier.x),sy(eisenhowerCarrier.z)-4);
+    ctx.restore();
+  }
   ctx.fillStyle='#f4cc70';ctx.font='bold 10px sans-serif';
   for(const g of roadGarages)ctx.fillText('⚒',sx(g.x)-3,sy(g.z)-3);
   ctx.save();

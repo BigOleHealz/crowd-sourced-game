@@ -3,6 +3,7 @@ import {waterHelm} from './water-helm.js';
 import {hullSize} from './marina-fleet-layout.js';
 import {damageBoat} from './patrol-boats.js';
 import {CITY,MAP,groundHeight,insideTravelArea} from './world.js';
+import {carrierHullContains} from './eisenhower-carrier-layout.js';
 import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelmFeet,yachtPrompt,
   aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin} from './yacht-layout.js';
 
@@ -50,7 +51,7 @@ function clear(world,pose,players,old){
     const x=pose.x+c*side-s*aft,z=pose.z+s*side+c*aft;
     const top=Math.abs(side)<=2.25 && Math.abs(aft+5.8)<1.9 ? 9.78 :
       side>=yachtCabin.west && side<=yachtCabin.east && aft>=yachtCabin.fore && aft<=yachtCabin.aft ? yachtCabin.top : 3.6;
-    if(!insideTravelArea(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
+    if(!insideTravelArea(x,z) || CITY && carrierHullContains(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
   }
   for(const b of world.boats){
     const {halfWidth,halfLength}=hullSize(b);
