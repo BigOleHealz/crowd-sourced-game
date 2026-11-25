@@ -572,9 +572,10 @@ function pressAction(code){
   if (code === 'KeyR' && !isPilot() && world?.mission?.stage === 'complete') queuedReplay = true;
   if(code==='Digit0'){if(canHandleGear())setHolster(!manualHolster);return;}
   if(code==='KeyQ' && canHandleGear())code='Digit'+nextEquipment(weapon);
-  if (!jetPilot() && !unarmedRoad() && !myBoat()?.boatModel && equipmentKeys.includes(code)) {
+  const seatedKind=seatVehicle(world,id);
+  if (!jetPilot() && (!unarmedRoad() || seatedKind) && !myBoat()?.boatModel && equipmentKeys.includes(code)) {
     const number=Number(code.at(-1));
-    const kind=seatVehicle(world,id);
+    const kind=seatedKind;
     if(atYachtHelm() || gunnerRole()==='superyacht')return;
     if(kind) {
       if(number<=2 && !vitals.dead){queuedSeat=number;queuedSeatKind=kind;}
