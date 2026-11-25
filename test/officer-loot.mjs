@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {harborTrade,newWallet}=await import('../harbor-trade.js');
 const w=newExpedition(),messages=[],trade=harborTrade(w,(...m)=>messages.push(m));

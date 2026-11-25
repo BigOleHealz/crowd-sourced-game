@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {MAP,stanceBodyHeight}=await import('../public/world.js');
 const {rubbleHeight,breachTower}=await import('../public/tower-damage.js');
 const {collapsePlan,piecePose,stepStructuralFalls}=await import('../public/structural-collapse.js');

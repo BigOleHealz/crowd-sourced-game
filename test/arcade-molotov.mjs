@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newExpedition,fire,advanceThrowables}=await import('../public/expedition.js');
 const {arcadeMolotov,throwableLimit}=await import('../public/arcade-molotov.js');
 const {touchLayout}=await import('../public/touch-controls.js');

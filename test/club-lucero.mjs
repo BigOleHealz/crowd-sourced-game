@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {club,clubDoor,clubSolids,clubAisle,clubSeat,seatAtClub,leaveClubSeat,inBoothAisle}=await import('../public/club-lucero.js');
 const {MAP,buildingTopAt}=await import('../public/world.js');
 const {fanHall}=await import('../public/palma-site.js');

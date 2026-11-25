@@ -1,6 +1,6 @@
 import {platformDive} from './platform-judges.js';
 
-const storageKey='pinewatch.dive-bests.v1';
+const storageKey='goy-theft-auto.dive-bests.v1';
 const recordKey=(platform,flip)=>(platform?'platform':'springboard')+(flip?'-tuck':'-straight');
 const format=(n,platform)=>n.toFixed(platform?2:1);
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newDogs}=await import('../public/dog-walkers.js');
 const {createWanted}=await import('../public/wanted.js');
 const {requestDogAction}=await import('../dog-actions.js');

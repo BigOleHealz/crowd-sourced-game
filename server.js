@@ -102,10 +102,10 @@ const build=await clientBuild();
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
-const zombies = CITY && process.env.PINEWATCH_MODE===zombieMode;
-const mode = CITY && (zombies || Object.hasOwn(modes,process.env.PINEWATCH_MODE)) ? process.env.PINEWATCH_MODE : null;
+const zombies = CITY && process.env.GOY_THEFT_AUTO_MODE===zombieMode;
+const mode = CITY && (zombies || Object.hasOwn(modes,process.env.GOY_THEFT_AUTO_MODE)) ? process.env.GOY_THEFT_AUTO_MODE : null;
 const bank=CITY && !mode ? createBank() : null;
-const marina=CITY && process.env.PINEWATCH_MODE===marinaMode ? createMarinaSprint() : null;
+const marina=CITY && process.env.GOY_THEFT_AUTO_MODE===marinaMode ? createMarinaSprint() : null;
 const capacity = mode ? maxTeam*2 : 16;
 const step = 1 / 30;
 const players = new Map();
@@ -288,7 +288,7 @@ server.on('upgrade', (request, socket, head) => {
   if(request.url === '/world') return accept(request,socket,head);
   let cityWorker=cityWorkers.get(roomPath);
   if(!cityWorker?.connected) {
-    cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,PINEWATCH_MAP:'brickell',PINEWATCH_MODE:district}});
+    cityWorker=fork(fileURLToPath(import.meta.url),[],{env:{...process.env,GOY_THEFT_AUTO_MAP:'brickell',GOY_THEFT_AUTO_MODE:district}});
     cityWorkers.set(roomPath,cityWorker);
     cityWorker.on('error',err=>console.error('City session:',err.message));
   }

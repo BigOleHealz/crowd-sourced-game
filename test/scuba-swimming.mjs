@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {swimColumn,breathSeconds,tankSeconds} from '../public/scuba.js';
 import {touchLayout} from '../public/touch-controls.js';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer,groundHeight,MAP}=await import('../public/world.js');
 const dt=1/30, surface=MAP.waterY-.72;
 const advance=(s,input,n)=>{for(let i=0;i<n;i++)s=stepPlayer(s,input,dt);return s;};

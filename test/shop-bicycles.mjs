@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {storefrontFaces}=await import('../public/frontage-glass.js');
 const {shopBicycles}=await import('../public/shop-bicycle-sites.js');
 const {rollingMotion,parkRide,takeRide}=await import('../public/street-rides.js');

@@ -131,7 +131,7 @@ function cabMarkings(){
   const canvas=document.createElement('canvas');canvas.width=512;canvas.height=176;
   const pen=canvas.getContext('2d');
   pen.textAlign='center';pen.fillStyle='#f5d799';
-  pen.font='bold 48px Georgia';pen.fillText('PINEWATCH',256,56);
+  pen.font='bold 48px Georgia';pen.fillText('GOY THEFT AUTO',256,56);
   pen.fillRect(76,70,360,3);pen.font='bold 55px Georgia';pen.fillText('ENGINE 07',256,129);
   const map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;
   cabMarkingMaterial=new THREE.MeshLambertMaterial({map,transparent:true,alphaTest:.09,depthWrite:false});

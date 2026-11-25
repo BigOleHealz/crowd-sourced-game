@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {acousticSpace,transmission}=await import('../public/acoustic-space.js');
 const world={doors:{}},street=acousticSpace({x:-16,y:.7,z:-47},world),door={x:-16,y:.824,z:-49.5};
 const closed=acousticSpace(door,world),inside=acousticSpace({x:-16,y:.824,z:-53},world);

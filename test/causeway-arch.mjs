@@ -1,6 +1,6 @@
 import {seabedHeight} from '../public/reef-channel.js';
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {causeway}=await import('../public/brickell-map.js');
 const {groundHeight,MAP,blocked,stepPlayer}=await import('../public/world.js');
 const {newExpedition}=await import('../public/expedition.js');

@@ -15,6 +15,6 @@ assert.equal(world.doors.hydrants[p.id],1,'does not repair inside a parked car')
 car.z+=12;stepHydrants(world);assert.equal(world.doors.hydrants[p.id],undefined);
 console.log('PASS roadside hydrant overlap, airborne clearance, spray expiry and unobstructed repair on '+(CITY?'Brickell':'Outpost'));
 if(!CITY){
- const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,PINEWATCH_MAP:'brickell'},stdio:'inherit'});
+ const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,GOY_THEFT_AUTO_MAP:'brickell'},stdio:'inherit'});
  assert.equal(r.status,0);
 }

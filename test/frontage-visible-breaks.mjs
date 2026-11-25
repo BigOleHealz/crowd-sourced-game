@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {glassBreakDebris}=await import('../public/glass-break-debris.js');
 
 const scene=new THREE.Scene();

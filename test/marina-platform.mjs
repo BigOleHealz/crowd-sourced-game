@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer,groundHeight,blocked,waterSurfaceAt}=await import('../public/world.js');
 const {takeoffBoard}=await import('../public/estate-diving.js');
 const {marinaPlatform:p,platformLadderAt,inDivingLane}=await import('../public/marina-platform.js');

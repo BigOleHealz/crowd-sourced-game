@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {dockHeight,jettyY,jettySections,jettyBeacon,jettyBitts,jettyRail}=await import('../public/marina-docks.js');
 const {waterfront}=await import('../public/brickell-map.js');
 const {groundHeight,solidTopAt,stepPlayer}=await import('../public/world.js');

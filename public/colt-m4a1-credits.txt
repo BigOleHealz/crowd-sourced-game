@@ -3,4 +3,4 @@ https://sketchfab.com/3d-models/low-poly-colt-m4a1-de142447b4d047bbb0311c2974520
 Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 
-The model is used as the Field carbine in Pinewatch. Its in-game orientation and size are adjusted at load time.
+The model is used as the Field carbine in Goy Theft Auto. Its in-game orientation and size are adjusted at load time.

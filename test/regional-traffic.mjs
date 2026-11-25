@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 
 if(!process.argv[2]){
   for(const map of ['brickell','outpost'])execFileSync(process.execPath,[fileURLToPath(import.meta.url),map],
-    {env:{...process.env,PINEWATCH_MAP:map},stdio:'inherit'});
+    {env:{...process.env,GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
 }else{
   const {newExpedition}=await import('../public/expedition.js');
   const {cityServices,outpostServices}=await import('../public/traffic-routes.js');

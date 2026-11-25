@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {doorwayProximity}=await import('../public/doorway-camera.js');
 for(const [z,side] of [[-49,1],[-57,-1]]){
   assert(doorwayProximity(-16,.7,z+side*1.1)>.40);

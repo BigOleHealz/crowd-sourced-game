@@ -18,7 +18,7 @@ async function waitFor(read,label){
 }
 for(const map of ['outpost','brickell']){
   const server=spawn(process.execPath,['server.js'],{cwd:fileURLToPath(new URL('..',import.meta.url)),
-    env:{...process.env,HOST:'127.0.0.1',PORT:'0',PINEWATCH_MAP:map,PINEWATCH_MODE:''},stdio:['ignore','pipe','inherit']});
+    env:{...process.env,HOST:'127.0.0.1',PORT:'0',GOY_THEFT_AUTO_MAP:map,GOY_THEFT_AUTO_MODE:''},stdio:['ignore','pipe','inherit']});
   const closed=once(server,'close'),guests=[];
   try{
     let log='';

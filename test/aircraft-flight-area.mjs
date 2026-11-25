@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 if(!process.env.FLIGHT_AREA_TEST){
-  for(const map of ['outpost','brickell'])execFileSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,FLIGHT_AREA_TEST:'1',PINEWATCH_MAP:map},stdio:'inherit'});
+  for(const map of ['outpost','brickell'])execFileSync(process.execPath,[fileURLToPath(import.meta.url)],{env:{...process.env,FLIGHT_AREA_TEST:'1',GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
 }else{
   const {newExpedition,fly}=await import('../public/expedition.js');
   const {flightBounds:air,travelBounds:land,stepPlayer,MAP}=await import('../public/world.js');
@@ -21,5 +21,5 @@ if(!process.env.FLIGHT_AREA_TEST){
   const p={};leaveJet(w.jet,p);
   const next=stepPlayer(p.state,{deploy:true},dt,w.hp,w);
   assert.equal(next.parachute,'open');assert(next.x>land.east+50);
-  console.log('PASS',process.env.PINEWATCH_MAP,'both aircraft reach the outer flight boundary and ceiling, and bailout preserves position');
+  console.log('PASS',process.env.GOY_THEFT_AUTO_MAP,'both aircraft reach the outer flight boundary and ceiling, and bailout preserves position');
 }

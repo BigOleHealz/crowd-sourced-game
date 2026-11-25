@@ -1,6 +1,6 @@
 import {seabedHeight} from '../public/reef-channel.js';
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {bridges,cityGround,brickellMap}=await import('../public/brickell-map.js');
 const {bridgeMiddle,maxLift}=await import('../public/drawbridges.js');
 const {newExpedition}=await import('../public/expedition.js');

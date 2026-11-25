@@ -60,7 +60,7 @@ export function roverPanelDamage(meshes,paint) {
       diffuseColor.rgb=mix(diffuseColor.rgb,exposed,.85*scar);
       #include <alphamap_fragment>`);
   };
-  paint.customProgramCacheKey=()=> 'pinewatch-crumpled-paint';
+  paint.customProgramCacheKey=()=> 'goy-theft-auto-crumpled-paint';
   return damage=>{
     let changed=false;
     for(let i=0;i<4;i++){

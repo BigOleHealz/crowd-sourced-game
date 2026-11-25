@@ -3,7 +3,7 @@ import {barMenu,beachClubAction,clubDeck,loungeSeats,pourTicks,glassTicks,update
 import {beachClubCast} from '../public/beach-club-cast.js';
 import {beachClubLoop} from '../public/beach-club-music.js';
 
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {groundHeight,buildingTopAt,stepPlayer}=await import('../public/world.js');
 const {landmarkGuide}=await import('../public/landmark-navigation.js');
 assert(landmarkGuide('Harbor Key Beach Club'));

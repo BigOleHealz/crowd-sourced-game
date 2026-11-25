@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {startReload,advanceReload} from '../public/magazines.js';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {createWanted}=await import('../public/wanted.js');
 const {newExpedition,fire,advanceRounds,advanceMissiles,patrolSight}=await import('../public/expedition.js');
 const {tryTrafficInteract,newCityTraffic,stepCityTraffic,syncTrafficDrivers}=await import('../public/city-traffic.js');

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {viewPitch,zenith}=await import('../public/view-pitch.js');
 const {turretPitch,vehicleById}=await import('../public/mounts.js');
 const {newExpedition,fire,fireTurret,launchMissile}=await import('../public/expedition.js');

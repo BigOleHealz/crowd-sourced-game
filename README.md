@@ -1,4 +1,4 @@
-# goy theft auto
+# Goy Theft Auto
 
 ### Supply run
 

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer,groundHeight,buildingTopAt}=await import('../public/world.js');
 const {galleryPlans,galleryLobbies,galleryPanes,galleryFloor,galleryRoomAt,galleryVehicleRects}=await import('../public/gallery-lobbies.js');
 assert.equal(galleryPlans.length,17);assert.equal(galleryLobbies.length,29);assert.equal(galleryPanes.length,66);

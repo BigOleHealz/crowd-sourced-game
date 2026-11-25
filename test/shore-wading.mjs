@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 if(!process.argv[2]){
   for(const map of ['outpost','brickell'])execFileSync(process.execPath,[fileURLToPath(import.meta.url),map],
-    {env:{...process.env,PINEWATCH_MAP:map},stdio:'inherit'});
+    {env:{...process.env,GOY_THEFT_AUTO_MAP:map},stdio:'inherit'});
 }else{
   const {CITY,MAP,groundHeight,stepPlayer,waterBlend}=await import('../public/world.js');
   const {createRangerRig,poseRig}=await import('../public/ranger-pose.js');

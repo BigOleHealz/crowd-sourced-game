@@ -1,7 +1,7 @@
 import {spiralRoute} from './fixtures/spiral-route.mjs';
 import {casaSpiral} from '../public/residential-spirals.js';
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {blocked,stepPlayer}=await import('../public/world.js');
 const {casaRoomAt,casaCeiling}=await import('../public/casa-luma.js');
 const {newExpedition}=await import('../public/expedition.js');

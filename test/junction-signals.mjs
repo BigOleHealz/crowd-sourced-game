@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-process.env.PINEWATCH_MAP='brickell';
+process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {junctions,junctionLamp,signalGap}=await import('../public/junction-signals.js');
 const {civilianProfiles}=await import('../public/civilian-fleet.js');
 const {newExpedition}=await import('../public/expedition.js');
