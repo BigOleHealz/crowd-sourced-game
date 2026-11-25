@@ -22,7 +22,7 @@ export function signalLamps(car,route,dt){
 export function passingOffset(world,car,route,actors,dt){
   const lane=route.track.pose(route.distance),c=Math.cos(lane.yaw),s=Math.sin(lane.yaw);
   let approaching=false,beside=false;
-  for(const other of [world.rover,world.supercar,...world.traffic]){
+  for(const other of [world.rover,world.rover2,world.rover3,world.supercar,...world.traffic]){
     if(!other || other===car || other.driver==null || Math.abs(other.y-car.y)>1.5 || Math.cos(other.yaw-lane.yaw)<.78)continue;
     const dx=other.x-lane.x,dz=other.z-lane.z,along=dx*s-dz*c,across=dx*c+dz*s;
     if(Math.abs(across)>2.3)continue;

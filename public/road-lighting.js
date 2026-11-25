@@ -45,7 +45,7 @@ export function roadLighting(scene,ambient,sun){
   function frame(world,local){
     let count=0,lead=null,leadDist=Infinity;
     if(level!=='day'){
-      for(const car of [world.rover,world.supercar,...(world.patrolCars??[]),...(world.traffic??[])]){
+      for(const car of [world.rover,world.rover2,world.rover3,world.supercar,...(world.patrolCars??[]),...(world.traffic??[])]){
         if(!car || car.wrecked || (car.driver==null && car.npcDriver==null) || car.bridgeFlight)continue;
         const dist=Math.hypot(car.x-local.x,car.z-local.z);
         if(dist>70)continue;

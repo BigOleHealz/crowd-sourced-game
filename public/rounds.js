@@ -318,7 +318,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   function considerRoad(car,kind){
     if(round.source===kind)return;
     let hit=roverRoundContact(car,round,d,round.passedVehicle===kind);
-    const glassKind=car?.model && glassQuads[car.model] ? car.model : kind;
+    const glassKind=car?.model && glassQuads[car.model] ? car.model : kind==='rover2'||kind==='rover3'?'rover':kind;
     if(hit && !Number.isInteger(hit.wheel) && glassQuads[glassKind] && round.passedVehicle!==kind){
       const at={x:round.x+d.x*hit.t,y:round.y+d.y*hit.t,z:round.z+d.z*hit.t};
       const pane=windowContact(glassKind,car,at,d,CITY,true);
@@ -326,7 +326,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     }
     if(hit)accept(hit.t,car,kind,false,null,hit.t,hit.wheel);
   }
-  considerRoad(world.rover,'rover');
+  for(const kind of ['rover','rover2','rover3'])if(world[kind])considerRoad(world[kind],kind);
   considerRoad(world.supercar,'supercar');
   for(const car of world.traffic??[])considerRoad(car,car.id);
   for(const car of world.patrolCars??[])if(!car.wrecked && car.targetId===round.shooter)considerRoad(car,car.id);

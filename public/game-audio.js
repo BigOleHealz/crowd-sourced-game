@@ -311,7 +311,7 @@ export function createGameAudio(button,slider,level,caption) {
       ...world.volleyball.flatMap(game=>game.phase==='closed'?[]:game.athletes.filter((_,i)=>game.players[i]==null))];
   }
   function roadAndAirVehicles(world){
-    return [['rover',world.rover],['heli',world.heli],['heli2',world.heli2],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
+    return [['rover',world.rover],['rover2',world.rover2],['rover3',world.rover3],['heli',world.heli],['heli2',world.heli2],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
@@ -537,10 +537,11 @@ export function createGameAudio(button,slider,level,caption) {
     track.gain.gain.setTargetAtTime(volume*place.gain*passage(track,v),now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
-  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null,heli2=null,secondChainFiring=false) {
+  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null,heli2=null,secondChainFiring=false,extraRovers=[]) {
     motor('chainGun',heli,chainFiring && heli.fuel!==0,1,.94,listener,yaw);
     if(heli2)motor('chainGun',heli2,secondChainFiring && heli2.fuel!==0,1,.94,listener,yaw,'chainGun2');
     motor('engine',rover,rover.driver!=null && !rover.wrecked && rover.fuel!==0,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
+    for(const car of extraRovers)if(car)motor('engine',car,car.driver!=null && !car.wrecked && car.fuel!==0,.8+Math.min(2.1,Math.abs(car.speed)*.13),.28,listener,yaw,'engine/'+car.kind);
     if(supercar)motor('engine',supercar,supercar.driver!=null && !supercar.wrecked && supercar.fuel!==0,1.12+Math.abs(supercar.speed)*.064,.27,listener,yaw,'cheetah-engine');
     const airspeed=Math.hypot(heli.vx??0,heli.vz??0);
     const drive=(heli.pilot!=null || heli.abandonedFor!=null) && !heli.wrecked && heli.fuel!==0;

@@ -15,7 +15,7 @@ export function fuelVehicle(world,id){
   if(world.heli2?.pilot===id)return world.heli2;
   if(world.jet?.pilot===id)return world.jet;
   if(world.tank?.driver===id)return world.tank;
-  if(world.rover?.driver===id)return world.rover;
+  for(const kind of ['rover','rover2','rover3'])if(world[kind]?.driver===id)return world[kind];
   if(world.supercar?.driver===id)return world.supercar;
   if(world.yacht?.driver===id)return world.yacht;
   return world.traffic?.find(v=>v.driver===id)??world.boats?.find(v=>v.driver===id)??null;
@@ -78,7 +78,7 @@ function roadFuel(world,v,dt){
 }
 
 export function stepVehicleFuel(world,dt){
-  roadFuel(world,world.rover,dt);
+  for(const kind of ['rover','rover2','rover3'])if(world[kind])roadFuel(world,world[kind],dt);
   roadFuel(world,world.supercar,dt);
   roadFuel(world,world.tank,dt);
   for(const car of world.traffic??[])roadFuel(world,car,dt);

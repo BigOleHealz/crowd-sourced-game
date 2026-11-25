@@ -29,7 +29,7 @@ import {marinaHullContains} from './marina-fleet-layout.js';
 import { firearmSpecs, civilianRoundContact, tankRoundContact, roverRoundContact, supercarRoundContact, firstPaneHit, postContact, blastPosts, roundActorSweep, segmentContact } from './rounds.js';
 // The server owns this transient expedition state. It survives individual joins.
 import { CITY, MAP, BREAKABLES, groundHeight, solidTopAt, stanceDrop, stanceMuzzleHeight } from './world.js';
-import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js';
+import { parkedRover, parkedSupercar, damageRover, drivenRoad, roverKinds } from './rover.js';
 import { newSupplyRun } from './supply-run.js';
 import {alertWalkersDogs,damageDog,projectileDogHit} from './dog-walkers.js';
 import { damageActor } from './rivals.js';
@@ -65,7 +65,7 @@ export function newExpedition({civilianMarina=true}={}) {
   return {
     doors:CITY?newStorefrontDoors():{},
     ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar(),tank:parkedTank()} : {}),
-    jet:parkedJet(), heli: parkedHelicopter(), ...(CITY?{heli2:parkedHelicopter(SECOND_HELIPAD)}:{}), rover: parkedRover(), boats:[...patrolFleet(),...(civilianMarina?marinaFleet():[])],
+    jet:parkedJet(), heli: parkedHelicopter(), rover: parkedRover(), ...(CITY?{heli2:parkedHelicopter(SECOND_HELIPAD),rover2:parkedRover('rover2'),rover3:parkedRover('rover3')}:{}), boats:[...patrolFleet(),...(civilianMarina?marinaFleet():[])],
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
@@ -167,12 +167,13 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
   const wildlife=marineContact(world,from,
     {x:from.x+delta.x,y:from.y+delta.y,z:from.z+delta.z});
   const wildlifeDistance=wildlife ? wildlife.t*range : Infinity;
-  const roverContact=sourceVehicle==='rover' ? null : roverRoundContact(world.rover,from,delta);
+  const roverHits=roverKinds.filter(kind=>world[kind] && sourceVehicle!==kind).map(kind=>({kind,car:world[kind],hit:roverRoundContact(world[kind],from,delta)})).sort((a,b)=>(a.hit?.t??Infinity)-(b.hit?.t??Infinity));
+  const roverHit=roverHits[0],roverContact=roverHit?.hit;
   const sportContact=sourceVehicle==='supercar'?Infinity:supercarRoundContact(world.supercar,from,delta);
   const tankDistance=sourceVehicle==='tank'?Infinity:tankRoundContact(world.tank,from,delta)*range;
   const hitSport=sportContact<(roverContact?.t??Infinity);
   let roadDistance=(hitSport?sportContact:roverContact?.t??Infinity)*range;
-  let road=hitSport?world.supercar:world.rover;
+  let road=hitSport?world.supercar:roverHit?.car;
   for(const car of world.traffic??[]){
     if(car.id===sourceVehicle)continue;
     const distance=civilianRoundContact(car,from,delta)*range;
@@ -291,7 +292,7 @@ export function canUseHandheld(world,player){
     !world.basketball?.players.includes(id) && world.yacht?.driver!==id && world.yacht?.gunner!==id &&
     world.tank?.driver!==id && world.tank?.gunner!==id && world.jet?.pilot!==id &&
     !['heli','heli2'].some(kind=>world[kind]?.pilot===id || world[kind]?.gunner===id) &&
-    world.rover.gunner!==id && !drivenRoad(world,id) && !crewBoat(world,id);
+    !roverKinds.some(kind=>world[kind]?.gunner===id) && !drivenRoad(world,id) && !crewBoat(world,id);
 }
 
 // Resolve once, on the contact frame. The server owns the facing at windup,
@@ -409,7 +410,7 @@ export function fire(world, player, input, tick, players, npcs) {
 function targets(world,shooter,players,npcs,source=null,round,swept) {
   return [...players.values(), ...npcs].filter(actor =>
     actor.life.hp>0 && actor.id!==shooter && (!swept || swept(actor.state)) &&
-    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && !['heli','heli2'].some(kind=>actor.id===world[kind]?.pilot || actor.id===world[kind]?.gunner) && (source!=='rover' || actor.id!==world.rover?.gunner));
+    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && !['heli','heli2'].some(kind=>actor.id===world[kind]?.pilot || actor.id===world[kind]?.gunner) && !roverKinds.some(kind=>source===kind && actor.id===world[kind]?.gunner));
 }
 
 function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
@@ -505,7 +506,7 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
       if(!areaImpact && Number.isInteger(wheel))car.flatTires=(car.flatTires??0)|(1<<wheel);
       else {strikeFittings(car,areaImpact?center:to,vehicleDamage);damageRover(world,vehicleDamage,players,kind,score?.team,owner);}
     }
-    hitRoad(world.rover,'rover',.8);
+  for(const kind of roverKinds)hitRoad(world[kind],kind,.8);
     hitRoad(world.supercar,'supercar',.55);
     for(const car of world.traffic??[])hitRoad(car,car.id,.7);
     for(const car of world.patrolCars??[]){
@@ -563,7 +564,7 @@ export function firePatrolShot(world,officer,player,sight,tick,damage){
 const launchState=new WeakMap();
 const missileStep=source=>source==='jet'?2:1;
 export function launchMissile(world,kind,player,tick) {
-  if(kind==='rover')return;
+  if(roverKinds.includes(kind))return;
   const v=world[kind];
   const previous=launchState.get(v);
   if(v.fuel===0 || v.wrecked || (kind==='heli' || kind==='heli2' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
@@ -725,7 +726,7 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const ready=nextBullet.get(v) ?? tick;
   if(tick<ready)return;
   const weapon=kind==='superyacht'?'yachtGun':'turret';
-  const interval=CITY && kind==='rover' ? 3 : firearmSpecs[weapon].cooldown;
+  const interval=CITY && roverKinds.includes(kind) ? 3 : firearmSpecs[weapon].cooldown;
   nextBullet.set(v,(tick-ready<1 ? ready : tick)+interval);
   const pivot=mountPosition(v,mounts[kind].turret);
   sendRound(world,player,weapon,kind,pivot,yaw,pitch,tick);

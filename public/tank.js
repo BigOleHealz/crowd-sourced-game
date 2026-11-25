@@ -95,7 +95,7 @@ export function stepTank(world,input,dt,players){
           if(home && houseLostSupport(world.doors,home.id))ramHouse(world.doors,home.id,t.x,t.z,vx,vz);
         }else{
           const car=hit.object;
-          if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
+          if(!car || (![world.rover,world.rover2,world.rover3,world.supercar].includes(car) && !world.traffic?.includes(car)))break;
           // The lethal path releases the crew; the tracks leave a flattened wreck.
           damageRover(world,car.hp,players,car.kind??'rover',driver?.team,world.wanted?.session(driver),'crush');
           car.crushed=true;

@@ -52,7 +52,7 @@ export function contactShadows(scene){
   return {
     begin(world,local){
       n=0;actors=0;frameWorld=world;
-      wheels(world.rover,local,world.doors);wheels(world.supercar,local,world.doors);
+      wheels(world.rover,local,world.doors);wheels(world.rover2,local,world.doors);wheels(world.rover3,local,world.doors);wheels(world.supercar,local,world.doors);
       for(const car of world.traffic??[])wheels(car,local,world.doors);
       for(const car of world.patrolCars??[])wheels(car,local,world.doors);
     },

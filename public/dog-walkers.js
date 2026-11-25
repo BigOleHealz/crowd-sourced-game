@@ -163,7 +163,7 @@ function move(dog,dx,dz,world){
 
 export function aboardDogCarrier(world,p){
   const id=p.id;
-  return p.state.ride || drivenRoad(world,id) || world.rover?.gunner===id ||
+  return p.state.ride || drivenRoad(world,id) || ['rover','rover2','rover3'].some(kind=>world[kind]?.gunner===id) ||
     [world.heli,world.jet,world.tank,world.yacht,...(world.boats??[])].some(v=>v && (v.pilot===id || v.driver===id || v.gunner===id));
 }
 

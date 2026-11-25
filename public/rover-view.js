@@ -18,7 +18,7 @@ import { wheelStations,flatWheelDrop,isFlat } from './road-wheel-layout.js';
 import {damagedFittings} from './road-fittings.js';
 import {crushedScale} from './vehicle-wreck-view.js';
 
-export function createRoverView(scene, Batch, material, shadowMap, panorama) {
+export function createRoverView(scene, Batch, material, shadowMap, panorama,kind='rover') {
   const root = new THREE.Group(), chassis = new Batch();
   const axles=new THREE.Group();
   scene.add(root,axles);
@@ -209,12 +209,12 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const paint=fieldPaint();
   paint.specular.setHex(pickup?0:0x292c26);
   const body=chassis.mesh(root,paint,false);
-  Object.assign(body.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
+  Object.assign(body.userData,{impactSurface:'metal',vehicle:kind,target:kind});
   const trimMesh=brightwork.mesh(root,facingMaterial,false);
   const glassMat=alpineGlass(panorama,{transparent:true,opacity:pickup?.39:.31,depthWrite:false,side:THREE.DoubleSide});
   const windows=glazing.mesh(root,glassMat,false);
   const updatePanes=carPanes.bind(windows);
-  Object.assign(windows.userData,{impactSurface:'solid',vehicle:'rover'});
+  Object.assign(windows.userData,{impactSurface:'solid',vehicle:kind});
   // An original fleet wordmark is legible at the normal third-person distance.
   const tag=document.createElement('canvas');tag.width=384;tag.height=64;
   const ink=tag.getContext('2d');ink.fillStyle='#52604f';ink.fillRect(0,0,384,64);
@@ -262,7 +262,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     const trimBatch=new Batch(true);
     trimBatch.add(rimFace,0xe7e6dc,side*.164,0,0,.181,.181,.181,0,side*Math.PI/2);
     trimBatch.mesh(wheel,facingMaterial,false);
-    Object.assign(wheel.userData,{impactSurface:'solid',vehicle:'rover'});
+    Object.assign(wheel.userData,{impactSurface:'solid',vehicle:kind});
     wheels.push(wheel);
   }
   tire.dispose(); seatForm.dispose();
@@ -311,7 +311,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     model.traverse(node=>{
       if(!node.isMesh)return;
       node.castShadow=true;
-      Object.assign(node.userData,{impactSurface:'metal',vehicle:'rover',target:'rover'});
+      Object.assign(node.userData,{impactSurface:'metal',vehicle:kind,target:kind});
       for(const original of Array.isArray(node.material)?node.material:[node.material]){
         if(original && !modelMaterials.has(original)) modelMaterials.set(original,original.color.clone());
       }

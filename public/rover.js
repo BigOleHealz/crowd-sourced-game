@@ -20,6 +20,8 @@ import {defeatRoadOccupants} from './road-occupants.js';
 const obstacleRetention={frontage:.8,wood:.84,net:.94,post:.86};
 export const ROVER_HP = 250;
 export const ROVER_PAD = { x: -3, z: 17 };
+export const MILITARY_ROVER_PADS={rover2:{x:-200,z:-210},rover3:{x:-208,z:-210}};
+export const roverKinds=['rover','rover2','rover3'];
 export const ROVER_BOARD_RANGE = 2.6;
 const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
@@ -29,9 +31,9 @@ export function stopRover(r) {
   if(r.model)r.engineLoad=0;
 }
 
-export function parkedRover() {
-  const {x,z} = ROVER_PAD;
-  return { x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, fuel:100, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
+export function parkedRover(kind='rover') {
+  const {x,z} = kind==='rover'?ROVER_PAD:MILITARY_ROVER_PADS[kind];
+  return { ...(kind==='rover'?{}:{kind}),x, z, y: groundHeight(x,z), yaw: 0, driver: null, gunner: null, turretYaw: 0, turretPitch: 0, speed: 0, fuel:100, lateralSpeed: 0, cargo: 0, hp: ROVER_HP, maxHp: ROVER_HP, flatTires:0, bodyDamage:{front:0,rear:0,left:0,right:0}, wrecked: false, recoverySeconds: 0 };
 }
 
 export function parkedSupercar(){
@@ -42,32 +44,33 @@ export function parkedSupercar(){
 
 export function drivenRoad(world,id){
   if(id==null)return null;
-  if(world?.rover?.driver===id)return world.rover;
+  for(const kind of roverKinds)if(world?.[kind]?.driver===id)return world[kind];
   return world?.supercar?.driver===id ? world.supercar : world?.traffic?.find(car=>car.driver===id)??null;
 }
 
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
 export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
-  const {rover, supercar} = world;
+  const {supercar} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
   const flights=['heli','heli2'].map(kind=>({kind,vehicle:world[kind]})).filter(({vehicle})=>vehicle &&
     (vehicle.pilot==null || vehicle.gunner==null) && !vehicle.wrecked && vehicle.grounded);
   const nearest=flights.sort((a,b)=>distance(a.vehicle)-distance(b.vehicle))[0];
   const flight=nearest?distance(nearest.vehicle):Infinity;
-  const road = (rover.driver == null || rover.gunner == null) && !rover.sinking && !rover.wrecked ? distance(rover) : Infinity;
+  const nearestRoad=roverKinds.map(kind=>({kind,vehicle:world[kind]})).filter(({vehicle})=>vehicle && (vehicle.driver==null || vehicle.gunner==null) && !vehicle.sinking && !vehicle.wrecked).sort((a,b)=>distance(a.vehicle)-distance(b.vehicle))[0];
+  const road=nearestRoad?distance(nearestRoad.vehicle):Infinity;
   const sport=supercar && supercar.driver==null && !supercar.sinking && !supercar.wrecked ? distance(supercar) : Infinity;
   if(sport<=2.9 && sport<Math.min(road<=ROVER_BOARD_RANGE?road:Infinity,flight<=BOARD_RANGE?flight:Infinity))return 'supercar';
-  if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
+  if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return nearestRoad.kind;
   return flight <= BOARD_RANGE ? nearest.kind : null;
 }
 
 function roadByKind(world,kind){
-  return kind==='rover' || kind==='supercar' ? world[kind] : world.traffic?.find(car=>car.id===kind);
+  return roverKinds.includes(kind) || kind==='supercar' ? world[kind] : world.traffic?.find(car=>car.id===kind);
 }
 
 export function clearRoadExit(world,car,preferred=-1){
-  const hull=car===world.rover?humveeHull:roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const hull=car===world.rover || roverKinds.includes(car.kind)?humveeHull:roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
   const width=hull.halfWidth+.52,length=hull.halfLength+.52;
   const positions=[];
   for(const extra of [0,.55]){
@@ -125,7 +128,7 @@ export function damageRover(world, amount, players,kind='rover',team,owner,cause
   }
   const gunner=players?.get(r.gunner);
   if (gunner) {interactRover(world,gunner,kind);gunner.inputs.length=0;}
-  r.driver=null;if(kind==='rover')r.gunner=null;else r.exhaust=0;
+  r.driver=null;if(roverKinds.includes(kind))r.gunner=null;else r.exhaust=0;
   if(!r.model)world.rules?.wreckVehicle(team,kind);
   delete r.bridgeFlight;stopRover(r); r.wrecked=true; r.recoverySeconds=RECOVERY_SECONDS;
 }
@@ -136,7 +139,7 @@ export function recoverRover(world,dt,kind='rover') {
   else if(!r?.wrecked)return;
   r.recoverySeconds=Math.max(0,r.recoverySeconds-dt);
   if(r.recoverySeconds>=.0001)return;
-  const replacement=kind==='supercar'?parkedSupercar():parkedRover();
+  const replacement=kind==='supercar'?parkedSupercar():parkedRover(kind);
   if(r.crushed && roadContact(world,replacement.x,replacement.z,replacement.yaw,replacement.x,replacement.z,r))return;
   world[kind]=replacement;
 }
@@ -167,7 +170,7 @@ function registerImpact(world,r,hit,speed,players){
   }
   bumperContacts.set(r,{object:hit.object,clearTime:0});
   const {object:other,nx,nz}=hit;
-  const otherRoad=other===world.rover || other===world.supercar || (other.model && roadByKind(world,other.kind)===other);
+  const otherRoad=roverKinds.some(kind=>other===world[kind]) || other===world.supercar || (other.model && roadByKind(world,other.kind)===other);
   let share=1;
   if(otherRoad){
     // Contact can be seen by both drivers in one tick. Use a single closing

@@ -29,7 +29,7 @@ export function stepCargoHook(world,input,dt,onLanding){
   let hook=h.hook;
   if(canLift && input?.lower && !hook)hook=h.hook={length:0,pilot:h.pilot};
   if(!hook && !world.hasFallingCargo)return;
-  const vehicles=[world.rover,world.supercar,...(world.traffic??[]),...(world.boats??[]),...(world.patrolCars??[])].filter(Boolean);
+  const vehicles=[world.rover,world.rover2,world.rover3,world.supercar,...(world.traffic??[]),...(world.boats??[]),...(world.patrolCars??[])].filter(Boolean);
   let load=hook?.load && slingVehicle(world,hook.load);
   const drop=()=>{
     if(load && load.sling){load.sling='falling';load.slingVy=0;world.hasFallingCargo=true;}
