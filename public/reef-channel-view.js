@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {reefAnchor,reefDiveSite,reefTrail,seabedHeight,reefGridSpacing,reefTileSize} from './reef-channel.js';
+import {cityGround,coastalBedHeight} from './brickell-map.js';
 
 function sandTile(tx,tz,material) {
   const geo=new THREE.PlaneGeometry(reefTileSize,reefTileSize,reefTileSize/reefGridSpacing,reefTileSize/reefGridSpacing);
@@ -8,16 +9,88 @@ function sandTile(tx,tz,material) {
   const cx=(tx+.5)*reefTileSize, cz=(tz+.5)*reefTileSize;
   const count=reefTileSize/reefGridSpacing+1, indices=[];
   for(let i=0;i<p.count;i++){
-    const x=cx+p.getX(i), z=cz+p.getZ(i), h=seabedHeight(x,z);
+    const x=cx+p.getX(i), z=cz+p.getZ(i), h=coastalBedHeight(x,z);
     p.setY(i,h);
     geo.attributes.uv.setXY(i,(x*.96+z*.28)/7.5,(z*.96-x*.28)/7.5);
-    const relief=seabedHeight(x+1,z)-h;
+    const relief=coastalBedHeight(x+1,z)-h;
     shade.setRGB(.66+relief*.13,.76+relief*.12,.65+relief*.10);
     colors.push(shade.r,shade.g,shade.b);
     if(i%count!==count-1 && i<p.count-count)indices.push(i,i+count,i+1,i+1,i+count,i+count+1);
   }
   geo.setIndex(indices);geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();
   const mesh=new THREE.Mesh(geo,material);mesh.position.set(cx,0,cz);return mesh;
+}
+
+// Shared shapes and materials keep the repeated reef to four draws per tile.
+export function seabedDecorations(Batch) {
+  const coralBatch=new Batch(),stem=new THREE.CylinderGeometry(.055,.11,.7,6);
+  const branch=new THREE.CylinderGeometry(.035,.075,.49,5);
+  const cap=new THREE.IcosahedronGeometry(.18,0);
+  coralBatch.add(stem,0xffffff,0,.38,0);
+  for(let i=0;i<5;i++){
+    const a=i*Math.PI*2/5;
+    coralBatch.add(branch,0xffffff,Math.cos(a)*.19,.60,Math.sin(a)*.19,1,1,1,
+      Math.sin(a)*.68,0,-Math.cos(a)*.68);
+    coralBatch.add(cap,0xffffff,Math.cos(a)*.33,.80,Math.sin(a)*.33,.8,.7,.8);
+  }
+  const coral=coralBatch.geometry();stem.dispose();branch.dispose();cap.dispose();
+  const sponge=new THREE.LatheGeometry([
+    new THREE.Vector2(.10,0),new THREE.Vector2(.17,.17),new THREE.Vector2(.19,.43),
+    new THREE.Vector2(.27,.67),new THREE.Vector2(.33,.78),new THREE.Vector2(.23,.76),
+    new THREE.Vector2(.19,.56),new THREE.Vector2(.10,.14),
+  ],8);
+  const weed=new THREE.PlaneGeometry(.16,1,1,3);
+  const p=weed.attributes.position;
+  for(let i=0;i<p.count;i++){
+    const h=p.getY(i)+.5;
+    p.setXYZ(i,p.getX(i)*(1-.72*h)+.13*h*h,h+.5,.20*h*h);
+  }
+  weed.computeVertexNormals();
+  const rock=new THREE.IcosahedronGeometry(1,0);
+  const material=new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
+  const plain=new THREE.MeshLambertMaterial({side:THREE.DoubleSide});
+  const grass=new THREE.MeshLambertMaterial({side:THREE.DoubleSide,transparent:true,opacity:.58,depthWrite:false});
+  const shapes=[coral,sponge,weed,rock],materials=[material,plain,grass,plain];
+  const counts=[60,32,115,24];
+  const palettes=[
+    [0xb88d70,0xc47d68,0xd2ad83,0x9d7999,0xb090a2],
+    [0x9c668a,0xa87844,0xb46253,0x867b9c],
+    [0x527a56,0x658259,0x456e61,0x71885c],
+    [0x777965,0x99947b,0x8b826e],
+  ];
+  const dummy=new THREE.Object3D();
+  const hash=(x,z,n)=>{
+    const v=Math.sin(x*127.1+z*311.7+n*74.7)*43758.5453;
+    return v-Math.floor(v);
+  };
+  function tile(tx,tz,waterY){
+    const group=new THREE.Group();
+    for(let type=0;type<shapes.length;type++){
+      const mesh=new THREE.InstancedMesh(shapes[type],materials[type],counts[type]);
+      mesh.name=['Branching coral','Reef sponges','Seagrass','Seabed rock'][type];
+      mesh.frustumCulled=false;
+      let count=0;
+      for(let n=0;n<counts[type];n++){
+        const x=(tx+hash(tx,tz,n*4+type*991))*reefTileSize;
+        const z=(tz+hash(tx,tz,n*4+type*991+1))*reefTileSize;
+        const y=coastalBedHeight(x,z);
+        if(y>waterY-1.15 || cityGround(x,z,waterY)>waterY-1.15)continue;
+        const scale=.68+hash(tx,tz,n*4+type*991+2)*1.04;
+        dummy.position.set(x,y-(type===2?.04:.035),z);
+        dummy.rotation.set(0,hash(tx,tz,n*4+type*991+3)*Math.PI*2,0);
+        dummy.scale.set(type===3?scale*.65:scale,type===3?scale*.27:scale,type===3?scale*.52:scale);
+        dummy.updateMatrix();mesh.setMatrixAt(count,dummy.matrix);
+        mesh.setColorAt(count,new THREE.Color(palettes[type][(n+Math.floor(hash(tx,tz,n+type)*5))%palettes[type].length]));
+        count++;
+      }
+      mesh.count=count;
+      mesh.instanceMatrix.needsUpdate=true;
+      if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      group.add(mesh);
+    }
+    return group;
+  }
+  return tile;
 }
 
 function buildTrailPlants(scene,Batch) {
@@ -134,6 +207,7 @@ function buildDiveBuoy(scene,Batch){
 
 export function reefChannelView(scene,Batch) {
   const floorMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
+  const decorateTile=seabedDecorations(Batch);
   const waterClock={value:0};
   const buoy=buildDiveBuoy(scene,Batch);
   floorMaterial.onBeforeCompile=shader=>{
@@ -177,11 +251,20 @@ export function reefChannelView(scene,Batch) {
     for(let j=tz-1;j<=tz+1;j++)for(let i=tx-1;i<=tx+1;i++){
       const key=i+','+j;
       let tile=tiles.get(key);
-      if(!tile){tile=sandTile(i,j,floorMaterial);tiles.set(key,tile);scene.add(tile);}
+      if(!tile){
+        tile=new THREE.Group();
+        tile.add(sandTile(i,j,floorMaterial),decorateTile(i,j,waterY));
+        tiles.set(key,tile);scene.add(tile);
+      }
       tile.visible=true;
     }
     for(const [key,tile] of tiles){
-      if(!tile.visible){scene.remove(tile);tile.geometry.dispose();tiles.delete(key);}
+      if(!tile.visible){
+        scene.remove(tile);
+        tile.children[0].geometry.dispose();
+        for(const mesh of tile.children[1].children)mesh.dispose?.();
+        tiles.delete(key);
+      }
     }
   };
 }

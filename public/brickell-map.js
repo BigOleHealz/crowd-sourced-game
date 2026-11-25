@@ -40,6 +40,20 @@ export const bridges=[causeway,lanternBridge];
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
 const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
+// A visual apron carries the dry shore down to the surveyed seabed instead of
+// ending it at a thin, exposed slab. Existing boat and swim collision stays put.
+const shoreLand=[...shorePads,coast,harbor,...lanternLand];
+export function coastalBedHeight(x,z) {
+  const bed=seabedHeight(x,z);
+  let distance=Infinity;
+  for(const r of shoreLand){
+    const dx=Math.max(r.west-x,0,x-r.east),dz=Math.max(r.north-z,0,z-r.south);
+    distance=Math.min(distance,Math.hypot(dx,dz));
+  }
+  if(distance>=9)return bed;
+  const t=distance/9, blend=t*t*(3-2*t);
+  return bed+(0.80-bed)*(1-blend);
+}
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
