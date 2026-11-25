@@ -3,12 +3,47 @@ import {beachSigns} from './scenery-layout.js';
 import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
-import { beach, beachIsland, beachTerrain, onBeachTerrain, courts, sandHeight } from './beach-layout.js';
+import { beach, beachIsland, beachTerrain, onBeachTerrain, onRockShore, courts, sandHeight } from './beach-layout.js';
 import {coastalBedHeight} from './brickell-map.js';
+
+function addRockShoreBoulders(scene) {
+  const positions=[];
+  // Three staggered rows follow the west bank and turn along both island ends.
+  for(let z=beachIsland.north+2;z<beachIsland.south-1;z+=3.4)
+    for(const offset of [1.8,5.2,9.1])positions.push([beachIsland.west-offset,z]);
+  for(const side of ['north','south']){
+    const edge=beachIsland[side],sign=side==='north'?-1:1;
+    for(let x=beachIsland.west+2;x<beachIsland.east;x+=3.4)
+      for(const offset of [1.7,4.9,8.1])positions.push([x,edge+sign*offset]);
+    positions.push([beachIsland.east-1.2,edge+sign*2.2]);
+  }
+  const shape=new THREE.IcosahedronGeometry(1,0);
+  const stones=new THREE.InstancedMesh(shape,new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),positions.length);
+  const dummy=new THREE.Object3D(),palette=[0x9d9b90,0xb2ab9b,0x858c87,0xa7a598];
+  let count=0;
+  for(const [x,z] of positions){
+    const n=Math.sin(x*127.1+z*311.7)*43758.5453,random=n-Math.floor(n);
+    const px=x+(random-.5)*.85,pz=z+(Math.sin(n*1.37)*.5)*.7;
+    if(!onRockShore(px,pz))continue;
+    const floor=coastalBedHeight(px,pz),radius=.85+random*.75,height=.38+random*.35;
+    dummy.position.set(px,floor+height*.13,pz);
+    dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
+    dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
+    stones.setMatrixAt(count,dummy.matrix);
+    const color=new THREE.Color(palette[count%palette.length]);
+    if(floor<.15)color.multiplyScalar(.72);
+    stones.setColorAt(count,color);count++;
+  }
+  stones.count=count;stones.instanceMatrix.needsUpdate=true;
+  if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
+  stones.name='Harbor Key rock shore';stones.userData.impactSurface='solid';
+  scene.add(stones);
+}
+
 export function addBeach(scene,Batch) {
   addSkatePark(scene,Batch);
-  // One continuous sand apron wraps the island and east beach, sinking into
-  // the reef on every side. Keep a vertex at the island's odd west edge.
+  // The same solid shoreline surface carries stone around the island and sand
+  // along the east beach. Keep a vertex at the island's odd west edge.
   const xs=[];
   for(let x=beachTerrain.west;x<=beachTerrain.east;x+=2)xs.push(x);
   xs.push(beachIsland.west);xs.sort((a,b)=>a-b);
@@ -16,7 +51,7 @@ export function addBeach(scene,Batch) {
     xs.length-1,(beachTerrain.south-beachTerrain.north)/2);
   geometry.rotateX(-Math.PI/2);
   geometry.translate((beachTerrain.east+beachTerrain.west)/2,0,(beachTerrain.south+beachTerrain.north)/2);
-  const p=geometry.attributes.position, colors=[],c=new THREE.Color();
+  const p=geometry.attributes.position, sandColors=[],rockColors=[],c=new THREE.Color();
   for(let i=0;i<p.count;i++){
     const x=xs[i%xs.length],z=p.getZ(i),y=coastalBedHeight(x,z);p.setX(i,x);p.setY(i,y);
     geometry.attributes.uv.setXY(i,x/4,z/4);
@@ -29,22 +64,32 @@ export function addBeach(scene,Batch) {
     c.setRGB((.53+.47*damp)*(1-fade)+(.66+relief*.13)*fade,
       (.49+.51*damp)*(1-fade)+(.76+relief*.12)*fade,
       (.45+.55*damp)*(1-fade)+(.65+relief*.10)*fade);
-    colors.push(c.r,c.g,c.b);
+    sandColors.push(c.r,c.g,c.b);
+    const wet=1-THREE.MathUtils.smoothstep(y,-.5,.55);
+    c.setRGB(.93-.24*wet,.91-.18*wet,.85-.13*wet);
+    rockColors.push(c.r,c.g,c.b);
   }
-  const tex=new THREE.TextureLoader().load('./harbor-sand.webp');tex.colorSpace=THREE.SRGBColorSpace;
-  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
-  // The harbor deck fills the island's interior; trim only that rectangle.
-  const triangles=[];
+  const loader=new THREE.TextureLoader();
+  const sandTex=loader.load('./harbor-sand.webp'),rockTex=loader.load('./granite.webp');
+  for(const tex of [sandTex,rockTex]){tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;}
+  // Trim the island interior and split the two finishes on the beach edge.
+  const sandTriangles=[],rockTriangles=[];
   for(let i=0;i<geometry.index.count;i+=3){
     const a=geometry.index.getX(i),b=geometry.index.getX(i+1),d=geometry.index.getX(i+2);
     const x=(p.getX(a)+p.getX(b)+p.getX(d))/3;
     const z=(p.getZ(a)+p.getZ(b)+p.getZ(d))/3;
     if(!onBeachTerrain(x,z))continue;
-    triangles.push(a,b,d);
+    (onRockShore(x,z)?rockTriangles:sandTriangles).push(a,b,d);
   }
-  geometry.setIndex(triangles);
-  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
-  const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
+  geometry.setIndex(sandTriangles);
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(sandColors,3));geometry.computeVertexNormals();
+  const rockGeometry=geometry.clone();
+  rockGeometry.setIndex(rockTriangles);
+  rockGeometry.setAttribute('color',new THREE.Float32BufferAttribute(rockColors,3));rockGeometry.computeVertexNormals();
+  const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:sandTex,vertexColors:true}));
+  const rock=new THREE.Mesh(rockGeometry,new THREE.MeshLambertMaterial({map:rockTex,vertexColors:true}));
+  for(const surface of [sand,rock]){surface.receiveShadow=true;surface.userData.impactSurface='solid';scene.add(surface);}
+  addRockShoreBoulders(scene);
   const box=new THREE.BoxGeometry(),cord=new Batch();
   const wrecks=[],timberMaterial=new THREE.MeshLambertMaterial({vertexColors:true});
   function makeRig(id,x,y,z,stand){
