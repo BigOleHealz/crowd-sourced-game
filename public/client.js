@@ -50,7 +50,7 @@ import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
 import {militaryShore,militaryRunway,militaryTaxiway,militaryHelipads,militaryDecks,insideMilitary,militaryDockHeight} from './military-island.js';
-import {viewPitch} from './view-pitch.js';
+import {viewPitch,sightedCarbineAim} from './view-pitch.js';
 import {shotDamageVignette} from './shot-damage-vignette.js';
 import {liveShots} from './shot-events.js';
 import {retailRoom} from './frontage-glass.js';
@@ -615,7 +615,7 @@ function pressButton(e) {
     if(self?.swimming)castSpear();
     mouseFire=true;return;
   }
-  if (self && (!meleeItems[weapon] || meleeItems[weapon].posedContact || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall)
+  if (self && (!meleeItems[weapon] || meleeItems[weapon].posedContact || gunnerRole()) && !isDriving() && !isPilot() && !vitals.dead && !vitals.fall && !sightedCarbineAim(camera,weapon,gunnerRole()))
     pressedAim = scene.aimAt(self,id,equipmentSpecs[gunnerRole() ? 'turret' : weapon].range,gunnerRole());
   mouseFire = queuedFire = true;
 }
@@ -886,7 +886,7 @@ function tick() {
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
   const needsAim=(fire && (!meleeItems[weapon] || meleeItems[weapon].posedContact)) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
   const aim=(pistol && fire && scene.aimAt(self,id,equipmentSpecs[sidearmSlot].range,'car-window')) || (inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tankCannon')) || (!driving && !pilot && needsAim &&
-    (pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
+    (sightedCarbineAim(camera,weapon,gunner) || pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
   pressedAim = null;
   if(activeCast(vitals.fishing))facing=Math.atan2(vitals.fishing.x-self.x,self.z-vitals.fishing.z);
   else if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
