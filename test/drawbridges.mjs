@@ -60,6 +60,6 @@ for(const bridge of bridges){
   Object.assign(r,{driver:1,x:2,z:mid-leaf.gap/2-.015,yaw:Math.PI,speed:1.6});
   r.y=groundHeight(r.x,r.z,Infinity,w.doors);
   for(let i=0;i<180 && !r.sinking;i++)driveRover(w,{throttle:0},dt);
-  assert(r.sinking && !r.wrecked && r.driver===null && r.hp===r.maxHp);
+  assert(r.sinking && !r.wrecked && r.driver===1 && r.hp===r.maxHp);
   console.log('PASS slow entry falls through the gap');
 }
