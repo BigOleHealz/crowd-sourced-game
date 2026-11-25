@@ -102,6 +102,10 @@ const build=await clientBuild();
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
+const redirectUrl = process.env.GAME_REDIRECT_URL && new URL(process.env.GAME_REDIRECT_URL);
+if (redirectUrl && (redirectUrl.protocol !== 'https:' || redirectUrl.username || redirectUrl.password || redirectUrl.pathname !== '/' || redirectUrl.search || redirectUrl.hash)) {
+  throw new Error('GAME_REDIRECT_URL must be an HTTPS origin');
+}
 const zombies = CITY && process.env.GOY_THEFT_AUTO_MODE===zombieMode;
 const mode = CITY && (zombies || Object.hasOwn(modes,process.env.GOY_THEFT_AUTO_MODE)) ? process.env.GOY_THEFT_AUTO_MODE : null;
 const bank=CITY && !mode ? createBank() : null;
@@ -221,6 +225,18 @@ async function serve(request, response) {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
   }
+  if (redirectUrl) {
+    try {
+      const requested = new URL(request.url, 'http://localhost');
+      const target = new URL(redirectUrl);
+      target.pathname = requested.pathname;
+      target.search = requested.search;
+      response.writeHead(308, { Location: target.href, 'Cache-Control': 'no-store' }).end();
+    } catch {
+      response.writeHead(400).end();
+    }
+    return;
+  }
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
@@ -276,6 +292,19 @@ function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws,request));
 }
 server.on('upgrade', (request, socket, head) => {
+  if (redirectUrl) {
+    try {
+      const requested = new URL(request.url, 'http://localhost');
+      const target = new URL(redirectUrl);
+      target.protocol = 'wss:';
+      target.pathname = requested.pathname;
+      target.search = requested.search;
+      socket.end(`HTTP/1.1 307 Temporary Redirect\r\nLocation: ${target.href}\r\nConnection: close\r\n\r\n`);
+    } catch {
+      socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
+    }
+    return;
+  }
   const origin = request.headers.origin;
   const validOrigin = !origin || origin === 'http://' + request.headers.host ||
     origin === 'https://' + request.headers.host;
