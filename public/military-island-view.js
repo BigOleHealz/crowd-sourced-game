@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {brickellMap,coastalBedHeight} from './brickell-map.js';
 import {shoreRockPile} from './shore-rock-piles.js';
@@ -111,10 +112,26 @@ export function addMilitaryIsland(scene,Batch){
   }
   const h=militaryHangar;
   block(0x354b48,h.x,.84,h.z,h.w,.08,h.d);
-  for(const side of [-1,1])block(0x56645d,h.x,3.45,h.z+side*(h.d/2-.4),h.w,5.3,.8);
-  block(0x56645d,h.x+h.w/2-.4,3.45,h.z,.8,5.3,h.d);
-  block(0x384b49,h.x,6.08,h.z,h.w+1,.34,h.d+1);
-  for(const side of [-1,1])block(0xd4be80,h.x-h.w/2+.35,3.55,h.z+side*(h.d/2-1.1),.12,4.5,.12);
+  if(typeof window!=='undefined')new GLTFLoader().load(new URL('./j-type-hangar.glb',import.meta.url).href,({scene:model})=>{
+    // The GLB converts its Z-up source to Y-up. Turn its long axis toward the taxiway.
+    model.rotation.y=-Math.PI/2;
+    model.updateMatrixWorld(true);
+    const bounds=new THREE.Box3().setFromObject(model);
+    const size=bounds.getSize(new THREE.Vector3());
+    if(!Number.isFinite(size.x) || !Number.isFinite(size.z) || size.x<=0 || size.z<=0)return;
+    const scale=Math.min(h.w/size.x,h.d/size.z);
+    model.scale.setScalar(scale);
+    model.position.set(h.x-scale*(bounds.min.x+bounds.max.x)/2,
+      .8-scale*bounds.min.y,
+      h.z-scale*(bounds.min.z+bounds.max.z)/2);
+    model.name='J type military hangar';
+    model.traverse(part=>{
+      if(!part.isMesh)return;
+      part.castShadow=true;part.receiveShadow=true;
+      part.userData.impactSurface='solid';
+    });
+    base.add(model);
+  },undefined,error=>console.warn('J type hangar model failed to load',error));
   for(const pad of militaryHelipads){
     const circle=new THREE.Mesh(new THREE.CylinderGeometry(pad.r,pad.r,.06,40),new THREE.MeshLambertMaterial({color:0x374543}));
     circle.position.set(pad.x,.846,pad.z);circle.receiveShadow=true;base.add(circle);
