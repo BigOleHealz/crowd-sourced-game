@@ -51,7 +51,7 @@ import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
 import {militaryShore,militaryRunway,militaryTaxiways,militaryHelipads,militaryDecks,militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryDockHeight} from './military-island.js';
-import {viewPitch,sightedCarbineAim} from './view-pitch.js';
+import {viewPitch,sightedCarbineAim,handheldFireAim} from './view-pitch.js';
 import {shotDamageVignette} from './shot-damage-vignette.js';
 import {liveShots} from './shot-events.js';
 import {retailRoom} from './frontage-glass.js';
@@ -895,7 +895,7 @@ function tick() {
   const tracking=weapon===4 && camera.sighted && canAim() && !lookPaused;
   const needsAim=(fire && (!meleeItems[weapon] || meleeItems[weapon].posedContact)) || gunner || tracking || (basketball && (hoopShot || world.basketball.charge>0));
   const aim=(pistol && fire && scene.aimAt(self,id,equipmentSpecs[sidearmSlot].range,'car-window')) || (inEngine() && scene.aimAt(self,id,34,'engine')) || (inTank() && scene.aimAt(self,id,60,'tankCannon')) || (!driving && !pilot && needsAim &&
-    (sightedCarbineAim(camera,weapon,gunner) || pressedAim || scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner))) || camera;
+    handheldFireAim(camera,weapon,gunner,()=>scene.aimAt(self,id,equipmentSpecs[gunner ? 'turret' : weapon].range,gunner),pressedAim)) || camera;
   pressedAim = null;
   if(activeCast(vitals.fishing))facing=Math.atan2(vitals.fishing.x-self.x,self.z-vitals.fishing.z);
   else if (hoopShot || basketball && world.basketball.charge>0 && world.basketball.players[world.basketball.turn]===id) facing = camera.yaw;
