@@ -33,7 +33,7 @@ import {beachHutFloor} from './harbor-key-structures.js';
 // Both the authoritative server and the predicting client use this module.
 import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { brickellMap, cityGround, parapetTop } from './brickell-map.js';
+import { brickellMap, cityGround, coastalBedHeight, parapetTop, waterfront } from './brickell-map.js';
 import {onRunway} from './runway-layout.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
@@ -455,12 +455,15 @@ export function stepPlayer(state, input, dt, hp, world) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=state.swimming?1.12:stanceBodyHeight(stance);
   const doors=world?.doors;
+  // A submerged swimmer must meet the same shore apron that the sand mesh shows.
+  // Surface swimmers and boats keep their existing approach and boarding rules.
+  const sandBlocks=(nx,nz)=>CITY && submerged && state.swimming && coastalBedHeight(nx,nz)>y-.10;
   if (vx) {
-    if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height)) vx=0;
+    if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height) || sandBlocks(x+vx*dt,z)) vx=0;
     else x+=vx*dt;
   }
   if (vz) {
-    if (yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) || blocked(x,y,z+vz*dt,hp,doors,height)) vz=0;
+    if (yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) || blocked(x,y,z+vz*dt,hp,doors,height) || sandBlocks(x,z+vz*dt)) vz=0;
     else z+=vz*dt;
   }
   // Bailouts inherit the flight area. After landing outside the walking map,
@@ -486,6 +489,8 @@ export function stepPlayer(state, input, dt, hp, world) {
   // A swimmer underneath the projecting board remains in the basin.
   const floorProbe=CITY && state.swimming && boardAt(x,z) ? y+.26 : y+height;
   let floor = Math.max(groundHeight(x,z,floorProbe,doors),contact.floor);
+  if(CITY && waterfront(x,z) && !state.ride && (state.swimming || state.grounded && y<MAP.waterY+1))
+    floor=Math.max(floor,coastalBedHeight(x,z));
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top-.005) floor = Math.max(floor,top);
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
