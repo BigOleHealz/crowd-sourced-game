@@ -47,6 +47,7 @@ const reportedWrecks=new WeakSet();
 export function reportVehicleWreck(world,vehicle,source,surface,tick) {
   const entry=takeRoadSplash(vehicle);
   if(entry)world.shots.push({id:nextShotId++,weapon:'roadSplash',source,from:entry.at,to:entry.at,power:entry.power,tick});
+  if(vehicle.sinking)return;
   if(!vehicle.wrecked){reportedWrecks.delete(vehicle);return;}
   if(reportedWrecks.has(vehicle))return;
   reportedWrecks.add(vehicle);

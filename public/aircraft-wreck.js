@@ -33,6 +33,7 @@ export function aircraftWreck(scene,puff,particle,random) {
     if(!heli.wrecked) {
       previous=false;light.intensity=0;return;
     }
+    if(heli.sinking){previous=true;light.intensity=0;return;}
     const deck=mountPosition(heli,[0,1.38,.40]);
     origin.set(deck.x,deck.y,deck.z);
     if(previous!==true){

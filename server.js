@@ -947,7 +947,8 @@ function tick() {
   if(world.tank)reportVehicleWreck(world,world.tank,'tank','road',ticks);
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
-  reportVehicleWreck(world,world.jet,'jet','road',ticks);
+  if(world.heli.sinking)reportVehicleWreck(world,world.heli,'heli','water',ticks);
+  reportVehicleWreck(world,world.jet,'jet',world.jet.sinking?'water':'road',ticks);
   reportVehicleWreck(world,world.rover,'rover','road',ticks);
   for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
