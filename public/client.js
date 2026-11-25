@@ -181,7 +181,7 @@ let selectedCarPistol=false;
 const carPistol=()=>{const car=sidearmCar(world,id);return car && (!hasMountedTool(car) || selectedCarPistol);};
 const gunnerRole=()=>gunnerVehicle(world,id);
 const jetPilot=()=>id!=null && world?.jet?.pilot===id;
-const isPilot = () => id != null && (world?.heli.pilot === id || jetPilot());
+const isPilot = () => id != null && (world?.heli.pilot === id || world?.heli2?.pilot===id || jetPilot());
 
 const talk=conversationView(byId('conversation'),releaseLook,()=>{
   stopLook();lookPaused=false;canvas.classList.remove('look-paused');canvas.focus({preventScroll:true});
@@ -820,7 +820,7 @@ function connect() {
       if(!samples.length || sim<samples.at(-1).sim){samples=[];snapshotClock.reset(sim,arrival);}
       else snapshotClock.accept(sim,arrival);
       if(samples.at(-1)?.sim===sim)samples.pop();
-      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id),volleyball:world.volleyball });
+      samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, heli2:world.heli2, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id),volleyball:world.volleyball });
       if (samples.length > 12) samples.shift();
       lagDiagnostics?.record({receivedAt,processedAt:arrival,sim,simTick:m.simTick,ack:authoritative.ack,
         beforeFoot:!changedLife && !predictedDriver ? beforeFoot : null,afterFoot:!changedLife && !predictedDriver ? self : null,
@@ -947,7 +947,7 @@ function roundFrame(time) {
 }
 
 function remoteFrame(time) {
-  if (!samples.length) return { players: [], traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, npcs: world.npcs, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover };
+  if (!samples.length) return { players: [], traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, npcs: world.npcs, boats:world.boats, yacht:world.yacht, heli: world.heli, heli2:world.heli2, supercar:world.supercar, rover: world.rover };
   const target=snapshotClock.target(time);
   let after=samples.findIndex(s=>s.sim>=target);
   if (after < 0) return samples.at(-1);
@@ -968,13 +968,13 @@ function remoteFrame(time) {
   }
   const players = interpolateActors(a.players,b.players);
   const npcs = interpolateActors(a.npcs || [],b.npcs || []);
-  let heli = b.heli;
-  if (a.heli.pilot === b.heli.pilot && a.heli.wrecked === b.heli.wrecked) {
-    heli = { ...b.heli, x: mix(a.heli.x,b.heli.x,t), y: mix(a.heli.y,b.heli.y,t),
-      pitch: mix(a.heli.pitch,b.heli.pitch,t), roll: mix(a.heli.roll,b.heli.roll,t),
-    z: mix(a.heli.z,b.heli.z,t), yaw: angleMix(a.heli.yaw,b.heli.yaw,t),
-      abandonedFor: b.heli.abandonedFor == null ? null : mix(a.heli.abandonedFor ?? 0,b.heli.abandonedFor,t) };
+  function helicopterFrame(old,heli){
+    if(!old || !heli || old.pilot!==heli.pilot || old.wrecked!==heli.wrecked)return heli;
+    return {...heli,x:mix(old.x,heli.x,t),y:mix(old.y,heli.y,t),z:mix(old.z,heli.z,t),
+      pitch:mix(old.pitch,heli.pitch,t),roll:mix(old.roll,heli.roll,t),yaw:angleMix(old.yaw,heli.yaw,t),
+      abandonedFor:heli.abandonedFor==null?null:mix(old.abandonedFor??0,heli.abandonedFor,t)};
   }
+  const heli=helicopterFrame(a.heli,b.heli),heli2=helicopterFrame(a.heli2,b.heli2);
   function roadFrame(old,car) {
     if(!old || !car)return car;
     const moment=t<.5?old:car;
@@ -1032,7 +1032,7 @@ function remoteFrame(time) {
   const volleyball=b.volleyball?.map((court,index)=>({...court,
     athletes:interpolateActors(a.volleyball?.[index]?.athletes??[],court.athletes),
   }));
-  return { sim:mix(a.sim,b.sim,t),players, npcs, heli, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
+  return { sim:mix(a.sim,b.sim,t),players, npcs, heli, heli2, rover, supercar, boats, yacht, jet, tank, traffic, patrolCars,volleyball };
 }
 
 // Follow the same interpolated heading as the rendered body, once per frame.
@@ -1090,7 +1090,7 @@ function updateEquipment(local) {
     byId('dive-call').textContent=diving.release!=null?'Entry set':progress<entryBeat-.065?'Wait for the gold zone':progress<=entryBeat+.065?'Open now':'Open for entry';
   }
   const volleyball=volleyballStatus();
-  const heli = jetPilot()?world.jet:world.heli;
+  const heli = jetPilot()?world.jet:world.heli2?.pilot===id?world.heli2:world.heli;
   const pilot = isPilot();
   const distance = Math.hypot(local.x - heli.x, local.y - heli.y, local.z - heli.z);
   const boat=myBoat();
@@ -1274,9 +1274,9 @@ function updateEquipment(local) {
     const active=!vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase);
     const useLabel=(world.casino?.player==null && tablePrompt(local)) || volleyball?.use || safeLabel || pickupLabel || (beachAction && beachHint(beachAction)) || clubUse || bank?.label || shopLabel || building?.label || (person?'Talk to '+conversations[person].name:touchUseLabel(use));
     const seat=kind && !['jet','supercar','superyacht','tank'].includes(kind) && !myRoad()?.model
-      ? [kind==='heli'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
+      ? [kind==='heli'||kind==='heli2'?'Pilot':boat?'Helm':'Driver','Gunner'] : null;
     const mount=seat && vehicleById(world,kind);
-    const occupancy=mount && [kind==='heli'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
+    const occupancy=mount && [kind==='heli'||kind==='heli2'?mount.pilot:mount.driver,mount.gunner].map(occupant=>occupant==null?'':occupant===id?'You':'Taken');
     touch.render(touchLayout({role,active,pistol,swapPistol:roadStation && hasMountedTool(roadStation),canRefuel,canSpear:spearReady(local),scuba:local.scuba,submerged:(local.swimDepth??0)>.06,jamBoard,fishAction:pier?fishingLabel(fish):null,canReload:magazine && magazine.rounds<magazine.capacity && magazine.reloadTicks==null,holsterLabel:gearAvailable?(manualHolster?'Draw':'Put away'):null,onBoard:!!board,canOpen:diving && diving.release==null,throwable:weapon===6,melee:!!meleeItems[weapon],cruiserLights:trafficCar?.patrol?!!trafficCar.emergencyLights:null,use:liftLabel || (dogTarget && !dogTarget.held?'Steal dog':useLabel),dogAction:dogTarget?(dogTarget.held?'Throw dog':'Kick dog'):null,occupancy,stance:canChangeStance(local)?(local.stance??'stand'):null,
       shoot:basketball && world.basketball.phase==='held' && world.basketball.players[world.basketball.turn]===id,canAim:canAim(),sighted:camera.sighted,jump:ladderLabel || (volleyball?.member?volleyball.action:local.ride?.kind==='bike'?(inSkatePark(local.x,local.z)?'Bunny hop':null):local.ride?'Ollie':local.climb || local.parachute==='open'?null:local.swimming?'Climb out':local.parachute==='packed'?'Deploy':'Jump'),
       sprint:touchSprint,seat,hook:world.heli.hook?.load,caseAction:!!mode,race:racing && !!drivenRoad(world,id),replay:world.mission?.stage==='complete'}));
@@ -1419,6 +1419,7 @@ function drawMap(player, remotes, yaw) {
   const heli = world.heli;
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
+  if(world.heli2)ctx.fillText('H',sx(world.heli2.x),sy(world.heli2.z)-4);
   if(world.tank){ctx.fillStyle='#dae5a1';ctx.fillText('T',sx(world.tank.x),sy(world.tank.z)-4);}
   if(world.jet){
     const x=sx(world.jet.x),y=sy(world.jet.z),distance=Math.round(Math.hypot(player.x-world.jet.x,player.z-world.jet.z));
@@ -1546,10 +1547,10 @@ function frame(time) {
         traffic.traffic=world.traffic.map(v=>v.id===predictedDriver.vehicleId?{...v,...pose}:traffic.traffic?.find(c=>c.id===v.id)??v);
       }else traffic[kind]={...world[kind],...pose};
     }
-    const {players:remotes,npcs,heli,rover,supercar,yacht:sampledYacht,boats:sampledBoats=[],jet:remoteFrameJet}=traffic;
+    const {players:remotes,npcs,heli,heli2,rover,supercar,yacht:sampledYacht,boats:sampledBoats=[],jet:remoteFrameJet}=traffic;
     const yacht=world.yacht?.driver!==sampledYacht?.driver || world.yacht?.gunner!==sampledYacht?.gunner ? world.yacht : sampledYacht;
     const shownJet=remoteFrameJet?.pilot===world.jet?.pilot ? remoteFrameJet : world.jet;
-    const aircraft=jetPilot()?shownJet:heli;
+    const aircraft=jetPilot()?shownJet:world.heli2?.pilot===id?heli2:heli;
     const assigned=myBoat();
     const boats=localBoatFrame(sampledBoats,assigned,id);
     const boat=assigned && boats.find(b=>b.id===assigned.id);
@@ -1564,7 +1565,7 @@ function frame(time) {
     else if (isDriving()) Object.assign(local, { x: road.x, y: road.y, z: road.z, yaw: road.yaw });
     if(yacht && !atYachtHelm() && !isPilot() && aboardYacht(world.yacht,local))Object.assign(local,carryOnYacht(world.yacht,yacht,local));
     const role=gunnerRole();
-    if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:role==='tank'?tank:boat??(role==='rover' ? rover : heli),role));
+    if(role) Object.assign(local,gunnerFeet(role==='superyacht'?yacht:role==='tank'?tank:boat??(role==='rover' ? rover : role==='heli2'?heli2:heli),role));
     const view = jetPilot() ? {...camera,yaw:aircraft.yaw,pitch:aircraft.pitch} : isDriving() && !inTank() ? drivingView(atYachtHelm() ? yacht??world.yacht : boat??road, dt, !atYachtHelm() && !boat) : camera;
     view.spearSight=spearReady(local);view.marinaSprint=racing;view.touch=touch.active;view.basketball=playingHoops();
     const patrolCars=world.patrolCars?.map(c=>({...c,...traffic.patrolCars?.find(v=>v.id===c.id),npcDriver:c.npcDriver,wrecked:c.wrecked,hp:c.hp}));
@@ -1572,13 +1573,13 @@ function frame(time) {
     audio.patrolSiren(local,view.yaw,roadTraffic,dt);
     audio.trafficEngines(local,view.yaw,roadTraffic);
     audio.roadTires(local,view.yaw,[rover,supercar,...roadTraffic]);
-    audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && (world.heli.gunner!=null || world.heli.pilot!=null) && !world.heli.wrecked,supercar);
+    audio.engines(local,view.yaw,heli,rover,boats,world.heli.chainFiring && (world.heli.gunner!=null || world.heli.pilot!=null) && !world.heli.wrecked,supercar,heli2,!!(world.heli2?.chainFiring && (world.heli2.gunner!=null || world.heli2.pilot!=null) && !world.heli2.wrecked));
     audio.tankEngine(local,view.yaw,tank);
     audio.yachtEngine(local,view.yaw,yacht);
     audio.jetEngine(local,view.yaw,shownJet,dt);
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
     const sceneStart=frameReadout?performance.now():0;
-    const frameCost=scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
+    const frameCost=scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli, heli2, rover, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
     if(frameReadout)measureFrame(time,remotes.length+1,{preMs:sceneStart-frameStart,...frameCost,totalMs:performance.now()-frameStart});
     if (time >= nextHud) {
       nextHud = time + 80;

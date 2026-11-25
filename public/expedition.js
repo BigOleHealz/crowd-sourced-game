@@ -33,7 +33,7 @@ import { parkedRover, parkedSupercar, damageRover, drivenRoad } from './rover.js
 import { newSupplyRun } from './supply-run.js';
 import {alertWalkersDogs,damageDog,projectileDogHit} from './dog-walkers.js';
 import { damageActor } from './rivals.js';
-import { damageHelicopter, parkedHelicopter } from './airframe.js';
+import { damageHelicopter, parkedHelicopter, SECOND_HELIPAD } from './airframe.js';
 export { parkedHelicopter, fly, interact } from './airframe.js';
 
 import { mounts, mountPosition, vehicleById } from './mounts.js';
@@ -65,7 +65,7 @@ export function newExpedition({civilianMarina=true}={}) {
   return {
     doors:CITY?newStorefrontDoors():{},
     ...(CITY ? {yacht:mooredYacht(),supercar:parkedSupercar(),tank:parkedTank()} : {}),
-    jet:parkedJet(), heli: parkedHelicopter(), rover: parkedRover(), boats:[...patrolFleet(),...(civilianMarina?marinaFleet():[])],
+    jet:parkedJet(), heli: parkedHelicopter(), ...(CITY?{heli2:parkedHelicopter(SECOND_HELIPAD)}:{}), rover: parkedRover(), boats:[...patrolFleet(),...(civilianMarina?marinaFleet():[])],
     hp: Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, crystal.hp])),
     shots: [], missiles: [], bullets: [],
     mission: newSupplyRun(),
@@ -210,8 +210,10 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
     if (world.jet && sourceVehicle!=='jet' && !world.jet.wrecked && insideBody(to,world.jet,3.5,4.4,halo)) {
       target=world.jet;hitKind='jet';break;
     }
-    if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
-      target = world.heli; hitKind = 'heli'; break;
+    const nearHeli=['heli','heli2'].find(kind=>world[kind] && sourceVehicle!==kind &&
+      !world[kind].wrecked && insideBody(to,world[kind],1.15,1.95,halo));
+    if (nearHeli) {
+      target = world[nearHeli]; hitKind = nearHeli; break;
     }
     if(d>=tankDistance && tankDistance<roadDistance){
       to={x:from.x+direction.x*tankDistance,y:from.y+direction.y*tankDistance,z:from.z+direction.z*tankDistance};
@@ -287,7 +289,8 @@ export function canUseHandheld(world,player){
   return player.life.hp>0 && !player.life.fall && !s.swimming && !s.climb && !s.ride && !s.dive && !s.parachute && !s.liftTravel &&
     player.clubSince==null && world.casino?.player!==id && !world.volleyballActivity?.member(id) &&
     !world.basketball?.players.includes(id) && world.yacht?.driver!==id && world.yacht?.gunner!==id &&
-    world.tank?.driver!==id && world.tank?.gunner!==id && world.jet?.pilot!==id && world.heli.pilot!==id && world.heli.gunner!==id &&
+    world.tank?.driver!==id && world.tank?.gunner!==id && world.jet?.pilot!==id &&
+    !['heli','heli2'].some(kind=>world[kind]?.pilot===id || world[kind]?.gunner===id) &&
     world.rover.gunner!==id && !drivenRoad(world,id) && !crewBoat(world,id);
 }
 
@@ -349,7 +352,7 @@ function readyToFire(player, weapon, tick) {
 }
 
 export function fire(world, player, input, tick, players, npcs) {
-  if (player.holstered || player.releaseSwimTrigger || player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || world.heli.pilot === player.id || drivenRoad(world,player.id)) return;
+  if (player.holstered || player.releaseSwimTrigger || player.state.swimming || world.yacht?.driver===player.id || player.life.hp === 0 || ['heli','heli2'].some(kind=>world[kind]?.pilot===player.id) || drivenRoad(world,player.id)) return;
   if (!readyToFire(player, player.weapon, tick)) return;
   const melee=meleeItems[player.weapon];
   if(melee){
@@ -406,7 +409,7 @@ export function fire(world, player, input, tick, players, npcs) {
 function targets(world,shooter,players,npcs,source=null,round,swept) {
   return [...players.values(), ...npcs].filter(actor =>
     actor.life.hp>0 && actor.id!==shooter && (!swept || swept(actor.state)) &&
-    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && (source!=='rover' || actor.id!==world.rover?.gunner));
+    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && !['heli','heli2'].some(kind=>actor.id===world[kind]?.pilot || actor.id===world[kind]?.gunner) && (source!=='rover' || actor.id!==world.rover?.gunner));
 }
 
 function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
@@ -517,9 +520,9 @@ function applyHit(world,{target,hitKind,to,blocked,headshot,hitPart,injuryPoint,
     }
     if(world.tank && source!=='tank' && (hitKind==='tank' || (areaImpact && withinBurst(center,world.tank,.95))))damageTank(world,vehicleDamage,players,owner);
     if(world.jet && source!=='jet' && (hitKind==='jet' || (areaImpact && withinBurst(center,world.jet,1))))damageJet(world,vehicleDamage,players,owner);
-    if (source !== 'heli' && (hitKind === 'heli' || (areaImpact && withinBurst(center, world.heli, 1)))) {
-      damageHelicopter(world,vehicleDamage,players,shooter,score?.team,owner);
-    }
+    for(const kind of ['heli','heli2'])if(world[kind] && source!==kind &&
+      (hitKind===kind || (areaImpact && withinBurst(center,world[kind],1))))
+      damageHelicopter(world,vehicleDamage,players,shooter,score?.team,owner,kind);
   }
   return injury;
 }
@@ -563,10 +566,10 @@ export function launchMissile(world,kind,player,tick) {
   if(kind==='rover')return;
   const v=world[kind];
   const previous=launchState.get(v);
-  if(v.fuel===0 || v.wrecked || (kind==='heli' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
+  if(v.fuel===0 || v.wrecked || (kind==='heli' || kind==='heli2' || kind==='jet' ? v.pilot : v.driver)!==player.id || tick<(previous?.ready ?? 0)) return;
   const offset=[...mounts[kind].launcher];
   const id=nextShotId++;
-  const side=kind==='heli' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
+  const side=kind==='heli' || kind==='heli2' ? -(previous?.side ?? -1) : (id%2===0 ? -1 : 1);
   launchState.set(v,{ready:tick+30,side});
   offset[0]*=side;
   const from=mountPosition(v,offset);
@@ -686,8 +689,8 @@ export function advanceMissiles(world,players,npcs,tick) {
 
 const nextBullet=new WeakMap();
 const nextPilotBullet=new WeakMap(), pilotGunSide=new WeakMap();
-export function firePilotGuns(world,player,tick){
-  const heli=world.heli;
+export function firePilotGuns(world,player,tick,kind='heli'){
+  const heli=world[kind];
   if(heli.pilot!==player.id || heli.wrecked || heli.fuel===0 || player.life.hp<=0)return false;
   heli.chainFiring=true;
   const ready=nextPilotBullet.get(heli)??tick;
@@ -697,7 +700,7 @@ export function firePilotGuns(world,player,tick){
   pilotGunSide.set(heli,side);
   const [offset,height,forward]=mounts.heli.pilotGun;
   const muzzle=mountPosition(heli,[side*offset,height,forward]);
-  sendRound(world,player,'pilotGun','heli',muzzle,heli.yaw,heli.pitch,tick);
+  sendRound(world,player,'pilotGun',kind,muzzle,heli.yaw,heli.pitch,tick);
   return true;
 }
 export function fireTurret(world,kind,player,tick,players,npcs) {
@@ -705,7 +708,7 @@ export function fireTurret(world,kind,player,tick,players,npcs) {
   const v=vehicleById(world,kind);
   if(v.fuel===0 || player.life.hp<=0 || (kind==='jet'?v.pilot:v.gunner)!==player.id || v.wrecked) return;
   const yaw=kind==='jet'?v.yaw:v.turretYaw, pitch=kind==='jet'?v.pitch:v.turretPitch;
-  if(CITY && (kind==='heli' || kind==='jet')) {
+  if(CITY && (kind==='heli' || kind==='heli2' || kind==='jet')) {
     // Five integer time slots per tick put rounds three slots apart (50/s).
     // Reset the phase after a pause so idle time never accrues ammunition.
     const start=tick*5, end=start+5, pivot=mountPosition(v,mounts[kind].turret);

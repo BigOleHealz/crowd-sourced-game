@@ -49,14 +49,17 @@ export function drivenRoad(world,id){
 // The HUD and server choose the same reachable seat when the vehicles are parked together.
 export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
-  const {heli, rover, supercar} = world;
+  const {rover, supercar} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
-  const flight = (heli.pilot == null || heli.gunner == null) && !heli.wrecked && heli.grounded ? distance(heli) : Infinity;
+  const flights=['heli','heli2'].map(kind=>({kind,vehicle:world[kind]})).filter(({vehicle})=>vehicle &&
+    (vehicle.pilot==null || vehicle.gunner==null) && !vehicle.wrecked && vehicle.grounded);
+  const nearest=flights.sort((a,b)=>distance(a.vehicle)-distance(b.vehicle))[0];
+  const flight=nearest?distance(nearest.vehicle):Infinity;
   const road = (rover.driver == null || rover.gunner == null) && !rover.sinking && !rover.wrecked ? distance(rover) : Infinity;
   const sport=supercar && supercar.driver==null && !supercar.sinking && !supercar.wrecked ? distance(supercar) : Infinity;
   if(sport<=2.9 && sport<Math.min(road<=ROVER_BOARD_RANGE?road:Infinity,flight<=BOARD_RANGE?flight:Infinity))return 'supercar';
   if (road <= ROVER_BOARD_RANGE && (flight > BOARD_RANGE || road < flight)) return 'rover';
-  return flight <= BOARD_RANGE ? 'heli' : null;
+  return flight <= BOARD_RANGE ? nearest.kind : null;
 }
 
 function roadByKind(world,kind){

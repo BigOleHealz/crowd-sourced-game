@@ -28,7 +28,7 @@ function missileModel(batch,x,y,z,scale=1) {
 export function missileLaunchers(batch,kind) {
   const [side,y,z]=mounts[kind].launcher;
   const bracket=new THREE.BoxGeometry(1,1,1);
-  if(kind==='heli'){
+  if(kind==='heli'||kind==='heli2'){
     for(const sign of [-1,1]){
       // A swept, bevelled shelf extends from the cabin skin. The lighter cap
       // and dark underslung shoe keep the wing and store distinct at flight distance.
@@ -119,7 +119,7 @@ export function turretView(scene,kind,Batch,material) {
   scene.add(base);base.add(swivel);swivel.add(cradle);
   const metal=new Batch(true), stand=new Batch(true), box=new THREE.BoxGeometry(1,1,1);
   const cylinder=new THREE.CylinderGeometry(1,1,1,12);
-  const marine=kind==='boat'||kind==='superyacht',helicopter=kind==='heli';
+  const marine=kind==='boat'||kind==='superyacht',helicopter=kind==='heli'||kind==='heli2';
   const coating=marine?0x616b6a:helicopter?0x4c544e:0x595c4c;
   const rim=marine?0x929798:0x767970;
   if(kind==='rover' || kind==='superyacht'){

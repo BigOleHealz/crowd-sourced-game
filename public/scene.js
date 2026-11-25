@@ -876,7 +876,7 @@ function fieldEffects(scene) {
     if(s.injury)characterBurst(s.injury,s.injuryPoint ? new THREE.Vector3().copy(s.injuryPoint) : b,a,particle,rng);
     if(s.hitKind==='dolphin' || s.hitKind==='manatee' || s.hitKind==='shark' || s.hitKind==='gull')return;
     if((s.hitKind==='player' || s.hitKind==='npc') && s.weapon!=='missile')return;
-    if(CITY && sourceVehicle==='heli' && (s.weapon==='turret' || s.weapon==='pilotGun')){
+    if(CITY && (sourceVehicle==='heli'||sourceVehicle==='heli2') && (s.weapon==='turret' || s.weapon==='pilotGun')){
       // Rapid fire already supplies the contact point. Recasting every impact
       // against Brickell's batched meshes can stall an entire snapshot.
       if(b.y<=MAP.waterY || (s.tick>=lastChainChipTick && s.tick-lastChainChipTick<2))return;
@@ -1328,7 +1328,7 @@ export function createScene(canvas) {
   let updateSupplyView;
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'HUMVEE');
-  const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material);
+  const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material),heli2Turret=CITY&&turretView(scene,'heli2',Batch,material);
   const updateRounds=flightRounds(scene);
   const marks=surfaceMarks(scene);
   const contacts=contactShadows(scene);
@@ -1346,6 +1346,7 @@ export function createScene(canvas) {
   const jetModel=jetView(scene,Batch);
   const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
+  const helicopter2=CITY&&fieldHelicopter(scene,material,shadowMap,panorama);
 
   scene.add(camera);
   const updateSpears=CITY?spearfishingView(scene):null;
@@ -1438,10 +1439,10 @@ export function createScene(canvas) {
     const cameraOffset = Math.hypot(origin.x-muzzle.x, origin.y-muzzleY, origin.z-muzzle.z);
     // When the helicopter's sight ray passes through the turret pivot,
     // every point on that ray gives the same bearing from the muzzle.
-    if(station==='heli' && cursorRay.ray.distanceSqToPoint(muzzle)<1e-8)
+    if((station==='heli'||station==='heli2') && cursorRay.ray.distanceSqToPoint(muzzle)<1e-8)
       return {yaw:Math.atan2(direction.x,-direction.z),pitch:Math.asin(clamp(direction.y,-1,1))};
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id!==displayedWorld.heli2?.pilot && p.id!==displayedWorld.heli2?.gunner && p.id !== displayedWorld.rover.driver)
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station==='tankCannon'?'tank':station==='spear'?null:station);
     let {to}=aimHit;
@@ -1494,8 +1495,9 @@ export function createScene(canvas) {
     }
     dt=clamp(dt||.016,0,.10);clock+=dt;
     resize();
-    const heli=world?.heli ?? parked;
+    const heli=world?.heli ?? parked,heli2=world?.heli2;
     effects.wreck(heli,dt);
+    if(heli2)effects.wreck(heli2,dt);
     lighting.frame(world,local);
     displayedWorld = world;
     displayedPlayers = remotes;
@@ -1514,10 +1516,11 @@ export function createScene(canvas) {
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     jetModel.update(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
-    const aircraft=flyingJet ? world.jet : heli;
+    const aircraft=flyingJet ? world.jet : heli2?.pilot===local.id?heli2:heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     updateCargoHook(world);
     helicopter.update(heli,dt,local.id===heli.pilot || local.id===heli.gunner);
+    if(heli2)helicopter2.update(heli2,dt,local.id===heli2.pilot || local.id===heli2.gunner);
     const rover=world.rover, supercar=world.supercar;
     const inTank=world.tank?.driver===local.id;
     updateTank?.(world.tank,dt);
@@ -1529,7 +1532,7 @@ export function createScene(canvas) {
     if(updateSupercar)updateSupercar(supercar,dt);
     marks.update(world,local,remotes,dt);
     updateTireDebris(rover,dt);
-    updateRover(rover,dt);roverTurret(rover,!updateRover.usesModel);heliTurret(heli);
+    updateRover(rover,dt);roverTurret(rover,!updateRover.usesModel);heliTurret(heli);if(heli2)heli2Turret(heli2);
     roverLabel.sprite.position.set(rover.x,rover.y+2.65,rover.z);
     roverLabel.sprite.visible=!rover.crushed && local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
@@ -1621,7 +1624,8 @@ export function createScene(canvas) {
       const boat=crewBoat(world,state.id);
       const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver || state.id===rover.gunner ? rover : boat?.driver===state.id ? boat : null);
       const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : boat?.gunner===state.id ? boat : null;
-      const heliPilot=state.id===heli.pilot,heliGunner=state.id===heli.gunner;
+      const crewHeli=heli2 && (state.id===heli2.pilot || state.id===heli2.gunner)?heli2:heli;
+      const heliPilot=state.id===crewHeli.pilot,heliGunner=state.id===crewHeli.gunner;
       const heliCrew=heliPilot || heliGunner;
       a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot;
       a.shadow.visible=a.root.visible && !state.swimming && !seated && !station;
@@ -1645,12 +1649,12 @@ export function createScene(canvas) {
         releaseRagdoll(a);
         poseBittenSwimmer(a,mauling,Math.max(0,(attackTick-mauling.tick)/30));
       }else if(a.root.visible){
-        const crewSeat=heliCrew ? helicopter.crewSeat(heliPilot) : null;
-        const posedState=heliCrew ? {...state,x:crewSeat.x,y:crewSeat.y,z:crewSeat.z,yaw:heli.yaw,moving:false,grounded:false,swimming:false,parachute:'packed'} :
+        const crewSeat=heliCrew ? (crewHeli===heli2?helicopter2:helicopter).crewSeat(heliPilot) : null;
+        const posedState=heliCrew ? {...state,x:crewSeat.x,y:crewSeat.y,z:crewSeat.z,yaw:crewHeli.yaw,moving:false,grounded:false,swimming:false,parachute:'packed'} :
           skipper ? {...state,...yachtHelmFeet(world.yacht),yaw:world.yacht.yaw,moving:false} : state;
         pose(a,posedState,dt,seated,station,world.doors,state.id===local.id?attackTick:remoteAttackTick);
         if(heliCrew){
-          a.root.rotation.set(heli.pitch||0,-heli.yaw,heli.roll||0,'YXZ');
+          a.root.rotation.set(crewHeli.pitch||0,-crewHeli.yaw,crewHeli.roll||0,'YXZ');
           a.root.scale.multiplyScalar(.60);
           for(const limb of a.limbs){
             limb.leg.rotation.x=1.36;limb.knee.rotation.x=-1.30;
@@ -1696,7 +1700,7 @@ export function createScene(canvas) {
     const marinaBoats=CITY ? world.boats.filter(b=>b.boatModel && !b.wrecked && b!==boat &&
       Math.hypot(local.x-b.x,local.z-b.z)<14) : null;
     const yachtHelm=world.yacht?.driver===local.id;
-    const localStation=world.tank?.gunner===local.id ? 'tank' : world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===rover.gunner ? 'rover' : null;
+    const localStation=world.tank?.gunner===local.id ? 'tank' : world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===heli2?.gunner?'heli2':local.id===rover.gunner ? 'rover' : null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
     const nearbyYacht=world.yacht && Math.hypot(local.x-world.yacht.x,local.z-world.yacht.z)<25 ? world.yacht : null;
@@ -1815,7 +1819,7 @@ export function createScene(canvas) {
     if(overhead>0){
       if(localStation){
         const p=mountPosition(vehicleById(world,localStation),mounts[localStation].turret);
-        overheadEye.set(p.x,localStation==='heli' ? Math.max(p.y+2.05,heli.y+3.65) : p.y+2.05,p.z);
+        overheadEye.set(p.x,localStation==='heli'||localStation==='heli2' ? Math.max(p.y+2.05,world[localStation].y+3.65) : p.y+2.05,p.z);
       }else if(piloting)overheadEye.set(aircraft.x,aircraft.y+3.65,aircraft.z);
       else if(driving)overheadEye.set(road.x,road.y+2.60,road.z);
       else if(boat)overheadEye.set(boat.x,boat.y+2.50,boat.z);

@@ -333,8 +333,11 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   if(world.tank && round.source!=='tank')accept(tankRoundContact(world.tank,round,d),world.tank,'tank');
   const jet=world.jet;
   if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
-  const heli=world.heli;
-  if(heli && !heli.wrecked && round.source!=='heli' && round.passedVehicle!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
+  for(const kind of ['heli','heli2']){
+    const heli=world[kind];
+    if(heli && !heli.wrecked && round.source!==kind && round.passedVehicle!==kind)
+      accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,kind);
+  }
   for(const b of world.boats??[]) {
     if(!b.wrecked && b.id!==round.source)accept(box(round,d,{...b,y:b.y-.5},2.08,1.55,5.30,b.yaw),b,b.id);
   }
