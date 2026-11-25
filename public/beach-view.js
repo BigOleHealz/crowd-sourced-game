@@ -6,16 +6,18 @@ import * as THREE from 'three';
 import { beach, courts, sandHeight } from './beach-layout.js';
 export function addBeach(scene,Batch) {
   addSkatePark(scene,Batch);
-  const geometry=new THREE.PlaneGeometry(beach.east-beach.west,beach.south-beach.north,24,64);
+  // Two-metre cells line up with the reef terrain at every beach edge.
+  const geometry=new THREE.PlaneGeometry(beach.east-beach.west,beach.south-beach.north,19,64);
   geometry.rotateX(-Math.PI/2);geometry.translate((beach.east+beach.west)/2,0,(beach.south+beach.north)/2);
   const p=geometry.attributes.position, colors=[],c=new THREE.Color();
   for(let i=0;i<p.count;i++){
     const x=p.getX(i),z=p.getZ(i),y=sandHeight(x,z);p.setY(i,y);
+    geometry.attributes.uv.setXY(i,x/4,z/4);
     const damp=THREE.MathUtils.smoothstep(y,-.36,.55);
     c.setRGB(.53+.47*damp,.49+.51*damp,.45+.55*damp);colors.push(c.r,c.g,c.b);
   }
   const tex=new THREE.TextureLoader().load('./harbor-sand.webp');tex.colorSpace=THREE.SRGBColorSpace;
-  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(10,34);
+  tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
   const box=new THREE.BoxGeometry(),cord=new Batch();

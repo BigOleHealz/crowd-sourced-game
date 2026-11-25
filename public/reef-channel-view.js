@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {reefAnchor,reefDiveSite,reefTrail,seabedHeight,reefGridSpacing,reefTileSize} from './reef-channel.js';
 import {cityGround,coastalBedHeight} from './brickell-map.js';
+import {beach,onBeach} from './beach-layout.js';
 
 function sandTile(tx,tz,material) {
   const geo=new THREE.PlaneGeometry(reefTileSize,reefTileSize,reefTileSize/reefGridSpacing,reefTileSize/reefGridSpacing);
@@ -11,11 +12,19 @@ function sandTile(tx,tz,material) {
   for(let i=0;i<p.count;i++){
     const x=cx+p.getX(i), z=cz+p.getZ(i), h=coastalBedHeight(x,z);
     p.setY(i,h);
-    geo.attributes.uv.setXY(i,(x*.96+z*.28)/7.5,(z*.96-x*.28)/7.5);
+    geo.attributes.uv.setXY(i,x/4,z/4);
     const relief=coastalBedHeight(x+1,z)-h;
-    shade.setRGB(.66+relief*.13,.76+relief*.12,.65+relief*.10);
+    const bx=Math.max(beach.west,Math.min(beach.east,x));
+    const bz=Math.max(beach.north,Math.min(beach.south,z));
+    const edge=Math.min(1,Math.hypot(x-bx,z-bz)/12);
+    const fade=edge*edge*(3-2*edge);
+    const damp=THREE.MathUtils.smoothstep(h,-.36,.55);
+    shade.setRGB((.53+.47*damp)*(1-fade)+(.66+relief*.13)*fade,
+      (.49+.51*damp)*(1-fade)+(.76+relief*.12)*fade,
+      (.45+.55*damp)*(1-fade)+(.65+relief*.10)*fade);
     colors.push(shade.r,shade.g,shade.b);
-    if(i%count!==count-1 && i<p.count-count)indices.push(i,i+count,i+1,i+1,i+count,i+count+1);
+    if(i%count!==count-1 && i<p.count-count && !onBeach(x+1,z+1))
+      indices.push(i,i+count,i+1,i+1,i+count,i+count+1);
   }
   geo.setIndex(indices);geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();
   const mesh=new THREE.Mesh(geo,material);mesh.position.set(cx,0,cz);return mesh;
@@ -236,9 +245,8 @@ export function reefChannelView(scene,Batch) {
     if(nearTrail && !plants)plants=buildTrailPlants(scene,Batch);
     if(plants)plants.visible=nearTrail;
     if(under && !floorMaterial.map){
-      // Rob Tuytel's CC0 Aerial Beach 01 scan, with baked ripple relief.
-      // https://polyhaven.com/a/aerial_beach_01
-      const sand=new THREE.TextureLoader().load('./marina-reef-sand.webp');
+      // Match the beach's sand pattern and world-space scale across the seam.
+      const sand=new THREE.TextureLoader().load('./harbor-sand.webp');
       sand.colorSpace=THREE.SRGBColorSpace;sand.wrapS=sand.wrapT=THREE.RepeatWrapping;
       sand.anisotropy=2;floorMaterial.map=sand;floorMaterial.needsUpdate=true;
     }

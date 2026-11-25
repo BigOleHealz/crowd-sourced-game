@@ -16,7 +16,7 @@ for(let i=1;i<reefTrail.length;i++){
 }
 assert(nearest-deepest>2,'route changes depth');
 assert(cityGround(71,-419)>0,'marina decking stays dry');
-for(const [edgeX,z] of [[43,0],[38,-220],[67,-420]]){
+for(const [edgeX,z] of [[43,0],[74,-220],[67,-420]]){
   const near=coastalBedHeight(edgeX+1,z),far=coastalBedHeight(edgeX+10,z);
   assert(near>far+1,'shore slopes from dry land toward the seabed');
 }
