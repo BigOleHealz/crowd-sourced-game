@@ -2,6 +2,7 @@ import {dolphinSizes} from './dolphin-swim.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import * as THREE from 'three';
 import {manateeMaterial} from './manatee-model.js';
+import {loadDolphinModel,makeDolphinModel} from './dolphin-model.js';
 
 // Build a bottlenose in one indexed mesh. Coordinates run aft along +Z,
 // from the narrow beak and raised melon to the peduncle and paired flukes.
@@ -102,16 +103,28 @@ function dolphinSkin(water,clock,stroke){
 
 export function dolphinView(scene,water){
   const clock={value:0},models=[],impacts=aquaticImpactView(scene,water,dolphinSizes);
-  let nearShape,farShape,ring;
+  let nearShape,farShape,ring,template;
+  loadDolphinModel().then(loaded=>{
+    template=loaded;
+    for(const instance of models)if(instance)attachModel(instance);
+  }).catch(error=>console.warn('Dolphin model unavailable; using the built-in dolphin.',error));
+  function attachModel(instance){
+    if(instance.model || !template)return;
+    const {model,mixer}=makeDolphinModel(template);
+    instance.root.add(model);instance.model=model;instance.mixer=mixer;
+  }
   function model(){
     nearShape??=dolphinGeometry(true);farShape??=dolphinGeometry(false);
     ring??=new THREE.RingGeometry(.88,1,36).rotateX(-Math.PI/2);
     const stroke={value:0};
     const body=new THREE.Mesh(nearShape,dolphinSkin(water,clock,stroke));body.renderOrder=1;
-    body.name='Coastal bottlenose dolphin';body.rotation.order='YXZ';body.visible=false;
+    const root=new THREE.Group();root.name='Coastal bottlenose dolphin';root.rotation.order='YXZ';root.visible=false;
+    root.add(body);
     const wake=new THREE.Mesh(ring,new THREE.MeshBasicMaterial({color:0xc4dbd6,transparent:true,depthWrite:false}));
-    wake.visible=false;wake.renderOrder=3;scene.add(body,wake);
-    return {body,wake,stroke,breathOrigin:new THREE.Vector3(),lastAir:-1};
+    wake.visible=false;wake.renderOrder=3;scene.add(root,wake);
+    const instance={root,body,wake,stroke,breathOrigin:new THREE.Vector3(),lastAir:-1};
+    attachModel(instance);
+    return instance;
   }
   const approach=(a,b,k)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*k;
   return (states,local,tick,dt)=>{
@@ -123,27 +136,31 @@ export function dolphinView(scene,water){
     for(let i=0;i<count;i++){
       const visible=nearest.find(entry=>entry.i===i);
       if(!visible){
-        if(models[i]){models[i].body.visible=models[i].wake.visible=false;models[i].lastAir=-1;}
+        if(models[i]){models[i].root.visible=models[i].wake.visible=false;models[i].lastAir=-1;}
         continue;
       }
       const p=states[i],distance=visible.d;
-      const m=models[i]??=model(),{body,wake,stroke,breathOrigin}=m;
-      const alpha=body.visible && body.position.distanceToSquared(p)<36?k:1;
-      body.position.x=THREE.MathUtils.lerp(body.position.x,p.x,alpha);
-      body.position.y=THREE.MathUtils.lerp(body.position.y,p.y,alpha);
-      body.position.z=THREE.MathUtils.lerp(body.position.z,p.z,alpha);
-      body.rotation.set(approach(body.rotation.x,p.hp===0?p.pitch*Math.exp(-p.ageSinceHit):p.pitch,alpha),approach(body.rotation.y,-p.yaw,alpha),
-        approach(body.rotation.z,p.roll,alpha),'YXZ');
-      body.scale.setScalar(p.size);body.geometry=distance<(body.geometry===nearShape?21:18)?nearShape:farShape;
-      stroke.value=approach(stroke.value,p.stroke,alpha);body.visible=true;
+      const m=models[i]??=model(),{root,body,wake,stroke,breathOrigin}=m;
+      const alpha=root.visible && root.position.distanceToSquared(p)<36?k:1;
+      root.position.x=THREE.MathUtils.lerp(root.position.x,p.x,alpha);
+      root.position.y=THREE.MathUtils.lerp(root.position.y,p.y,alpha);
+      root.position.z=THREE.MathUtils.lerp(root.position.z,p.z,alpha);
+      root.rotation.set(approach(root.rotation.x,p.hp===0?p.pitch*Math.exp(-p.ageSinceHit):p.pitch,alpha),approach(root.rotation.y,-p.yaw,alpha),
+        approach(root.rotation.z,p.roll,alpha),'YXZ');
+      root.scale.setScalar(p.size);root.visible=true;
+      const detailed=!!m.model && distance<(m.model.visible?25:23);
+      if(m.model){m.model.visible=detailed;if(detailed)m.mixer.update(dt);}
+      body.visible=!detailed;
+      body.geometry=distance<(body.geometry===nearShape?21:18)?nearShape:farShape;
+      stroke.value=approach(stroke.value,p.stroke,alpha);
       if(p.air>=0 && (m.lastAir<0 || p.air<m.lastAir)){
-        body.localToWorld(breathOrigin.set(0,.28,-.74));
+        root.localToWorld(breathOrigin.set(0,.28,-.74));
       }
       m.lastAir=p.air;
       wake.visible=p.air>=0 && p.air<2.2 && distance<32;
       if(wake.visible){
         wake.position.set(breathOrigin.x,water+.022,breathOrigin.z);
-        const r=.18+p.air*.60;wake.rotation.y=body.rotation.y;wake.scale.set(r,1,r*1.35);
+        const r=.18+p.air*.60;wake.rotation.y=root.rotation.y;wake.scale.set(r,1,r*1.35);
         wake.material.opacity=.25*(1-p.air/2.2);
       }
     }

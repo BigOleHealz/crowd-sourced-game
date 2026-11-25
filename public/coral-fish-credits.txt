@@ -1,0 +1,7 @@
+"coral fish" by polyplant3d
+https://sketchfab.com/3d-models/coral-fish-ea8d002da75a4dd09658b962722279c5
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Pinewatch scales and rotates the model, uses it for reef schools and catches,
+and animates swimming in the game shader.

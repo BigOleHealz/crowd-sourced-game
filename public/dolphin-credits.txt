@@ -1,0 +1,11 @@
+"Common Dolphin" animation by kenchoo
+https://sketchfab.com/3d-models/common-dolphin-12c27d41204f4b92895e36072b0ba8a6
+
+Based on the "Common Dolphin" mesh by CGreature (Modbuff)
+https://sketchfab.com/3d-models/common-dolphin-26f38bee544346918d432cc54fe9678d
+
+Both are licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+For Pinewatch the model is scaled, oriented, and displayed with a gray coastal
+dolphin material in place of the original cream and white side markings.

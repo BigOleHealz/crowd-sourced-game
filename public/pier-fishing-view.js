@@ -2,10 +2,14 @@ import * as THREE from 'three';
 import {activeCast} from './pier-fishing.js';
 import {fishSpecies} from './reef-fish.js';
 import {fishGeometry} from './reef-fish-view.js';
+import {loadCoralFishAsset} from './coral-fish-asset.js';
 
 // Only anglers with a live line allocate a rig. All their geometry is shared.
 export function pierFishingView(scene,waterY){
   const caughtShapes=new Map(),scales=new THREE.MeshLambertMaterial({side:THREE.DoubleSide,vertexColors:true});
+  let coralFish;
+  if(typeof window!=='undefined')loadCoralFishAsset().then(asset=>{coralFish=asset;})
+    .catch(error=>console.warn('Coral fish catch asset failed to load',error));
   const rigs=new Map(),rodShape=new THREE.CylinderGeometry(.012,.025,1,6);
   const cork=new THREE.SphereGeometry(.105,10,8),tipShape=new THREE.CylinderGeometry(.019,.026,.12,6);
   const rodPaint=new THREE.MeshLambertMaterial({color:0x3d4843}),red=new THREE.MeshLambertMaterial({color:0xff572e});
@@ -35,7 +39,9 @@ export function pierFishingView(scene,waterY){
       if(landing){
         if(!rig.catch){
           if(!caughtShapes.has(f.species))caughtShapes.set(f.species,fishGeometry(f.species,fishSpecies[f.species]));
-          rig.catch=new THREE.Mesh(caughtShapes.get(f.species),scales);rig.group.add(rig.catch);
+          const asset=f.species==='coral-fish' && coralFish;
+          rig.catch=new THREE.Mesh(asset?.geometry??caughtShapes.get(f.species),asset?.material??scales);
+          rig.group.add(rig.catch);
         }
         const t=Math.min(1,Math.max(0,(tick-f.landed)/29));
         rig.catch.position.set(p.x+(f.x-p.x)*.50*(1-t)+.26,THREE.MathUtils.lerp(waterY,p.y+.14,t)+Math.sin(t*Math.PI)*1.18,p.z+(f.z-p.z)*.50*(1-t));

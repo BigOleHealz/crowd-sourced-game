@@ -242,6 +242,7 @@ for (let i = 0; !CITY && i < 9; i++) {
 }
 
 if(!CITY)MAP.trees.push(...northernPines().filter(t=>!churchLot(t.x,t.z,2)));
+MAP.trees.forEach((tree,i)=>{tree.treeId=i;});
 
 function smoothstep(start, end, position) {
   const t = Math.max(0, Math.min(1, (position - start) / (end - start)));
@@ -345,6 +346,7 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,ro
   let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round));
   for (const obstacle of candidates(obstacleCells,obstacles,x,z,padding)) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
+    if (obstacle.treeId!=null && doors?.fallenTrees?.[obstacle.treeId]) continue;
     if (overlaps(x, z, obstacle, padding)) top = Math.max(top, obstacle.top);
   }
   return top;
