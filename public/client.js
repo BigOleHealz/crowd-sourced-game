@@ -250,6 +250,7 @@ let requestedStance;
 let queuedSeat=null, queuedSeatKind=null;
 let handleCase=false;
 let queuedHorn=false,queuedBomb=false,queuedMissile=false;
+let queuedBarrelRoll=0;
 let queuedReplay = false, queuedDeploy = false;
 let queuedFlip=false;
 let queuedSkateTrick;
@@ -307,6 +308,7 @@ const down=code=>held.has(code)||touch.down(code);
 function clearInput() {
   touch.reset();touchSprint=false;queuedScuba=queuedRefuel=false;
   queuedHorn=queuedBomb=queuedMissile=false;
+  queuedBarrelRoll=0;
   stickX=stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
@@ -463,6 +465,10 @@ function castSpear(){
   socket.send(JSON.stringify({type:'spearfish',seq:++spearSequence,aimYaw:aim.yaw,aimPitch:aim.pitch}));
 }
 function pressAction(code){
+  if(jetPilot() && !world.jet.grounded && (code==='KeyA' || code==='KeyD')){
+    queuedBarrelRoll=code==='KeyA'?1:-1;
+    return;
+  }
   if(code==='KeyF' && self?.swimming){castSpear();return;}
 
   if(code==='KeyP'){
@@ -899,6 +905,7 @@ function tick() {
     missile:pilot && (queuedMissile || down('KeyR')),
     throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?stickOutput(stickX):(driving || self.ride)?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
+    barrelRoll:jetPilot()?queuedBarrelRoll:0,
     lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
     tracking,
     deploy: queuedDeploy, replaySupply: queuedReplay, aimYaw: aim.yaw, aimPitch: aim.pitch };
@@ -909,6 +916,7 @@ function tick() {
   requestedStance = undefined;
   handleCase=false;
   queuedHorn=queuedBomb=queuedMissile=false;
+  queuedBarrelRoll=0;
   socket.send(JSON.stringify(cmd));
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
@@ -1178,7 +1186,7 @@ function updateEquipment(local) {
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent=world.jet.grounded?
     'Runway · '+Math.round(world.jet.speed*3.6)+' / 86 km/h to rotate · W throttle · Cursor up to lift off':
-    'Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
+    'A/D barrel roll · Cursor to steer and loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
   else if(trafficCar?.patrol)prompt.textContent='W/S drive · A/D steer · L emergency lights';

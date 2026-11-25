@@ -451,6 +451,7 @@ function acceptInput(player, data, binary) {
     throttle: Number.isFinite(input.throttle) ? Math.max(-1,Math.min(1,input.throttle)) : 0,
     steer: Number.isFinite(input.steer) ? Math.max(-1,Math.min(1,input.steer)) : 0,
     jetPitch: Number.isFinite(input.jetPitch) ? Math.max(-1,Math.min(1,input.jetPitch)) : undefined,
+    barrelRoll: input.barrelRoll===1 || input.barrelRoll===-1 ? input.barrelRoll : 0,
     lift: input.lift === 1 || input.lift === -1 ? input.lift : 0,
   });
 }
