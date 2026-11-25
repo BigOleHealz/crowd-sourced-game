@@ -5,6 +5,7 @@ import {damagePost,lampHP,postDown} from './street-lamps.js';
 import {tankHull} from './tank-layout.js';
 import {fellTree} from './tree-fall.js';
 import {breakMilitaryFence} from './military-island.js';
+import {noteWallBreak} from './tank-wall-cuts.js';
 
 // Return the impact response only after the authoritative obstacle state changes.
 // Tracks can push through from a standstill; wheeled vehicles need impact speed.
@@ -35,6 +36,7 @@ export function breakRoadObstacle(world,vehicle,object,vx,vz,incoming,team){
   const wood=object.woodId;
   if(wood!=null && !doors.beachWood?.[wood] && (tracks || incoming>(String(wood).startsWith('sign-')?1.1:2.5))){
     (doors.beachWood??={})[wood]=Math.round(Math.atan2(vx,vz)*1000)||1;
+    noteWallBreak(doors,'wood',object.x,vehicle.y+.7,object.z);
     return 'wood';
   }
   if(object.net!=null && !doors.nets?.[object.net] && (tracks || incoming>.55)){

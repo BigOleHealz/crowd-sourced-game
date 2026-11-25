@@ -1,7 +1,10 @@
 import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
 import {enterRoadWater,leaveSinkingRoad,stepRoadSinking} from './road-water.js';
-import {openTankWall} from './tank-wall-cuts.js';
+import {openTankWall,noteWallBreak} from './tank-wall-cuts.js';
+import {houseAtPoint} from './residential-sites.js';
+import {houseLostSupport} from './house-support.js';
+import {ramHouse} from './residential-falls.js';
 import {breakRoadObstacle} from './road-obstacle-damage.js';
 import {damageRover} from './rover.js';
 import {CITY,MAP,groundHeight,blocked,spawn} from './world.js';
@@ -85,7 +88,11 @@ export function stepTank(world,input,dt,players){
       const incoming=-(vx*hit.nx+vz*hit.nz);
       if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
         if(incoming>0 && openTankWall(world.doors,hit.wallCell)){
+          const home=houseAtPoint(hit.object?.x??t.x,hit.object?.z??t.z,.35);
+          const material=home && home.parts[0].finish!=='stucco' && home.estate==null?'wood':'concrete';
+          noteWallBreak(world.doors,material,t.x,t.y+.9,t.z);
           world.rules?.damageProperty?.(driver?.team,{x:t.x,y:t.y,z:t.z},'wall:'+hit.wallCell,'Wall section',5_000);
+          if(home && houseLostSupport(world.doors,home.id))ramHouse(world.doors,home.id,t.x,t.z,vx,vz);
         }else{
           const car=hit.object;
           if(!car || (car!==world.rover && car!==world.supercar && !world.traffic?.includes(car)))break;
