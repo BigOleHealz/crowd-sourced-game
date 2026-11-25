@@ -46,19 +46,25 @@ const partyModel=makeModel({
     rudder:.60,flow:2.7,response:1.8,grip:4},
   wave:{rise:.035,roll:.50,trim:.029},motorPitch:.70,
 });
-// Paloma keeps the cruiser handling, but the model's helm is on the flybridge.
-const minnowModel={...marinaModels.cruiser,roof:2.75,helm:{
-  ...marinaModels.cruiser.helm,
-  cushion:{x:-.43,y:2.14,z:-.4},
-  offset:[-.43,2.14-.893*.85,-.4],
-  wheel:{...marinaModels.cruiser.helm.wheel,x:-.43,y:2.337,z:-.05},
-},shapes:marinaModels.cruiser.shapes.map((shape,index)=>
-  index===marinaModels.cruiser.shapes.length-1?[...shape.slice(0,4),2.75]:shape),
+// The surviving Minnow is a 38 ft (11.58 m) Wheeler. The imported mesh is
+// 8.57723 units long, so this scale gives Paloma the same full-size hull.
+export const minnowScale=11.5824/8.57723;
+const minnowModel=makeModel({
+  title:'Minnow cruiser',length:11.5824,beam:2.34618*minnowScale,
+  deck:1.10,keel:-.78,helmX:-.50,helmZ:-.62,roof:4.25,maxHp:355,
+  hydrodynamics:marinaModels.cruiser.hydrodynamics,
+  wave:marinaModels.cruiser.wave,motorPitch:marinaModels.cruiser.motorPitch,
+});
+// The helm is on the imported model's flybridge, above the main deck.
+minnowModel.helm={...minnowModel.helm,
+  cushion:{x:-.50,y:3.32,z:-.62},
+  offset:[-.50,3.32-.893*seatScale,-.62],
+  wheel:{...minnowModel.helm.wheel,x:-.50,y:3.517,z:-.27},
 };
 export const marinaModel=boat=>boat?.partyYacht?partyModel:boat?.id==='marina-paloma'?minnowModel:marinaModels[boat?.boatModel];
 
 function east(id,name,boatModel,hull,z,side){
-  const besidePier=1.1+marinaModels[boatModel].halfWidth+.28;
+  const besidePier=1.1+(id==='paloma'?minnowModel:marinaModels[boatModel]).halfWidth+.28;
   return {id:'marina-'+id,name,boatModel,hull,x:82,z:z+side*besidePier,yaw:Math.PI/2};
 }
 

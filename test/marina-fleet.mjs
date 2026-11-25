@@ -16,6 +16,12 @@ const {Vector3}=await import('three');
 
 const dt=1/30;
 const fingers=[-446,-446,-433,-433,-419,-419];
+const paloma=marinaBerths.find(boat=>boat.id==='marina-paloma');
+const palomaSize=marinaModel(paloma);
+assert(Math.abs(palomaSize.length-38*.3048)<.001,'Paloma matches the 38 ft Wheeler hull');
+assert(palomaSize.length>marinaModels.motorYacht.length);
+assert(palomaSize.beam>marinaModels.cruiser.beam);
+assert(paloma.z-(-446)>palomaSize.halfWidth+1,'Paloma clears its finger pier');
 assert.deepEqual(newExpedition({civilianMarina:false}).boats.map(({id})=>id),['bay-rhib','key-rhib','base-rhib-south','base-rhib-north']);
 assert.equal(new Set(newExpedition().boats.map(({id})=>id)).size,12);
 trouserSeat.computeBoundingBox();

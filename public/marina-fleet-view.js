@@ -1,7 +1,7 @@
 import {sinkingHull} from './sinking-hull.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {marinaModel} from './marina-fleet-layout.js';
+import {marinaModel,minnowScale} from './marina-fleet-layout.js';
 import {wakeTrail} from './boat-wake-view.js';
 
 const white=0xece9dd,cream=0xded7bf,polished=0xc7cfcb,wood=0xae805a,leather=0xd7c4a1;
@@ -191,9 +191,9 @@ function buildBoat(scene,Batch,boat,glass){
     imported=model;
     // The Sketchfab scene faces +Z after its axis conversion. Match the
     // simulated hull, whose bow and forward motion point toward local -Z.
-    model.scale.set(1.15,.87,.87);
+    model.scale.setScalar(minnowScale);
     model.rotation.y=Math.PI;
-    model.position.y=-.50;
+    model.position.y=-.78;
     model.traverse(object=>{
       if(!object.isMesh)return;
       Object.assign(object.userData,{target:boat.id,impactSurface:'solid'});
