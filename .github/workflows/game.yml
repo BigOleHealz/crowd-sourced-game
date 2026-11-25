@@ -12,10 +12,12 @@ permissions:
   contents: read
 
 jobs:
-  regression:
-    name: Game regression and release image
+  tests:
+    name: Game tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NODE_ENV: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,7 +25,18 @@ jobs:
           node-version: 24
       - name: Check JavaScript syntax
         run: git ls-files -z '*.js' '*.mjs' | xargs -0 -n 1 -P 2 node --check
-      - name: Build production image and run all game tests
+      - name: Install dependencies
+        run: npm ci --omit=dev --no-audit --no-fund
+      - name: Run all game tests
+        run: npm test
+
+  image:
+    name: Production image and multiplayer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production image
         run: docker build --progress=plain -t game-under-test .
       - name: Start the built game
         run: |
@@ -56,3 +69,17 @@ jobs:
       - name: Show game logs on failure
         if: failure()
         run: docker logs game || true
+
+  regression:
+    name: Game regression and release image
+    if: always()
+    needs: [tests, image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require both checks to pass
+        env:
+          TESTS_RESULT: ${{ needs.tests.result }}
+          IMAGE_RESULT: ${{ needs.image.result }}
+        run: |
+          test "$TESTS_RESULT" = success
+          test "$IMAGE_RESULT" = success
