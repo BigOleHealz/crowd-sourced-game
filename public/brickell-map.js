@@ -11,6 +11,7 @@ import {casaBarriers,casaRails} from './casa-luma.js';
 import {estateBarriers,berthing} from './lantern-buildings-layout.js';
 import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
+import {militaryIsland,insideMilitary,militaryDockHeight,militaryBarriers} from './military-island.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
 import {onAirfield} from './runway-layout.js';
@@ -43,7 +44,7 @@ streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z
 const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 // The shore apron uses the same two-metre triangles as the rendered sand.
 // Boats retain the surveyed bed; submerged swimmers use this visible height.
-const shoreLand=[...shorePads,coast,harbor,...lanternLand];
+const shoreLand=[...shorePads,coast,harbor,militaryIsland,...lanternLand];
 function shoreSurvey(x,z) {
   const bed=seabedHeight(x,z);
   let distance=Infinity;
@@ -70,7 +71,7 @@ export function coastalBedHeight(x,z) {
   const c=shoreSurvey(x0,z0+reefGridSpacing),d=shoreSurvey(x0+reefGridSpacing,z0+reefGridSpacing);
   return u+v<=1 ? a+u*(b-a)+v*(c-a) : d+(1-u)*(c-d)+(1-v)*(b-d);
 }
-export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
+export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
 function islandOrSeabed(x,z) {
@@ -78,6 +79,8 @@ function islandOrSeabed(x,z) {
   return shore===-2.8 ? seabedHeight(x,z) : shore;
 }
 export function cityGround(x,z,maxBottom=Infinity,doors) {
+  const militaryDock=militaryDockHeight(x,z);if(militaryDock!==undefined)return militaryDock;
+  if(insideMilitary(x,z))return .80;
   if(onAirfield(x,z))return .70;
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
   const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
@@ -140,7 +143,7 @@ for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-
   palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
   bounds: 109, westBound:-245, southBound:118, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
-  barriers:[...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
+  barriers:[...militaryBarriers,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),
     ...beachSigns.flatMap(([x,z,yaw],i)=>[-1,1].map(side=>({

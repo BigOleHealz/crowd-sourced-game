@@ -16,8 +16,8 @@ const {Vector3}=await import('three');
 
 const dt=1/30;
 const fingers=[-446,-446,-433,-433,-419,-419];
-assert.deepEqual(newExpedition({civilianMarina:false}).boats.map(({id})=>id),['bay-rhib','key-rhib']);
-assert.equal(new Set(newExpedition().boats.map(({id})=>id)).size,10);
+assert.deepEqual(newExpedition({civilianMarina:false}).boats.map(({id})=>id),['bay-rhib','key-rhib','base-rhib-south','base-rhib-north']);
+assert.equal(new Set(newExpedition().boats.map(({id})=>id)).size,12);
 trouserSeat.computeBoundingBox();
 const bottom=.990+trouserSeat.boundingBox.min.y;
 const rig=createRangerRig();
