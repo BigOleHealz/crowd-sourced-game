@@ -3,19 +3,22 @@ import {beachSigns} from './scenery-layout.js';
 import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
-import { beach, beachTerrain, courts, sandHeight } from './beach-layout.js';
+import { beach, beachIsland, beachTerrain, onBeachTerrain, courts, sandHeight } from './beach-layout.js';
 import {coastalBedHeight} from './brickell-map.js';
 export function addBeach(scene,Batch) {
   addSkatePark(scene,Batch);
-  // The side banks and seaward toe keep sloping below water before the mesh ends.
-  // Two-metre cells meet the reef terrain on the same vertices and triangles.
+  // One continuous sand apron wraps the island and east beach, sinking into
+  // the reef on every side. Keep a vertex at the island's odd west edge.
+  const xs=[];
+  for(let x=beachTerrain.west;x<=beachTerrain.east;x+=2)xs.push(x);
+  xs.push(beachIsland.west);xs.sort((a,b)=>a-b);
   const geometry=new THREE.PlaneGeometry(beachTerrain.east-beachTerrain.west,beachTerrain.south-beachTerrain.north,
-    (beachTerrain.east-beachTerrain.west)/2,(beachTerrain.south-beachTerrain.north)/2);
+    xs.length-1,(beachTerrain.south-beachTerrain.north)/2);
   geometry.rotateX(-Math.PI/2);
   geometry.translate((beachTerrain.east+beachTerrain.west)/2,0,(beachTerrain.south+beachTerrain.north)/2);
   const p=geometry.attributes.position, colors=[],c=new THREE.Color();
   for(let i=0;i<p.count;i++){
-    const x=p.getX(i),z=p.getZ(i),y=coastalBedHeight(x,z);p.setY(i,y);
+    const x=xs[i%xs.length],z=p.getZ(i),y=coastalBedHeight(x,z);p.setX(i,x);p.setY(i,y);
     geometry.attributes.uv.setXY(i,x/4,z/4);
     const bx=Math.max(beach.west,Math.min(beach.east,x));
     const bz=Math.max(beach.north,Math.min(beach.south,z));
@@ -30,6 +33,16 @@ export function addBeach(scene,Batch) {
   }
   const tex=new THREE.TextureLoader().load('./harbor-sand.webp');tex.colorSpace=THREE.SRGBColorSpace;
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
+  // The harbor deck fills the island's interior; trim only that rectangle.
+  const triangles=[];
+  for(let i=0;i<geometry.index.count;i+=3){
+    const a=geometry.index.getX(i),b=geometry.index.getX(i+1),d=geometry.index.getX(i+2);
+    const x=(p.getX(a)+p.getX(b)+p.getX(d))/3;
+    const z=(p.getZ(a)+p.getZ(b)+p.getZ(d))/3;
+    if(!onBeachTerrain(x,z))continue;
+    triangles.push(a,b,d);
+  }
+  geometry.setIndex(triangles);
   geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
   const sand=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:tex,vertexColors:true}));sand.receiveShadow=true;sand.userData.impactSurface='solid';scene.add(sand);
   const box=new THREE.BoxGeometry(),cord=new Batch();
