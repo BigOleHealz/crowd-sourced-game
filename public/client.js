@@ -70,7 +70,7 @@ import { onBeach, beach, courts } from './beach-layout.js';
 import { updateSupplyHud, drawSupplyMap } from './supply-view.js';
 import { interpolateSuspension } from './road-suspension.js';
 import { createScene } from './scene.js';
-import {eisenhowerCarrier,carrierDeckSections} from './eisenhower-carrier-layout.js';
+import {eisenhowerCarrier,carrierDeckSections,carrierRampSegments,carrierRamp} from './eisenhower-carrier-layout.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
@@ -1340,6 +1340,8 @@ function drawMap(player, remotes, yaw) {
     ctx.closePath();ctx.fill();
     ctx.fillStyle='#aabac0';
     for(const section of carrierDeckSections)ctx.fillRect(sx(section.x-section.w/2),sy(section.z-section.d/2),section.w*scale,section.d*scale);
+    ctx.strokeStyle='#d9c58d';ctx.lineWidth=Math.max(2,carrierRamp.width*scale);
+    for(const [a,b] of carrierRampSegments){ctx.beginPath();ctx.moveTo(sx(a.x),sy(a.z));ctx.lineTo(sx(b.x),sy(b.z));ctx.stroke();}
     ctx.fillStyle='#69716b';ctx.fillRect(sx(coast.west),sy(coast.north),(coast.east-coast.west)*scale,(coast.south-coast.north)*scale);
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
     for(const r of [...shorePads,...lanternLand,ferrySlip,...marketPiers,...marinaDecks,...militaryDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);

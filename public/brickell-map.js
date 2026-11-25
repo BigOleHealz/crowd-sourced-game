@@ -12,7 +12,7 @@ import {estateBarriers,berthing} from './lantern-buildings-layout.js';
 import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
 import {militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
-import {carrierHullSections,carrierDeckSections} from './eisenhower-carrier-layout.js';
+import {carrierHullSections,carrierDeckSections,carrierRampHeight} from './eisenhower-carrier-layout.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
 import {onAirfield} from './runway-layout.js';
@@ -81,6 +81,8 @@ function islandOrSeabed(x,z) {
   return shore===-2.8 ? seabedHeight(x,z) : shore;
 }
 export function cityGround(x,z,maxBottom=Infinity,doors) {
+  const carrierRamp=carrierRampHeight(x,z,maxBottom);
+  if(carrierRamp!==undefined)return carrierRamp;
   if(onMilitaryBridge(x,z)){
     const road=militaryBridge.height(x);
     return maxBottom>=road-.65 ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
