@@ -1898,7 +1898,7 @@ export function createScene(canvas) {
       effects.shot(from ? {...flash,from} : flash,flash.source);
     }
     pendingMuzzles.length=0;
-    updateRounds(world.bullets,visibleMuzzle);
+    updateRounds(world.bullets,visibleMuzzle,localActorId);
     const drawStart=profileFrames?performance.now():0;
     if((localDefeat || exploring) && camera.position.y<cameraWater){
       if(!diveBackdrop){
