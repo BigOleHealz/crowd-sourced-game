@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {addMarinaLifebuoys} from './marina-lifebuoys.js';
 import {addDivingTower} from './marina-platform-view.js';
 import {berthDeckY,jettyY,jettySections,jettyRail,jettyBitts,jettyBeacon,marinaFingers,marinaRamp,marinaSpine} from './marina-docks.js';
 import {dockPileSpan} from './dock-piles.js';
@@ -54,13 +55,20 @@ export function addMarinaDocks(scene,batch){
   const post=(c,x,y,z,w,h)=>batch.add(tube,c,x,y,z,w,h,w);
   addMarinaJetty(block,post,timber);
   const grainVertices=[],grainUvs=[],grainColors=[];
-  function woodFace(x,z,w,d,alongZ,seed){
-    const tint=new THREE.Color(timber[seed%timber.length]).lerp(new THREE.Color(0xffffff),.39);
-    const corners=[[-1,-1],[-1,1],[1,1],[-1,-1],[1,1],[1,-1]];
-    for(const [i,j] of corners){
+  // The scan contains five planks running vertically. Map one scanned plank to
+  // each physical board so the grain follows the board across the walkway.
+  const cutEdges=[0x6a5f51,0x746a5b,0x6f6457,0x7b7164,0x726657];
+  const boardTints=[0xffffff,0xf7f2eb,0xf4f3ef,0xfff8ee,0xf2f1ed].map(c=>new THREE.Color(c));
+  const boardCorners=[[-1,-1],[-1,1],[1,1],[-1,-1],[1,1],[1,-1]];
+  function woodFace(x,z,w,d,alongZ,seed,height=berthDeckY,slope=0){
+    const tint=boardTints[seed%boardTints.length];
+    const sourceBoard=(seed*3+Math.floor(seed/5))%5;
+    const offset=seed*.381966,reverse=seed%2?1:-1;
+    for(const [i,j] of boardCorners){
       const px=x+i*w/2,pz=z+j*d/2;
-      grainVertices.push(px,berthDeckY+.001,pz);
-      grainUvs.push((alongZ?px:pz)*.48+seed*.71,(alongZ?pz:px)*.89+seed*.36);
+      const across=alongZ?j:i,along=alongZ?px:pz;
+      grainVertices.push(px,height+(px-x)*slope+.0015,pz);
+      grainUvs.push((sourceBoard+.5+across*.466)/5,reverse*along/1.65+offset);
       grainColors.push(tint.r,tint.g,tint.b);
     }
   }
@@ -69,7 +77,7 @@ export function addMarinaDocks(scene,batch){
     block(navy,x,.35,z,w,.35,d);
     const length=alongZ?d:w,n=Math.ceil(length/.22),pitch=length/n;
     for(let i=0;i<n;i++){
-      const offset=(i+.5)*pitch-length/2,c=timber[(i*7+Math.floor(i/4))%timber.length];
+      const offset=(i+.5)*pitch-length/2,c=cutEdges[(i*7+Math.floor(i/4))%cutEdges.length];
       const px=x+(alongZ?0:offset),pz=z+(alongZ?offset:0),width=alongZ?w:pitch-.01,depth=alongZ?pitch-.01:d;
       block(c,px,berthDeckY-.026,pz,width,.052,depth);
       woodFace(px,pz,width,depth,alongZ,i);
@@ -79,19 +87,23 @@ export function addMarinaDocks(scene,batch){
     }
   }
   deck(marinaSpine,true);for(const f of marinaFingers)deck(f,false);
+  const run=marinaRamp.east-marinaRamp.west,slope=(berthDeckY-.8)/run,angle=Math.atan(slope);
+  const rampZ=(marinaRamp.north+marinaRamp.south)/2,rampWidth=marinaRamp.south-marinaRamp.north;
+  block(navy,marinaRamp.west+run/2,.555,rampZ,run,.24,rampWidth,angle);
+  for(let i=0;i<15;i++){
+    const offset=(i+.5)*run/15,x=marinaRamp.west+offset,y=.8+offset*slope,width=run/15-.008;
+    block(cutEdges[i%cutEdges.length],x,y-.024,rampZ,width,.048,rampWidth,angle);
+    woodFace(x,rampZ,width,rampWidth,false,i+19,y,slope);
+  }
   const grain=new THREE.BufferGeometry();
   grain.setAttribute('position',new THREE.Float32BufferAttribute(grainVertices,3));
   grain.setAttribute('uv',new THREE.Float32BufferAttribute(grainUvs,2));
   grain.setAttribute('color',new THREE.Float32BufferAttribute(grainColors,3));grain.computeVertexNormals();
-  const oak=new THREE.TextureLoader().load('./storefront-oak.webp');
-  oak.wrapS=oak.wrapT=THREE.RepeatWrapping;oak.colorSpace=THREE.SRGBColorSpace;oak.anisotropy=4;
-  const teak=new THREE.Mesh(grain,new THREE.MeshLambertMaterial({map:oak,vertexColors:true}));
-  teak.receiveShadow=true;scene.add(teak);
-  const run=marinaRamp.east-marinaRamp.west,angle=Math.atan2(.24,run);
-  block(navy,68.375,.555,-419,run,.24,2.9,-angle);
-  for(let i=0;i<15;i++){
-    const t=(i+.5)/15;block(timber[i%5],marinaRamp.west+t*run,.8-t*.24-.024,-419,run/15-.008,.048,2.9,-angle);
-  }
+  // Wood Planks Grey by Rob Tuytel, CC0. https://polyhaven.com/a/wood_planks_grey
+  const wood=new THREE.TextureLoader().load('./marina-weathered-planks.webp');
+  wood.wrapS=wood.wrapT=THREE.RepeatWrapping;wood.colorSpace=THREE.SRGBColorSpace;wood.anisotropy=4;
+  const deckSurface=new THREE.Mesh(grain,new THREE.MeshLambertMaterial({map:wood,vertexColors:true,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+  deckSurface.name='Weathered marina decking';deckSurface.receiveShadow=true;scene.add(deckSurface);
   for(const z of [-448,-440,-428,-414]){
     post(navy,70.24,.91,z,.23,.7);post(cream,70.24,1.30,z,.17,.16);post(brass,70.24,1.40,z,.25,.05);
   }
@@ -170,6 +182,7 @@ export function addMarinaDocks(scene,batch){
     block(navy,73.7,.84,f.z-.92,.10,.54,.52);
     face(.48,.36,73.643,.87,f.z-.92,-Math.PI/2,i*336/1024,.04,(i*336+332)/1024,.45);
   });
+  addMarinaLifebuoys(scene,batch);
   addDivingTower(scene,batch);
   box.dispose();tube.dispose();
 }

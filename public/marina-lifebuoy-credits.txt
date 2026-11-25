@@ -1,0 +1,12 @@
+East Quay Marina lifebuoys
+
+Lifebuoy by Hank Kaamura for Poly Haven
+https://polyhaven.com/a/lifebuoy
+
+CC0 1.0 Universal Public Domain Dedication
+https://polyhaven.com/license
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Source package: Poly Haven Lifebuoy, 1K glTF.
+The game adaptation simplifies the model, bakes ambient occlusion into its
+reduced color texture, and shares one model between the three dock brackets.
