@@ -495,7 +495,7 @@ export function stepPlayer(state, input, dt, hp, world, options={}) {
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top-.005) floor = Math.max(floor,top);
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
-  const sandShallow=CITY && options.swimmerSand!==false && state.swimming && waterfront(x,z) &&
+  const sandShallow=CITY && options.swimmerSand!==false && !state.ride && waterfront(x,z) &&
     coastalBedHeight(x,z)>floatY-.10;
   const deep=!sandShallow && floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
