@@ -362,3 +362,16 @@ dd { text-align: right; color: var(--accent); margin: 0; }
 #zombie-card.run-finished #zombie-status {font-size:1.35em; font-weight:700; margin:.35em 0}
 
 body:not(.touch-play) #zombie-start::after {content:' ↵';opacity:.7}
+
+#player-scoreboard {position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,94vw);max-height:80dvh;overflow:auto;box-sizing:border-box;padding:20px 24px;border:1px solid #9cb4a1;border-radius:9px;background:rgba(16,28,26,.96);color:#f2f6ec;box-shadow:0 18px 60px #0009;pointer-events:none}
+#player-scoreboard[hidden] {display:none}
+#player-scoreboard header {display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
+#player-scoreboard strong {font-size:1.35rem;letter-spacing:.04em}
+#player-scoreboard header span,#player-scoreboard small {color:#b8c9ba}
+#player-scoreboard table {width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;text-align:right}
+#player-scoreboard th:first-child,#player-scoreboard td:first-child {text-align:left}
+#player-scoreboard th {font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:#b8c9ba;border-bottom:1px solid #6b8474;padding:7px 8px}
+#player-scoreboard td {padding:9px 8px;border-bottom:1px solid #3a5148}
+#player-scoreboard tr.self {background:#315c4a;color:#fff}
+#player-scoreboard small {display:block;margin-top:12px;text-align:right}
+@media(max-width:600px){#player-scoreboard{padding:12px;font-size:.82rem}#player-scoreboard th,#player-scoreboard td{padding:6px 4px}}
