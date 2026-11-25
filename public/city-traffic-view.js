@@ -12,6 +12,7 @@ import {wheelsFor,flatWheelDrop,isFlat} from './road-wheel-layout.js';
 import {tireContactPatch} from './tire-contact-patch.js';
 import {mountPosition} from './mounts.js';
 import {createCheetahView} from './cheetah-view.js';
+import {paneBatch} from './pane-damage-view.js';
 
 import {alpineGlass} from './landscape.js';
 
@@ -77,6 +78,7 @@ function model(Batch,type,materials,patrol=false){
   const root=new THREE.Group(),chassis=new THREE.Group(),door=new THREE.Group();
   door.name='Driver door';root.add(chassis);chassis.add(door);
   const body=new Batch(),leaf=new Batch(),glass=new Batch(),lamps=new Batch();
+  const carPanes=paneBatch(glass);
   const front=van?-1.07:-1.02,post=van?.28:.26,hinge=-w+.025;
   const belt=van?1.025:.965,bottom=van?.325:.27,topW=w-(van?.19:.185);
   const sideGlassBottom=van?1.033:.964,topRear=roofEnd;
@@ -150,11 +152,11 @@ function model(Batch,type,materials,patrol=false){
     const backTop=[side*topW,roof-.083,post+.025],back=[side*(w-.058),sideGlassBottom,post-.047];
     // The driver's window is down. A fixed quarter light and the far-side glass
     // retain reflections while leaving the moving driver unobstructed.
-    if(side===1)pane(glass,0x8099a6,forward,forwardTop,backTop,back);
+    if(side===1)carPanes.add('right',()=>pane(glass,0x8099a6,forward,forwardTop,backTop,back));
     else{
       const quarterBase=[side*(w-.060),sideGlassBottom,front+.22];
       const quarterTop=[mix(forward[0],forwardTop[0],.31),mix(forward[1],forwardTop[1],.31),mix(forward[2],forwardTop[2],.31)];
-      pane(glass,0x738c98,forward,quarterTop,quarterTop,quarterBase);
+      carPanes.add('leftQuarter',()=>pane(glass,0x738c98,forward,quarterTop,quarterTop,quarterBase));
       body.beam(trim,quarterTop,quarterBase,.018);
       // Trim remains on the moving door. Its glass is rolled down so both the
       // seated occupant and the pull-out are visible from the street.
@@ -165,8 +167,8 @@ function model(Batch,type,materials,patrol=false){
       leaf.beam(trim,[outerX-.029,belt,post-front-.022],[side*topW-hinge,roof-.097,post-front+.037],.027,.036);
       leaf.beam(trim,[side*topW-hinge,roof-.097,post-front+.037],[side*topW-hinge,roof-.089,topFront-front+.045],.024,.029);
     }
-    if(!van)pane(glass,0x536a78,[side*(w-.055),belt+.012,post+.042],[side*topW,roof-.09,post+.11],
-      [side*topW,roof-.09,topRear-.032],[side*(w-.061),belt+.012,cabinEnd-.065]);
+    if(!van)carPanes.add(side<0?'leftRear':'rightRear',()=>pane(glass,0x536a78,[side*(w-.055),belt+.012,post+.042],[side*topW,roof-.09,post+.11],
+      [side*topW,roof-.09,topRear-.032],[side*(w-.061),belt+.012,cabinEnd-.065]));
   }
   // Narrow the ends of the deck and roll the bonnet down to the headlamps.
   function deck(a,b,rear){
@@ -281,7 +283,7 @@ function model(Batch,type,materials,patrol=false){
     const topPoint=[f*(topW-.026),roof-.086+.043*(1-u*u),topFront-.017*(1-u*u)];
     lower.push(bottomPoint);upper.push(topPoint);frontGlassPoints.push([bottomPoint,topPoint]);
   }
-  skin(glass,0x718997,frontGlassPoints);
+  carPanes.add('front',()=>skin(glass,0x718997,frontGlassPoints));
   run(body,0x333c40,lower,.030,.030);run(body,0x333c40,upper,.021);
   for(const x of [-.40,.20]){
     body.beam(rubber,[x,belt+.065,front-.017],[x+.30,belt+.099,front+.016],.014,.018);
@@ -307,7 +309,7 @@ function model(Batch,type,materials,patrol=false){
       box(body,trim,side*(w-.025),1.07,.47,.032,.052,.14);
       const zx=cabinEnd+.009;
       pane(body,paint,[side*.012,.93,zx],[side*(w-.10),.93,zx],[side*(w-.11),1.84,zx],[side*.012,1.89,zx]);
-      pane(glass,0x29404e,[side*.075,1.39,zx+.012],[side*(w-.158),1.39,zx+.012],[side*(w-.171),1.82,zx+.012],[side*.075,1.84,zx+.012]);
+      carPanes.add(side<0?'leftRear':'rightRear',()=>pane(glass,0x29404e,[side*.075,1.39,zx+.012],[side*(w-.158),1.39,zx+.012],[side*(w-.171),1.82,zx+.012],[side*.075,1.84,zx+.012]));
       box(body,trim,side*.116,1.20,zx+.02,.105,.032,.026);
     }
     box(body,rubber,0,.39,tail+.075,1.55,.115,.17);
@@ -319,8 +321,8 @@ function model(Batch,type,materials,patrol=false){
       box(body,0xc9cbc2,x,1.125,cabinEnd+.055,.073,.064,.018);
     }
   }else{
-    pane(glass,0x54717f,[-topW+.025,roof-.082,topRear],[topW-.025,roof-.082,topRear],
-      [w-.061,belt+.022,cabinEnd],[-w+.061,belt+.022,cabinEnd]);
+    carPanes.add('rear',()=>pane(glass,0x54717f,[-topW+.025,roof-.082,topRear],[topW-.025,roof-.082,topRear],
+      [w-.061,belt+.022,cabinEnd],[-w+.061,belt+.022,cabinEnd]));
     if(hatch){
       box(body,paint,0,roof-.09,topRear+.08,topW*1.86,.059,.17);
       box(body,0x9d3631,0,roof-.109,topRear+.17,.32,.020,.017);
@@ -342,13 +344,14 @@ function model(Batch,type,materials,patrol=false){
   body.add(ring,rubber,-.43,1.05+lift,-.65,1,1,1,-.42);
   for(const x of [-.52,-.34])body.beam(trim,[-.43,1.027+lift,-.65],[x,1.064+lift,-.65],.022);
   const beacon=patrol && markPatrolSedan(chassis,door,body,box);
-  return finishTrafficModel(Batch,type,materials,{root,chassis,door,body,leaf,glass,lamps,signals,beacon});
+  return finishTrafficModel(Batch,type,materials,{root,chassis,door,body,leaf,glass,carPanes,lamps,signals,beacon});
 }
 function finishTrafficModel(Batch,type,materials,car){
-  const {root,chassis,door,body,leaf,glass,doorGlass,head,lamps,signals=[],beacon,appliance}=car;
+  const {root,chassis,door,body,leaf,glass,carPanes,doorGlass,head,lamps,signals=[],beacon,appliance}=car;
   const {nose,tail,bodyWidth:w,tire,halfTread}=civilianProfiles[type];
   const sheet=body.mesh(chassis,materials.paint,false);
-  leaf.mesh(door,materials.paint,false);glass.mesh(chassis,materials.glass,false);
+  leaf.mesh(door,materials.paint,false);const glassMesh=glass.mesh(chassis,materials.glass,false);
+  const updatePanes=carPanes?.bind(glassMesh);
   if(doorGlass)doorGlass.mesh(door,materials.glass,false);
   const runningLights=head?.mesh(chassis,materials.lights,false);
   const brake=lamps.mesh(chassis,materials.lights,false);
@@ -362,7 +365,7 @@ function finishTrafficModel(Batch,type,materials,car){
   const shadow=new THREE.Mesh(materials.shadowGeometry,materials.shadow);
   shadow.scale.set(w*1.37,(tail-nose)*.62,1);shadow.rotation.x=-Math.PI/2;shadow.position.y=.021;root.add(shadow);
   const fittings=damagedFittings([sheet,brake,...(runningLights?[runningLights]:[]),...signals],nose,tail,w,runningLights ? .39 : .50);
-  return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings,runningLights,wreckFinish:roadWreckFinish(chassis)};
+  return {root,chassis,door,brake,signals,wheels,tire,beacon,appliance,fittings,runningLights,updatePanes,wreckFinish:roadWreckFinish(chassis)};
 }
 export function cityTrafficView(scene,Batch,shadowMap,panorama){
   const materials={
@@ -398,6 +401,7 @@ export function cityTrafficView(scene,Batch,shadowMap,panorama){
       }
       if(view.cheetah){view.cheetah(car,dt);continue;}
       const {root,chassis,wheels,door,brake}=view;
+      view.updatePanes?.(car.brokenGlass);
       root.scale.y=crushedScale(car);root.visible=root.scale.y>0;root.position.set(car.x,car.y,car.z);root.rotation.y=-car.yaw;
       if(view.appliance)view.appliance(car,performance.now()*.001);
       if(view.beacon)view.beacon(car,performance.now()*.001);
