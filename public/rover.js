@@ -11,6 +11,7 @@ import {breakRoadObstacle} from './road-obstacle-damage.js';
 import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
+import {humveeHull} from './humvee-layout.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
 
 import { RECOVERY_SECONDS } from './airframe.js';
@@ -62,7 +63,7 @@ function roadByKind(world,kind){
 }
 
 export function clearRoadExit(world,car,preferred=-1){
-  const hull=roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const hull=car===world.rover?humveeHull:roadHullFor(car),c=Math.cos(car.yaw),s=Math.sin(car.yaw);
   const width=hull.halfWidth+.52,length=hull.halfLength+.52;
   const positions=[];
   for(const extra of [0,.55]){

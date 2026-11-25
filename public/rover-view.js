@@ -7,6 +7,7 @@ import {tireContactPatch} from './tire-contact-patch.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {rigHumveeWheels} from './humvee-wheel-rig.js';
+import {humveeScale,humveePlacement,humveeWheelLift} from './humvee-layout.js';
 import {roverPanelDamage} from './rover-panel-damage.js';
 import { alpineGlass, fieldPaint } from './landscape.js';
 import { CITY } from './world.js';
@@ -18,7 +19,6 @@ import {damagedFittings} from './road-fittings.js';
 import {crushedScale} from './vehicle-wreck-view.js';
 
 export function createRoverView(scene, Batch, material, shadowMap, panorama) {
-  const humveeScale=.27*2.2*.85;
   const root = new THREE.Group(), chassis = new Batch();
   const axles=new THREE.Group();
   scene.add(root,axles);
@@ -294,7 +294,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   new GLTFLoader().load('./low-poly-humvee.glb',({scene:model})=>{
     model.scale.setScalar(humveeScale);
     // Scale the original placement as well, leaving the tires on the ground.
-    model.position.set(0,.40*2.2*.85,-.09*2.2*.85);
+    model.position.set(0,humveePlacement.y,humveePlacement.z);
     modelWheels.push(...rigHumveeWheels(model));
     // The supplied model includes its own roof gun. Use it in place of the
     // generated turret, and swivel it with the existing gunner aim state.
@@ -354,7 +354,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     modelWheels.forEach((entry,i)=>{
       if(!entry)return;
       const {node,y}=entry;
-      node.position.y=y+((pose?.wheels[i]??0)-(isFlat(r,i)?flatWheelDrop:0))/humveeScale;
+      node.position.y=y+(humveeWheelLift(pose,i)-(isFlat(r,i)?flatWheelDrop:0))/humveeScale;
       entry.spin+=entry.sign*r.speed*dt/(.31*2.2*.85);
       steerRotation.setFromAxisAngle(entry.steerAxis,i%2===0?-frontWheelAngle(r):0);
       spinRotation.setFromAxisAngle(entry.spinAxis,entry.spin);
