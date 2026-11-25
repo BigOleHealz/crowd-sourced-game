@@ -15,7 +15,8 @@ export function enterRoadWater(world,car,players,dt,fallSpeed=0){
   const bottom=groundHeight(car.x,car.z,surface+.04,world.doors);
   const depth=surface-bottom;
   if(depth<.04)return false;
-  if(!car.wading){
+  const firstContact=!car.wading;
+  if(firstContact){
     const power=Math.min(1,.16+Math.abs(car.speed)/28+fallSpeed/16);
     entries.set(car,{at:{x:car.x,y:surface,z:car.z},power});
   }
@@ -24,19 +25,11 @@ export function enterRoadWater(world,car,players,dt,fallSpeed=0){
   if(depth<.76){car.y=Math.max(bottom,surface-.24);return true;}
 
   const s=Math.sin(car.yaw),c=Math.cos(car.yaw);
+  // The hull displaces a second, larger volume once it drops into deep water.
+  // On an immediate drop, replace the initial shore splash with this one.
+  entries.set(car,{at:{x:car.x,y:surface,z:car.z},power:Math.min(1,Math.max(.72,.24+Math.abs(car.speed)/22+fallSpeed/14))});
   car.sinking={elapsed:0,surface,vx:s*car.speed+c*(car.lateralSpeed??0),vz:-c*car.speed+s*(car.lateralSpeed??0)};
   car.y=Math.max(surface-.24,Math.min(car.y,surface));
-  for(const [seat,side] of [['driver',-1],['gunner',1]]){
-    const occupant=players?.get(car[seat]);
-    if(occupant){
-      const x=car.x+c*side*1.65,z=car.z+s*side*1.65;
-      const clear=insideTravelArea(x,z) && groundHeight(x,z,surface+.85,world.doors)<surface-.72;
-      occupant.state={x:clear?x:car.x,z:clear?z:car.z,y:surface-.72,grounded:false,swimming:true,vy:0};
-      if(occupant.inputs)occupant.inputs.length=0;
-      delete occupant.supercarInput;
-    }
-    if(seat in car)car[seat]=null;
-  }
   delete car.boarding;delete car.suspension;delete car.bridgeFlight;delete car.directionChange;
   car.speed=0;car.lateralSpeed=0;car.braking=false;car.engineLoad=0;
   if(car.takeover)car.takeover.playerId=null;
@@ -57,5 +50,13 @@ export function stepRoadSinking(world,car,dt){
   sink.vx*=drag;sink.vz*=drag;
   const floor=groundHeight(car.x,car.z,car.y+.2,world.doors);
   car.y=Math.max(floor,car.y-dt*Math.min(1.8,.24+.55*sink.elapsed));
-  return sink.elapsed>=8;
+  return sink.elapsed>=8 && car.driver==null && car.gunner==null;
+}
+
+// A manual exit from a submerged vehicle starts swimming alongside its hull.
+export function leaveSinkingRoad(world,car,side=-1){
+  const surface=car.sinking.surface,c=Math.cos(car.yaw),s=Math.sin(car.yaw);
+  const x=car.x+c*side*1.65,z=car.z+s*side*1.65;
+  const clear=insideTravelArea(x,z) && groundHeight(x,z,surface+.85,world.doors)<surface-.72;
+  return {x:clear?x:car.x,z:clear?z:car.z,y:surface-.72,grounded:false,swimming:true,vy:0};
 }

@@ -1,5 +1,5 @@
 import {coastSpeed} from './road-coasting.js';
-import {enterRoadWater,stepRoadSinking} from './road-water.js';
+import {enterRoadWater,leaveSinkingRoad,stepRoadSinking} from './road-water.js';
 import {steerRoadWheels} from './road-steering.js';
 import {beginRoadBoarding} from './road-cabin.js';
 import {strikeFittings} from './road-fittings.js';
@@ -103,7 +103,8 @@ export function interactRover(world, player,kind='rover') {
     else if (r.gunner==null) {r.gunner=player.id;r.turretYaw=r.yaw;r.turretPitch=0;}
     return;
   }
-  player.state=clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
+  player.state=r.sinking ? leaveSinkingRoad(world,r,wasGunner?1:-1)
+    : clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
 }
 
 export function damageRover(world, amount, players,kind='rover',team,owner) {

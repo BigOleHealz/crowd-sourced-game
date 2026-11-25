@@ -1,6 +1,6 @@
 import {stepSuspension} from './road-suspension.js';
 import {coastSpeed} from './road-coasting.js';
-import {enterRoadWater,stepRoadSinking} from './road-water.js';
+import {enterRoadWater,leaveSinkingRoad,stepRoadSinking} from './road-water.js';
 import {openTankWall} from './tank-wall-cuts.js';
 import {ramHouse} from './residential-falls.js';
 import {houseAtPoint} from './residential-sites.js';
@@ -31,6 +31,7 @@ export function leaveTank(world,player){
   if(tank.driver===player.id){tank.driver=null;tank.speed=tank.turnRate=0;}
   else if(gunner)tank.gunner=null;
   else return false;
+  if(tank.sinking){player.state=leaveSinkingRoad(world,tank,gunner?1:-1);return true;}
   for(const side of gunner?[1,-1]:[-1,1])for(const aft of [0,2.3,-2.3,4.5]){
     const offset=tankHull.halfWidth+.85;
     const x=tank.x+offset*side*Math.cos(tank.yaw)-aft*Math.sin(tank.yaw);
