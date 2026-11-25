@@ -2,6 +2,7 @@ import {missileLaunchers} from './mount-view.js';
 import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {jetScale} from './jet-size.js';
 
 // Cross-sections along the fuselage and engine pods, in the model's -Z nose frame.
 function loft(rings){
@@ -29,6 +30,7 @@ function plate(points,thickness,vertical=false){
 }
 export function jetView(scene,Batch){
   const group=new THREE.Group(),body=new Batch(),gear=new Batch(),glass=new Batch();
+  group.scale.setScalar(jetScale);
   const box=new THREE.BoxGeometry(), round=new THREE.SphereGeometry(1,20,12);
   const steel=0x657581,belly=0x839098,edge=0x485964,graphite=0x283039;
   const fuselage=loft([[-3.25,.96,.009,.012],[-2.77,.99,.20,.19],[-2.25,1,.35,.31],[-1.36,1.01,.49,.44],
@@ -86,6 +88,7 @@ export function jetView(scene,Batch){
     const bounds=new THREE.Box3().setFromObject(model);
     const size=bounds.getSize(new THREE.Vector3());
     if(!Number.isFinite(size.z) || size.z<=0)return;
+    // The shared visual frame below expands to the real 15.7 m length.
     const scale=6.03/size.z;
     model.scale.setScalar(scale);
     model.position.set(-scale*(bounds.min.x+bounds.max.x)/2,

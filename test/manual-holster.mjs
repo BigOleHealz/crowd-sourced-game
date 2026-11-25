@@ -5,6 +5,7 @@ import {newLife} from '../public/rivals.js';
 import {touchLayout} from '../public/touch-controls.js';
 import {spawn,CITY} from '../public/world.js';
 import {nextUse} from '../public/use-target.js';
+import {jetScale} from '../public/jet-size.js';
 
 const w=newExpedition(),p={id:1,state:spawn(),life:newLife(0,false),yaw:0,fireReady:0,weapon:4};
 const players=new Map([[p.id,p]]),rig=createRangerRig(),step=(input,wasWet=false)=>updateHandheldGear(p,input,wasWet,w);
@@ -36,7 +37,7 @@ assert(!step({}) && p.holstered && p.weapon===7,'leaving water preserves manual 
 p.state.ride={kind:'bike'};
 assert(!step({holster:false}));delete p.state.ride;
 w.jet.pilot=p.id;assert(!step({holster:false}));w.jet.pilot=null;
-p.state={...w.jet,x:w.jet.x+2.65,grounded:true};assert.equal(nextUse(w,p.state,p.id,'jet').role,'drive');
+p.state={...w.jet,x:w.jet.x+2.65,z:w.jet.z-1.2*jetScale,grounded:true};assert.equal(nextUse(w,p.state,p.id,'jet').role,'drive');
 assert(step({holster:false,weapon:8}) && p.weapon===8 && !p.holstered);
 const mobile=touchLayout({role:'foot',active:true,canAim:false,holsterLabel:'Draw',use:'Enter'});
 assert(mobile.quick.some(([key,label])=>key==='Digit0' && label==='Draw'));

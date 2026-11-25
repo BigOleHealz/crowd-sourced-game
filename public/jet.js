@@ -1,22 +1,27 @@
 import {jetRoadContact} from './jet-road-contact.js';
 import {roadHullFor} from './road-contact.js';
+import {jetHalfSpan,jetScale} from './jet-size.js';
 import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parkedJet(){
-  const x=CITY?0:4,z=24;
+  const x=CITY?0:4,z=CITY?40:24;
   return {x,y:groundHeight(x,z),z,yaw:0,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
     fuel:100,hp:500,maxHp:500,wrecked:false,recoverySeconds:0};
 }
 export function nearJet(jet,p){
-  return jet?.pilot==null && jet?.grounded && !jet.wrecked && p.grounded &&
-    Math.hypot(p.x-jet.x,p.y-jet.y,p.z-jet.z)<=3.8;
+  if(!jet || jet.pilot!=null || !jet.grounded || jet.wrecked || !p.grounded)return false;
+  const dx=p.x-jet.x,dz=p.z-jet.z,c=Math.cos(jet.yaw),s=Math.sin(jet.yaw);
+  const side=dx*c+dz*s,along=-dx*s+dz*c;
+  // Board beside the cockpit, which is forward of the airframe centre.
+  return Math.abs(p.y-jet.y)<2.4 && Math.hypot(side,along+1.2*jetScale)<=3.8;
 }
 export function leaveJet(jet,p){
   jet.pilot=null;jet.burner=false;
   if(jet.grounded)jet.speed=0;
   if(!p)return;
-  p.state={x:jet.x+2.7*Math.cos(jet.yaw),y:jet.y+(jet.grounded?0:.7),
-    z:jet.z+2.7*Math.sin(jet.yaw),vy:0,grounded:jet.grounded,...(!jet.grounded && {parachute:'packed'})};
+  const side=jet.grounded?2.8:jetHalfSpan+1.25,along=-1.2*jetScale,c=Math.cos(jet.yaw),s=Math.sin(jet.yaw);
+  p.state={x:jet.x+side*c-along*s,y:jet.y+(jet.grounded?0:1.4*jetScale),
+    z:jet.z+side*s+along*c,vy:0,grounded:jet.grounded,...(!jet.grounded && {parachute:'packed'})};
 }
 export function damageJet(world,amount,players,owner){
   const j=world.jet;
@@ -33,12 +38,12 @@ export function damageJet(world,amount,players,owner){
 // movement tick that could otherwise prevent the pilot from taxiing through it.
 function clearFlightFraction(world,from,to){
   const cars=[world.rover,world.supercar,world.tank,...(world.traffic??[])].filter(car=>car && !car.crushed &&
-    car.x>=Math.min(from.x,to.x)-8 && car.x<=Math.max(from.x,to.x)+8 &&
-    car.z>=Math.min(from.z,to.z)-8 && car.z<=Math.max(from.z,to.z)+8 &&
-    car.y>=Math.min(from.y,to.y)-6 && car.y<=Math.max(from.y,to.y)+6);
+    car.x>=Math.min(from.x,to.x)-12 && car.x<=Math.max(from.x,to.x)+12 &&
+    car.z>=Math.min(from.z,to.z)-12 && car.z<=Math.max(from.z,to.z)+12 &&
+    car.y>=Math.min(from.y,to.y)-8 && car.y<=Math.max(from.y,to.y)+8);
   if(!cars.length)return 1;
   const angular=Math.abs(to.pitch-from.pitch)+Math.abs(to.yaw-from.yaw)+Math.abs(to.roll-from.roll);
-  const length=Math.hypot(to.x-from.x,to.z-from.z,to.y-from.y)+angular*4;
+  const length=Math.hypot(to.x-from.x,to.z-from.z,to.y-from.y)+angular*4*jetScale;
   if(length<1e-8)return 1;
   const steps=Math.ceil(length/.24);
   const pose={...from};

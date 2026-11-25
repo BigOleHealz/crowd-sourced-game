@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {Batch} from '../public/scene.js';
 import {jetView} from '../public/jet-view.js';
 import {flightRounds} from '../public/round-view.js';
+import {jetScale} from '../public/jet-size.js';
 
 const round={id:1,weapon:'turret',source:'jet',shooter:5,x:15,y:50,z:-45,vx:0,vy:0,vz:-62};
 for(const lag of [0,.09]){
@@ -12,7 +13,7 @@ for(const lag of [0,.09]){
   const tip=new THREE.Vector3(),axis=new THREE.Vector3();
   jet.cannonMuzzle(tip,axis);
   const rotation=new THREE.Euler(displayed.pitch,-displayed.yaw,displayed.roll,'YXZ');
-  const expected=new THREE.Vector3(-.232,1.03,-2.817).applyEuler(rotation).add(displayed);
+  const expected=new THREE.Vector3(-.232,1.03,-2.817).multiplyScalar(jetScale).applyEuler(rotation).add(displayed);
   assert.ok(tip.distanceTo(expected)<.00001,'rendered gun follows the banked airframe');
   const matrix=new THREE.Matrix4(),flight=scene.getObjectByName('Flying rounds');
   let captures=0;
@@ -34,7 +35,7 @@ for(const lag of [0,.09]){
   jet.update({...displayed,x:displayed.x+2,yaw:.91,roll:.27},1/60);
   assert.ok(sample(1,1).distanceTo(oldShot)<.00001);
   const nextTip=jet.cannonMuzzle(new THREE.Vector3());
-  assert.ok(flash.getWorldPosition(new THREE.Vector3()).distanceTo(nextTip)<.081);
+  assert.ok(flash.getWorldPosition(new THREE.Vector3()).distanceTo(nextTip)<.081*jetScale);
   jet.update(displayed,.1);
   assert.equal(flash.visible,false);
   jet.update({...displayed,x:displayed.x+2,yaw:.91,roll:.27},1/60);

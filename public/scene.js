@@ -50,6 +50,7 @@ import {trailDistance} from './road-surface.js';
 import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
+import {jetScale} from './jet-size.js';
 import {teamNames} from './island-rules.js';
 import {infectedLook,infectedWardrobe,poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
@@ -1711,7 +1712,7 @@ export function createScene(canvas) {
         road.y+(road.model==='engine'?monitorHeight:inTank?3.6:road===rover?2.65:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
-    else if(piloting) desired.set(aircraft.x,aircraft.y+1.58,aircraft.z);
+    else if(piloting) desired.set(aircraft.x,aircraft.y+(flyingJet?1.2*jetScale:1.58),aircraft.z);
     else {
       let shoulder=local.parachute ? 0 : mix(mix(view.basketball?.88:.66,.37,roomBlend),.19,doorway)*(1-portraitInset*(view.basketball?.68:1));
       const shoulderHeight=(local.clubSince!=null?1.07:1.46)-stanceDrop(local),cs=Math.cos(view.yaw),sn=Math.sin(view.yaw);
@@ -1747,11 +1748,12 @@ export function createScene(canvas) {
       camera.rotation.set(aircraft.pitch,-aircraft.yaw,aircraft.roll,'YXZ');
       camera.up.set(0,1,0).applyQuaternion(camera.quaternion);
       boom.set(0,.16,1).normalize().applyQuaternion(camera.quaternion);
-      target.set(aircraft.x,aircraft.y,aircraft.z).addScaledVector(camera.up,1.1);
+      const cockpit=mountPosition(aircraft,[0,1.2*jetScale,-1.0*jetScale]);
+      target.set(cockpit.x,cockpit.y,cockpit.z);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
     const humveeDriving=driving && road===rover;
-    const outdoorDistance=yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:humveeDriving?12:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : humveeDriving ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
+    const outdoorDistance=flyingJet ? 10+(view.distance||4.4)*jetScale : yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:humveeDriving?12:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : humveeDriving ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
     let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats);
