@@ -102,15 +102,21 @@ for(const bridge of bridges){
   const z=bridgeMiddle(bridge);
   assert(clearSharkCourse({x:-12,z},{x:12,z}),'the central channel passes below the road');
   assert(!clearSharkCourse({x:-12,z:bridge.south-1},{x:12,z:bridge.south-1}),'the low abutment blocks the course');
-  play(bridge,{x:bridge.east-.55,y:cityGround(bridge.east-.55,z),z},Math.PI/2);
+  // The wider pedestrian deck catches throws from the old road edge. Launch
+  // from the new outer walk edge to exercise the same open-water encounter.
+  play(bridge,{x:bridge.walkEast-.55,y:cityGround(bridge.walkEast-.55,z),z},Math.PI/2);
   const raised={bridgeLifts:{[bridge.north]:maxLift}};
-  const lip={x:bridge.west+.7,y:cityGround(bridge.west+.7,z+1.9,Infinity,raised),z:z+1.9};
+  const lip={x:bridge.walkWest+.7,y:cityGround(bridge.walkWest+.7,z+1.9,Infinity,raised),z:z+1.9};
   play(bridge,lip,Math.PI/2-.20,{underDeck:true});
-  const nearShore={x:bridge.east-.55,z:bridge.south-.55};
-  play(bridge,{...nearShore,y:cityGround(nearShore.x,nearShore.z)},Math.PI/2,{shore:true,pitch:-1});
-  const opposite={x:bridge.west+.55,z:bridge.north+.55};
-  play(bridge,{...opposite,y:cityGround(opposite.x,opposite.z)},-Math.PI/2,{shore:true,pitch:-1,warm:180});
-  play(bridge,{x:bridge.east-.55,y:cityGround(bridge.east-.55,z),z},Math.PI/2,{rescue:true});
+  const nearShore={x:bridge.walkEast-.55,z:bridge.south-.55};
+  play(bridge,{...nearShore,y:cityGround(nearShore.x,nearShore.z)},Math.PI/2,
+    bridge===bridges[0]?{shore:true,pitch:-1}:{group:false,pitch:-1});
+  const opposite={x:bridge.walkWest+.55,z:bridge.north+.55};
+  // At Harbor Key, this throw lands on the supported rock bank. At Lantern
+  // Point it clears the walk and still reaches the open-water patrols.
+  play(bridge,{...opposite,y:cityGround(opposite.x,opposite.z)},-Math.PI/2,
+    bridge===bridges[0]?{group:false,pitch:-1,warm:180}:{pitch:-1,warm:180});
+  play(bridge,{x:bridge.walkEast-.55,y:cityGround(bridge.walkEast-.55,z),z},Math.PI/2,{rescue:true});
   play(bridge,{x:0,y:cityGround(0,z),z},0,{group:false});
 }
 

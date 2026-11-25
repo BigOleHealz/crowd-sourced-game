@@ -85,11 +85,13 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(onAirfield(x,z))return .70;
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
   const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
-  const bridge=bridges.find(r=>within(r,x,z));
+  const bridge=bridges.find(r=>z>=r.north && z<=r.south && x>=r.walkWest && x<=r.walkEast);
   if(bridge){
     const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
     const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
-    return Number.isFinite(road) && maxBottom>=soffit ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
+    const walk=x<bridge.west || x>bridge.east;
+    return Number.isFinite(road) && maxBottom>=soffit ? road+(walk?bridge.sidewalkRise:0) :
+      Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
   }
   if(z<=lanternBridge.north){
     const marina=dockHeight(x,z);if(marina!==undefined)return marina;
@@ -106,11 +108,15 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
 export function parapetTop(x,z,padding,maxBottom,doors) {
   const bridge=bridges.find(b=>z>=b.north-padding && z<=b.south+padding);
   if(!bridge)return -Infinity;
-  const {west,east,parapetWidth,parapetHeight}=bridge;
-  if (x<west-padding || x>east+padding ||
-      (x>west+parapetWidth+padding && x<east-parapetWidth-padding)) return -Infinity;
+  const {west,east,walkWest,walkEast,parapetWidth,parapetHeight}=bridge;
+  const inner=(x>=west-padding && x<=west+parapetWidth+padding) ||
+    (x>=east-parapetWidth-padding && x<=east+padding);
+  const outer=(x>=walkWest-padding && x<=walkWest+parapetWidth+padding) ||
+    (x>=walkEast-parapetWidth-padding && x<=walkEast+padding);
+  if(!inner && !outer)return -Infinity;
   const road=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0)??bridge.height(z,'road');
-  return road<=maxBottom ? road+parapetHeight : -Infinity;
+  const base=road+(outer?bridge.sidewalkRise:0);
+  return base<=maxBottom ? base+parapetHeight : -Infinity;
 }
 
 const towers = [
