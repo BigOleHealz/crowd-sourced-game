@@ -115,7 +115,7 @@ function approach(current, target, maxDelta) {
   return current + clamp(target - current, -maxDelta, maxDelta);
 }
 
-// Wheel contact points in local metres after the airframe model's 1.23 scale.
+// Wheel contact points in local metres after the airframe model's 1.24 scale.
 const wheels = [[-1.22, -.85], [1.22, -.85], [0, 4.23]];
 function roofSupportsWheels(h, floor, hp, doors) {
   const c = Math.cos(h.yaw), s = Math.sin(h.yaw);

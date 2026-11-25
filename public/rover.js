@@ -180,7 +180,8 @@ function registerImpact(world,r,hit,speed,players){
   const damage=Math.min(breakaway?1:Infinity,Math.round(share*severity));
   const profile=civilianProfiles[r.model]??(r.kind==='supercar'?supercarLayout:null);
   const side=Math.abs(Math.cos(r.yaw)*nx+Math.sin(r.yaw)*nz),end=Math.abs(Math.sin(r.yaw)*nx-Math.cos(r.yaw)*nz);
-  const reach=side*(profile?.halfWidth??.82)+end*(profile?.halfLength??(CITY?1.69:1.55));
+  const hull=profile??roadHullFor(r);
+  const reach=side*hull.halfWidth+end*hull.halfLength;
   r.contactSound={id:++impactSequence,speed,wood:!!hit.wood,x:r.x-nx*reach,y:r.y+.55,z:r.z-nz*reach,panel,damage};
   const driver=players?.get(r.driver),team=driver?.team;
   const owner=world.wanted?.session(driver);

@@ -27,7 +27,7 @@ export const glassQuads={heli:[],rover:[],supercar:[]};
 for(let r=0;r<last*3;r++)for(let j=0;j<48;j++){
   const angle=Math.min(j+.5,48-j-.5)*tau/48,id=aircraftPane((r+.5)/3,angle,j<24);
   if(!id)continue;
-  const corners=[[r,j],[r+1,j],[r+1,j+1],[r,j+1]].map(([a,b])=>skinPoint(a/3,b*tau/48).map(v=>v*1.23));
+  const corners=[[r,j],[r+1,j],[r+1,j+1],[r,j+1]].map(([a,b])=>skinPoint(a/3,b*tau/48).map(v=>v*1.24));
   glassQuads.heli.push({id,corners});
 }
 const add=(kind,id,...corners)=>glassQuads[kind].push({id,corners});
@@ -55,6 +55,10 @@ for(let i=1;i<canopy.length;i++){
 add('rover','front',[-.611,1.02,-.633],[.611,1.02,-.633],[.553,1.55,-.40],[-.553,1.55,-.40]);
 add('rover','rear',[-.635,1.015,.37],[-.573,1.53,.298],[.573,1.53,.298],[.635,1.015,.37]);
 for(const s of [-1,1])add('rover',s<0?'left':'right',[s*.667,1.023,-.58],[s*.597,1.54,-.397],[s*.599,1.53,.299],[s*.665,1.02,.356]);
+// The original window quads followed the small procedural truck. Fit them to
+// the imported Humvee cabin after its real-size rescale.
+for(const pane of glassQuads.rover)for(const corner of pane.corners){corner[0]*=1.48;corner[1]+=.15;corner[2]*=2.35;}
+for(const pane of glassQuads.supercar)for(const corner of pane.corners){corner[0]*=1.958/2.3366;corner[2]*=4.565/4.8349;}
 
 const trafficGlass={
   sedan:{w:.86,roof:1.52,topFront:-.42,topRear:.55,cabinEnd:1.29},

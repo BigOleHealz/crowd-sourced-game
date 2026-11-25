@@ -2,7 +2,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {supercarLayout} from './supercar-layout.js';
 import {tankScale} from './tank-layout.js';
 // Left front, left rear, right front, right rear in vehicle-local metres.
-export const wheelStations=[[-.70,-.94],[-.70,.95],[.70,-.94],[.70,.95]];
+export const wheelStations=[[-.78,-1.76],[-.78,1.76],[.78,-1.76],[.78,1.76]];
 
 const sportWheels=[-1,1].flatMap(side=>supercarLayout.wheels.map((z,i)=>[side*supercarLayout.wheelTrack[i],z]));
 const civilianWheels=Object.fromEntries(Object.entries(civilianProfiles).map(([model,{bodyWidth,axles,wheelTrack}])=>[

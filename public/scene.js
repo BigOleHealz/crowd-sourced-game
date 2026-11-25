@@ -44,6 +44,7 @@ import {createRoadGarages} from './road-garage-view.js';
 import {streetHydrants} from './hydrant-view.js';
 import {surfaceMarks} from './surface-marks.js';
 import {tankView} from './tank-view.js';
+import {helicopterAirframeScale,littleBirdModelScale} from './helicopter-layout.js';
 import {tankPivot} from './tank-layout.js';
 import {noise} from './terrain-noise.js';
 import {trailDistance} from './road-surface.js';
@@ -587,7 +588,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   hull.add(trunk,alloy,0,2.04,-.08,.085,.42,.085);
   hull.add(round,graphite,0,2.22,-.08,.205,.078,.205);
   const airframe=new THREE.Group();
-  airframe.scale.setScalar(1.23);group.add(airframe);
+  airframe.scale.setScalar(helicopterAirframeScale);group.add(airframe);
   const launchers=new Batch();missileLaunchers(launchers,'heli');
   const paint=fieldPaint();
   const legacyHull=hull.mesh(airframe,paint,false);
@@ -630,7 +631,7 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
   new GLTFLoader().load('./mh-6-little-bird.glb',({scene:model})=>{
     // Sketchfab's root is already upright; turn its diagonal nose toward -Z.
     model.rotation.y=-43*Math.PI/180;
-    model.scale.setScalar(2.7);
+    model.scale.setScalar(littleBirdModelScale);
     model.position.y=1.3;
     model.traverse(node=>{
       if(node.isMesh){
@@ -1527,7 +1528,7 @@ export function createScene(canvas) {
     marks.update(world,local,remotes,dt);
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover,!updateRover.usesModel);heliTurret(heli);
-    roverLabel.sprite.position.set(rover.x,rover.y+2.33,rover.z);
+    roverLabel.sprite.position.set(rover.x,rover.y+2.65,rover.z);
     roverLabel.sprite.visible=!rover.crushed && local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
     for(const stack of stacks) {
@@ -1723,7 +1724,7 @@ export function createScene(canvas) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(road.model==='engine'?monitorHeight:inTank?3.6:road===rover?2.65:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?3.35:road===rover?2.5:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+(flyingJet?1.2*jetScale:1.58),aircraft.z);

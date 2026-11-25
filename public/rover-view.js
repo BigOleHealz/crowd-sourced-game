@@ -274,7 +274,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     for (const off of [-.09,.09]) crate.add(cube,0x4a6352,cx+off,cy+.112,cz,.024,.22,.27);
     cargo.push(crate.mesh(root,material,false));
   }
-  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.3,3.5).rotateX(-Math.PI/2),
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.6,5.25).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({map:shadowMap,color:0x28352a,transparent:true,opacity:.36,depthWrite:false}));
   scene.add(shadow);
   sheet.dispose(); cube.dispose(); disc.dispose();
@@ -285,6 +285,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   const fallback=new THREE.Group();
   while(root.children.length) fallback.add(root.children[0]);
   root.add(fallback);
+  fallback.scale.set(1.3,1.2,1.45);
   const modelWheels=[];
   const modelMaterials=new Map();
   const up=new THREE.Vector3(0,1,0);
@@ -292,7 +293,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
   let modelGun=null;
   let replacementReady=false,burned=false;
   new GLTFLoader().load('./low-poly-humvee.glb',({scene:model})=>{
-    model.scale.setScalar(humveeScale);
+    model.scale.set(humveeScale.x,humveeScale.y,humveeScale.z);
     // Scale the original placement as well, leaving the tires on the ground.
     model.position.set(0,humveePlacement.y,humveePlacement.z);
     modelWheels.push(...rigHumveeWheels(model));
@@ -354,7 +355,7 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     modelWheels.forEach((entry,i)=>{
       if(!entry)return;
       const {node,y}=entry;
-      node.position.y=y+(humveeWheelLift(pose,i)-(isFlat(r,i)?flatWheelDrop:0))/humveeScale;
+      node.position.y=y+(humveeWheelLift(pose,i)-(isFlat(r,i)?flatWheelDrop:0))/humveeScale.y;
       entry.spin+=entry.sign*r.speed*dt/(.31*2.2*.85);
       steerRotation.setFromAxisAngle(entry.steerAxis,i%2===0?-frontWheelAngle(r):0);
       spinRotation.setFromAxisAngle(entry.spinAxis,entry.spin);

@@ -64,7 +64,7 @@ for(const sport of ['basketball','volleyball']){
   const beforeScore=score(),other=residents.find(n=>n.id===(hoops?'hoops-nico':'volley-0-1'));
   if(hoops)basketball.interact(human,'join');else volleyball.request(world,human,'join',1004);
   const car=world.rover;
-  Object.assign(car,{x:other.state.x,y:other.state.y,z:other.state.z+3.30,yaw:0});
+  Object.assign(car,{x:other.state.x,y:other.state.y,z:other.state.z+2.25,yaw:0});
   vehicleContacts(world,'rover',{...car,z:car.z+3*dt},residents,1005,dt);
   step(1005);
   assert(other.life.fall && other.courtPose.sidelined && other.life.hp<100);

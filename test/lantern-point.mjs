@@ -61,7 +61,7 @@ function drive(x,z){
     const dx=x-car.x,dz=z-car.z,dist=Math.hypot(dx,dz);
     if(dist<.35 && car.speed<.05)return;
     driveRover(world,approachPoint(car,x,z,10),dt);
-    assert.equal(car.hp,250);assert(car.y>.6);
+    assert.equal(car.hp,250,`collision at ${car.x},${car.z} heading ${car.yaw}`);assert(car.y>.6);
   }
   assert.fail('rover blocked from '+[x,z]+' at '+[car.x,car.z]);
 }

@@ -17,10 +17,11 @@ run(-1,0,65);run(0,0,15);
 assert.equal(r.speed,0);
 assert.ok(Math.hypot(r.x+3,r.z-23)<1.3,'reverse into the supply area');
 const parkedYaw=r.yaw;run(0,1,30);assert.equal(r.yaw,parkedYaw);
-for(let i=0;i<115;i++){
+for(let i=0;i<250;i++){
   const target=Math.atan2(world.heli.x-r.x,r.z-world.heli.z);
   const error=Math.atan2(Math.sin(target-r.yaw),Math.cos(target-r.yaw));
   run(.50,Math.max(-1,Math.min(1,error*3)),1);
+  if(i>10 && r.speed===0)break;
 }
 const toHeli=Math.hypot(r.x-world.heli.x,r.z-world.heli.z);
 assert.ok(toHeli<4.6 && toHeli>1.5,'approach helicopter without driving through it');

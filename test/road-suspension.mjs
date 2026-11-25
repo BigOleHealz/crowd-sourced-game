@@ -13,7 +13,7 @@ stepSuspension(truck,dt,curb);
 assert.deepEqual(truck.suspension.wheels,[.14,0,0,0]);
 assert(truck.suspension.heave>0 && truck.suspension.heave<.02);
 settle(curb);
-assert(truck.suspension.pitch>.03 && truck.suspension.roll<-.04);
+assert(truck.suspension.pitch>.018 && truck.suspension.roll<-.04);
 settle();
 truck.speed=10;
 settle();

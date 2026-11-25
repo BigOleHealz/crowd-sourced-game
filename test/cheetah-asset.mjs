@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {Matrix4,Vector3} from 'three';
 import {civilianProfiles} from '../public/civilian-fleet.js';
-import {supercarLayout} from '../public/supercar-layout.js';
+import {supercarLayout,supercarModelScale} from '../public/supercar-layout.js';
 import {wheelsFor} from '../public/road-wheel-layout.js';
 
 const bytes=readFileSync(new URL('../public/cheetah-supercar.glb',import.meta.url));
@@ -17,7 +17,8 @@ function worldMatrix(index){
 const scaledPosition=name=>{
   const i=gltf.nodes.findIndex(node=>node.name===name);
   assert(i>=0,`missing GLB node ${name}`);
-  return new Vector3().setFromMatrixPosition(worldMatrix(i)).multiplyScalar(.89);
+  const p=new Vector3().setFromMatrixPosition(worldMatrix(i));
+  return p.multiply(new Vector3(supercarModelScale.x,supercarModelScale.y,supercarModelScale.z));
 };
 const names=['Wheel_FL','Wheel_RL','Wheel_FR','Wheel_RR'];
 const centers=names.map(scaledPosition);

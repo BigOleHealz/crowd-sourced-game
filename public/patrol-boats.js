@@ -152,7 +152,7 @@ function canFloat(world,b,x,z,yaw) {
   }
   if(nearbyHull(world.boats,b,x,z,yaw,own.halfWidth,own.halfLength))return false;
   return !(world.heli.y<MAP.waterY+1.5 && overlaps(x,z,yaw,own,world.heli,1.28,3.6))
-    && !(world.rover.y<MAP.waterY+.75 && overlaps(x,z,yaw,own,world.rover,.86,1.75))
+    && !(world.rover.y<MAP.waterY+.75 && overlaps(x,z,yaw,own,world.rover,1.155,2.465))
     && !(world.supercar?.y<MAP.waterY+.75 && overlaps(x,z,yaw,own,world.supercar,supercarLayout.halfWidth,supercarLayout.halfLength));
 }
 export function stepBoat(world,b,input,dt,players){
