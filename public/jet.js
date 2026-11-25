@@ -2,10 +2,12 @@ import {jetRoadContact} from './jet-road-contact.js';
 import {roadHullFor} from './road-contact.js';
 import {jetHalfSpan,jetScale} from './jet-size.js';
 import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
+import {onRunway,rotationSpeed,stallSpeed,runwayStart,outpostRunwayStart} from './runway-layout.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parkedJet(){
-  const x=CITY?0:4,z=CITY?40:24;
-  return {x,y:groundHeight(x,z),z,yaw:0,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
+  const start=CITY?runwayStart:outpostRunwayStart;
+  const x=start.x,z=start.z;
+  return {x,y:groundHeight(x,z),z,yaw:start.yaw,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
     fuel:100,hp:500,maxHp:500,wrecked:false,recoverySeconds:0};
 }
 export function nearJet(jet,p){
@@ -79,10 +81,12 @@ export function stepJet(world,input,dt,players){
   const throttle=powered ? input?.throttle??0 : 0;
   j.burner=!j.grounded && j.pilot!=null && throttle>.7;
   const max=CITY?33:22;
-  const target=powered ? (j.grounded ? Math.max(0,throttle)*9 : clamp(j.speed+throttle*12*dt,8,max)) : 0;
-  const deceleration=powered || j.grounded ? 12 : 1.25;
-  j.speed+=clamp(target-j.speed,-deceleration*dt,12*dt);
-  if(j.grounded && lift>.12){j.grounded=false;j.speed=Math.max(8,j.speed);}
+  const target=powered ? (j.grounded ? Math.max(0,throttle)*28 : clamp(j.speed+throttle*12*dt,8,max)) : 0;
+  const deceleration=powered || j.grounded ? 10 : 1.25;
+  j.speed+=clamp(target-j.speed,-deceleration*dt,(j.grounded?6:12)*dt);
+  if(j.grounded && lift>.12 && j.speed>=rotationSpeed && onRunway(j.x,j.z,CITY)){
+    j.grounded=false;
+  }
   const response=1-Math.exp(-5*dt);
   j.roll+=((j.grounded?0:-.60*steer)-j.roll)*response;
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;
@@ -92,7 +96,8 @@ export function stepJet(world,input,dt,players){
     j.pitch+=Math.atan2(Math.sin(level),Math.cos(level))*response;
   }else if(j.pilot!=null && !j.grounded)j.pitch+=lift*1.6*dt;
   const horizontal=j.speed*Math.cos(j.pitch);
-  const climb=j.grounded?0:j.pilot==null?-6:!powered ? -2.4-Math.max(0,8-j.speed)*.3 : j.speed*Math.sin(j.pitch);
+  const climb=j.grounded?0:j.pilot==null?-6:!powered ? -2.4-Math.max(0,8-j.speed)*.3 :
+    j.speed<stallSpeed ? -2.4-(stallSpeed-j.speed)*1.5 : j.speed*Math.sin(j.pitch);
   const x=clamp(j.x+Math.sin(j.yaw)*horizontal*dt,flightBounds.west,flightBounds.east);
   const z=clamp(j.z-Math.cos(j.yaw)*horizontal*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);

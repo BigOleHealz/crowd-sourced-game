@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 process.env.PINEWATCH_MAP='brickell';
 const {newExpedition}=await import('../public/expedition.js');
 const {fly,flightState,interact}=await import('../public/airframe.js');
-const {stepJet,leaveJet}=await import('../public/jet.js');
+const {stepJet,leaveJet,parkedJet}=await import('../public/jet.js');
 const {stepBoat,partyFleet}=await import('../public/patrol-boats.js');
 const {waterHelm}=await import('../public/water-helm.js');
 const {driverPrediction}=await import('../public/driver-prediction.js');
@@ -35,7 +35,9 @@ assert(j.z<z && j.y<alt && j.speed<5 && !j.burner);
 for(let i=0;i<90;i++)stepJet(world,full,dt);
 assert(j.grounded && !j.wrecked && j.speed===0);
 leaveJet(j,pilot);assert.equal(j.pilot,null);
-j.pilot=1;j.fuel=100;stepJet(world,full,dt);assert(!j.grounded);
+Object.assign(j,parkedJet(),{pilot:1,fuel:100});
+for(let i=0;i<150 && j.grounded;i++)stepJet(world,{...full,steer:0},dt);
+assert(!j.grounded);
 
 for(const boat of [world.yacht,...world.boats]){
   boat.driver=1;boat.fuel=0;boat.speed=2;

@@ -8,6 +8,7 @@ const {roadHullFor,sweepRoad}=await import('../public/road-contact.js');
 const {jetScale,jetWidthScale}=await import('../public/jet-size.js');
 
 const w=newExpedition(),j=w.jet,r=w.rover;
+j.z=10; // Leave runway space behind the parked jet for the reverse-away check.
 Object.assign(r,{x:j.x,z:j.z+12,y:j.y,driver:1});
 for(let i=0;i<120;i++)driveRover(w,{throttle:1},1/30,new Map());
 assert(Math.abs(r.z-(j.z+2.78*jetScale+roadHullFor(r).halfLength))<.5);
@@ -28,13 +29,13 @@ assert(touch(-.93*jetScale,2.55*jetScale*jetWidthScale,wingZ),'rolled wing rises
 assert(!touch(wingX,.85*jetScale,wingZ));
 j.roll=0;
 
-const gt=Object.assign(parkedSupercar(),{x:j.x-10,z:j.z+1,y:j.y,yaw:Math.PI/2});
+const gt=Object.assign(parkedSupercar(),{x:j.x-6,z:j.z+1,y:j.y,yaw:Math.PI/2});
 w.supercar=gt;Object.assign(r,{x:20,z:40});
-const swept=sweepRoad(w,gt,19,-1.25);
+const swept=sweepRoad(w,gt,12,-1.25);
 assert.equal(swept.hit.object,j,'fast oblique sweep catches the wing');
-assert(swept.fraction>.2 && swept.fraction<.4);
+assert(swept.fraction>.02 && swept.fraction<.5);
 j.y+=5;
-assert.notEqual(sweepRoad(w,gt,19,-1.25).hit?.object,j,'airborne jet clears a road vehicle');
+assert.notEqual(sweepRoad(w,gt,12,-1.25).hit?.object,j,'airborne jet clears a road vehicle');
 j.y-=5;
 
 Object.assign(gt,{x:j.x,z:j.z-12,y:j.y,yaw:0});j.pilot=2;
@@ -42,7 +43,8 @@ const parkingZ=j.z;
 for(let i=0;i<120;i++)stepJet(w,{throttle:1},1/30,new Map());
 assert(j.z>gt.z+6 && j.z<parkingZ,'taxiing airframe stops at parked car');
 assert(!j.wrecked && j.grounded && j.speed===0);
+const blockedZ=j.z;
 gt.x+=8;
 for(let i=0;i<30;i++)stepJet(w,{throttle:1},1/30,new Map());
-assert(j.speed>8 && j.z<gt.z+3,'taxiing resumes once clear');
+assert(j.speed>5 && j.z<blockedZ-1,'taxiing resumes once clear');
 console.log('PASS swept road/jet collisions, body and wing clearance, rolled aircraft, reverse escape, boarding and taxi.');

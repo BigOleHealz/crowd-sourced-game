@@ -44,11 +44,11 @@ assert(landed.grounded && Math.abs(landed.y-(ground+.98*jetScale))<.02);
 const escape=walk(feet(0,0),{x:1,sprint:true},65);
 assert(escape.x>jet.x+6 && contact(escape).depth===0);
 
-const parkedZ=jet.z;
-jet.z=24;jet.yaw=Math.PI/2;
+const parkedX=jet.x,parkedZ=jet.z;
+jet.x=0;jet.z=24;jet.yaw=Math.PI/2;
 const rotated=walk(feet(12,0),{x:-1,sprint:true},90);
 assert(rotated.x>jet.x+5.5 && rotated.x<jet.x+3.25*jetScale && Math.abs(rotated.vx)<1e-8);
-jet.z=parkedZ;jet.yaw=0;jet.roll=.38;
+jet.x=parkedX;jet.z=parkedZ;jet.yaw=0;jet.roll=.38;
 const bankWing={...atWing,x:jet.x+3.5};
 const above=contact({...bankWing,y:ground+6}).floor;
 const below=contact({...bankWing,y:ground-2},'prone').ceiling+.54;
