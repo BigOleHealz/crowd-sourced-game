@@ -37,6 +37,7 @@ import {automaticPump,fuelVehicle,fuelSiteFor,fuelSites} from './vehicle-fuel.js
 import {roadGarages,garageAt,needsRoadRepair} from './road-garages.js';
 import {roadFraming} from './road-chase.js';
 import {SnapshotClock} from './snapshot-clock.js';
+import {LagDiagnostics} from './lag-diagnostics.js';
 import {driverPrediction} from './driver-prediction.js';
 import {launcherSpec,lockLabel} from './handheld-launcher.js';
 import {frozenPhase,modes,teamColors} from './island-rules.js';
@@ -258,6 +259,7 @@ let spearSequence=0;
 let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
+const lagDiagnostics=new URLSearchParams(location.search).get('perf')==='1' ? new LagDiagnostics() : null;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
 const controls = new Set(['KeyP','KeyU','KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','KeyJ',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
@@ -687,6 +689,7 @@ function connect() {
   // WebSocket delivers binary frames as Blobs. Keep snapshot order across
   // asynchronous decompression, and discard work belonging to closed sockets.
   connection.onmessage = ({data}) => {
+    const receivedAt=lagDiagnostics ? performance.now() : 0;
     incoming = incoming.then(async () => {
       if (connection !== socket || connection.readyState === WebSocket.CLOSED) return;
       let text = data;
@@ -700,10 +703,10 @@ function connect() {
           return;
         }
       }
-      if (connection === socket && connection.readyState !== WebSocket.CLOSED) receive(JSON.parse(text));
+      if (connection === socket && connection.readyState !== WebSocket.CLOSED) receive(JSON.parse(text),receivedAt);
     }).catch(error => {console.error(error); connection.close();});
   };
-  function receive(m) {
+  function receive(m,receivedAt) {
     if(m.type==='wallet'){
       market.receive(m);
       if(m.message?.startsWith('Estate safe'))showBankReceipt(m.message);
@@ -717,6 +720,7 @@ function connect() {
     if(m.type==='marinaBoard'){sprintBoard=m.rows;return;}
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
+      lagDiagnostics?.reset();
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
       if(costume.checked)socket.send(JSON.stringify({type:'paradeCostume',enabled:true}));
       sprintBoard=m.raceBoard??[];
@@ -734,6 +738,9 @@ function connect() {
       notice(); clearInput();
       byId('presence').parentElement.classList.add('online');
     } else if (m.type === 'snapshot' && id != null) {
+      const beforeFoot=lagDiagnostics && !predictedDriver ? self : null;
+      const beforeDriver=lagDiagnostics ? predictedDriver?.pose(1) : null;
+      const beforeDriverKind=predictedDriver?.kind;
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
@@ -812,6 +819,11 @@ function connect() {
       if(samples.at(-1)?.sim===sim)samples.pop();
       samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id),volleyball:world.volleyball });
       if (samples.length > 12) samples.shift();
+      lagDiagnostics?.record({receivedAt,processedAt:arrival,sim,
+        beforeFoot:!changedLife && !predictedDriver ? beforeFoot : null,afterFoot:!changedLife && !predictedDriver ? self : null,
+        beforeDriver:beforeDriverKind===predictedDriver?.kind ? beforeDriver : null,
+        afterDriver:beforeDriverKind===predictedDriver?.kind ? predictedDriver?.pose(1) : null,
+        pending:pending.length});
       const label = m.players.length === 1 ? '1 hiker online' : m.players.length + ' hikers online';
       if (byId('presence').textContent !== label) byId('presence').textContent = label;
     }
@@ -1478,7 +1490,7 @@ function measureFrame(time, players, cost) {
   const elapsed = frameTimes.reduce((sum, t) => sum + t, 0);
   frameTimes.sort((a, b) => a - b);
   const p95 = frameTimes[Math.ceil(frameTimes.length * .95) - 1];
-  frameReadout.textContent = (1000 * frameTimes.length / elapsed).toFixed(0) + ' FPS · 95th ' + p95.toFixed(0) + ' ms · ' + players + ' online · worst pre/update/draw/total ' + Object.values(worstFrame).map(ms=>ms.toFixed(0)).join('/') + ' ms';
+  frameReadout.textContent = (1000 * frameTimes.length / elapsed).toFixed(0) + ' FPS · 95th ' + p95.toFixed(0) + ' ms · ' + players + ' online · worst pre/update/draw/total ' + Object.values(worstFrame).map(ms=>ms.toFixed(0)).join('/') + ' ms' + lagDiagnostics.summary();
   frameTimes.length = 0;
   worstFrame={preMs:0,updateMs:0,drawMs:0,totalMs:0};
 }
