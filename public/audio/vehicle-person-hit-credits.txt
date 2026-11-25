@@ -1,0 +1,5 @@
+Vehicle-person impact sound: "Dull thud" by gregoryweir (Gregory Weir).
+Source: https://commons.wikimedia.org/wiki/File:Dull_thud.ogg
+Original recording: PDSounds record 770, a hand striking a cardboard box.
+License: public domain, released by the author; free to use and redistribute, including commercially.
+The game uses the Wikimedia Commons Ogg Vorbis copy without modification.

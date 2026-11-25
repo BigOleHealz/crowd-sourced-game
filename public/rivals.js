@@ -127,7 +127,7 @@ export function rivalView(actor, tick) {
     ...(actor.infected && {infected:actor.infected, maxHp:actor.maxHp, holstered:true}) };
 }
 
-export function vehicleContacts(world, kind, before, actors, tick, dt, players) {
+export function vehicleContacts(world, kind, before, actors, tick, dt, players, onPersonHit) {
   const vehicle = world[kind]??world.traffic?.find(car=>car.id===kind);
   const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
   const descent = kind==='heli' ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
@@ -144,6 +144,7 @@ export function vehicleContacts(world, kind, before, actors, tick, dt, players) 
     if(hit.depth<=.00001) continue;
     const approach=(vx*hit.dx+vz*hit.dz)/hit.depth;
     if(Math.max(approach,descent)<1.8) continue;
+    if(kind!=='heli')onPersonHit?.(world,vehicle,actor,tick);
     const outward = descent / Math.max(.1, Math.hypot(dx, dz));
     const impulse = { x: vx * 1.25 + dx*outward, z: vz * 1.25 + dz*outward, y: 1 + speed*.53 };
     startFall(actor, tick, impulse, kind);

@@ -34,7 +34,7 @@ import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
   'water-pop':[.23,92,1310,16],'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
-  glass:[.68,0,1800,1], wood:[.38,145,1400,11], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
+  glass:[.68,0,1800,1], wood:[.38,145,1400,11], impact:[.13,270,3000,25], 'vehicle-person-hit':[.30,115,1000,18], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
@@ -172,7 +172,7 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
         const res=await fetch('./audio/'+file+(name==='wood'?'.flac':'.ogg'));
         if(!res.ok)return;
@@ -439,6 +439,7 @@ export function createGameAudio(button,slider,level,caption) {
       else if(shot.weapon==='roadSplash')burst('shark-strike-water',shot.to,listener,yaw,.49+.61*shot.power,shot.id);
       else if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
       else if(shot.weapon==='vehicleCrush')burst('metal',shot.to,listener,yaw,.95,shot.id);
+      else if(shot.weapon==='vehiclePersonHit')burst('vehicle-person-hit',shot.to,listener,yaw,.75,shot.id);
       else if(shot.weapon==='muzzle' && shot.firedWeapon!=='pilotGun' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
