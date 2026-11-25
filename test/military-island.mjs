@@ -14,7 +14,7 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
   const {patrolFleet,nearBoat,stepBoat}=await import('../public/patrol-boats.js');
   const {newExpedition}=await import('../public/expedition.js');
   const {driveRover}=await import('../public/rover.js');
-  const {militaryIsland,militaryBridge,onMilitaryBridge,insideMilitary,onMilitaryRockShore,militaryRunway,militaryHelipads,militaryDockHeight,militaryBarriers}=await import('../public/military-island.js');
+  const {militaryIsland,militaryBridge,onMilitaryBridge,insideMilitary,onMilitaryRockShore,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDockHeight,militaryBarriers}=await import('../public/military-island.js');
   assert(insideTravelArea(militaryIsland.west+1,-230));
   assert(insideMilitary(-160,-230));
   assert(!insideMilitary(-85,-210),'water gap remains between the islands');
@@ -34,6 +34,15 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
   assert(groundHeight(-97,-230,0)<MAP.waterY,'boats can pass below the bridge');
   assert(onRunway(-225,-230,true));
   assert(onAirfield(-200,-250));
+  assert(onAirfield(-200,-282),'north hangar has a taxiway to the runway');
+  assert.equal(militaryHangars.length,2);
+  for(const hangar of militaryHangars){
+    assert(insideMilitary(hangar.x,hangar.z),'each hangar stays on the base');
+    assert(militaryBarriers.some(b=>b.bottom>5 && b.x===hangar.x && b.z===hangar.z),
+      'each hangar has a collision roof');
+    assert(!militaryBarriers.some(b=>b.x===hangar.x-hangar.w/2+.4 && b.z===hangar.z),
+      'taxiway-facing hangar entrance remains open');
+  }
   assert.equal(groundHeight(-225,-230),.8);
   assert(!onAirfield(-120,-20),'old Brickell strip is removed');
   assert(groundHeight(-120,-20)<MAP.waterY);

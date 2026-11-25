@@ -50,7 +50,7 @@ import {inPalazzoMare} from './palazzo-mare.js';
 import {lanternBuildings} from './lantern-buildings-layout.js';
 import {lanternLand,lanternRoads,lanternBridge,ferrySlip,marketPiers,lanternLocation} from './lantern-point.js';
 import {keyShores} from './offshore-keys.js';
-import {militaryShore,militaryRunway,militaryTaxiway,militaryHelipads,militaryDecks,militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryDockHeight} from './military-island.js';
+import {militaryShore,militaryRunway,militaryTaxiways,militaryHelipads,militaryDecks,militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryDockHeight} from './military-island.js';
 import {viewPitch,sightedCarbineAim} from './view-pitch.js';
 import {shotDamageVignette} from './shot-damage-vignette.js';
 import {liveShots} from './shot-events.js';
@@ -1347,7 +1347,7 @@ function drawMap(player, remotes, yaw) {
     ctx.fillRect(sx(harbor.west),sy(harbor.north),(harbor.east-harbor.west)*scale,(harbor.south-harbor.north)*scale);
     for(const r of [...shorePads,...lanternLand,ferrySlip,...marketPiers,...marinaDecks,...militaryDecks])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
     ctx.fillStyle='#303c40';
-    for(const r of [militaryRunway,militaryTaxiway])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
+    for(const r of [militaryRunway,...militaryTaxiways])ctx.fillRect(sx(r.west),sy(r.north),(r.east-r.west)*scale,(r.south-r.north)*scale);
     ctx.fillStyle='#e5d8ae';
     for(const pad of militaryHelipads){ctx.beginPath();ctx.arc(sx(pad.x),sy(pad.z),pad.r*scale,0,Math.PI*2);ctx.stroke();}
     ctx.fillStyle='#d3bb8c';ctx.fillRect(sx(beach.west),sy(beach.north),25*scale,(beach.south-beach.north)*scale);
