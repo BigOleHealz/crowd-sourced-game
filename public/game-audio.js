@@ -172,9 +172,9 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack','wood-02':'wood-crack-02','wood-03':'wood-crack-03','wood-06':'wood-crack-06','tree-crack':'tree-crack-09',collapse:'building-collapse-567249', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','tire-squeal':'tire-squeal','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack','wood-02':'wood-crack-02','wood-03':'wood-crack-03','wood-06':'wood-crack-06','tree-crack':'tree-crack-09',collapse:'building-collapse-567249', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor-third','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','tire-squeal':'tire-squeal','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
-        const res=await fetch('./audio/'+file+(name.startsWith('wood')||name==='tree-crack'?'.flac':name==='collapse'||name==='tank-car-crush'||name==='tire-squeal'?'.mp3':'.ogg'));
+        const res=await fetch('./audio/'+file+(name.startsWith('wood')||name==='tree-crack'?'.flac':name==='collapse'||name==='tank-car-crush'||name==='tire-squeal'?'.mp3':name==='rotor'?'.wav':'.ogg'));
         if(!res.ok)return;
         // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
         const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;

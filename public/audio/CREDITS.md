@@ -10,13 +10,13 @@ Club Lucero and the Harbor Key beach DJ play these artist-supplied tracks on shu
 - Country Healy Trap
 - Scoopin Dung (Poppin) — Trash Thug Healz
 
-The sound effects listed below use edited mono Opus files. Their source recordings carry the [CC0 1.0 public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
+The sound effects listed below use edited mono recordings. Their source recordings carry the [CC0 1.0 public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/).
 
 | Game sound | Recording and artist | Edit |
 | --- | --- | --- |
 | Basketball net | [Outdoor Basketball Shot.wav by fattirewhitey](https://freesound.org/people/fattirewhitey/sounds/381410/) | Isolated the opening nylon-net swish before the first bounce, rolled off road rumble, and faded the tail. |
 | Plate glass | [Glass.ogg by egomassive](https://freesound.org/people/egomassive/sounds/536763/), based on Craig Smith’s CC0 recording “G26-07 Windows Breaking” | Trimmed the onset, retained the falling shards, and normalized the level. |
-| Helicopter | [Helicopter Rotor Loop.flac by qubodup](https://freesound.org/people/qubodup/sounds/187681/) | Mixed to mono, selected a stable blade cadence, and crossfaded the loop. |
+| Helicopter rotor (current) | [Helicopter Sounds by aquinn](https://lpc.opengameart.org/content/helicopter-sounds), CC0, from the user-supplied `helicopter.mp3` | Selected the third audible clip, 11.55–14.05 seconds; mixed to mono and crossfaded the final 0.32 seconds into the start to make a 2.18-second loop. The synthesized rotor remains the fallback if the file cannot load. |
 | Falling and settling masonry | [Concrete Breaks Several Denoised by loganzsound](https://freesound.org/people/loganzsound/sounds/843339/) | Selected two separate impacts, removed the quiet lead-ins, and trimmed their tails. |
 | Building collapse | [Bricks/Stones/Rocks/Gravel Falling by iwanPlays](https://freesound.org/people/iwanPlays/sounds/567249/) ([CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)) | Public high-quality MP3 preview of the creator's 4.2-second CC0 mix, saved as `building-collapse-567249.mp3`. The creator mixed three CC0 rock and masonry recordings. No samples edited; game gain balances it below nearby impacts. Attribution is not required. |
 | Tank through wood | [35 wooden cracks/hits/destructions by Independent.nu](https://opengameart.org/content/35-wooden-crackshitsdestructions) (CC0) | `crack04.mp3.flac` from the pack, renamed `wood-crack.flac`; no audio samples edited. |
