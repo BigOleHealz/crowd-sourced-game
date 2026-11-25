@@ -18,7 +18,7 @@ import {skateParkFloor} from './skate-park.js';
 import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
-import {onBeach, sandHeight, beachBarriers} from './beach-layout.js';
+import {beach,onBeach, sandHeight, beachBarriers} from './beach-layout.js';
 import {beachClubFixtures,beachClubFloor} from './beach-club.js';
 import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
@@ -51,9 +51,16 @@ function shoreSurvey(x,z) {
     const dx=Math.max(r.west-x,0,x-r.east),dz=Math.max(r.north-z,0,z-r.south);
     distance=Math.min(distance,Math.hypot(dx,dz));
   }
-  if(distance>=9)return bed;
-  const t=distance/9, blend=t*t*(3-2*t);
-  return bed+(0.80-bed)*(1-blend);
+  const t=Math.min(1,distance/9), blend=t*t*(3-2*t);
+  const shore=bed+(0.80-bed)*(1-blend);
+  // The beach is the top of the same ground, not a slab above the bay floor.
+  // Carry its seaward lip into the reef before returning to the surveyed bed.
+  const bx=Math.max(beach.west,Math.min(beach.east,x));
+  const bz=Math.max(beach.north,Math.min(beach.south,z));
+  const beachDistance=Math.hypot(x-bx,z-bz);
+  if(beachDistance>=12)return shore;
+  const u=beachDistance/12, fade=u*u*(3-2*u);
+  return sandHeight(bx,bz)*(1-fade)+shore*fade;
 }
 export function coastalBedHeight(x,z) {
   const i=Math.floor(x/reefGridSpacing),j=Math.floor(z/reefGridSpacing);

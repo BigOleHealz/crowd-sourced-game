@@ -5,7 +5,7 @@ process.env.PINEWATCH_MAP='brickell';
 const {stepPlayer,groundHeight,MAP}=await import('../public/world.js');
 const dt=1/30, surface=MAP.waterY-.72;
 const advance=(s,input,n)=>{for(let i=0;i<n;i++)s=stepPlayer(s,input,dt);return s;};
-const atSurface={x:80,z:-211,y:surface,swimming:true};
+const atSurface={x:95,z:-211,y:surface,swimming:true};
 const bottom=groundHeight(atSurface.x,atSurface.z)+.1;
 let swimmer=advance(atSurface,{swimY:-1},45);
 assert(swimmer.y>=bottom);
