@@ -1,0 +1,6 @@
+"USS DWIGHT D.EISENHOWER CVN-69 AIRCRAFT CARRIER" by Muhamad Mirza Arrafi
+https://sketchfab.com/3d-models/uss-dwight-deisenhower-cvn-69-aircraft-carrier-f22c344e834f4c3781f676b372a94b2d
+Licensed under Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+The downloaded GLB is unchanged. The game rotates and scales it at runtime and places it as stationary offshore scenery.

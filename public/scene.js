@@ -105,6 +105,7 @@ import { createSupplyView } from './supply-view.js';
 import { conifers, granite, floorMaterial, alpineGlass, fieldPaint } from './landscape.js';
 import { aircraftBody } from './aircraft-body.js';
 import { cityStreets } from './brickell-scene.js';
+import {addEisenhowerCarrier} from './eisenhower-carrier.js';
 import {addBasketballCourt,basketballLooks} from './basketball-view.js';
 import {basketballPose} from './basketball-pose.js';
 import {onBasketballCourt} from './basketball-layout.js';
@@ -1291,6 +1292,7 @@ export function createScene(canvas) {
   let updateCreek,updateRuralGlass, stacks, updateDoors,churchPanes,updateChurch;
   if(CITY) {
     updateDoors=cityStreets(scene,renderer,Batch,panorama);
+    addEisenhowerCarrier(scene,MAP.waterY);
     stacks=buildStacks(scene,renderer,Batch);
   } else {
     const riverbed=riverbedTexture(renderer);
