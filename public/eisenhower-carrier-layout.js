@@ -2,9 +2,10 @@
 // boats and swimmers out of the hull without making the overhanging deck solid.
 import {seabedHeight} from './reef-channel.js';
 
-// The flight-deck edge sits two metres off the military island's west shore.
+// Keep clear water between the carrier's flight-deck overhang and the military
+// island. Moving the ship preserves the 72 m bridge and all base placements.
 // The waterline leaves roughly 11 m of hull below water and 14 m to the flight deck.
-export const eisenhowerCarrier={x:-290,z:-230,length:275,waterlineModelY:45};
+export const eisenhowerCarrier={x:-308,z:-230,length:275,waterlineModelY:45};
 const sections=[
   {z:-110,d:50,w:18},
   {z:-55,d:60,w:42},
@@ -29,11 +30,11 @@ export const carrierDeckSections=sections.map(({z,d},i)=>{
 });
 
 // A gradual shore ramp runs beside the west fence, then a level gangway
-// crosses the short gap to the flight deck. Both pieces share this surface.
+// crosses the water gap to the flight deck. Both pieces share this surface.
 export const carrierRamp={
   shore:{x:-243,y:.8,z:-290},
   turn:{x:-249,y:carrierDeckTop,z:-235},
-  deck:{x:-259,y:carrierDeckTop,z:-235},
+  deck:{x:-279,y:carrierDeckTop,z:-235},
   width:3.6,
 };
 export const carrierRampSegments=[
