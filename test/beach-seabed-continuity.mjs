@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {beach,beachIsland,beachTerrain,onBeachTerrain,sandHeight} from '../public/beach-layout.js';
+import {beach,beachIsland,beachTerrain,onBeachTerrain,onRockShore,onSandShore,sandHeight} from '../public/beach-layout.js';
 import {brickellMap,cityGround,coastalBedHeight} from '../public/brickell-map.js';
 
 // Beach and reef meshes meet on the same two-metre vertex grid.
@@ -18,16 +18,22 @@ for(let z=beach.north;z<=beach.south;z+=8){
 
 assert(onBeachTerrain(44,beach.north-6) && onBeachTerrain(44,beach.south+6));
 assert(onBeachTerrain(32,beach.north-6) && onBeachTerrain(32,beach.south+6),
-  'sand wraps around both west harbor corners');
+  'shore terrain wraps around both west harbor corners');
 assert(!onBeachTerrain(32,(beach.north+beach.south)/2),
   'sand does not cover the harbor deck');
 const islandMidZ=(beachIsland.north+beachIsland.south)/2;
 assert(onBeachTerrain(beachIsland.west-6,islandMidZ),
-  'sand runs along the entire west island shore');
+  'shore terrain runs along the entire west island shore');
 assert(onBeachTerrain(-20,beachIsland.north-6) && onBeachTerrain(-20,beachIsland.south+6),
-  'sand runs along both island ends');
+  'shore terrain runs along both island ends');
+assert(onRockShore(beachIsland.west-6,islandMidZ) && !onSandShore(beachIsland.west-6,islandMidZ),
+  'the west island bank is rock rather than sand');
+for(const z of [beachIsland.north-4,beachIsland.south+4]){
+  assert(onRockShore(beachIsland.east-.1,z) && onSandShore(beachIsland.east,z),
+    'rocks run along the island end to the west edge of the sand beach');
+}
 assert(!onBeachTerrain(0,beachIsland.north-6) && !onBeachTerrain(0,beachIsland.south+6),
-  'bridge channels remain open through the sand apron');
+  'bridge channels remain open through the shore apron');
 assert(!onBeachTerrain(-20,islandMidZ),'island interior stays uncovered');
 for(const x of [-74,-61,-20,26,32,38,44,60,76,88]){
   assert(coastalBedHeight(x,beachTerrain.north)<brickellMap.waterY-1,
@@ -40,7 +46,7 @@ assert(coastalBedHeight(beachTerrain.west,islandMidZ)<brickellMap.waterY-1,
 assert(coastalBedHeight(beachIsland.west,islandMidZ)>coastalBedHeight(beachIsland.west-6,islandMidZ),
   'west island shore slopes toward the water');
 assert(Math.abs(cityGround(beachIsland.west-6,islandMidZ)-coastalBedHeight(beachIsland.west-6,islandMidZ))<1e-6,
-  'west shore walking collision follows the visible sand');
+  'west shore walking collision follows the visible rock bank');
 const bankX=44,bankZ=beach.north-4;
 assert(coastalBedHeight(bankX,beach.north)>coastalBedHeight(bankX,bankZ),
   'beach side slopes down toward the water');

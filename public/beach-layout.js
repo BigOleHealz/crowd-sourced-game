@@ -26,6 +26,8 @@ export const onBeachTerrain=(x,z)=>x>=beachTerrain.west && x<=beachTerrain.east 
   z>=beachTerrain.north && z<=beachTerrain.south &&
   (x<beachIsland.west || x>=beachIsland.east || z<beachIsland.north || z>=beachIsland.south) &&
   !((z>=beachIsland.south || z<beachIsland.north) && x>=-10 && x<10);
+export const onRockShore=(x,z)=>x<beachIsland.east && onBeachTerrain(x,z);
+export const onSandShore=(x,z)=>x>=beachIsland.east && onBeachTerrain(x,z);
 export function sandHeight(x,z) {
   const swash=62+1.75*Math.sin(z*.112)+.8*Math.sin(z*.215);
   const dry=.80+.16*Math.sin((x-38)*.29)*Math.sin((z+154)*.13);
