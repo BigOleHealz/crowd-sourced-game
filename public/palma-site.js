@@ -10,6 +10,9 @@ export const shorePads=[
   {west:-91,east:-71.49,north:30,south:65},
   {west:-76,east:-32.4,north:72.55,south:99},
   {west:-32.4,east:-6.1,north:72.55,south:80.25},
+  // The casino arcade and supper hall extend north of the main quays.
+  {west:-73,east:-48,north:70,south:72.55},
+  {west:-28,east:-9,north:66.5,south:72.55},
 ];
 export const valet={x:-63.9,z:44}, fountain={x:-54.6,z:44,r:6.05};
 // Salt Arcade curbside display bays. Each nose turns out toward the street.
