@@ -29,6 +29,11 @@ export function suiteDoors(n){
   if(n>=21 && n<23)return [{x:-79.2,z:51.7,axis:'x',width:2,label:'Penthouse vestibule'}];
   return [];
 }
+export function suiteBalconyDoors(n){
+  if(n<5 || n>20)return [];
+  return [38.5,48.5].map((z,i)=>({x:-88.5,z,axis:'z',width:1.6,head:2.24,
+    label:'Suite '+((n+1)*100+i+1)+' balcony'}));
+}
 function layout(l){
   const {y,n}=l,ceiling=grandStoryY(n+1),height=ceiling-y;
   function put(kind,x,z,w,d,base,h,color){
@@ -104,7 +109,7 @@ function layout(l){
   const upper=n>=5,gal=n>0 && n<5;
   const galleryDoor={x:-71.35,z:52,axis:'x',width:3.3};
   slabs(upper?[fanDecks[0]]:fanDecks,[...holes,...(n?[westStair]:[]),...(gal?[atriumVoid]:[]),...(n===23?[pool]:[])],y,'hall');
-  shell(upper?tower:fanHall,y,ceiling,!n?[doors.lobby,doors.quay,{x:-74,z:57,width:2.4,axis:'z'}]:n<3?[galleryDoor]:n===23?[{x:-74,z:42.5,width:4.8,axis:'z',head:3.5}]:[]);
+  shell(upper?tower:fanHall,y,ceiling,!n?[doors.lobby,doors.quay,{x:-74,z:57,width:2.4,axis:'z'}]:n<3?[galleryDoor]:n===23?[{x:-74,z:42.5,width:4.8,axis:'z',head:3.5}]:suiteBalconyDoors(n));
   if(gal){
     const v=atriumVoid;for(const sign of [-1,1]){
       item('rail',v.x,v.z+sign*v.d/2,v.w,.10,1.1,C.bronze);
@@ -162,7 +167,17 @@ function layout(l){
     wall([-81.9,32],[-81.9,36.2],y,5.15,[],'wall');
   }
   if(n>=5 && n<=20){
-    for(const z of [32,42]){
+    for(const [i,z] of [32,42].entries()){
+      // Each private suite has a supported west-facing balcony and an operable
+      // floor-level slider through the facade, independent of breakable panes.
+      slabs([rect(-90.25,z,-88.5,z+10)],[],y,'balcony');
+      for(const [ax,az,bx,bz] of [[-90.25,z,-90.25,z+10],[-90.25,z,-88.5,z],[-90.25,z+10,-88.5,z+10]]){
+        const along=az===bz;
+        put('balustrade',(ax+bx)/2,(az+bz)/2,along?bx-ax:.2,along?.2:bz-az,y,1.08,C.stone);
+      }
+      const door=suiteBalconyDoors(n)[i];
+      for(const side of [-1,1])put('jamb',door.x,door.z+side*(door.width/2+.045),.12,.09,y,2.28,C.bronze);
+      put('jamb',door.x,door.z,.12,door.width+0.18,y+2.24,.10,C.bronze);
       wall([-77,z],[-77,z+10],y,ceiling,suiteDoors(n),'wall');
       wall([-88.5,z+10],[-77,z+10],y,ceiling,[],'wall');
       wall([-82.95,z],[-82.95,z+5.3],y,ceiling,[{x:-82.95,z:z+4,axis:'z',width:1.5}],'wall');
@@ -241,7 +256,7 @@ export function resortRoofAbove(x,z,n){
   return n<5 && inside(atriumVoid,x,z)?26.58:grandStoryY(n+1)-.22;
 }
 export function resortSupport(x,z,probe){
-  if(!Number.isFinite(probe)||x< -89||x> -9||z<30.25||z>95)return;
+  if(!Number.isFinite(probe)||x< -90.5||x> -9||z<30.25||z>95)return;
   const n=Math.max(0,floorIndex(probe+.01));
   if(n===23 && inside(pool,x,z))return levelY[n]-poolDepth(z);
   let tread;
@@ -273,11 +288,11 @@ for(const [k,parts] of cells){
 }
 // Bounds limit a sweep to the affected structural bays, including raised hotel windows.
 export function visitResortSolids(a,d,broken,visit){
-  if(Math.max(a.x,a.x+d.x)<-90 || Math.min(a.x,a.x+d.x)>-8 ||
+  if(Math.max(a.x,a.x+d.x)<-90.5 || Math.min(a.x,a.x+d.x)>-8 ||
      Math.max(a.z,a.z+d.z)<30 || Math.min(a.z,a.z+d.z)>96)return;
   const lo=Math.min(a.y,a.y+d.y),hi=Math.max(a.y,a.y+d.y);
   const seen=new Set();
-  for(let i=Math.floor(Math.max(-90,Math.min(a.x,a.x+d.x))/6);i<=Math.floor(Math.min(-8,Math.max(a.x,a.x+d.x))/6);i++)
+  for(let i=Math.floor(Math.max(-90.5,Math.min(a.x,a.x+d.x))/6);i<=Math.floor(Math.min(-8,Math.max(a.x,a.x+d.x))/6);i++)
     for(let j=Math.floor(Math.max(30,Math.min(a.z,a.z+d.z))/6);j<=Math.floor(Math.min(96,Math.max(a.z,a.z+d.z))/6);j++)
       for(const p of cells.get(key(i,j))??[]){
         if(p.base+p.h<lo || p.base>hi || broken?.[p.paneId] || seen.has(p))continue;

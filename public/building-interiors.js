@@ -2,7 +2,7 @@ import {club,clubDoor} from './club-lucero.js';
 import {citySiteId} from './brickell-map.js';
 import {resortWingShaft,shaftContains} from './hotel-lifts.js';
 import {lidoHouse} from './lido-house.js';
-import {deskPosition,slotAt,floorIndex,lifts,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,suiteDoors} from './grand-resort-layout.js';
+import {deskPosition,slotAt,floorIndex,lifts,resortLevels,resortLevelAt,resortRoofAbove,resortSupport,suiteDoors,suiteBalconyDoors} from './grand-resort-layout.js';
 import {spiralForHouse,outsideWell,spiralWell,spiralSupport} from './residential-spirals.js';
 import {doors as resortDoors,arcadeDecks,inside,supperDeck} from './palma-site.js';
 import {casinoName} from './casino-layout.js';
@@ -165,7 +165,10 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       const floor=name==='lobby'||name==='quay'?1.8:.8;
       door(p,d.x,floor,d.z,d.axis,d.width,name==='lobby'?'Fan Hall entrance':'Waterfront entrance');
     }
-    p.grandDoors=resortLevels.map(l=>suiteDoors(l.n).map(d=>door(p,d.x,l.y,d.z,d.axis,d.width,d.label,false,l.n)));
+    p.grandDoors=resortLevels.map(l=>[
+      ...suiteDoors(l.n).map(d=>door(p,d.x,l.y,d.z,d.axis,d.width,d.label,false,l.n)),
+      ...suiteBalconyDoors(l.n).map(d=>Object.assign(door(p,d.x,l.y,d.z,d.axis,d.width,d.label,false,l.n),{glazed:true})),
+    ]);
   }
 
 }
