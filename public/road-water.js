@@ -1,6 +1,9 @@
 import {groundHeight,insideTravelArea,waterSurfaceAt} from './world.js';
 
 const entries=new WeakMap();
+export function queueVehicleSplash(vehicle,at,power){
+  entries.set(vehicle,{at,power});
+}
 export function takeRoadSplash(vehicle){
   const entry=entries.get(vehicle);
   if(entry)entries.delete(vehicle);

@@ -3,6 +3,7 @@ import {roadHullFor} from './road-contact.js';
 import {jetHalfSpan,jetScale} from './jet-size.js';
 import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 import {onRunway,rotationSpeed,stallSpeed,runwayStart,outpostRunwayStart} from './runway-layout.js';
+import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 export function parkedJet(){
   const start=CITY?runwayStart:outpostRunwayStart;
@@ -33,7 +34,8 @@ export function damageJet(world,amount,players,owner){
   world.wanted?.record(owner,'wreck');
   const p=players?.get(j.pilot);
   leaveJet(j,p);
-  if(p && j.grounded)p.state=world.rules?.spawn(p)??spawn(p.id-1);
+  if(p && j.sinking)p.state=swimmingFromAircraft(j);
+  else if(p && j.grounded)p.state=world.rules?.spawn(p)??spawn(p.id-1);
   j.wrecked=true;j.recoverySeconds=6;
 }
 // Sweep the moving airframe too: another driver's parked car gets no road
@@ -69,6 +71,7 @@ function clearFlightFraction(world,from,to){
 export function stepJet(world,input,dt,players){
   const j=world.jet;
   if(j.wrecked){
+    if(j.sinking)stepAircraftSinking(world,j,dt);
     j.recoverySeconds-=dt;
     if(j.recoverySeconds<=0)world.jet=parkedJet();
     return;
@@ -101,10 +104,20 @@ export function stepJet(world,input,dt,players){
   const x=clamp(j.x+Math.sin(j.yaw)*horizontal*dt,flightBounds.west,flightBounds.east);
   const z=clamp(j.z-Math.cos(j.yaw)*horizontal*dt,flightBounds.north,flightBounds.south);
   const floor=solidTopAt(x,z,world.hp,.55,j.y+1,world.doors);
+  if(j.grounded && floor<=MAP.waterY && crashAircraftInWater(world,j,x,z,j.speed,0)){
+    damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));
+    j.recoverySeconds=8;
+    return;
+  }
   if(floor>j.y+.65){damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));return;}
   const y=j.grounded?floor:Math.min(flightBounds.ceiling,j.y+climb*dt);
   if(!j.grounded && y<=floor && climb<=0){
-    if(j.pilot==null || floor<=MAP.waterY || j.speed>16){damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));return;}
+    const water=floor<=MAP.waterY && crashAircraftInWater(world,j,x,z,j.speed,climb);
+    if(j.pilot==null || floor<=MAP.waterY || j.speed>16){
+      damageJet(world,j.hp,players,world.wanted?.session(players?.get(j.pilot)));
+      if(water)j.recoverySeconds=8;
+      return;
+    }
     j.grounded=true;j.speed=0;j.pitch=0;
   }
   Object.assign(j,{x,y:Math.max(floor,y),z});
