@@ -1,10 +1,12 @@
 import {Skeleton, SkinnedMesh, Sphere, Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {CITY} from './world.js';
 
 const templates = new Map(), pending = new Map();
-const files = {mike:'./mike-alger.glb',pink:'./pink-girl.glb'};
+const files = {mike:'./mike-alger.glb',pink:'./pink-girl.glb',army:'./army-man-fitted.glb'};
 export function preloadPlayerScan() {
   for(const [kind,file] of Object.entries(files)) {
+    if(kind==='army' && !CITY)continue;
     if(pending.has(kind))continue;
     pending.set(kind,new GLTFLoader().loadAsync(file).then(({scene}) => {
       const models=[];
@@ -18,7 +20,7 @@ export function preloadPlayerScan() {
   }
 }
 export function usePlayerScan(state, available=templates) {
-  if(typeof state.id !== 'number')return null;
+  if(typeof state.id !== 'number')return typeof state.id === 'string' && state.id.startsWith('military-guard-') && available.has('army') ? 'army' : null;
   const override=new URLSearchParams(location.search).get('avatar');
   const kind=Object.hasOwn(files,override) || override==='classic' ? override : state.character ?? 'mike';
   return available.has(kind) ? kind : null;
