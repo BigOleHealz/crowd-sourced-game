@@ -13,7 +13,8 @@ import {parkedJet,damageJet} from './jet.js';
 import {launcherSpec,lockStatus,guideGameMissile,updateLock} from './handheld-launcher.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {breachEstate,onEstate} from './estate-damage.js';
-import {windowContact} from './vehicle-glass-layout.js';
+import {glassQuads,windowContact} from './vehicle-glass-layout.js';
+import {roadCabin} from './road-cabin.js';
 import {noteGlass} from './pane-damage.js';
 import {civilianLooks} from './civilian-style.js';
 import {mooredYacht,damageYacht} from './superyacht.js';
@@ -104,6 +105,10 @@ function actorIntersection(actor,from,worldDir) {
   const prone=feet.stance==='prone';
   let {x,y,z}=prone ? proneCoordinates(from,actor,true) : {x:from.x-feet.x,y:from.y-feet.y,z:from.z-feet.z};
   let dir=prone ? proneCoordinates(worldDir,actor,false) : worldDir;
+  if(actor.hitScale){
+    x/=actor.hitScale;y/=actor.hitScale;z/=actor.hitScale;
+    dir={x:dir.x/actor.hitScale,y:dir.y/actor.hitScale,z:dir.z/actor.hitScale};
+  }
   // Test the ray in the same scaled body frame that the civilian renderer uses.
   const look=CITY && civilianLooks[actor.id];
   if(look){
@@ -396,7 +401,7 @@ export function fire(world, player, input, tick, players, npcs) {
 function targets(world,shooter,players,npcs,source=null,round,swept) {
   return [...players.values(), ...npcs].filter(actor =>
     actor.life.hp>0 && actor.id!==shooter && (!swept || swept(actor.state)) &&
-    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && !world.traffic?.some(car=>car.npcDriver===actor.id) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && !drivenRoad(world,actor.id) && (source!=='rover' || actor.id!==world.rover?.gunner));
+    (!actor.officer || (actor.targetId===shooter && (!round || world.wanted?.owner(round)))) && actor.id!==world.tank?.driver && (source!=='tank' || actor.id!==world.tank?.gunner) && actor.id!==world.jet?.pilot && !crewBoat(world,actor.id) && actor.id!==world.heli.pilot && actor.id!==world.heli.gunner && (source!=='rover' || actor.id!==world.rover?.gunner));
 }
 
 function reportWaterHit(world,victim,body,waterline,impact,dead,blast,size,tick){
@@ -744,6 +749,10 @@ const lastPosition=new WeakMap();
 const roundActorPadding=roundActorSweep+2;
 export function advanceRounds(world,players,npcs,tick){
   const dt=1/30;
+  const roadSeat=actor=>{
+    const car=drivenRoad(world,actor.id)??world.traffic?.find(v=>v.npcDriver===actor.id);
+    return car && !car.wrecked ? car : null;
+  };
   world.bullets=world.bullets.filter(r=>{
     const spec=firearmSpecs[r.weapon];
     const elapsed=dt*(1-(r.delay ?? 0));
@@ -755,7 +764,12 @@ export function advanceRounds(world,players,npcs,tick){
     const w=Math.abs(d.x)/2+roundActorPadding,h=Math.abs(d.y)/2+roundActorPadding,l=Math.abs(d.z)/2+roundActorPadding;
     const actors=targets(world,r.shooter,players,npcs,r.source,r,feet=>
       Math.abs(feet.x-x)<=w && Math.abs(feet.y-y)<=h && Math.abs(feet.z-z)<=l);
-    const hit=segmentContact(world,r,d,actors,lastPosition,actorIntersection);
+    const hit=segmentContact(world,r,d,actors,lastPosition,(actor,from,travel)=>{
+      const car=roadSeat(actor);
+      if(!car)return actorIntersection(actor,from,travel);
+      const cabin=roadCabin(car),seat=mountPosition(car,cabin.seat);
+      return actorIntersection({...actor,state:{...actor.state,...seat},hitPose:null,hitScale:cabin.scale,moving:false},from,travel);
+    });
     const injuryPoint=hit.hitPart ? {x:r.x+d.x*hit.visualT,y:r.y+d.y*hit.visualT,z:r.z+d.z*hit.visualT} : undefined;
     const from=r.prior ?? {x:r.x,y:r.y,z:r.z}, t=Math.min(1,hit.t);
     r.prior={x:r.x,y:r.y,z:r.z};
@@ -763,9 +777,17 @@ export function advanceRounds(world,players,npcs,tick){
     if(hit.t===Infinity)return r.left>.00001 && r.age<90;
     const to={x:r.x,y:r.y,z:r.z};
     if(CITY && hit.target?.fireSite)hitFireSite(world.doors,hit.target.fireSite,to,tick,false);
-    if(hit.target && !Number.isInteger(hit.wheel) && ['heli','rover','supercar'].includes(hit.hitKind)){
-      const pane=windowContact(hit.hitKind,hit.target,to,d,CITY);
-      if(pane){(hit.target.brokenGlass??={})[pane.id]=true;noteGlass(world.doors,pane);}
+    const glassKind=hit.target?.model && glassQuads[hit.target.model] ? hit.target.model : hit.hitKind;
+    if(hit.target && !Number.isInteger(hit.wheel) && glassQuads[glassKind]){
+      const pane=windowContact(glassKind,hit.target,to,d,CITY);
+      if(pane){
+        (hit.target.brokenGlass??={})[pane.id]=true;noteGlass(world.doors,pane);
+        r.x=pane.x;r.y=pane.y;r.z=pane.z;
+        r.left+=step*fraction*(1-t);
+        r.passedVehicle=hit.hitKind;
+        world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to:pane,traveling:true,hit:true,hitKind:'vehicleGlass',targetId:hit.hitKind,tick});
+        return r.left>.00001 && r.age<90;
+      }
     }
     const injury=hit.hitKind!=='scenery' && hit.target && applyHit(world,{...hit,to,injuryPoint},actors,players,r.shooter,tick,spec.damage,spec.propDamage,false,r.source,{x:d.x/(step*fraction),z:d.z/(step*fraction)},spec.vehicleDamage,spec.headshotDamage,scoreAtLaunch.get(r),world.wanted?.owner(r));
     if(r.hidden && !hit.target && !injury)return false;

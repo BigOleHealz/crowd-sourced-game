@@ -15,6 +15,7 @@ import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {postDown,damagePost} from './street-lamps.js';
 import {flatWheelDrop,isFlat,wheelsFor} from './road-wheel-layout.js';
+import {glassQuads,windowContact} from './vehicle-glass-layout.js';
 import {harborSigns,beachSigns,signalPost,trailMarkers} from './scenery-layout.js';
 import {lanternSigns} from './lantern-point.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
@@ -133,7 +134,7 @@ const trafficBodies=Object.fromEntries(Object.entries(civilianProfiles).map(([mo
 }));
 // Resolve the closest game collider before deciding if the impact belongs
 // to the wheel or the body. Axle-space coordinates rotate with either rover.
-export function roverRoundContact(rover,start,delta){
+export function roverRoundContact(rover,start,delta,skipCabin=false){
   if(!rover || rover.wrecked)return null;
   const dx=start.x-rover.x,dz=start.z-rover.z;
   if(Math.abs(dx)>3+Math.abs(delta.x) || Math.abs(dz)>3+Math.abs(delta.z))return null;
@@ -147,7 +148,12 @@ export function roverRoundContact(rover,start,delta){
   // Sheet metal above the axles, narrower underbody, and the end bumpers.
   // Their overlaps leave the four visually exposed wheel wells selectable.
   let t=Infinity,wheel=null;
-  for(const [x,y,z,w,h,d] of (sport?sportBody:trafficBodies[rover.model]??roverBody))t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  const body=sport?sportBody:trafficBodies[rover.model]??roverBody;
+  for(let i=0;i<body.length;i++){
+    if(skipCabin && i===(sport || rover.model ? 5 : 1))continue;
+    const [x,y,z,w,h,d]=body[i];
+    t=Math.min(t,box(point,step,{x,y,z},w,h,d));
+  }
   const across={x:point.y,y:point.x,z:point.z}, travel={x:step.y,y:step.x,z:step.z};
   const radius=sport?supercarLayout.tire:profile?.tire??.36,halfTread=sport?.128:profile?.halfTread??.14;
   for(let i=0;i<wheelStations.length;i++){
@@ -308,7 +314,13 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const c of crates)if(world.hp[c.id]>0)accept(column(round,d,c,c.radius,c.height),c,'crystal');
   function considerRoad(car,kind){
     if(round.source===kind)return;
-    const hit=roverRoundContact(car,round,d);
+    let hit=roverRoundContact(car,round,d,round.passedVehicle===kind);
+    const glassKind=car?.model && glassQuads[car.model] ? car.model : kind;
+    if(hit && !Number.isInteger(hit.wheel) && glassQuads[glassKind] && round.passedVehicle!==kind){
+      const at={x:round.x+d.x*hit.t,y:round.y+d.y*hit.t,z:round.z+d.z*hit.t};
+      const pane=windowContact(glassKind,car,at,d,CITY,true);
+      if(pane && car.brokenGlass?.[pane.id])hit=roverRoundContact(car,round,d,true);
+    }
     if(hit)accept(hit.t,car,kind,false,null,hit.t,hit.wheel);
   }
   considerRoad(world.rover,'rover');
@@ -319,7 +331,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   const jet=world.jet;
   if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
   const heli=world.heli;
-  if(heli && !heli.wrecked && round.source!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
+  if(heli && !heli.wrecked && round.source!=='heli' && round.passedVehicle!=='heli')accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,'heli');
   for(const b of world.boats??[]) {
     if(!b.wrecked && b.id!==round.source)accept(box(round,d,{...b,y:b.y-.5},2.08,1.55,5.30,b.yaw),b,b.id);
   }

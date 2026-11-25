@@ -1,7 +1,9 @@
 import {mountPosition} from './mounts.js';
+import {CITY} from './world.js';
 
 // The footwell is the top of the chassis floor and the ankle's fore/aft position, in vehicle metres.
 const rover={seat:[-.702,.11,-1.65],scale:.85,floorY:.65,ankleZ:-2.155,wheel:[-.74,1.195,-1.855],radius:.117,tilt:-.50,handle:[-1.118,.964,-1.361]};
+const pickup={...rover,seat:[-.323,.11,-.034],ankleZ:-.42,wheel:[-.34,1.195,-.25],handle:[-.68,.964,-.10]};
 const gt={seat:[-.365,-.27,-.070],scale:.8,floorY:.235,ankleZ:-.61,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-1.15,.604,.28]};
 function traffic(width,lift,floorY,van=false){
   return {seat:[-.43,-.22+lift,-.28],scale:.91,floorY,ankleZ:-.86,wheel:[-.43,1.05+lift,-.65],radius:.145,tilt:-.42,
@@ -10,7 +12,7 @@ function traffic(width,lift,floorY,van=false){
 const fleet={
   falco:gt,veloce:gt,
   engine:traffic(1.03,.24,.58,true),sedan:traffic(.86,0,.397),hatchback:traffic(.82,.035,.397),van:traffic(.95,.135,.452,true)};
-export const roadCabin=car=>fleet[car.model]??(car.kind==='supercar'?gt:rover);
+export const roadCabin=car=>fleet[car.model]??(car.kind==='supercar'?gt:CITY?pickup:rover);
 const smooth=(v,a,b)=>{const f=Math.max(0,Math.min(1,(v-a)/(b-a)));return f*f*(3-2*f);};
 export function boardingDoorAngle(t){return -1.05*smooth(t,.16,.43)*(1-smooth(t,.76,1));}
 export function roadHandle(car,t){
