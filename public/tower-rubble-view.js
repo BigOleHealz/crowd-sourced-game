@@ -35,16 +35,18 @@ export function towerRubbleView(scene){
     mesh.instanceMatrix.needsUpdate=true;
     return {mound,mesh};
   }
-  return (towers,ids,events,directions)=>{
+  return (towersById,ids,events,directions)=>{
     for(const [id,r] of ruins)if(!ids.includes(id)){
       scene.remove(r.mound,r.mesh);r.mound.geometry.dispose();r.mesh.dispose();ruins.delete(id);
     }
     for(const id of ids){
+      const tower=towersById.get(id);
+      if(!tower)continue;
       let r=ruins.get(id);
-      if(!r){r=create(towers[id],directions);ruins.set(id,r);}
+      if(!r){r=create(tower,directions);ruins.set(id,r);}
       const event=events?.find(e=>e.tower===id),rise=event?rubbleProgress(event.age):1;
       for(const object of [r.mound,r.mesh]){
-        object.visible=rise>.001;object.scale.y=rise;object.position.y=towers[id].base*(1-rise);
+        object.visible=rise>.001;object.scale.y=rise;object.position.y=tower.base*(1-rise);
       }
     }
   };
