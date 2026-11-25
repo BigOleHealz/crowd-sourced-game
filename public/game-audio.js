@@ -172,9 +172,9 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
-        const res=await fetch('./audio/'+file+(name==='wood'?'.flac':'.ogg'));
+        const res=await fetch('./audio/'+file+(name==='wood'?'.flac':name==='tank-car-crush'?'.mp3':'.ogg'));
         if(!res.ok)return;
         // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
         const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -438,7 +438,10 @@ export function createGameAudio(button,slider,level,caption) {
       }
       else if(shot.weapon==='roadSplash')burst('shark-strike-water',shot.to,listener,yaw,.49+.61*shot.power,shot.id);
       else if(shot.weapon==='vehicleWreck')burst('wreck',shot.to,listener,yaw,1.3,shot.id);
-      else if(shot.weapon==='vehicleCrush')burst('metal',shot.to,listener,yaw,.95,shot.id);
+      else if(shot.weapon==='vehicleCrush'){
+        burst(buffers.has('tank-car-crush')?'tank-car-crush':'metal',shot.to,listener,yaw,1.05,shot.id);
+        if(buffers.has('tank-car-crush'))burst('metal',shot.to,listener,yaw,.27,shot.id);
+      }
       else if(shot.weapon==='vehiclePersonHit')burst('vehicle-person-hit',shot.to,listener,yaw,.75,shot.id);
       else if(shot.weapon==='muzzle' && shot.firedWeapon!=='pilotGun' && !(world.map==='brickell' && shot.source==='heli'))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
