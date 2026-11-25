@@ -27,7 +27,7 @@ assert.equal(target.life.hp,20);
 assert.equal(spec.vehicleDamage,45);
 assert.equal(world.bullets.length,0);
 assert.equal(world.shots.at(-1).targetId,2);
-fire(world,shooter,aim,flightTicks,players,[]);
+fire(world,shooter,aim,Math.max(flightTicks,spec.cooldown),players,[]);
 assert.equal(world.bullets.length,1);
 for(const [slot,expected] of [[1,75],[3,150]]){
   const game=newExpedition();

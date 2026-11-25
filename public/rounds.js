@@ -22,14 +22,14 @@ import {lanternSigns} from './lantern-point.js';
 import { avenues, streets, parapetTop } from './brickell-map.js';
 import { CITY, MAP, BREAKABLES, podiumTop, groundHeight, terrainHeight } from './world.js';
 // World metres per second, shared by the server and client.
-const carbineSpeed = 56;
+const carbineSpeed = 112;
 export const firearmSpecs={
   1:{name:'Field carbine',speed:carbineSpeed,range:144,damage:25,cooldown:6,propDamage:1},
-  2:{name:'Patrol sidearm',speed:39,range:84,damage:40,cooldown:21,propDamage:2},
-  3:{name:'Meridian scoped rifle',speed:2 * carbineSpeed,range:204,damage:80,headshotDamage:150,vehicleDamage:45,cooldown:33,propDamage:2},
-  yachtGun:{name:'Solana bow gun',speed:76,range:160,damage:80,cooldown:3,propDamage:80},
-  turret:{name:'Vehicle turret',speed:62,range:160,damage:34,cooldown:7.5,propDamage:34},
-  pilotGun:{name:'Helicopter forward guns',speed:80,range:160,damage:24,cooldown:2,propDamage:24},
+  2:{name:'Patrol sidearm',speed:78,range:84,damage:40,cooldown:21,propDamage:2},
+  3:{name:'Meridian scoped rifle',speed:4 * carbineSpeed,range:204,damage:80,headshotDamage:150,vehicleDamage:45,cooldown:33,propDamage:2},
+  yachtGun:{name:'Solana bow gun',speed:152,range:160,damage:80,cooldown:3,propDamage:80},
+  turret:{name:'Vehicle turret',speed:124,range:160,damage:34,cooldown:7.5,propDamage:34},
+  pilotGun:{name:'Helicopter forward guns',speed:160,range:160,damage:24,cooldown:2,propDamage:24},
 };
 
 // Swept segments use a 0..1 fraction; this includes contacts between ticks.

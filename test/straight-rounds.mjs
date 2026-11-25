@@ -6,7 +6,12 @@ import {newLife} from '../public/rivals.js';
 
 const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-7, `${a} differs from ${b}`);
 assert.ok(firearmSpecs[2].speed < firearmSpecs[1].speed, 'sidearm rounds travel slower than carbine rounds');
-assert.equal(firearmSpecs[3].speed, 2 * firearmSpecs[1].speed, 'scoped rifle rounds travel twice as fast as carbine rounds');
+assert.equal(firearmSpecs[1].speed,112,'carbine rounds travel at twice the previous speed');
+assert.equal(firearmSpecs[2].speed,78,'sidearm rounds travel at twice the previous speed');
+assert.equal(firearmSpecs[3].speed, 4 * firearmSpecs[1].speed, 'scoped rifle rounds travel at four times the new carbine speed');
+assert.equal(firearmSpecs.yachtGun.speed,152);
+assert.equal(firearmSpecs.turret.speed,124);
+assert.equal(firearmSpecs.pilotGun.speed,160);
 for(const [weapon,spec] of Object.entries(firearmSpecs)) {
   for(const pitch of [0,.26,-.26]){
     const world=newExpedition();
