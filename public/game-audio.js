@@ -33,7 +33,7 @@ import {dolphinCalls,dolphinSound} from './dolphin-audio.js';
 import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
-  'water-pop':[.23,92,1310,16],'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
+  'water-pop':[.23,92,1310,16],'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],collapse:[1.8,46,940,4.5],
   glass:[.68,0,1800,1], wood:[.38,145,1400,11], impact:[.13,270,3000,25], 'vehicle-person-hit':[.30,115,1000,18], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
@@ -172,9 +172,9 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack','wood-02':'wood-crack-02','wood-03':'wood-crack-03','wood-06':'wood-crack-06','tree-crack':'tree-crack-09', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','tire-squeal':'tire-squeal','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack','wood-02':'wood-crack-02','wood-03':'wood-crack-03','wood-06':'wood-crack-06','tree-crack':'tree-crack-09',collapse:'building-collapse-567249', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','tire-squeal':'tire-squeal','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
-        const res=await fetch('./audio/'+file+(name.startsWith('wood')||name==='tree-crack'?'.flac':name==='tank-car-crush'||name==='tire-squeal'?'.mp3':'.ogg'));
+        const res=await fetch('./audio/'+file+(name.startsWith('wood')||name==='tree-crack'?'.flac':name==='collapse'||name==='tank-car-crush'||name==='tire-squeal'?'.mp3':'.ogg'));
         if(!res.ok)return;
         // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
         const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -434,7 +434,7 @@ export function createGameAudio(button,slider,level,caption) {
     lastWall=world.doors?.wallSeq??0;
     collapse.step(world.doors?.structureFalls??[],cue=>{
       if(voices.size>=24)return;
-      burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
+      burst(cue.collapse?'collapse':cue.settling?'settling':'masonry',cue,listener,yaw,cue.collapse ? .9 : cue.settling ? .42 : .55,Math.round(cue.at*100));
     });
     let nearest,range=34;
     for(const f of Object.values(world.doors?.fires??{})){
