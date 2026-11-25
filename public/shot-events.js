@@ -13,7 +13,7 @@ export function liveShots(history) {
   };
 }
 
-const retainedCues=new Set(['vehicleWreck','waterHit','roadSplash']);
+const retainedCues=new Set(['vehicleWreck','vehicleCrush','waterHit','roadSplash']);
 
 export function expireShots(shots,tick){
   // An occupied room can skip snapshots while its output queue drains.

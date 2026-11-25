@@ -325,8 +325,8 @@ export function createRoverView(scene, Batch, material, shadowMap, panorama) {
     root.scale.y=axles.scale.y=crushedScale(r);root.visible=root.scale.y>0;
     axles.visible=!replacementReady && root.visible;
     updatePanes(r.brokenGlass);
-    if(burned!==r.wrecked){
-      burned=r.wrecked;
+    if(burned!==(r.wrecked && !r.crushed)){
+      burned=r.wrecked && !r.crushed;
       paint.color.setHex(burned ? 0x62584f : 0xffffff);
       facingMaterial.color.setHex(burned ? 0x504b46 : 0xffffff);
       windows.material=burned ? scorchedGlass : glassMat;tailTag.visible=!burned;

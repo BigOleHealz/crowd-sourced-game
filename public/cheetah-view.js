@@ -68,7 +68,7 @@ export function createCheetahView(scene,shadowMap,variant='supercar'){
     body.position.y=pose?.heave??0;
     body.rotation.set(car.bridgeFlight?0:pose?.pitch??0,0,pose?.roll??0);
     shadow.visible=!car.bridgeFlight;
-    if(bodyPaint)bodyPaint.color.setHex(car.wrecked?0x493b36:paint[variant]??paint.supercar);
+    if(bodyPaint)bodyPaint.color.setHex(car.wrecked && !car.crushed?0x493b36:paint[variant]??paint.supercar);
     for(const lamp of brakeLights)lamp.visible=!car.wrecked && !!car.braking;
     for(const [i,w] of wheels.entries()){
       const drop=isFlat(car,i)?flatWheelDrop:0;
