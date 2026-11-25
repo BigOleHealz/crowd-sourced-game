@@ -457,8 +457,9 @@ function acceptInput(player, data, binary) {
   }
   const scale = Math.max(1, Math.hypot(input.x, input.z));
   player.lastSeq = input.seq;
-  // Limit latency after a stalled connection. Input never controls simulation time.
-  if (player.inputs.length >= 8) player.inputs.shift();
+  // Retain up to one second of commands while the fixed-step clock catches up
+  // after a brief server stall. Bound longer backlogs so controls stay current.
+  if (player.inputs.length >= 30) player.inputs.shift();
   player.inputs.push({
     refuel:input.refuel===true, handleCase:input.handleCase===true, replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     stance: ['crouch', 'prone', 'stand'].includes(input.stance) ? input.stance : undefined,
@@ -997,9 +998,12 @@ function wakeWorld(){
   }
   worldTimer=setInterval(()=>{
     const now=performance.now();
-    accumulated+=Math.min((now-previous)/1000,step*4);
+    // Keep a short stall's elapsed time instead of permanently slowing the
+    // authoritative world. Spread catch-up across callbacks to bound work.
+    accumulated=Math.min(accumulated+(now-previous)/1000,1);
     previous=now;
-    while(accumulated>=step){
+    let catchupTicks=0;
+    while(accumulated>=step && catchupTicks++<4){
       tick();
       accumulated-=step;
     }

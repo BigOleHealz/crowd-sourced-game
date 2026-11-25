@@ -792,7 +792,8 @@ function connect() {
         camera.pitch=-.10;
       }
       predictedDriver = !vitals.dead && !vitals.fall && !frozenPhase(world.match?.phase) ? driverPrediction(world,id) : null;
-      if(predictedDriver)for(const cmd of pending.slice(-8))predictedDriver.step(cmd,step);
+      // Replay the same bounded history the server may retain through a stall.
+      if(predictedDriver)for(const cmd of pending.slice(-30))predictedDriver.step(cmd,step);
       if (wasDriving && !isDriving() && roverView) {
         camera.yaw = roverView.yaw;
         camera.pitch = roverView.pitch;
