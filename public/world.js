@@ -34,6 +34,7 @@ import {beachHutFloor} from './harbor-key-structures.js';
 import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround, parapetTop } from './brickell-map.js';
+import {onRunway} from './runway-layout.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
   : typeof process !== 'undefined' && process.env.PINEWATCH_MAP === 'brickell';
@@ -251,6 +252,7 @@ function smoothstep(start, end, position) {
 
 export function terrainHeight(x, z) {
   if(CITY) return cityGround(x,z);
+  if(onRunway(x,z,false))return .80;
   const creekCenter = 0.7 * Math.sin(x * 0.15);
   const bank = smoothstep(1.2, 4.8, Math.abs(z - creekCenter));
   const ford = 1 - smoothstep(0.9, 3.5, Math.abs(x - 16));

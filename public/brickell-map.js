@@ -13,6 +13,7 @@ import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBa
 import {keyGround} from './offshore-keys.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
+import {onAirfield} from './runway-layout.js';
 import {skateParkFloor} from './skate-park.js';
 import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
@@ -62,6 +63,7 @@ function islandOrSeabed(x,z) {
   return shore===-2.8 ? seabedHeight(x,z) : shore;
 }
 export function cityGround(x,z,maxBottom=Infinity,doors) {
+  if(onAirfield(x,z))return .70;
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
   const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
   const bridge=bridges.find(r=>within(r,x,z));

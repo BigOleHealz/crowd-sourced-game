@@ -1175,7 +1175,9 @@ function updateEquipment(local) {
   else if(shop)prompt.textContent='E  ·  '+shopLabel+' · '+shop.name;
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
-  else if(jetPilot())prompt.textContent='Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
+  else if(jetPilot())prompt.textContent=world.jet.grounded?
+    'Runway · '+Math.round(world.jet.speed*3.6)+' / 86 km/h to rotate · W throttle · Cursor up to lift off':
+    'Hold cursor up/down to loop · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
   else if(trafficCar?.patrol)prompt.textContent='W/S drive · A/D steer · L emergency lights';

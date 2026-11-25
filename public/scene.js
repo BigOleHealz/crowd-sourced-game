@@ -51,6 +51,7 @@ import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
 import {jetView} from './jet-view.js';
 import {jetScale} from './jet-size.js';
+import {outpostRunway} from './runway-layout.js';
 import {teamNames} from './island-rules.js';
 import {infectedLook,infectedWardrobe,poseInfected} from './zombie-view.js';
 import {createCaseView} from './island-hud.js';
@@ -1291,6 +1292,16 @@ export function createScene(canvas) {
   } else {
     const riverbed=riverbedTexture(renderer);
     addGround(scene,renderer,riverbed);
+    const strip=new Batch(),stripBox=new THREE.BoxGeometry();
+    const centerX=(outpostRunway.west+outpostRunway.east)/2;
+    const centerZ=(outpostRunway.north+outpostRunway.south)/2;
+    strip.add(stripBox,0x41464a,centerX,.807,centerZ,
+      outpostRunway.east-outpostRunway.west,.014,outpostRunway.south-outpostRunway.north);
+    for(const x of [outpostRunway.west+.25,outpostRunway.east-.25])
+      strip.add(stripBox,0xf1eee5,x,.817,centerZ,.10,.008,outpostRunway.south-outpostRunway.north-2);
+    for(let z=outpostRunway.north+7;z<outpostRunway.south-5;z+=8)
+      strip.add(stripBox,0xf1eee5,centerX,.818,z,.14,.008,2.7);
+    strip.mesh(scene,material,false).userData.impactSurface='asphalt';
     const forest=new Batch();
     conifers(scene,forest,MAP.trees,sceneryHeight,renderer,MAP.bounds,MAP.northBound);
     forest.mesh(scene,material).userData.impactSurface='wood';

@@ -3,7 +3,10 @@ import {newExpedition,fireTurret,launchMissile,advanceMissiles} from '../public/
 import {nearJet,stepJet,leaveJet,damageJet} from '../public/jet.js';
 const w=newExpedition(),j=w.jet,p={id:1,life:{hp:100}},other={id:2,life:{hp:100}},players=new Map([[1,p]]);
 assert(nearJet(j,j));j.pilot=p.id;assert(!nearJet(j,j));
-for(let n=0;n<15;n++)stepJet(w,{jetPitch:.8,throttle:1,steer:.2},1/30,players);
+for(let n=0;n<150;n++){
+  stepJet(w,{jetPitch:.8,throttle:1,steer:j.grounded?0:.2},1/30,players);
+  if(!j.grounded && j.pitch>.1)break;
+}
 assert(!j.grounded && j.pitch>0 && j.roll<0 && j.yaw>0 && j.speed>8);
 const pitch=j.pitch;
 stepJet(w,{jetPitch:-.4},1/30,players);
