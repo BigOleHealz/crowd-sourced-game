@@ -5,6 +5,7 @@ import {bandHeight,towerBase,towerCellBounds,towerStride,baysAcross,baysPerFloor
 export function towerDamageView(scene,buildings,meshes,renderer) {
   const updateRuins=towerRubbleView(scene);
   const towers=buildings.filter(b=>b.towerId!=null);
+  const towerById=new Map(towers.map(b=>[b.towerId,b]));
   const west=Math.floor(Math.min(...towers.map(b=>b.x-b.w/2-2)));
   const north=Math.floor(Math.min(...towers.map(b=>b.z-b.d/2-2)));
   const width=Math.ceil(Math.max(...towers.map(b=>b.x+b.w/2+2)))-west;
@@ -63,7 +64,7 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
     animate(dt);
     const ids=doors?.towerBreaches??[];
     const collapsed=doors?.collapsedTowers??[];
-    updateRuins(towers,collapsed,doors?.structureFalls,doors?.towerDirections);
+    updateRuins(towerById,collapsed,doors?.structureFalls,doors?.towerDirections);
     if(lastDoors===doors && lastCount===ids.length && lastRuins===collapsed.length)return;
     lastDoors=doors;lastCount=ids.length;lastRuins=collapsed.length;
     const key=ids.join(',')+'|'+collapsed.join(',');
@@ -81,14 +82,15 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
     data.fill(0);cuts.count=0;
     const lost=new Set(ids);
     for(const tower of collapsed){
-      const b=towers[tower];
+      const b=towerById.get(tower);
+      if(!b)continue;
       for(let row=0;row<levels;row++)for(let z=Math.floor(b.z-b.d/2-1.55);z<Math.ceil(b.z+b.d/2+1.55);z++){
         const start=(row*depth+z-north)*width-west;
         data.fill(255,start+Math.floor(b.x-b.w/2-1.55),start+Math.ceil(b.x+b.w/2+1.55));
       }
     }
     for(const id of ids){
-      const b=towers[Math.floor(id/towerStride)];
+      const b=towerById.get(Math.floor(id/towerStride));
       if(!b)continue;
       const {x0,x1,y0,y1,z0,z1}=towerCellBounds(b,id);
       const row=Math.floor(id%towerStride/baysPerFloor);
