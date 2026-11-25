@@ -16,7 +16,8 @@ export function propertyTeam(x,z){
   return null;
 }
 export function teamSpawn(team,slot){
-  const x=(slot%4-1.5)*1.1,z=(team==='brickell'?17:-371)-Math.floor(slot/4)*1.3;
+  // Leave room beside the enlarged Humvee at the Brickell team spawn.
+  const x=(slot%4-1.5)*1.1+(team==='brickell'?.75:0),z=(team==='brickell'?17:-371)-Math.floor(slot/4)*1.3;
   return {x,z,y:groundHeight(x,z),vy:0,grounded:true};
 }
 export function assignTeam(players){
