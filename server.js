@@ -77,7 +77,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import { CITY, MAP, groundHeight, spawn, stepPlayer, stanceBodyHeight } from './public/world.js';
 import {validEquipment} from './public/arcade-melee.js';
 import { advanceReload, magazineView, startReload } from './public/magazines.js';
-import { canUseHandheld, advanceMelee, reportVehicleWreck, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, firePilotGuns, fireTurret } from './public/expedition.js';
+import { canUseHandheld, advanceMelee, reportVehicleWreck, reportVehiclePersonHit, newExpedition, parkedHelicopter, fly, interact, fire, fireCarPistol, updateHandheldGear, trackLauncher, stepBurningActors, advanceThrowables, advanceRounds, fireTank, dropJetBomb, launchMissile, advanceMissiles, firePilotGuns, fireTurret } from './public/expedition.js';
 
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad } from './public/rover.js';
@@ -803,7 +803,7 @@ function tick() {
       }
       if(road.model)driveTrafficCar(world,road,roadInput,step,players);
       else driveRover(world,roadInput,step,players,kind);
-      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step,players);
+      if(!road.sinking)vehicleContacts(world,kind,before,[...players.values(),...npcs],ticks,step,players,reportVehiclePersonHit);
       if(road.driver!==player.id)continue;
       const pistol=sidearmCar(world,player.id) && (!hasMountedTool(road) || input?.sidearm);
       if(road.model==='engine')driveWater(world,road,pistol?{...input,fire:false}:input,ticks);

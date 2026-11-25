@@ -42,6 +42,10 @@ import {takeRoadSplash} from './road-water.js';
 import {strikeFittings} from './road-fittings.js';
 const clearCrystals = Object.fromEntries(BREAKABLES.map(crystal => [crystal.id, 0]));
 let nextShotId = 1;
+export function reportVehiclePersonHit(world,vehicle,actor,tick){
+  const to={x:actor.state.x,y:actor.state.y+1,z:actor.state.z};
+  world.shots.push({id:nextShotId++,weapon:'vehiclePersonHit',source:vehicle.kind??'rover',from:to,to,tick});
+}
 
 const reportedWrecks=new WeakSet();
 // Sample after the authoritative damage, collisions and crew ejection for this
