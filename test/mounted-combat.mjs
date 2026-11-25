@@ -3,6 +3,7 @@ import {newExpedition, fire, firePilotGuns, fireTurret, advanceRounds, launchMis
 import {mountPosition,mounts,gunnerFeet} from '../public/mounts.js';
 import {roadSeat,roadCabin} from '../public/road-cabin.js';
 import {humveePassengerSeat} from '../public/humvee-layout.js';
+import {selectSeat,seatVehicle} from '../public/seat-selection.js';
 import {CITY} from '../public/world.js';
 import {newLife} from '../public/rivals.js';
 
@@ -14,6 +15,20 @@ import {newLife} from '../public/rivals.js';
   assert.notDeepEqual(roadSeat(rover,1),humveePassengerSeat,'the driver keeps the driving seat');
   assert.ok(humveePassengerSeat[1]+1.525*roadCabin(rover).scale<2.02,'the passenger head stays below the Humvee roof');
   assert.notDeepEqual(gunnerFeet(rover,'rover'),mountPosition(rover,mounts.rover.turret),'the passenger does not stand at the gun');
+}
+{
+  const world=newExpedition(),driver={id:1};
+  world.rover.driver=driver.id;
+  assert.equal(seatVehicle(world,driver.id),'rover');
+  assert(selectSeat(world,driver,'rover',2),'driver can switch directly to the gunner seat');
+  assert.equal(world.rover.driver,null);
+  assert.equal(world.rover.gunner,driver.id);
+  assert(selectSeat(world,driver,'rover',1),'gunner can switch back to driving');
+  assert.equal(world.rover.driver,driver.id);
+  assert.equal(world.rover.gunner,null);
+  world.rover.gunner=2;
+  assert.equal(selectSeat(world,driver,'rover',2),false,'occupied gunner seat cannot be taken');
+  assert.equal(world.rover.driver,driver.id);
 }
 
 for(const kind of ['rover','heli']){
