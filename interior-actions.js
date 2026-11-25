@@ -44,8 +44,8 @@ export function requestInterior(world,players,player,input,tick){
   if(use?.kind!=='lift' || input.building!==use.s.p.id || !Number.isInteger(input.floor))return;
   const dest=use.s.p.panels[input.floor];
   if(!dest || dest===use.s || !landingValid(dest,world.doors))return;
-  if(use.s.p.shaft && [...players.values()].some(p=>p.trip?.from.p===use.s.p))return;
-  const time=26+Math.ceil(Math.abs(dest.y-use.s.y)*4);
+  // Each player's ride is independent, so another guest never holds the lift.
+  const time=30;
   player.trip={from:use.s,to:dest,start:tick,time};
   player.state={x:use.s.exitX,y:use.s.y,z:use.s.exitZ,vy:0,grounded:false,liftTravel:dest.index+1};
   player.moving=player.sprint=false;
@@ -61,7 +61,7 @@ export function advanceElevator(world,player,tick){
   const {from,to}=t;
   const shaft=from.p.shaft;
   if(shaft){
-    const boardTicks=9,travel=t.time-2*boardTicks,elapsed=Math.max(0,tick-t.start);
+    const boardTicks=4,travel=t.time-2*boardTicks,elapsed=Math.max(0,tick-t.start);
     const position=Math.min(1,Math.max(0,(elapsed-boardTicks)/travel));
     const smooth=position*position*(3-2*position);
     const outside=Math.max(0,1-elapsed/boardTicks,Math.min(1,(elapsed-boardTicks-travel)/boardTicks));
