@@ -11,7 +11,7 @@ import {casaBarriers,casaRails} from './casa-luma.js';
 import {estateBarriers,berthing} from './lantern-buildings-layout.js';
 import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
-import {insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
+import {militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
 import {onAirfield} from './runway-layout.js';
@@ -41,7 +41,7 @@ export const bridges=[causeway,lanternBridge];
 // Open the former avenue turning head into the resort drive.
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
-const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
+const oldShores=[...shorePads,coast,causeway,harbor,militaryBridge,militaryAccessRoad],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 // The shore apron uses the same two-metre triangles as the rendered sand.
 // Boats retain the surveyed bed; submerged swimmers use this visible height.
 const shoreLand=[...shorePads,coast,harbor,...lanternLand];
@@ -73,13 +73,17 @@ export function coastalBedHeight(x,z) {
   return u+v<=1 ? a+u*(b-a)+v*(c-a) : d+(1-u)*(c-d)+(1-v)*(b-d);
 }
 export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
-export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
-  within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z));
+export const roadway=(x,z)=>onMilitaryBridge(x,z) || within(militaryAccessRoad,x,z) || (z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
+  within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z)));
 function islandOrSeabed(x,z) {
   const shore=keyGround(x,z);
   return shore===-2.8 ? seabedHeight(x,z) : shore;
 }
 export function cityGround(x,z,maxBottom=Infinity,doors) {
+  if(onMilitaryBridge(x,z)){
+    const road=militaryBridge.height(x);
+    return maxBottom>=road-.65 ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
+  }
   const militaryDock=militaryDockHeight(x,z);if(militaryDock!==undefined)return militaryDock;
   if(insideMilitary(x,z))return .80;
   if(onAirfield(x,z))return .70;
@@ -106,6 +110,11 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
 }
 
 export function parapetTop(x,z,padding,maxBottom,doors) {
+  if(x>=militaryBridge.west-padding && x<=militaryBridge.east+padding &&
+      (Math.abs(z-militaryBridge.north)<.3+padding || Math.abs(z-militaryBridge.south)<.3+padding)){
+    const top=militaryBridge.height(x);
+    return top<=maxBottom ? top+.84 : -Infinity;
+  }
   const bridge=bridges.find(b=>z>=b.north-padding && z<=b.south+padding);
   if(!bridge)return -Infinity;
   const {west,east,walkWest,walkEast,parapetWidth,parapetHeight}=bridge;
@@ -150,7 +159,7 @@ for(const x of [-45,-7.3,7.7,39]) for(const z of [-52,-35,-19,0,21,36,53,69]) {
 for(const x of [-9,9]) for(const z of [-163,-172,-182,-193,-212,-221,-232,-243,-253,-267])
   palms.push({x,z,height:7.1+.55*Math.cos(z+x),radius:.22});
 export const brickellMap = {
-  bounds: 109, westBound:-245, southBound:118, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
+  bounds: 109, westBound:-275, southBound:118, northBound:-518, flightNorth:-488, flightLimit: 73, flightCeiling: 73, waterY: -.14,
   barriers:[...militaryBarriers,...resortBarriers,...marinaFittings,...stationBarriers,...clubSolids,...streetPlan.curbs,...casaBarriers.filter(p=>!casaRails.includes(p)),...estateGlassBarriers,...bollards,...benches,...quayLamps,...estateBarriers,...signBarriers,...beachBarriers,...beachClubFixtures,...basketballBarriers,...coastalStructureBarriers,...streetLamps,...retainedTowers.map(b=>b.housing),
     ...avenues.flatMap(x=>streets.map(z=>signalPost(x,z))),
     ...harborSigns.flatMap(([x,z],i)=>[-1,1].map(side=>({postId:'harbor-'+i,x:x+side*1.3,z,w:.10,d:.10,h:2.58}))),

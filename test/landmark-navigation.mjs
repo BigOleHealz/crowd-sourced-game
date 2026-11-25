@@ -13,8 +13,8 @@ if(!process.env.NAV_TEST_MAP){
     assert.equal(guide(x,z,0).cue,'Arrived');
   }
   if(process.env.NAV_TEST_MAP==='brickell'){
-    const airstrip=landmarkGuide('Airstrip · Jet')(0,15,0);
-    assert(airstrip.line.some(([x,z])=>x===-120 && z===-50),'downtown route reaches the runway taxiway');
+    const airstrip=landmarkGuide('Military Base · Jet')(0,15,0);
+    assert(airstrip.line.some(([x,z])=>x===-133 && z===-230),'road route crosses the military bridge');
     const {reefDiveSite,reefTrail}=await import('../public/reef-channel.js');
     const reef=landmarkGuide(reefDiveSite.name),[x,z]=reefTrail[0];
     assert.deepEqual(reef(87,-419,0).line,[[87,-419],[x,z]]);

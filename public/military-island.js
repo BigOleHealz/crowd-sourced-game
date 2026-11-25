@@ -1,19 +1,26 @@
 // All base footprints are shared by terrain, aircraft, the chart and scenery.
-export const militaryIsland={west:-224,east:-107,north:-309,south:-151};
+export const militaryIsland={west:-250,east:-133,north:-309,south:-151};
 export const militaryShore=[
-  [-212,-309],[-119,-309],[-107,-297],[-107,-163],
-  [-119,-151],[-212,-151],[-224,-163],[-224,-297],
+  [-238,-309],[-145,-309],[-133,-297],[-133,-163],
+  [-145,-151],[-238,-151],[-250,-163],[-250,-297],
 ];
-export const militaryRunway={west:-208,east:-190,north:-297,south:-163};
-export const militaryTaxiway={west:-190,east:-161,north:-254,south:-246};
-export const militaryHangar={x:-148,z:-250,w:26,d:24};
-export const militaryHelipads=[{x:-143,z:-209,r:9},{x:-143,z:-176,r:9}];
+export const militaryRunway={west:-234,east:-216,north:-297,south:-163};
+export const militaryTaxiway={west:-216,east:-187,north:-254,south:-246};
+export const militaryHangar={x:-174,z:-250,w:26,d:24};
+export const militaryHelipads=[{x:-169,z:-209,r:9},{x:-169,z:-176,r:9}];
+// The 72 m channel matches the Harbor Key to Lantern Point crossing.
+export const militaryBridge={
+  west:militaryIsland.east,east:-61,north:-235,south:-225,
+  height(x){const t=Math.max(0,Math.min(1,(x-this.west)/(this.east-this.west)));
+    return .8+4.4*Math.sin(Math.PI*t)**2;},
+};
+export const militaryAccessRoad={west:-190,east:militaryIsland.east,north:-235,south:-225};
 export const militaryDock={
-  ramp:{west:-107,east:-101,north:-255,south:-249},
-  pier:{west:-101,east:-83,north:-255,south:-249},
+  ramp:{west:-133,east:-127,north:-255,south:-249},
+  pier:{west:-127,east:-109,north:-255,south:-249},
   fingers:[
-    {west:-86,east:-83,north:-271,south:-255},
-    {west:-86,east:-83,north:-249,south:-233},
+    {west:-112,east:-109,north:-271,south:-255},
+    {west:-112,east:-109,north:-249,south:-233},
   ],
   height:.56,
 };
@@ -24,7 +31,7 @@ export const militaryBarriers=[
   {x:militaryHangar.x,z:militaryHangar.z+11.6,w:26,d:.8,h:6.1},
   {x:militaryHangar.x+12.6,z:militaryHangar.z,w:.8,d:24,h:6.1},
   {x:militaryHangar.x,z:militaryHangar.z,w:26,d:24,bottom:6.0,h:6.25},
-  ...[-268,-236].map(z=>({x:-84.5,z,w:.38,d:.38,bottom:.56,h:1.13})),
+  ...[-268,-236].map(z=>({x:-110.5,z,w:.38,d:.38,bottom:.56,h:1.13})),
 ];
 export const insideMilitary=(x,z)=>{
   const {west,east,north,south}=militaryIsland;
@@ -45,8 +52,9 @@ export function militaryShoreDistance(x,z){
   return distance;
 }
 export const onMilitaryRockShore=(x,z)=>!insideMilitary(x,z) &&
-  militaryShoreDistance(x,z)<=10 && militaryDockHeight(x,z)===undefined;
+  militaryShoreDistance(x,z)<=10 && !onMilitaryBridge(x,z) && militaryDockHeight(x,z)===undefined;
 const inside=(r,x,z)=>x>=r.west&&x<=r.east&&z>=r.north&&z<=r.south;
+export const onMilitaryBridge=(x,z)=>inside(militaryBridge,x,z);
 export function militaryDockHeight(x,z){
   if(inside(militaryDock.ramp,x,z))return .8-(.8-militaryDock.height)*(x-militaryDock.ramp.west)/(militaryDock.ramp.east-militaryDock.ramp.west);
   return militaryDecks.slice(1).some(r=>inside(r,x,z))?militaryDock.height:undefined;

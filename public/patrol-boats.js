@@ -10,7 +10,7 @@ import {mountPosition} from './mounts.js';
 import {hullSize,marinaBerths,marinaModel} from './marina-fleet-layout.js';
 
 const berths=[{id:'bay-rhib',x:46,z:14},{id:'key-rhib',x:67,z:-201,yaw:.12},
-  {id:'base-rhib-south',x:-81,z:-263},{id:'base-rhib-north',x:-81,z:-241}];
+  {id:'base-rhib-south',x:-107,z:-263},{id:'base-rhib-north',x:-107,z:-241}];
 // Hull-local crown of the helm cushion. The ranger's trouser seat is .893 m
 // above its rig origin, before the seated scale is applied.
 export const helmCushion = {z: -.32, top: 1.018};

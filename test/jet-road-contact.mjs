@@ -8,7 +8,7 @@ const {roadHullFor,sweepRoad}=await import('../public/road-contact.js');
 const {jetScale,jetWidthScale}=await import('../public/jet-size.js');
 
 const w=newExpedition(),j=w.jet,r=w.rover;
-j.z=10; // Leave runway space behind the parked jet for the reverse-away check.
+j.z=-210; // Use the middle of the military runway for the reverse-away check.
 Object.assign(r,{x:j.x,z:j.z+12,y:j.y,driver:1});
 for(let i=0;i<120;i++)driveRover(w,{throttle:1},1/30,new Map());
 assert(Math.abs(r.z-(j.z+2.78*jetScale+roadHullFor(r).halfLength))<.5);
