@@ -2,7 +2,7 @@ import {apartmentGlass} from './apartment-window-light.js';
 import {wrapDepth,privateDepth,privateWidth,cornerCut} from './balcony-surfaces.js';
 import * as THREE from 'three';
 
-import {chamferedOutline,guardHeight,hasApartmentBalconies,railGeometry,towerBays,towerStories} from './tower-glass.js';
+import {chamferedOutline,guardHeight,hasApartmentBalconies,hotelBalconyDoor,railGeometry,towerBays,towerStories} from './tower-glass.js';
 import {paneBatch} from './pane-damage-view.js';
 import {glassSupportKey} from './glass-support.js';
 import {paneKey} from './pane-damage.js';
@@ -148,6 +148,11 @@ export function addApartmentBalconies(scene, Batch, atlas, buildings, base, podi
 
         for (let j = 0; j < bays; j++) {
           const center = -length / 2 + (j + .5) * bay;
+          if(hotelBalconyDoor(building,side,center)){
+            // Leave the glazing and its middle mullion out of the walk-through bay.
+            for(const edge of [-.5,.5])solid(frame,center+edge*(opening-.065),(head+sill)/2,-.34,.069,panelHeight,.066);
+            continue;
+          }
           const seed = tower * 37 + floor * 13 + side * 19 + j * 7;
           const [gx, gz] = position(center, -.375);
           const glassTint = [0xc1d0cd, 0xd3ded7, 0xabbbb8, 0x9fb4af][seed % 4];

@@ -260,7 +260,9 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   }
   const level=storyAt(p,probe);
   if(!level || probe>=b.base+b.eave-.08)return;
-  if(!round && (Math.abs(x-b.x)>b.w/2-.37-pad || Math.abs(z-b.z)>b.d/2-.37-pad))return b.base+b.eave;
+  if(!round && (Math.abs(x-b.x)>b.w/2-.37-pad || Math.abs(z-b.z)>b.d/2-.37-pad)){
+    if(!(b.towerId===9 && Math.abs(Math.abs(x-b.x)-b.w/2)<.75 && Math.abs(z-(b.z-2))<1.35))return b.base+b.eave;
+  }
   let top=partsTop(level.parts,x,z,pad,probe,level.y);
   if(level.residential)top=partsTop(level.residential.collisions,x,z,pad,probe,top);
   for(const d of level.doors)if(!doorIsOpen(d,doors) && intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+2.12);
