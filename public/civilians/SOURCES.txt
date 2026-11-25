@@ -1,0 +1,15 @@
+Pinewatch street pedestrians
+
+These five rigged characters are from the Microsoft Rocketbox Avatar Library.
+Copyright (c) 2020 Microsoft. The original MIT license is included in LICENSE.txt.
+Original library: https://github.com/microsoft/Microsoft-Rocketbox
+GLB conversion: https://huggingface.co/datasets/codepawl/rocketbox-avatars-glb/tree/0df5f539f8a243eca03e3eff5ef0e0297059e381
+
+Game file        Source model
+civilian-1.glb   female-adult-03
+civilian-2.glb   male-adult-09
+civilian-3.glb   business-female-04
+civilian-4.glb   male-adult-05
+civilian-5.glb   female-adult-11
+
+Pinewatch fitted these assets to its pedestrian animation rig for real-time rendering.

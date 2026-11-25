@@ -65,7 +65,7 @@ import {inPalazzoMare} from './palazzo-mare.js';
 import {viewPitch,zenith} from './view-pitch.js';
 import {ridgeBench} from './north-ridge.js';
 import {breakablePostView} from './breakable-post-view.js';
-import {civilianLooks,cabaretLooks,beachStaffLooks} from './civilian-style.js';
+import {civilianLooks,civilianScanLooks,cabaretLooks,beachStaffLooks} from './civilian-style.js';
 import {patrolProfile} from './patrol-uniform.js';
 import {dressPerson} from './civilian-view.js';
 import {distantResidents} from './resident-distance-view.js';
@@ -83,7 +83,8 @@ import {aboardYacht,yachtHelmFeet,yachtRoomDepth,yachtSolidAt,yachtPoint,yachtSm
 import {crewBoat} from './patrol-boats.js';
 import {tireDebris} from './tire-debris.js';
 import {trailMarkers} from './scenery-layout.js';
-import {preloadPlayerScan, usePlayerScan, fitPlayerScan} from './player-scan.js';
+import {preloadPlayerScan, usePlayerScan, fitPlayerScan, fitCharacterScan} from './player-scan.js';
+import {createCivilianScans} from './civilian-scans.js';
 import {preloadScubaDiver, useScubaDiver, fitScubaDiver} from './scuba-diver-view.js';
 import {preloadNathan, useNathan, fitNathan, poseNathan} from './player-nathan.js';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -1378,6 +1379,7 @@ export function createScene(canvas) {
     lastWidth=w;lastHeight=h;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();
   }
   const distant=CITY ? distantResidents(scene) : null;
+  const nearbyCivilianScan=CITY ? createCivilianScans() : null;
   let civilianFaces,patrolFaces,civilianShirts,patrolShirts;
   function civilianTexture(path){
     const map=new THREE.TextureLoader().load(path);
@@ -1387,9 +1389,16 @@ export function createScene(canvas) {
   }
   let nightlifeFaces,infectedFaces,infectedShirts;
   const volleyballShirts=new Map();
-  function resident(id,name,officer=false,lookId=id,infected=0){
+  function resident(id,name,officer=false,lookId=id,infected=0,scan){
     const athlete=volleyballLooks[id];
     const look=officer?patrolProfile(id,!CITY):(civilianLooks[lookId]??beachStaffLooks[lookId]??cabaretLooks[id]??bankLooks[id]??dealerLooks[id]??athlete??basketballLooks[id]);
+    if(scan && !infected){
+      const rig=createRangerRig();
+      fitCharacterScan(rig,scan,'Civilian scan',true);
+      rig.civilian=civilianScanLooks[id];rig.civilianScan=scan;rig.tools=[];
+      scene.add(rig.root);
+      return finishAvatar(scene,rig,material,shadowMap,name);
+    }
     const faces=infected?(infectedFaces??=civilianTexture('./infected-faces.webp')):officer?(patrolFaces??=civilianTexture('./goy-theft-auto-patrol-faces.webp')):
       look.face>=20?(nightlifeFaces??=civilianTexture('./maravela-faces.webp')):(civilianFaces??=civilianTexture('./brickell-faces.webp'));
     if(athlete && !volleyballShirts.has(look.top))
@@ -1616,12 +1625,13 @@ export function createScene(canvas) {
       if(state.scuba)preloadScubaDiver();
       const diver=useScubaDiver(state);
       const appearance=diver ? null : typeof state.id==='number' && useNathan(state) ? 'nathan' : usePlayerScan(state);
-      if(a && ((a.scanned??null)!==appearance || Boolean(a.scubaDiver)!==diver)){removeAvatar(a);a=null;}
+      const civilianScan=state.infected ? undefined : nearbyCivilianScan?.(state);
+      if(a && ((a.scanned??null)!==appearance || Boolean(a.scubaDiver)!==diver || a.civilianScan!==civilianScan)){removeAvatar(a);a=null;}
       if(!a) {
         const rival = typeof state.id === 'string';
         if(state.infected){
           a=resident(state.id,'Infected',false,infectedLook(state.infected),state.infected);
-        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,appearance,diver);
+        }else a=state.officer || (CITY && rival && (state.venue || civilianLooks[state.evacLook??state.id] || cabaretLooks[state.id] || bankLooks[state.id] || dealerLooks[state.id] || basketballLooks[state.id] || volleyballLooks[state.id])) ? resident(state.id,state.name,state.officer,state.lookId??state.evacLook,0,civilianScan) : hiker(scene,state.id,rival ? (state.id==='rival-fern' ? 0xae6974 : 0x868854) : state.color,material,uniform,visorMaterials,shadowMap,state.name || (teamNames[state.team]??'Hiker')+' '+state.id,appearance,diver);
         a.root.name='Actor '+state.id;
         avatars.set(state.id,a);
       }

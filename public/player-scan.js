@@ -2,6 +2,36 @@ import {Skeleton, SkinnedMesh, Sphere, Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {CITY} from './world.js';
 
+export async function loadCharacterScan(loader,url) {
+  const {scene}=await loader.loadAsync(url);
+  const meshes=[];
+  scene.traverse(node=>{
+    if(!node.isSkinnedMesh)return;
+    node.geometry.userData.sharedFieldKit=true;
+    meshes.push(node);
+  });
+  if(!meshes.length)throw new Error('Missing character skin in '+url);
+  return meshes;
+}
+
+export function fitCharacterScan(rig,meshes,name,receiveShadow=false) {
+  const byName={body:rig.body,spine:rig.spine,upper:rig.upper,head:rig.head};
+  for(const limb of rig.limbs){
+    const side=limb.side<0?'Left':'Right';
+    for(const part of ['leg','knee','ankle','arm','forearm'])byName[side+part]=limb[part];
+  }
+  const skeletons=new Map();
+  for(const template of meshes){
+    const source=template.skeleton;
+    if(!skeletons.has(source))skeletons.set(source,new Skeleton(source.bones.map(bone=>byName[bone.name]),source.boneInverses));
+    const skin=new SkinnedMesh(template.geometry,template.material);
+    skin.name=name;skin.receiveShadow=receiveShadow;
+    skin.bind(skeletons.get(source),template.bindMatrix);
+    skin.boundingSphere=new Sphere(new Vector3(0,.85,0),2.1);
+    rig.root.add(skin);
+  }
+}
+
 const templates = new Map(), pending = new Map();
 const files = {mike:'./mike-alger.glb',pink:'./pink-girl.glb',army:'./army-man-fitted.glb'};
 export function preloadPlayerScan() {
@@ -26,19 +56,6 @@ export function usePlayerScan(state, available=templates) {
   return available.has(kind) ? kind : null;
 }
 export function fitPlayerScan(rig,kind) {
-  const byName = {body:rig.body, spine:rig.spine, upper:rig.upper, head:rig.head};
-  for (const limb of rig.limbs) {
-    const side = limb.side < 0 ? 'Left' : 'Right';
-    for (const part of ['leg','knee','ankle','arm','forearm']) byName[side+part] = limb[part];
-  }
-  for(const template of templates.get(kind)) {
-    const source = template.skeleton;
-    const skin = new SkinnedMesh(template.geometry, template.material);
-    skin.name = kind+' player skin';
-    skin.bind(new Skeleton(source.bones.map(bone => byName[bone.name]), source.boneInverses), template.bindMatrix);
-    // Covers seated, prone, and outstretched limbs without recomputing a bound from every vertex.
-    skin.boundingSphere = new Sphere(new Vector3(0,.85,0), 2.1);
-    rig.root.add(skin);
-  }
+  fitCharacterScan(rig,templates.get(kind),kind+' player skin');
   rig.scanned = kind;
 }
