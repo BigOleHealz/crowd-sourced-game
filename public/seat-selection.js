@@ -5,7 +5,7 @@ import {stopRover} from './rover.js';
 export function seatVehicle(world,id) {
   if(!world || id==null) return null;
   if(world.tank?.driver===id)return 'tank';
-  if(world.rover.driver===id || world.rover.gunner===id) return 'rover';
+  for(const kind of ['rover','rover2','rover3'])if(world[kind]?.driver===id || world[kind]?.gunner===id)return kind;
   if(world.heli.pilot===id || world.heli.gunner===id) return 'heli';
   if(world.heli2?.pilot===id || world.heli2?.gunner===id)return 'heli2';
   const boat=crewBoat(world,id);
@@ -21,7 +21,7 @@ export function selectSeat(world,player,kind,seat) {
   if(v[from]===player.id) {
     v[from]=null;
     if(from==='driver' && kind==='tank')v.speed=v.turnRate=0;
-    if(from==='driver' && kind==='rover'){delete v.boarding;stopRover(v);}
+    if(from==='driver' && ['rover','rover2','rover3'].includes(kind)){delete v.boarding;stopRover(v);}
     if(from==='driver' && v.id) v.throttle=0;
     if(from==='pilot' && !v.grounded) v.abandonedFor=0;
   }

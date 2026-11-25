@@ -12,6 +12,8 @@ export const mounts = {
   heli: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
   heli2: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
   rover: { turret: [0,1.62,.06] },
+  rover2: { turret: [0,1.62,.06] },
+  rover3: { turret: [0,1.62,.06] },
 };
 
 export function mountPosition(vehicle, [side,height,z]) {
@@ -29,20 +31,20 @@ export {viewPitch as turretPitch} from './view-pitch.js';
 
 export function vehicleById(world,id){
   if(id==='superyacht')return world?.yacht;
-  if(id==='rover'||id==='heli'||id==='heli2'||id==='jet'||id==='tank')return world?.[id];
+  if(['rover','rover2','rover3','heli','heli2','jet','tank'].includes(id))return world?.[id];
   return world?.boats?.find(b=>b.id===id);
 }
 export function gunnerVehicle(world,id) {
   if(id==null || !world) return null;
   if(world.yacht?.gunner===id)return 'superyacht';
-  if(world.rover.gunner===id) return 'rover';
+  for(const kind of ['rover','rover2','rover3'])if(world[kind]?.gunner===id)return kind;
   if(world.heli.gunner===id)return 'heli';
   return world.heli2?.gunner===id ? 'heli2' : world.boats?.find(b=>b.gunner===id)?.id??null;
 }
 
 export function gunnerFeet(vehicle,kind) {
-  if(kind==='heli' || kind==='heli2') return mountPosition(vehicle,[0,.52,0]);
-  if(kind==='rover') return mountPosition(vehicle,humveePassengerSeat);
+  if(kind==='heli'||kind==='heli2') return mountPosition(vehicle,[0,.52,0]);
+  if(kind==='rover'||kind==='rover2'||kind==='rover3') return mountPosition(vehicle,humveePassengerSeat);
   const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:.45,mounts[kind].turret[2]]);
   const yaw=vehicle.turretYaw;
   feet.x-=.44*Math.sin(yaw);

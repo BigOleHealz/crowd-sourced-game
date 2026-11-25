@@ -15,8 +15,8 @@ export function driverPrediction(snapshot,id) {
   const kind=snapshot.tank?.driver===id?'tank':road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.heli2?.pilot===id ? 'heli2' : snapshot.jet?.pilot===id ? 'jet' :
     snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null;
   if(!kind || road?.sling || boat?.sling)return null;
-  const {jet,heli,heli2,rover,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
-  const world=structuredClone({jet,heli,heli2,rover,supercar,tank,yacht,boats,doors,hp,traffic});
+  const {jet,heli,heli2,rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
+  const world=structuredClone({jet,heli,heli2,rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic});
   const vehicle=road?.model ? drivenRoad(world,id) : kind==='boat'?crewBoat(world,id):world[kind];
   if(road)seedRoadSuspension(vehicle);
   if(kind==='heli'||kind==='heli2')restoreFlightState(vehicle);

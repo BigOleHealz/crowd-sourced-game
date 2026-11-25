@@ -5,7 +5,7 @@ import {mountPosition} from './mounts.js';
 export const sidearmSlot = 2;
 export function sidearmCar(world,id){
   if(id==null || !world)return null;
-  const car=world.rover?.gunner===id ? world.rover : drivenRoad(world,id);
+  const car=['rover','rover2','rover3'].map(kind=>world[kind]).find(v=>v?.gunner===id)??drivenRoad(world,id);
   return car && !car.sinking && !car.wrecked && !car.boarding && !car.takeover ? car : null;
 }
 export function hasMountedTool(car){

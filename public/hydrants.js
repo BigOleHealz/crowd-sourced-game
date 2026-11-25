@@ -15,7 +15,7 @@ function touches(car,p){
 // The room owns the pressure timer. Shutting off, repairing and joining
 // midway all derive from the same small replicated count on the broken base.
 export function stepHydrants(world){
-  const cars=[world.rover,world.supercar,world.tank,...(world.traffic??[])].filter(car=>car && !car.crushed);
+  const cars=[world.rover,world.rover2,world.rover3,world.supercar,world.tank,...(world.traffic??[])].filter(car=>car && !car.crushed);
   for(const point of hydrants){
     const state=world.doors.hydrants,remaining=state?.[point.id];
     if(remaining!=null){

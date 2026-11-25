@@ -135,7 +135,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     if(!parked || parked.crushed || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;
     consider(boxContact(x,z,s,c,parked,shape,roadHullFor(parked)));
   }
-  considerCar(world.tank);considerCar(world.rover);considerCar(world.supercar);
+  considerCar(world.tank);for(const kind of ['rover','rover2','rover3'])considerCar(world[kind]);considerCar(world.supercar);
   for(const car of world.traffic??[])considerCar(car);
   for(const car of world.patrolCars??[])considerCar(car);
   if(result)return result;

@@ -12,7 +12,7 @@ import {noteWallBreak} from './tank-wall-cuts.js';
 export function breakRoadObstacle(world,vehicle,object,vx,vz,incoming,team){
   const {doors}=world,tracks=vehicle.kind==='tank';
   if(!doors || incoming<=0 || !object)return;
-  if(object.fenceId && (tracks || vehicle===world.rover && incoming>2.5)){
+  if(object.fenceId && (tracks || [world.rover,world.rover2,world.rover3].includes(vehicle) && incoming>2.5)){
     if(breakMilitaryFence(doors,object.fenceId))return 'fence';
   }
   if(tracks && object.treeId!=null && fellTree(doors,object,vx,vz,world.simTick))return 'tree';

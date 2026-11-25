@@ -838,7 +838,7 @@ function fieldEffects(scene) {
   function swordCut(part,point,actor){
     characterBurst(part,new THREE.Vector3().copy(point),new THREE.Vector3(actor.x,actor.y+1.3,actor.z),particle,rng);
   }
-  const chainMetal=new Set(['rover','supercar','tank','jet','lamp','superyacht']);
+const chainMetal=new Set(['rover','rover2','rover3','supercar','tank','jet','lamp','superyacht']);
   let lastChainChipTick=-Infinity;
   function shot(s,sourceVehicle,world) {
     if(s.weapon==='bodyBlast'){
@@ -1328,7 +1328,8 @@ export function createScene(canvas) {
   let updateSupplyView;
   const shadowMap=contactShadowMap();
   const roverLabel=objectHealthLabel(scene,'HUMVEE');
-  const roverTurret=turretView(scene,'rover',Batch,material), heliTurret=turretView(scene,'heli',Batch,material),heli2Turret=CITY&&turretView(scene,'heli2',Batch,material);
+  const extraRoverLabels=CITY?['rover2','rover3'].map(()=>objectHealthLabel(scene,'HUMVEE')):[];
+  const roverTurret=turretView(scene,'rover',Batch,material),extraRoverTurrets=CITY?['rover2','rover3'].map(kind=>turretView(scene,kind,Batch,material)):[],heliTurret=turretView(scene,'heli',Batch,material),heli2Turret=CITY&&turretView(scene,'heli2',Batch,material);
   const updateRounds=flightRounds(scene);
   const marks=surfaceMarks(scene);
   const contacts=contactShadows(scene);
@@ -1343,6 +1344,7 @@ export function createScene(canvas) {
   const updateTank=CITY?tankView(scene,Batch,shadowMap):null;
   const updateGarages=createRoadGarages(scene,Batch);
   const updateRover=createRoverView(scene,Batch,material,shadowMap,panorama);
+  const updateExtraRovers=CITY?['rover2','rover3'].map(kind=>createRoverView(scene,Batch,material,shadowMap,panorama,kind)):[];
   const jetModel=jetView(scene,Batch);
   const updateCargoHook=cargoHookView(scene);
   const helicopter=fieldHelicopter(scene,material,shadowMap,panorama);
@@ -1442,7 +1444,7 @@ export function createScene(canvas) {
     if((station==='heli'||station==='heli2') && cursorRay.ray.distanceSqToPoint(muzzle)<1e-8)
       return {yaw:Math.atan2(direction.x,-direction.z),pitch:Math.asin(clamp(direction.y,-1,1))};
     const actors = [...displayedPlayers, ...displayedWorld.npcs]
-      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && p.id !== displayedWorld.heli.pilot && p.id !== displayedWorld.heli.gunner && p.id!==displayedWorld.heli2?.pilot && p.id!==displayedWorld.heli2?.gunner && p.id !== displayedWorld.rover.driver)
+      .filter(p => !p.dead && p.id !== id && p.id!==displayedWorld.tank?.driver && (station!=='tankCannon' || p.id!==displayedWorld.tank?.gunner) && !crewBoat(displayedWorld,p.id) && !['heli','heli2'].some(kind=>p.id===displayedWorld[kind]?.pilot || p.id===displayedWorld[kind]?.gunner) && !['rover','rover2','rover3'].some(kind=>p.id===displayedWorld[kind]?.driver))
       .map(state => ({id:state.id,state,yaw:state.yaw,moving:state.moving}));
     const aimHit=tracePulse(displayedWorld, actors, origin, direction, range + cameraOffset, false, windowCar?carSource(windowCar):station==='tankCannon'?'tank':station==='spear'?null:station);
     let {to}=aimHit;
@@ -1525,14 +1527,23 @@ export function createScene(canvas) {
     const inTank=world.tank?.driver===local.id;
     updateTank?.(world.tank,dt);
     const cars=world.traffic??[];
-    updateGarages([world.rover,world.supercar,...cars]);
+    updateGarages([world.rover,world.rover2,world.rover3,world.supercar,...cars].filter(Boolean));
     updateTraffic(cars,dt,local,world.patrolCars);
-    const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : rover);
+    const road=inTank?world.tank:cars.find(car=>car.driver===local.id)??(supercar?.driver===local.id ? supercar : [rover,world.rover2,world.rover3].find(car=>car?.driver===local.id)??rover);
     const driving=road.driver===local.id;
     if(updateSupercar)updateSupercar(supercar,dt);
     marks.update(world,local,remotes,dt);
     updateTireDebris(rover,dt);
     updateRover(rover,dt);roverTurret(rover,!updateRover.usesModel);heliTurret(heli);if(heli2)heli2Turret(heli2);
+    for(let i=0;i<updateExtraRovers.length;i++){
+      const car=world[['rover2','rover3'][i]];
+      if(!car)continue;
+      const update=updateExtraRovers[i],label=extraRoverLabels[i];
+      update(car,dt);extraRoverTurrets[i](car,!update.usesModel);
+      label.sprite.position.set(car.x,car.y+2.65,car.z);
+      label.sprite.visible=!car.crushed && local.id!==car.driver && local.id!==car.gunner;
+      label.update(car.hp,car.maxHp,car.wrecked?Math.ceil(car.recoverySeconds):null);
+    }
     roverLabel.sprite.position.set(rover.x,rover.y+2.65,rover.z);
     roverLabel.sprite.visible=!rover.crushed && local.id!==rover.driver && local.id!==rover.gunner;
     roverLabel.update(rover.hp,rover.maxHp,rover.wrecked ? Math.ceil(rover.recoverySeconds) : null);
@@ -1622,7 +1633,7 @@ export function createScene(canvas) {
       a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
       a.label.sprite.visible = (!state.beachRole || state.beachRole==='bar') && !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
-      const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver || state.id===rover.gunner ? rover : boat?.driver===state.id ? boat : null);
+      const seated=inTraffic??(state.id===supercar?.driver ? supercar : [rover,world.rover2,world.rover3].find(car=>car && (state.id===car.driver || state.id===car.gunner))??(boat?.driver===state.id ? boat : null));
       const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : boat?.gunner===state.id ? boat : null;
       const crewHeli=heli2 && (state.id===heli2.pilot || state.id===heli2.gunner)?heli2:heli;
       const heliPilot=state.id===crewHeli.pilot,heliGunner=state.id===crewHeli.gunner;
@@ -1700,7 +1711,7 @@ export function createScene(canvas) {
     const marinaBoats=CITY ? world.boats.filter(b=>b.boatModel && !b.wrecked && b!==boat &&
       Math.hypot(local.x-b.x,local.z-b.z)<14) : null;
     const yachtHelm=world.yacht?.driver===local.id;
-    const localStation=world.tank?.gunner===local.id ? 'tank' : world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===heli2?.gunner?'heli2':local.id===rover.gunner ? 'rover' : null;
+    const localStation=world.tank?.gunner===local.id ? 'tank' : world.yacht?.gunner===local.id ? 'superyacht' : boat?.gunner===local.id ? boat.id : local.id===heli.gunner ? 'heli' : local.id===heli2?.gunner?'heli2':['rover','rover2','rover3'].find(kind=>world[kind]?.gunner===local.id)??null;
     const tenant=CITY && retailRoom(local.x,local.y,local.z);
     const gallery=CITY && galleryRoomAt(local.x,local.y,local.z);
     const nearbyYacht=world.yacht && Math.hypot(local.x-world.yacht.x,local.z-world.yacht.z)<25 ? world.yacht : null;
@@ -1730,7 +1741,7 @@ export function createScene(canvas) {
     else if(driving){
       const frame=view.road;
       desired.set(road.x+Math.sin(road.yaw)*(frame?.lead??0),
-        road.y+(road.model==='engine'?monitorHeight:inTank?3.35:road===rover?2.5:1.03)+(frame?.height??0)+(frame?.lift??0),
+        road.y+(road.model==='engine'?monitorHeight:inTank?3.35:[rover,world.rover2,world.rover3].includes(road)?2.5:1.03)+(frame?.height??0)+(frame?.lift??0),
         road.z-Math.cos(road.yaw)*(frame?.lead??0));
     }
     else if(piloting) desired.set(aircraft.x,aircraft.y+(flyingJet?1.2*jetScale:1.58),aircraft.z);
@@ -1773,7 +1784,7 @@ export function createScene(canvas) {
       target.set(cockpit.x,cockpit.y,cockpit.z);
     }else camera.up.copy(up);
     const onFoot=!yachtHelm && !boat && !localStation && !piloting && !driving && !local.parachute;
-    const humveeDriving=driving && road===rover;
+    const humveeDriving=driving && [rover,world.rover2,world.rover3].includes(road);
     const outdoorDistance=flyingJet ? 10+(view.distance||4.4)*jetScale : yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:humveeDriving?12:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : humveeDriving ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;

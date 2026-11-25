@@ -122,7 +122,7 @@ export function turretView(scene,kind,Batch,material) {
   const marine=kind==='boat'||kind==='superyacht',helicopter=kind==='heli'||kind==='heli2';
   const coating=marine?0x616b6a:helicopter?0x4c544e:0x595c4c;
   const rim=marine?0x929798:0x767970;
-  if(kind==='rover' || kind==='superyacht'){
+  if(['rover','rover2','rover3','superyacht'].includes(kind)){
     stand.add(cylinder,0x525b53,0,-.62,0,.093,1.24,.093);
     stand.add(cylinder,0x53574d,0,-1.22,0,.22,.052,.22);
   } else stand.add(cylinder,0x53574d,0,.085,0,.22,.18,.22);
@@ -158,7 +158,7 @@ export function turretView(scene,kind,Batch,material) {
     for(const z of [-.152,.019])metal.add(cylinder,0x77796d,side*.124,.013,z,.012,.009,.012,0,0,Math.PI/2);
     metal.add(box,0x343a38,side*.163,-.069,.197,.044,.128,.059,-.08);
   }
-  if(kind==='rover'){
+  if(['rover','rover2','rover3'].includes(kind)){
     stand.add(cylinder,0x5b5d50,0,-1.13,0,.245,.10,.245);
     for(const side of [-1,1])stand.beam(0x505747,[side*.235,-1.17,.13],[side*.062,-.78,.03],.044);
     shroud(metal,0x6e725a,[[-.211,-.025,.065,.059],[-.157,-.014,.087,.078],[.060,-.019,.085,.071]]);
@@ -206,7 +206,7 @@ export function turretView(scene,kind,Batch,material) {
     const pivot=mountPosition(v,offset);
     base.position.set(pivot.x,pivot.y,pivot.z);
     base.visible=visible && !v.wrecked;
-    if(kind==='rover'||kind==='boat'||kind==='superyacht') {
+    if(['rover','rover2','rover3','boat','superyacht'].includes(kind)) {
       const deck=kind==='boat'?v:v.suspension;
       base.rotation.set(deck?.pitch ?? 0,-v.yaw,deck?.roll ?? 0,'YXZ');
       // Keep the pedestal on the deck and the occupied barrel on its world aim.

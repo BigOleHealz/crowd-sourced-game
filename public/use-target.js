@@ -7,7 +7,7 @@ import {nearBoat,crewBoat} from './patrol-boats.js';
 import {yachtPrompt} from './yacht-layout.js';
 import {basketballUse} from './basketball-layout.js';
 
-const names={rover:'Humvee',supercar:'Cheetah',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
+const names={rover:'Humvee',rover2:'Humvee',rover3:'Humvee',supercar:'Cheetah',sedan:'sedan',hatchback:'hatchback',van:'delivery van',engine:'fire engine'};
 const action=(target,role,label)=>({target,role,label});
 export function nextUse(world,feet,id,wanted){
   if(!world || !feet || feet.climb || id==null)return null;
@@ -17,8 +17,9 @@ export function nextUse(world,feet,id,wanted){
   }
   const road=drivenRoad(world,id),boat=crewBoat(world,id);
   if(road?.takeover)return null;
-  if(road || world.rover.gunner===id){
-    const car=road??world.rover,kind=car.kind??'rover';
+  const gunnerRover=['rover','rover2','rover3'].map(kind=>world[kind]).find(car=>car?.gunner===id);
+  if(road || gunnerRover){
+    const car=road??gunnerRover,kind=car.kind??'rover';
     return action(kind,'exit','Exit '+(civilianProfiles[car.model]?.name??names[car.model??kind]));
   }
   if(world.tank?.driver===id || world.tank?.gunner===id)return action('tank','exit','Exit tank');
