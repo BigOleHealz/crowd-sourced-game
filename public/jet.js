@@ -5,6 +5,7 @@ import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 import {onRunway,rotationSpeed,stallSpeed,runwayStart,outpostRunwayStart} from './runway-layout.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
+const fullTurn=Math.PI*2, barrelRollSeconds=1.1;
 export function parkedJet(){
   const start=CITY?runwayStart:outpostRunwayStart;
   const x=start.x,z=start.z;
@@ -91,7 +92,23 @@ export function stepJet(world,input,dt,players){
     j.grounded=false;
   }
   const response=1-Math.exp(-5*dt);
-  j.roll+=((j.grounded?0:-.60*steer)-j.roll)*response;
+  if(j.grounded){
+    j.rollManeuver=null;
+    j.roll+=(Math.round(j.roll/fullTurn)*fullTurn-j.roll)*response;
+  }else{
+    if(!j.rollManeuver && (input?.barrelRoll===1 || input?.barrelRoll===-1))
+      j.rollManeuver={start:j.roll,elapsed:0,direction:input.barrelRoll};
+    if(j.rollManeuver){
+      const maneuver=j.rollManeuver;
+      maneuver.elapsed=Math.min(barrelRollSeconds,maneuver.elapsed+dt);
+      j.roll=maneuver.start+maneuver.direction*fullTurn*maneuver.elapsed/barrelRollSeconds;
+      if(maneuver.elapsed===barrelRollSeconds)j.rollManeuver=null;
+    }else{
+      const bank=-.60*steer;
+      const target=bank+Math.round((j.roll-bank)/fullTurn)*fullTurn;
+      j.roll+=(target-j.roll)*response;
+    }
+  }
   j.yaw+=steer*(j.grounded?.8:1.7)*dt;
   // Pitch is continuous across the top of a loop, including during snapshot interpolation.
   if(!j.grounded && !powered){
