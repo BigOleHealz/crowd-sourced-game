@@ -5,7 +5,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
-import {fenceDown} from './military-island.js';
+import {fenceDown,militaryBridge} from './military-island.js';
 import {onBridgeDeck,raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
@@ -29,6 +29,10 @@ const cityBridgeRails=CITY?bridges.flatMap(bridge=>[
   ...[bridge.walkWest,bridge.walkEast].map(x=>({bridge,x,z:(bridge.north+bridge.south)/2,
     w:bridge.parapetWidth,d:bridge.south-bridge.north,outer:true})),
 ]):[];
+const militaryBridgeRails=CITY?[militaryBridge.north+.22,militaryBridge.south-.22].map(z=>({
+  x:(militaryBridge.west+militaryBridge.east)/2,z,
+  w:militaryBridge.east-militaryBridge.west,d:.30,
+})):[];
 const stationFootprints=stations.map(s=>({x:s.x-.52,z:s.z,w:4.42,d:3.06,woodId:s.number}));
 const wood=new Set(MAP.trees);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -104,6 +108,13 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     }
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
+  for(const rail of militaryBridgeRails){
+    const atX=clamp(x,militaryBridge.west,militaryBridge.east);
+    const bottom=militaryBridge.height(atX);
+    const vehicleBottom=vehicle.y??base;
+    if(vehicleBottom+roof<bottom || vehicleBottom>bottom+.84)continue;
+    consider(boxContact(x,z,s,c,rail,shape));
+  }
   for(const rail of cityBridgeRails){
     const {bridge}=rail;
     const atZ=clamp(z,bridge.north,bridge.south);
