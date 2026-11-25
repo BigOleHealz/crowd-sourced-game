@@ -2,9 +2,9 @@
 // boats and swimmers out of the hull without making the overhanging deck solid.
 import {seabedHeight} from './reef-channel.js';
 
-// A 37 m channel separates the flight deck from the military island's west shore.
+// The flight-deck edge sits two metres off the military island's west shore.
 // The waterline leaves roughly 11 m of hull below water and 14 m to the flight deck.
-export const eisenhowerCarrier={x:-325,z:-230,length:275,waterlineModelY:45};
+export const eisenhowerCarrier={x:-290,z:-230,length:275,waterlineModelY:45};
 const sections=[
   {z:-110,d:50,w:18},
   {z:-55,d:60,w:42},
@@ -27,3 +27,28 @@ export const carrierDeckSections=sections.map(({z,d},i)=>{
   return {x,z:worldZ,w:[56,72,76,76,60][i],d,
     bottom:carrierDeckTop-1.8-base,h:carrierDeckTop-base};
 });
+
+// A gradual shore ramp runs beside the west fence, then a level gangway
+// crosses the short gap to the flight deck. Both pieces share this surface.
+export const carrierRamp={
+  shore:{x:-243,y:.8,z:-290},
+  turn:{x:-249,y:carrierDeckTop,z:-235},
+  deck:{x:-259,y:carrierDeckTop,z:-235},
+  width:3.6,
+};
+export const carrierRampSegments=[
+  [carrierRamp.shore,carrierRamp.turn],
+  [carrierRamp.turn,carrierRamp.deck],
+];
+export function carrierRampHeight(x,z,maxBottom=Infinity){
+  let top;
+  for(const [a,b] of carrierRampSegments){
+    const dx=b.x-a.x,dz=b.z-a.z,length2=dx*dx+dz*dz;
+    const t=((x-a.x)*dx+(z-a.z)*dz)/length2;
+    if(t<0 || t>1)continue;
+    if(Math.abs((x-a.x)*dz-(z-a.z)*dx)>carrierRamp.width/2*Math.sqrt(length2))continue;
+    const height=a.y+t*(b.y-a.y);
+    if(height<=maxBottom+.65)top=Math.max(top??-Infinity,height);
+  }
+  return top;
+}

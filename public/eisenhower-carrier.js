@@ -1,8 +1,41 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {eisenhowerCarrier} from './eisenhower-carrier-layout.js';
+import {eisenhowerCarrier,carrierRamp,carrierRampSegments} from './eisenhower-carrier-layout.js';
+
+function addCarrierRamp(scene){
+  const ramp=new THREE.Group();ramp.name='Carrier shore ramp';
+  const deckMaterial=new THREE.MeshStandardMaterial({color:0x646d71,metalness:.45,roughness:.7,side:THREE.DoubleSide});
+  const railMaterial=new THREE.MeshStandardMaterial({color:0xb6c0bd,metalness:.65,roughness:.4});
+  const beam=(a,b,radius,material)=>{
+    const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start);
+    const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,direction.length(),8),material);
+    mesh.position.copy(start).add(end).multiplyScalar(.5);
+    mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+    mesh.userData.impactSurface='metal';ramp.add(mesh);
+  };
+  for(const [a,b] of carrierRampSegments){
+    const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
+    const sideX=-dz/length*carrierRamp.width/2,sideZ=dx/length*carrierRamp.width/2;
+    const vertices=[
+      a.x+sideX,a.y,a.z+sideZ,a.x-sideX,a.y,a.z-sideZ,
+      b.x+sideX,b.y,b.z+sideZ,b.x-sideX,b.y,b.z-sideZ,
+    ];
+    const geometry=new THREE.BufferGeometry();
+    geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
+    geometry.setIndex([0,1,2,1,3,2]);geometry.computeVertexNormals();
+    const surface=new THREE.Mesh(geometry,deckMaterial);
+    surface.receiveShadow=true;surface.userData.impactSurface='metal';ramp.add(surface);
+    for(const side of [-1,1]){
+      const offsetX=side*sideX,offsetZ=side*sideZ;
+      beam([a.x+offsetX,a.y+1.05,a.z+offsetZ],[b.x+offsetX,b.y+1.05,b.z+offsetZ],.065,railMaterial);
+      for(const p of [a,b])beam([p.x+offsetX,p.y,p.z+offsetZ],[p.x+offsetX,p.y+1.05,p.z+offsetZ],.055,railMaterial);
+    }
+  }
+  scene.add(ramp);
+}
 
 export function addEisenhowerCarrier(scene,waterY){
+  addCarrierRamp(scene);
   new GLTFLoader().load(new URL('./eisenhower-carrier.glb',import.meta.url).href,({scene:model})=>{
     // Sketchfab's GLB node already converts the source's Z-up frame to Y-up.
     model.updateMatrixWorld(true);

@@ -1,4 +1,5 @@
 // All base footprints are shared by terrain, aircraft, the chart and scenery.
+import {carrierRamp} from './eisenhower-carrier-layout.js';
 export const militaryIsland={west:-250,east:-133,north:-309,south:-151};
 export const militaryShore=[
   [-238,-309],[-145,-309],[-133,-297],[-133,-163],
@@ -41,7 +42,10 @@ function fenceRun(axis,fixed,start,end,openings=[]){
 fenceRun('x',-301,-246,-137);
 fenceRun('z',-137,-301,-159,[[-257,-247],[-237,-223]]);
 fenceRun('x',-159,-246,-137);
-fenceRun('z',-246,-301,-159);
+// The carrier shore ramp passes through this opening in the west perimeter.
+const rampGateZ=carrierRamp.shore.z+(-246-carrierRamp.shore.x)*
+  (carrierRamp.turn.z-carrierRamp.shore.z)/(carrierRamp.turn.x-carrierRamp.shore.x);
+fenceRun('z',-246,-301,-159,[[rampGateZ-7,rampGateZ+7]]);
 export const fenceDown=(doors,id)=>Boolean(doors?.militaryFence?.[id]);
 export function breakMilitaryFence(doors,id){
   if(!doors || !id || fenceDown(doors,id))return false;
