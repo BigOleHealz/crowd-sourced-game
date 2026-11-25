@@ -27,7 +27,11 @@ for(const floor of [0,Math.floor(floors/2),floors-1])for(const side of [-1,1]){
   const y=4.70+floor*story,z=hotel.z-2;
   const door=interiorDoors.find(d=>d.p.b===hotel && d.label.endsWith(' balcony') && Math.abs(d.x-(hotel.x+side*hotel.w/2))<.01 && Math.abs(d.y-y)<.01);
   assert(door,'each hotel balcony has an operable door');
-  const doors={};setDoorOpen(door,doors,true);assert(doorIsOpen(door,doors));
+  const doors={};
+  let closed={x:hotel.x+side*4.5,y,z,vy:0,grounded:true};
+  for(let i=0;i<36;i++)closed=stepPlayer(closed,{x:side},1/30,{}, {doors});
+  assert(closed.x*side<hotel.x*side+hotel.w/2+.2,'closed balcony leaf blocks passage');
+  setDoorOpen(door,doors,true);assert(doorIsOpen(door,doors));
   let p={x:hotel.x+side*4.5,y,z,vy:0,grounded:true};
   for(let i=0;i<36;i++)p=stepPlayer(p,{x:side},1/30,{}, {doors});
   assert(p.x*side>hotel.x*side+hotel.w/2+.45,'walk from room onto balcony');
