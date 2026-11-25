@@ -25,7 +25,41 @@ export const militaryDock={
   height:.56,
 };
 export const militaryDecks=[militaryDock.ramp,militaryDock.pier,...militaryDock.fingers];
+// Four-metre bays keep collision, blast damage and the rendered fence in sync.
+// The road and dock have clear entrances rather than an invisible barrier.
+export const militaryFence=[];
+function fenceRun(axis,fixed,start,end,openings=[]){
+  for(let at=start;at<end-.01;at+=4){
+    const last=Math.min(at+4,end),middle=(at+last)/2;
+    if(openings.some(([a,b])=>middle>a && middle<b))continue;
+    const id='military-fence-'+militaryFence.length;
+    militaryFence.push(axis==='x'
+      ? {fenceId:id,x:middle,z:fixed,w:last-at,d:.18,h:2.55}
+      : {fenceId:id,x:fixed,z:middle,w:.18,d:last-at,h:2.55});
+  }
+}
+fenceRun('x',-301,-246,-137);
+fenceRun('z',-137,-301,-159,[[-257,-247],[-237,-223]]);
+fenceRun('x',-159,-246,-137);
+fenceRun('z',-246,-301,-159);
+export const fenceDown=(doors,id)=>Boolean(doors?.militaryFence?.[id]);
+export function breakMilitaryFence(doors,id){
+  if(!doors || !id || fenceDown(doors,id))return false;
+  (doors.militaryFence??={})[id]=true;
+  return true;
+}
+export function blastMilitaryFence(doors,point,radius){
+  let broken=0;
+  for(const bay of militaryFence){
+    const dx=Math.max(0,Math.abs(point.x-bay.x)-bay.w/2);
+    const dz=Math.max(0,Math.abs(point.z-bay.z)-bay.d/2);
+    const dy=Math.max(0,.8-point.y,point.y-(.8+bay.h));
+    if(Math.hypot(dx,dy,dz)<=radius && breakMilitaryFence(doors,bay.fenceId))broken++;
+  }
+  return broken;
+}
 export const militaryBarriers=[
+  ...militaryFence,
   // The west face is open onto the taxiway so aircraft can enter the hangar.
   {x:militaryHangar.x,z:militaryHangar.z-11.6,w:26,d:.8,h:6.1},
   {x:militaryHangar.x,z:militaryHangar.z+11.6,w:26,d:.8,h:6.1},
