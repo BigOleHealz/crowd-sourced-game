@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { advanceFall } from '../public/falls.js';
+import { startFall, advanceFall } from '../public/falls.js';
 import { newLife, vehicleContacts, damageActor } from '../public/rivals.js';
 import { groundHeight } from '../public/world.js';
 
@@ -41,4 +41,10 @@ assert.equal(running.life.fall.cause,'defeat');
 for(let tick=13;tick<92;tick++) advanceFall(running,tick,dt,{});
 assert(running.life.fall.settled && running.state.grounded);
 assert.equal(running.state.vx,0);
+const malformed = {state:{x:0,y:groundHeight(0,15),z:15,grounded:true},life:newLife(0,false),yaw:0};
+startFall(malformed,1,{x:NaN,y:1,z:0},'impact');
+assert.equal(malformed.state.vx,0);
+malformed.state.x=NaN;
+assert.doesNotThrow(()=>advanceFall(malformed,2,dt,{}));
+assert(Number.isFinite(malformed.state.x) && Number.isFinite(malformed.state.y));
 console.log('PASS: reverse knockdown, recovery, crew, shield, vertical clearance, helicopter collision and inherited defeat momentum.');

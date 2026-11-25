@@ -27,6 +27,7 @@ export const keyShores=mangroveKeys.map(([x,z,ix,iz,length,depth,,seed])=>{
 });
 
 export function keyGround(x,z) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return -2.8;
   for(const key of keyShores){
     const {ix,iz,length,slices}=key,dx=x-key.x,dz=z-key.z;
     const u=-iz*dx+ix*dz;
