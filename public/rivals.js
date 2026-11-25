@@ -130,11 +130,12 @@ export function rivalView(actor, tick) {
 export function vehicleContacts(world, kind, before, actors, tick, dt, players, onPersonHit) {
   const vehicle = world[kind]??world.traffic?.find(car=>car.id===kind);
   const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
-  const descent = kind==='heli' ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
+  const helicopter=kind==='heli'||kind==='heli2';
+  const descent = helicopter ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
   const speed = Math.hypot(vx, vz, descent);
   if (vehicle.wrecked || speed < 1.8) return;
   const hull=vehicle.model?{traffic:[vehicle]}:{[kind]:vehicle};
-  const crew = [world.tank?.driver,world.tank?.gunner,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
+  const crew = [world.tank?.driver,world.tank?.gunner,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),world.rover.driver, world.rover.gunner, world.supercar?.driver, world.heli.pilot, world.heli.gunner,world.heli2?.pilot,world.heli2?.gunner,...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
     if ((actor.officer && actor.targetId!==(vehicle.pilot??vehicle.driver)) || crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;
@@ -144,18 +145,18 @@ export function vehicleContacts(world, kind, before, actors, tick, dt, players, 
     if(hit.depth<=.00001) continue;
     const approach=(vx*hit.dx+vz*hit.dz)/hit.depth;
     if(Math.max(approach,descent)<1.8) continue;
-    if(kind!=='heli')onPersonHit?.(world,vehicle,actor,tick);
+    if(!helicopter)onPersonHit?.(world,vehicle,actor,tick);
     const outward = descent / Math.max(.1, Math.hypot(dx, dz));
     const impulse = { x: vx * 1.25 + dx*outward, z: vz * 1.25 + dz*outward, y: 1 + speed*.53 };
     startFall(actor, tick, impulse, kind);
     if(damageActor(actor,Math.round(speed*18),tick)){
-      const driver=actors.find(p=>p.id===(kind==='heli'?vehicle.pilot:vehicle.driver));
+      const driver=actors.find(p=>p.id===(helicopter?vehicle.pilot:vehicle.driver));
       if(driver?.score && driver!==actor){
         driver.score.kills++;
         world.wanted?.record(world.wanted.session(driver),actor.officer?'officer':'defeat',tick);
       }
     }
-    if (kind!=='heli' && vehicle.hp>0) {
+    if (!helicopter && vehicle.hp>0) {
       // A knocked-down person cannot register another impact while the car overlaps.
       damageRover(world,1,players,kind);
       if (vehicle.wrecked) break;

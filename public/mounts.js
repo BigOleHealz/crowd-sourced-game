@@ -10,6 +10,7 @@ export const mounts = {
     turret:[-.232*jetScale,1.03*jetScale,-2.817*jetScale]},
   // The Little Bird GLB's rocket pod mouths sit just outside x=+/-1.44, y=.64, z=-1.47.
   heli: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
+  heli2: { launcher: [1.44,.64,-1.49], pilotGun: [.46,.72,-1.35], turret: [0,.49,-.97] },
   rover: { turret: [0,1.62,.06] },
 };
 
@@ -28,18 +29,19 @@ export {viewPitch as turretPitch} from './view-pitch.js';
 
 export function vehicleById(world,id){
   if(id==='superyacht')return world?.yacht;
-  if(id==='rover'||id==='heli'||id==='jet'||id==='tank')return world?.[id];
+  if(id==='rover'||id==='heli'||id==='heli2'||id==='jet'||id==='tank')return world?.[id];
   return world?.boats?.find(b=>b.id===id);
 }
 export function gunnerVehicle(world,id) {
   if(id==null || !world) return null;
   if(world.yacht?.gunner===id)return 'superyacht';
   if(world.rover.gunner===id) return 'rover';
-  return world.heli.gunner===id ? 'heli' : world.boats?.find(b=>b.gunner===id)?.id??null;
+  if(world.heli.gunner===id)return 'heli';
+  return world.heli2?.gunner===id ? 'heli2' : world.boats?.find(b=>b.gunner===id)?.id??null;
 }
 
 export function gunnerFeet(vehicle,kind) {
-  if(kind==='heli') return mountPosition(vehicle,[0,.52,0]);
+  if(kind==='heli' || kind==='heli2') return mountPosition(vehicle,[0,.52,0]);
   if(kind==='rover') return mountPosition(vehicle,humveePassengerSeat);
   const feet=mountPosition(vehicle,[0,kind==='superyacht'?yachtDeckY:.45,mounts[kind].turret[2]]);
   const yaw=vehicle.turretYaw;

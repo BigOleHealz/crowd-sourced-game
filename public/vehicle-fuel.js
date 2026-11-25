@@ -12,6 +12,7 @@ export const fuelSites=CITY ? [
 export function fuelVehicle(world,id){
   if(!world || id==null)return null;
   if(world.heli?.pilot===id)return world.heli;
+  if(world.heli2?.pilot===id)return world.heli2;
   if(world.jet?.pilot===id)return world.jet;
   if(world.tank?.driver===id)return world.tank;
   if(world.rover?.driver===id)return world.rover;
@@ -82,7 +83,7 @@ export function stepVehicleFuel(world,dt){
   roadFuel(world,world.tank,dt);
   for(const car of world.traffic??[])roadFuel(world,car,dt);
   for(const car of world.patrolCars??[])roadFuel(world,car,dt);
-  for(const h of [world.heli,world.jet]){
+  for(const h of [world.heli,world.heli2,world.jet]){
     if(!h)continue;
     const demand=h.grounded?Math.abs(h.speed??0)/9:h.burner?1:.8;
     useFuel(h,dt,h===world.jet ? .26 : .20,demand,h.pilot!=null);

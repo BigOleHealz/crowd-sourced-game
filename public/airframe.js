@@ -4,6 +4,7 @@ import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 import { CITY, MAP, flightBounds, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
+import {militaryHelipads} from './military-island.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -18,17 +19,18 @@ export function restoreFlightState(heli) {
   flightStates.set(heli,{...heli.motion});
 }
 
-export function parkedHelicopter() {
+export const SECOND_HELIPAD={x:militaryHelipads[1].x,z:militaryHelipads[1].z};
+export function parkedHelicopter(pad=HELIPAD) {
   const heli = {
-    ...HELIPAD, y: groundHeight(HELIPAD.x, HELIPAD.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
+    ...pad, y: groundHeight(pad.x, pad.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
     fuel:100, hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
   flightStates.set(heli, { vx: 0, vy: 0, vz: 0, tiltX: 0, tiltZ: 0, yawRate: 0, sideContact: false, floorContact: false });
   return heli;
 }
 
-export function damageHelicopter(world, damage, players, shooterId = null,team,owner) {
-  const heli = world.heli;
+export function damageHelicopter(world, damage, players, shooterId = null,team,owner,kind='heli') {
+  const heli = world[kind];
   if (heli.wrecked || !(damage > 0) || !Number.isFinite(damage)) return false;
   if (shooterId != null && shooterId === heli.pilot) return false;
   heli.hp = Math.max(0, heli.hp - damage);
@@ -59,8 +61,8 @@ function airPosition(h,motion,dt){
     z:clamp(h.z+motion.vz*dt,flightBounds.north,flightBounds.south)};
 }
 
-function driftAfterBailout(world, dt, players) {
-  const h = world.heli, motion = flightStates.get(h);
+function driftAfterBailout(world, dt, players,kind='heli') {
+  const h = world[kind], motion = flightStates.get(h);
   h.abandonedFor += dt;
   const coasting = h.abandonedFor <= COAST_SECONDS;
   // A hovering craft tips gently forward. A moving craft retains its existing course.
@@ -77,32 +79,32 @@ function driftAfterBailout(world, dt, players) {
     // At a side impact retain the last clear position instead of jumping atop the obstacle.
     if (h.y >= floor) Object.assign(h, {x, y:floor, z});
     const water=floor===MAP.waterY+.6 && crashAircraftInWater(world,h,x,z,Math.hypot(motion.vx,motion.vz),motion.vy);
-    damageHelicopter(world, h.hp, players);
+    damageHelicopter(world, h.hp, players,null,undefined,undefined,kind);
     if(water)h.recoverySeconds=8;
     return;
   }
   Object.assign(h, {x,y,z});
 }
 
-export function recoverHelicopter(world, dt, players) {
-  const heli = world.heli;
-  if(heli.pilot==null && !heli.wrecked && heli.abandonedFor==null && (flightStates.get(heli).roofDrop || lostRoof(world))){
-    fly(world,{x:0,z:0,lift:0,aimYaw:heli.yaw},dt,players);
+export function recoverHelicopter(world, dt, players,kind='heli') {
+  const heli = world[kind];
+  if(heli.pilot==null && !heli.wrecked && heli.abandonedFor==null && (flightStates.get(heli).roofDrop || lostRoof(world,kind))){
+    fly(world,{x:0,z:0,lift:0,aimYaw:heli.yaw},dt,players,kind);
     return;
   }
-  if (heli.abandonedFor != null) return driftAfterBailout(world, dt, players);
+  if (heli.abandonedFor != null) return driftAfterBailout(world, dt, players,kind);
   if (!heli.wrecked) return;
   if(heli.sinking){
     stepAircraftSinking(world,heli,dt);
     heli.recoverySeconds=Math.max(0,heli.recoverySeconds-dt);
-    if(heli.recoverySeconds<.0001)world.heli=parkedHelicopter();
+    if(heli.recoverySeconds<.0001)world[kind]=parkedHelicopter(kind==='heli2'?SECOND_HELIPAD:HELIPAD);
     return;
   }
   const ground = Math.max(groundHeight(heli.x, heli.z, Infinity,world.doors), MAP.waterY);
   heli.y = Math.max(ground, heli.y - dt * 6);
   heli.grounded = heli.y <= ground;
   heli.recoverySeconds = Math.max(0, heli.recoverySeconds - dt);
-  if (heli.recoverySeconds < 0.0001) world.heli = parkedHelicopter();
+  if (heli.recoverySeconds < 0.0001) world[kind] = parkedHelicopter(kind==='heli2'?SECOND_HELIPAD:HELIPAD);
 }
 
 // Only the stopped component of a motion counts. A skimming hit loses less
@@ -161,17 +163,17 @@ function flightFloor(x, z, hp,world) {
   return floor;
 }
 
-function lostRoof(world){
-  const h=world.heli;
+function lostRoof(world,kind='heli'){
+  const h=world[kind];
   return CITY && h.grounded && !h.onYacht && collapsedLot(MAP.buildings,world.doors,h.x,h.z) &&
     h.y>flightFloor(h.x,h.z,world.hp,world)+.22;
 }
 
-export function fly(world, input, dt, players) {
-  const h = world.heli;
+export function fly(world, input, dt, players,kind='heli') {
+  const h = world[kind];
   if(h.wrecked)return;
   const motion=flightStates.get(h);
-  if(lostRoof(world)){
+  if(lostRoof(world,kind)){
     h.grounded=false;motion.floorContact=false;motion.roofDrop=true;
   }
   const outOfFuel=h.fuel===0;
@@ -215,13 +217,13 @@ export function fly(world, input, dt, players) {
   const floorContact = nextY <= minY && motion.vy <= 0;
   if(floorContact && outOfFuel && !landable && floor===MAP.waterY+.6){
     const water=crashAircraftInWater(world,h,h.x,h.z,Math.hypot(motion.vx,motion.vz),motion.vy);
-    damageHelicopter(world,h.hp,players);
+    damageHelicopter(world,h.hp,players,null,undefined,undefined,kind);
     if(water)h.recoverySeconds=8;
     return;
   }
   if(floorContact && floor===MAP.waterY+.6 && !landable &&
       crashAircraftInWater(world,h,h.x,h.z,Math.hypot(motion.vx,motion.vz),motion.vy)){
-    damageHelicopter(world,h.hp,players);
+    damageHelicopter(world,h.hp,players,null,undefined,undefined,kind);
     h.recoverySeconds=8;
     return;
   }
@@ -231,7 +233,7 @@ export function fly(world, input, dt, players) {
       const y=world.yacht;
       stoppedSpeed=Math.hypot(motion.vx-y.speed*Math.sin(y.yaw),motion.vy,motion.vz+y.speed*Math.cos(y.yaw));
     }
-    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)));
+    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)),kind);
   }
   motion.floorContact = floorContact;
   h.y = clamp(nextY, minY, flightBounds.ceiling);
@@ -263,14 +265,14 @@ export function fly(world, input, dt, players) {
   }
   const stoppedSpeed = Math.hypot(stoppedX, stoppedZ);
   if (stoppedSpeed > 0 && !motion.sideContact) {
-    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)));
+    damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)),kind);
   }
   motion.sideContact = stoppedSpeed > 0;
 
 }
 
-export function interact(world, player) {
-  const heli = world.heli;
+export function interact(world, player,kind='heli') {
+  const heli = world[kind];
   if (heli.wrecked) return;
   const gunning=heli.gunner===player.id;
   if (!heli.grounded) {

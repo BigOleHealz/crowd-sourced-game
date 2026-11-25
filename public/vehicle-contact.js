@@ -35,13 +35,13 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
   result.ceiling=yachtCeilingAt(world.yacht,x,y,z)-height;
   jetWalkContact(result,world.jet,x,y,z,radius,height);
   const boats=world.boats??[];
-  const traffic=world.traffic??[],patrol=world.patrolCars??[],firstCar=4+boats.length;
+  const traffic=world.traffic??[],patrol=world.patrolCars??[],firstCar=5+boats.length;
   for(let index=0;index<firstCar+traffic.length+patrol.length;index++) {
-    const kind=index===0?'heli':index===1?'rover':index===2?'supercar':index===3?'tank':index<firstCar?'boat':'traffic';
-    const vehicle=kind==='traffic'?(traffic[index-firstCar]??patrol[index-firstCar-traffic.length]):kind==='boat'?boats[index-4]:world[kind];
+    const kind=index===0?'heli':index===1?'heli2':index===2?'rover':index===3?'supercar':index===4?'tank':index<firstCar?'boat':'traffic';
+    const vehicle=kind==='traffic'?(traffic[index-firstCar]??patrol[index-firstCar-traffic.length]):kind==='boat'?boats[index-5]:world[kind];
     if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || vehicle.crushed || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli' ? helicopter : humveeWalkShapes;
+    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli'||kind==='heli2' ? helicopter : humveeWalkShapes;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;

@@ -24,6 +24,7 @@ export function nextUse(world,feet,id,wanted){
   if(world.tank?.driver===id || world.tank?.gunner===id)return action('tank','exit','Exit tank');
   if(world.jet?.pilot===id)return action('jet','exit',world.jet.grounded?'Exit jet':'Bail out of jet');
   if(world.heli.pilot===id || world.heli.gunner===id)return action('heli','exit',world.heli.grounded?'Exit helicopter':'Bail out of helicopter');
+  if(world.heli2?.pilot===id || world.heli2?.gunner===id)return action('heli2','exit',world.heli2.grounded?'Exit helicopter':'Bail out of helicopter');
   if(boat)return action(boat.id,'exit',boat.boatModel?'Disembark '+boat.name:'Disembark patrol boat');
   const yacht=yachtPrompt(world,feet,id);
   if(yacht && ['leave','leaveGun','helm','gun'].includes(yacht)){
@@ -44,7 +45,7 @@ export function nextUse(world,feet,id,wanted){
   }
   const nearby=nearestVehicle(world,feet);
   if(nearby){
-    const v=world[nearby],heli=nearby==='heli',gunner=(heli?v.pilot:v.driver)!=null;
+    const v=world[nearby],heli=nearby==='heli'||nearby==='heli2',gunner=(heli?v.pilot:v.driver)!=null;
     const name=heli?'helicopter':names[nearby];
     offer(v,nearby,gunner?'gunner':'drive',gunner?'Join '+name+' turret':(heli?'Pilot ':'Drive ')+name);
   }
