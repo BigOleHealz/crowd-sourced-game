@@ -11,14 +11,16 @@ import {roadGarages} from './road-garages.js';
 import {churchPath} from './ridge-church.js';
 import {skatePark} from './skate-park.js';
 import {basketballCourt} from './basketball-layout.js';
+import {runwayStart,outpostRunwayStart} from './runway-layout.js';
 
 export const destinations=CITY?new Map([
+  ['Airstrip · Jet',[runwayStart.x,runwayStart.z]],
   [fuelStop.name,[fuelStop.x,fuelStop.roadZ]],['Lantern Point Marina',[49,-377]],['East Quay Guest Docks',[66,-419]],['East Quay Jetty',[87,-408.7]],['Mangle Café',[0,14]],[bankSite.name,[bankSite.x,bankRoadZ]],['Club Lucero',[clubDoor.x+1.5,clubDoor.z]],['Hotel Maravela',[-16,-45]],['Harbor Key Beach',[32,-205]],['Harbor Key Beach Club',[44.4,-201.85]],['Harbor Key Market',[19.1,-205]],['Lantern Point Estates',[-49,-419]],
   [reefDiveSite.name,[reefDiveSite.x,reefDiveSite.z]],
   [skatePark.name,[39.35,-156.35]],
   [casinoName,[valet.x,valet.z]],
   [basketballCourt.name,[basketballCourt.x-basketballCourt.width/2,basketballCourt.z+2.7]],
-]):new Map([['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
+]):new Map([['Airstrip · Jet',[outpostRunwayStart.x,outpostRunwayStart.z]],['Meadow Church',[0,-53]],['Ridge Lookout',[5,-80]],['Creek Lookout',[-4,-24]],['Trailhead',[0,15]]]);
 
 for(const garage of roadGarages)destinations.set(garage.name,[garage.x,garage.z]);
 for(const site of fuelSites)if(!destinations.has(site.name))destinations.set(site.name,[site.x,site.z]);
@@ -55,9 +57,11 @@ if(CITY){
   path([[49,-419],[61,-419],[66,-419]]);
   path([[61,-419],[61,-408.7],destinations.get('East Quay Jetty')]);
   path([[49,-370],destinations.get(roadGarages[1].name)]);
+  path([[-71,-45],[-71,-50],[-120,-50],destinations.get('Airstrip · Jet')]);
 }else{
   path(MAP.trail);path(MAP.northTrail);path(churchPath);
   path([[0,15],[-3,19.5],[-8,20.5],destinations.get(roadGarages[0].name)]);
+  path([[0,15],[18,20],destinations.get('Airstrip · Jet')]);
 }
 
 function project(p,a,b){

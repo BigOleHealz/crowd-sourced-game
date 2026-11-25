@@ -71,6 +71,7 @@ import { createScene } from './scene.js';
 import { gunnerVehicle, gunnerFeet, vehicleById } from './mounts.js';
 import { drivenRoad } from './rover.js';
 import { streetPlan, coast, harbor, causeway } from './brickell-map.js';
+import {runway,outpostRunway} from './runway-layout.js';
 import { CITY, MAP, travelBounds, BREAKABLES, stepPlayer } from './world.js';
 
 import {reefDiveSite} from './reef-channel.js';
@@ -1359,6 +1360,10 @@ function drawMap(player, remotes, yaw) {
     ctx.beginPath();path.forEach(([x,z],i)=>i?ctx.lineTo(sx(x),sy(z)):ctx.moveTo(sx(x),sy(z)));ctx.stroke();
   }
   }
+  const strip=CITY?runway:outpostRunway;
+  ctx.fillStyle='#303c40';ctx.strokeStyle='#f4e5bb';ctx.lineWidth=1;
+  ctx.fillRect(sx(strip.west),sy(strip.north),(strip.east-strip.west)*scale,(strip.south-strip.north)*scale);
+  ctx.strokeRect(sx(strip.west),sy(strip.north),(strip.east-strip.west)*scale,(strip.south-strip.north)*scale);
   if(!CITY){
     ctx.fillStyle='#f2dfc2';ctx.font='bold 11px sans-serif';ctx.textAlign='center';
     ctx.fillText('Church',sx(church.x),sy(church.z));
@@ -1387,7 +1392,22 @@ function drawMap(player, remotes, yaw) {
   ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
   ctx.fillStyle = '#ffae60'; ctx.fillText('H', sx(heli.x), sy(heli.z) - 4);
   if(world.tank){ctx.fillStyle='#dae5a1';ctx.fillText('T',sx(world.tank.x),sy(world.tank.z)-4);}
-  if(world.jet){ctx.fillStyle='#9de3ff';ctx.fillText('J',sx(world.jet.x),sy(world.jet.z)-4);}
+  if(world.jet){
+    const x=sx(world.jet.x),y=sy(world.jet.z),distance=Math.round(Math.hypot(player.x-world.jet.x,player.z-world.jet.z));
+    ctx.save();ctx.fillStyle='#9de3ff';
+    if(x<13 || x>w-13 || y<13 || y>h-13){
+      const edgeX=clamp(x,16,w-16),edgeY=clamp(y,16,h-16);
+      ctx.translate(edgeX,edgeY);ctx.rotate(Math.atan2(y-h/2,x-w/2));
+      ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-5,-5);ctx.lineTo(-5,5);ctx.closePath();ctx.fill();
+      ctx.restore();ctx.save();ctx.font='bold 10px sans-serif';ctx.textAlign=edgeX<w/2?'left':'right';
+      ctx.strokeStyle='#16353d';ctx.lineWidth=3;
+      const label='JET '+distance+'m',labelX=edgeX+(edgeX<w/2?10:-10),labelY=clamp(edgeY+3,12,h-4);
+      ctx.strokeText(label,labelX,labelY);ctx.fillText(label,labelX,labelY);
+    }else{
+      ctx.strokeStyle='#173640';ctx.lineWidth=3;ctx.strokeText('JET',x,y-4);ctx.fillText('JET',x,y-4);
+    }
+    ctx.restore();
+  }
   ctx.fillStyle = '#ffe085'; ctx.fillText('R',sx(world.rover.x),sy(world.rover.z)-4);
   if(world.supercar){ctx.fillStyle='#ff9651';ctx.fillText('GT',sx(world.supercar.x),sy(world.supercar.z)-4);}
   for(const b of world.boats??[]){
