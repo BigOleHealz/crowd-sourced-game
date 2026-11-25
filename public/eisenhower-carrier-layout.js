@@ -43,6 +43,25 @@ export const carrierRampSegments=[
   [carrierRamp.shore,carrierRamp.turn],
   [carrierRamp.turn,carrierRamp.deck],
 ];
+export function carrierRampRailSpan(segment,length){
+  return {start:segment===0?0:2/length,end:1-2/length};
+}
+export function carrierRampRailBlocked(x,y,z,height=1.7,radius=.32){
+  for(const [segment,[a,b]] of carrierRampSegments.entries()){
+    const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
+    const {start,end}=carrierRampRailSpan(segment,length);
+    const sideX=-dz/length*carrierRamp.width/2,sideZ=dx/length*carrierRamp.width/2;
+    for(const side of [-1,1]){
+      const ax=a.x+dx*start+side*sideX,az=a.z+dz*start+side*sideZ;
+      const bx=a.x+dx*end+side*sideX,bz=a.z+dz*end+side*sideZ;
+      const t=Math.max(0,Math.min(1,((x-ax)*(bx-ax)+(z-az)*(bz-az))/((bx-ax)**2+(bz-az)**2)));
+      if((x-ax-(bx-ax)*t)**2+(z-az-(bz-az)*t)**2>(radius+.07)**2)continue;
+      const railY=a.y+(b.y-a.y)*(start+(end-start)*t);
+      if(y<railY+1.1 && y+height>railY+.35)return true;
+    }
+  }
+  return false;
+}
 export function carrierRampHeight(x,z,maxBottom=Infinity){
   let top;
   for(const [a,b] of carrierRampSegments){
