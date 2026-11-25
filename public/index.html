@@ -15,6 +15,11 @@
   <div id="play-reticle" aria-hidden="true"></div>
   <div id="flight-cursor" hidden aria-hidden="true"></div>
   <div id="damage-edges" aria-hidden="true"></div>
+  <aside id="player-scoreboard" hidden aria-label="Player scoreboard">
+    <header><strong>Scoreboard</strong><span id="scoreboard-count">0 players</span></header>
+    <table><thead><tr><th scope="col">Player</th><th scope="col">Team</th><th scope="col">Kills</th><th scope="col">Deaths</th><th scope="col">Health</th></tr></thead><tbody id="scoreboard-players"></tbody></table>
+    <small>Hold Tab to view</small>
+  </aside>
   <header class="mast">
     <div class="world-name"><h1>Goy Theft Auto</h1><select id="map-choice" aria-label="Playable map and game mode"><option value="brickell">Brickell · Miami</option><option value="outpost">Rural Outpost</option></select></div>
     <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="degrees">000°</span><span id="right-bearing">NE</span></div>
@@ -88,6 +93,7 @@
   <section id="guide" hidden aria-label="Controls">
     <div class="guide-heading"><h2>Field controls</h2><button id="close-guide" aria-label="Close controls">×</button></div>
     <label class="volume-control" for="sound-volume">Game volume <input id="sound-volume" type="range" min="0" max="100" step="1" value="60"><output id="sound-level" for="sound-volume">60%</output></label>
+    <p>Hold <kbd>Tab</kbd> during play to view the player scoreboard.</p>
     <a href="/marina-lifebuoy-credits.txt" target="_blank" rel="noopener">Marina lifebuoy credits</a>
     <a href="/player-credits.txt" target="_blank" rel="noopener">Character model credits</a>
     <a href="/scuba-diver-credits.txt" target="_blank" rel="noopener">Scuba diver model credits</a>

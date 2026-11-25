@@ -131,6 +131,23 @@ const camera = { yaw: 0, pitch: -0.15, distance: 5.6 };
 let lastGlass=0;
 let roverView = null, roadImpact=null;
 const held = new Set();
+const scoreboard=byId('player-scoreboard');
+let scorePlayers=[];
+function renderScoreboard(){
+  const ordered=[...scorePlayers].sort((a,b)=>(b.score?.kills??0)-(a.score?.kills??0) ||
+    (a.score?.deaths??0)-(b.score?.deaths??0) || a.id-b.id);
+  byId('scoreboard-count').textContent=ordered.length+' player'+(ordered.length===1?'':'s');
+  const body=byId('scoreboard-players');body.replaceChildren();
+  for(const player of ordered){
+    const row=document.createElement('tr');
+    if(player.id===id)row.className='self';
+    const cells=[(player.id===id?'You · ':'')+'Player '+player.id,
+      player.team==null?'—':String(player.team),player.score?.kills??0,
+      player.score?.deaths??0,Math.max(0,Math.round(player.hp??0))];
+    for(const value of cells){const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}
+    body.append(row);
+  }
+}
 let stickX=0, stickY=0;
 const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null, releaseSwimTrigger=false;
@@ -337,7 +354,7 @@ document.addEventListener('pointerlockchange',()=>{
     if(!touchBlocked() && !windowBlurred && !document.hidden){lookPaused=false;canvas.classList.remove('look-paused');}
   }else releaseLook();
 });
-function pauseControls() { releaseLook(); }
+function pauseControls() { scoreboard.hidden=true;releaseLook(); }
 byId('sound-mute').onclick = e => {
   audio.toggleMute();
   if (e.detail && byId('guide').hidden) canvas.focus({ preventScroll: true });
@@ -392,6 +409,12 @@ window.addEventListener('keydown', e => {
     if(['Escape','KeyE'].includes(e.code)){e.preventDefault();talk.close();}
     else if(['Digit1','Digit2','Digit3'].includes(e.code)){e.preventDefault();talk.answer(Number(e.key)-1);}
     else if(['KeyW','KeyA','KeyS','KeyD'].includes(e.code)){e.preventDefault();talk.close();held.add(e.code);}
+    return;
+  }
+  if(e.code==='Tab' && byId('guide').hidden &&
+    !e.target.closest?.('input, select, textarea, button, [contenteditable]')){
+    e.preventDefault();
+    if(!e.repeat){renderScoreboard();scoreboard.hidden=false;}
     return;
   }
   if (e.key.toLowerCase() === 'm' && !e.target.closest?.('input, select, textarea, [contenteditable]')) {
@@ -582,7 +605,7 @@ function pressAction(code){
     } else if(!self?.swimming && !vitals.swimming && !self?.ride){weapon=number;if(manualHolster && canHandleGear())setHolster(false);if(camera.sighted)showSight(!meleeItems[number]);}
   }
 }
-window.addEventListener('keyup', e => held.delete(e.code));
+window.addEventListener('keyup', e => {held.delete(e.code);if(e.code==='Tab')scoreboard.hidden=true;});
 // A visible embedded document can receive pointer events before it has keyboard focus.
 window.addEventListener('blur', () => { windowBlurred = true; pauseControls(); });
 window.addEventListener('focus', () => { windowBlurred = false; });
@@ -745,6 +768,8 @@ function connect() {
       const beforeDriverKind=predictedDriver?.kind;
       const authoritative = m.players.find(p => p.id === id);
       if (!authoritative) return;
+      scorePlayers=m.players;
+      if(!scoreboard.hidden)renderScoreboard();
       pending = pending.filter(cmd => cmd.seq > authoritative.ack);
       if(zombies && m.world.survival?.phase==='finished' && world.survival?.phase!=='finished'){
         if(document.pointerLockElement===canvas)document.exitPointerLock();
@@ -832,6 +857,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
+    scoreboard.hidden=true;scorePlayers=[];
     casino.close();elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
     damageEdges.reset();
