@@ -3,6 +3,7 @@ import {activeCast} from './pier-fishing.js';
 import {diveMotion} from './estate-diving.js';
 import {rungPitch} from './marina-platform.js';
 import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
+import {isCheetahCar} from './supercar-layout.js';
 import {boatHelm,helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
 import {newGait,advanceGait,newFoot,placeFoot,bootSupport,fitPlantedBoot} from './locomotion.js';
@@ -92,7 +93,7 @@ export function poseRoadBoarding(avatar,car,action){
   root.rotation.set((car.suspension?.pitch??0)*enter,-car.yaw-1.57*(1-enter),(car.suspension?.roll??0)*enter,'YXZ');
   const crouch=approach*(1-enter)*Math.max(.12,1.13-cabin.handle[1]);
   body.position.set(0,-crouch,0);
-  spine.rotation.set(-.24*approach*(1-enter)+(car.kind==='supercar' ? .35*enter : 0),0,0);
+  spine.rotation.set(-.24*approach*(1-enter)+(isCheetahCar(car) ? .35*enter : 0),0,0);
   for(const limb of limbs){
     const {leg,knee,ankle,arm,forearm,side}=limb;
     const bend=crouch*2;
@@ -192,7 +193,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
   const helm=seated?.id && !trafficSeat;
   const helmPosition=helm?boatHelm(seated):null;
   const cabin=seated && !helm ? roadCabin(seated) : null;
-  const lowCockpit=seated?.kind==='supercar';
+  const lowCockpit=isCheetahCar(seated);
   avatar.root.scale.setScalar(cabin?.scale??helmPosition?.scale??1);
   if (avatar.civilian){avatar.root.scale.x*=avatar.civilian.width;avatar.root.scale.y*=avatar.civilian.height;}
   if (seated) {

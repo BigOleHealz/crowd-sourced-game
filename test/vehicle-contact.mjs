@@ -34,3 +34,12 @@ state={...flat,y:flat.y+3.4,vy:-1,grounded:false};
 for(let i=0;i<50;i++)state=stepPlayer(state,{},1/30,{},world);
 assert.ok(state.grounded && Math.abs(state.y-(flat.y+(CITY ? 1.66 : 1.60)))<.01,'land on the local vehicle roof');
 console.log('PASS rotated pickup, jeep and helicopter hulls, hovering clearance, displacement and vehicle roof landing.');
+
+const cheetah={kind:'supercar',x:9,y:1.5,z:-7,yaw:.73};
+for(const [side,along,height] of [[1,0,.5],[0,0,1.21],[.8,1,.8],[1.6,0,.5]]){
+  const p=worldPoint(cheetah,side,along,height);
+  const expected=vehicleContact(p.x,p.y,p.z,{supercar:cheetah},true);
+  for(const model of ['falco','veloce'])assert.deepEqual(
+    vehicleContact(p.x,p.y,p.z,{traffic:[{...cheetah,kind:'valet-'+model,model}]},true),expected,
+    'All Cheetah paint variants share the same walking collider');
+}

@@ -1,8 +1,6 @@
 // One seamless one-second loop per timbre, shared by all cars of that model.
 // Integer harmonics preserve phase at the loop boundary.
 const engines={
-  falco:{pulse:68,harmonics:[.23,.35,.19,.13,.075,.025],gears:[9,16,24,30],rev:2.1},
-  veloce:{pulse:52,harmonics:[.43,.25,.11,.13,.05,.03],gears:[8,15,22,28],rev:2.2},
   hatchback:{pulse:47,harmonics:[.24,.31,.19,.14,.08,.04],gears:[5.4,10,16],rev:1.9},
   engine:{pulse:21,harmonics:[.45,.21,.11,.23,.08,.03],gears:[3,6.5,10],rev:1.25},
   sedan:{pulse:38,harmonics:[.44,.31,.15,.065,.03,.005],gears:[6,12,19],rev:1.75},

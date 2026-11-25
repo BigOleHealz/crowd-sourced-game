@@ -1,10 +1,16 @@
+import {supercarLayout} from './supercar-layout.js';
+
 // Dimensions match the civilian bodies. Force divided by mass determines how
 // quickly each model gains or sheds speed under either AI or player control.
+const cheetah={name:supercarLayout.name,nose:-supercarLayout.halfLength,tail:supercarLayout.halfLength,
+  skinHeight:supercarLayout.roof,bodyWidth:supercarLayout.halfWidth,axles:supercarLayout.wheels,wheelTrack:supercarLayout.wheelTrack,
+  tire:supercarLayout.tire,halfTread:.128,mass:supercarLayout.mass,driveForce:supercarLayout.driveForce,
+  brakeForce:supercarLayout.brakeForce,topSpeed:supercarLayout.maxSpeed,reverseSpeed:supercarLayout.reverseSpeed,
+  turnRate:1.62,halfWidth:supercarLayout.halfWidth,halfLength:supercarLayout.halfLength,
+  roof:supercarLayout.roof,corner:supercarLayout.corner,belt:.70,cabin:[-.98,.93]};
 export const civilianProfiles={
-  falco:{name:'Cheetah',nose:-2.44,tail:2.44,skinHeight:1.20,bodyWidth:1.16,axles:[-1.28,1.39],wheelTrack:[.92,.967],tire:.342,halfTread:.12,mass:1450,driveForce:24000,brakeForce:43500,topSpeed:30,reverseSpeed:5.8,turnRate:1.62,
-    halfWidth:1.17,halfLength:2.45,roof:1.20,corner:.20,belt:.70,cabin:[-.98,.93]},
-  veloce:{name:'Cheetah',nose:-2.44,tail:2.44,skinHeight:1.20,bodyWidth:1.16,axles:[-1.28,1.39],wheelTrack:[.92,.967],tire:.342,halfTread:.12,mass:1450,driveForce:24000,brakeForce:43500,topSpeed:30,reverseSpeed:5.8,turnRate:1.62,
-    halfWidth:1.17,halfLength:2.45,roof:1.20,corner:.20,belt:.70,cabin:[-.98,.93]},
+  falco:cheetah,
+  veloce:cheetah,
   engine:{nose:-3.50,tail:3.49,skinHeight:2.32,bodyWidth:1.03,axles:[-2.65,2.29],tire:.408,halfTread:.13,mass:7400,driveForce:26200,brakeForce:45600,topSpeed:13.3,reverseSpeed:3.2,cruise:6.5,
     halfWidth:1.05,halfLength:3.50,roof:2.32,corner:.20,belt:1.23,cabin:[-3.30,3.46]},
   sedan:{nose:-2.08,tail:2.12,skinHeight:1.52,bodyWidth:.86,axles:[-1.34,1.30],tire:.317,halfTread:.10,mass:1460,driveForce:10300,brakeForce:19300,topSpeed:18,reverseSpeed:4.5,cruise:5.6,turnRate:1.62,

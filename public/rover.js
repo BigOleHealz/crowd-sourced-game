@@ -6,7 +6,7 @@ import {strikeFittings} from './road-fittings.js';
 import {roadGrip} from './road-surface.js';
 import {civilianProfiles} from './civilian-fleet.js';
 import {onBridgeDeck,launchAtLip,advanceBridgeFlight,roadTouchdown} from './bridge-driving.js';
-import {supercarLayout} from './supercar-layout.js';
+import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {breakRoadObstacle} from './road-obstacle-damage.js';
 import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
@@ -205,7 +205,7 @@ export function driveRover(world, input, dt, players,kind='rover') {
     return;
   }
   if (r?.driver == null) return;
-  const sport=kind==='supercar',profile=civilianProfiles[r.model];
+  const sport=isCheetahCar(r),profile=civilianProfiles[r.model];
   const throttle=input.throttle || 0, steer=input.steer || 0;
   const reverseLimit=sport ? supercarLayout.reverseSpeed : profile?.reverseSpeed??(CITY ? 5.4 : 2.8);
   const topSpeed=sport?supercarLayout.maxSpeed:profile?.topSpeed??16;

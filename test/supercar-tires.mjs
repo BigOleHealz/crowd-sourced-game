@@ -13,6 +13,9 @@ for(const [i,[side,z]] of wheelsFor(car).entries()){
   const dir={x:-Math.sign(side)*c*2.2,y:0,z:-Math.sign(side)*s*2.2};
   const from={x:car.x+x*c-z*s,y:car.y+.35,z:car.z+z*c+x*s};
   assert.equal(roverRoundContact(car,from,dir)?.wheel,i);
+  for(const model of ['falco','veloce'])assert.deepEqual(
+    roverRoundContact({...car,kind:'valet-'+model,model},from,dir),roverRoundContact(car,from,dir),
+    'Cheetah paint variants share wheel and body shot colliders');
   world.bullets=[{...from,id:i,weapon:1,shooter:1,vx:dir.x*30,vy:0,vz:dir.z*30,left:20,age:0}];
   advanceRounds(world,new Map(),[],i);
   assert.equal(car.flatTires,(1<<(i+1))-1);

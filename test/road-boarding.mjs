@@ -27,7 +27,7 @@ console.log('PASS right palm follows actual door handle, both palms reach tilted
 // final boarding frame. Raising the entire actor would also move the wheel grips.
 const floors=[
   [{},.65],[{kind:'supercar'},.235],
-  ...Object.entries({sedan:.397,hatchback:.397,van:.452,engine:.58,falco:.38,veloce:.38})
+  ...Object.entries({sedan:.397,hatchback:.397,van:.452,engine:.58,falco:.235,veloce:.235})
     .map(([model,height])=>[{model,id:model,npcDriver:null},height]),
 ];
 for(const [spec,floorY] of floors){

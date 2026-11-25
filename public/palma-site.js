@@ -1,3 +1,5 @@
+import {supercarLayout} from './supercar-layout.js';
+
 // The set-out uses the game's Y-up coordinates. Every dimension is in metres.
 export const fanHall=[[-88.5,32],[-74,32],[-74,35.5],[-69,35.5],[-69,52],[-74,52],[-74,62],[-88.5,62]];
 export const arcade=[[-73,70],[-48,70],[-48,76],[-35,76],[-35,95],[-73,95]];
@@ -12,8 +14,8 @@ export const shorePads=[
 export const valet={x:-63.9,z:44}, fountain={x:-54.6,z:44,r:6.05};
 // Salt Arcade curbside display bays. Each nose turns out toward the street.
 export const displayBays=[
-  {model:'falco',x:-62,z:67.35,yaw:-Math.PI*4/9,hp:200},
-  {model:'veloce',x:-54,z:67.35,yaw:Math.PI*4/9,hp:195},
+  {model:'falco',x:-62,z:67.35,yaw:-Math.PI*4/9,hp:supercarLayout.maxHp},
+  {model:'veloce',x:-54,z:67.35,yaw:Math.PI*4/9,hp:supercarLayout.maxHp},
 ];
 export const resortArrivals=new Map([
   ['palma',{x:-67.4,y:1.8,z:43.4,yaw:-Math.PI/2}],
