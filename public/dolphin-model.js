@@ -43,7 +43,8 @@ export function makeDolphinModel(template){
   const scene=cloneSkeleton(template.scene);
   scene.position.sub(template.center);
   const oriented=new THREE.Group();
-  oriented.rotation.y=-Math.PI/2;
+  // The GLB's beak points along +X; the swim view faces local -Z.
+  oriented.rotation.y=Math.PI/2;
   oriented.scale.setScalar(template.scale);
   oriented.add(scene);
   const mixer=new THREE.AnimationMixer(scene);
