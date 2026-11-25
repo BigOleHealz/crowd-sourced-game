@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import {MAP,stepPlayer} from '../public/world.js';
-import {cityGround,coastalBedHeight} from '../public/brickell-map.js';
+process.env.PINEWATCH_MAP='brickell';
+const {MAP,stepPlayer}=await import('../public/world.js');
+const {cityGround,coastalBedHeight}=await import('../public/brickell-map.js');
 
 assert.equal(MAP.waterY,-.14,'run this test on the Brickell map');
 
@@ -29,5 +30,13 @@ assert(Math.abs(shallow.y-coastalBedHeight(44,0))<.001,'feet land on visible san
 shallow=stepPlayer(shallow,{},1/30);
 assert(shallow.grounded && Math.abs(shallow.y-coastalBedHeight(44,0))<.001,
   'walking on the apron keeps its support on the next tick');
+
+let surface={x:48.6,z:0,y:MAP.waterY-.72,swimming:true,grounded:false,vx:0,vz:0,vy:0};
+for(let i=0;i<50;i++){
+  surface=stepPlayer(surface,{x:-1},1/30);
+  assert(surface.y>=coastalBedHeight(surface.x,0)-.001,
+    'surface swimmer crosses shallows without entering visible sand');
+}
+assert(surface.grounded && surface.x<43,'surface swimmer can reach dry land');
 
 console.log('PASS submerged swimmer meets the sand apron, descends to its surface and can rise again.');
