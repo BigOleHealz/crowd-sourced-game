@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
+import {marineSurfaceMaterial} from './manatee-model.js';
 
 let templatePromise;
 
@@ -25,11 +26,12 @@ function grayCoastalSkin(material){
   material.customProgramCacheKey=()=>'gray-coastal-dolphin-v1';
 }
 
-export function loadDolphinModel(){
+export function loadDolphinModel(waterline,clock){
   return templatePromise??=new GLTFLoader().loadAsync('./common-dolphin.glb').then(gltf=>{
     gltf.scene.traverse(node=>{
       if(node.isMesh){
         grayCoastalSkin(node.material);
+        marineSurfaceMaterial(node.material,waterline,clock);
         node.castShadow=true;
       }
     });

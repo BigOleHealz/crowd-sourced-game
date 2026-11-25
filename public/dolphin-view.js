@@ -104,7 +104,7 @@ function dolphinSkin(water,clock,stroke){
 export function dolphinView(scene,water){
   const clock={value:0},models=[],impacts=aquaticImpactView(scene,water,dolphinSizes);
   let nearShape,farShape,ring,template;
-  loadDolphinModel().then(loaded=>{
+  loadDolphinModel(water,clock).then(loaded=>{
     template=loaded;
     for(const instance of models)if(instance)attachModel(instance);
   }).catch(error=>console.warn('Dolphin model unavailable; using the built-in dolphin.',error));

@@ -2,7 +2,7 @@ import {floatingBody} from './marine-float.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {clone as cloneSkeleton} from 'three/addons/utils/SkeletonUtils.js';
-import {manateeMaterial} from './manatee-model.js';
+import {manateeMaterial,marineSurfaceMaterial} from './manatee-model.js';
 import {aquaticImpactView} from './aquatic-impact-view.js';
 import {sharkFeedingSpray} from './shark-feeding-spray.js';
 import {sharkSizes} from './shark-swim.js';
@@ -94,6 +94,11 @@ export function sharkView(scene,waterline){
   // Keep the procedural shark visible while the licensed art loads, and if
   // the download is unavailable. The loaded rig replaces it in place.
   if(typeof window!=='undefined')new GLTFLoader().load('./great-white-shark.glb',asset=>{
+    asset.scene.traverse(part=>{
+      if(!part.isMesh)return;
+      const coat=material=>marineSurfaceMaterial(material,waterline,clock);
+      part.material=Array.isArray(part.material)?part.material.map(coat):coat(part.material);
+    });
     sharkAsset=asset;
     for(const instance of models)if(instance)installAsset(instance);
   },undefined,error=>console.warn('Great white shark model unavailable; using procedural art.',error));
