@@ -8,6 +8,16 @@ export function tireMix(car){
     volume:Math.min(.37,speed*.024),flat:flatTireCount(car)};
 }
 
+export function tireScreechMix(car){
+  const speed=Math.abs(car.speed);
+  if(car.wrecked || car.bridgeFlight || speed<7.5)return null;
+  const corner=Math.max(0,(Math.abs(car.steer??0)*speed-2.4)/3);
+  const slip=Math.max(0,(Math.abs(car.lateralSpeed??0)-.9)/2);
+  const brake=car.braking?Math.min(1,(speed-7.5)/7):0;
+  const intensity=Math.min(1,Math.max(corner,slip,brake));
+  return intensity>.08 ? {volume:.11+.30*intensity,rate:.91+.15*intensity} : null;
+}
+
 // Each loop covers one nominal second. The flat's short rubber slap is
 // separate so the underlying surface stays audible through every revolution.
 export function tireLoop(context,surface){

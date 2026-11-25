@@ -18,7 +18,7 @@ import {isCheetahCar} from './supercar-layout.js';
 import {fallAudioTracker} from './collapse-sound-cues.js';
 import {MAP} from './world.js';
 import {signalingCruiser,sirenLoop} from './pursuit-signals.js';
-import {tireMix,tireLoop} from './tire-road-sound.js';
+import {tireMix,tireScreechMix,tireLoop} from './tire-road-sound.js';
 import {acousticSpace,transmission} from './acoustic-space.js';
 import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {tankDriveLoop,tankDriveMix} from './tank-drive-audio.js';
@@ -172,14 +172,25 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','vehicle-person-hit':'vehicle-person-hit','tank-car-crush':'tank-car-crush','tire-squeal':'tire-squeal','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
-        const res=await fetch('./audio/'+file+(name==='wood'?'.flac':name==='tank-car-crush'?'.mp3':'.ogg'));
+        const res=await fetch('./audio/'+file+(name==='wood'?'.flac':name==='tank-car-crush'||name==='tire-squeal'?'.mp3':'.ogg'));
         if(!res.ok)return;
         // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
         const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;
         const decoder=name==='crowd-reactions' && Offline ? new Offline(1,1,24000) : context;
-        buffers.set(name,await decoder.decodeAudioData(await res.arrayBuffer()));
+        const buffer=await decoder.decodeAudioData(await res.arrayBuffer());
+        if(name==='tire-squeal'){
+          const fade=Math.min(Math.floor(buffer.sampleRate*.12),Math.floor(buffer.length/3));
+          for(let channel=0;channel<buffer.numberOfChannels;channel++){
+            const samples=buffer.getChannelData(channel);
+            for(let i=0;i<fade;i++){
+              samples[i]*=i/fade;
+              samples[samples.length-1-i]*=i/fade;
+            }
+          }
+        }
+        buffers.set(name,buffer);
       }catch{/* Keep synthesized playback available on browsers without Opus. */}
     }));
   }
@@ -589,8 +600,13 @@ export function createGameAudio(button,slider,level,caption) {
         active.add(key+'flat');
         motor('tread/flat',car,true,mix.rate,mix.volume*(1+.18*mix.flat),listener,yaw,key+'flat');
       }
+      const screech=tireScreechMix(car),screechKey='screech/'+(car.id??car.kind??'rover');
+      if(screech && buffers.has('tire-squeal')){
+        active.add(screechKey);
+        motor('tire-squeal',car,true,screech.rate,screech.volume,listener,yaw,screechKey);
+      }
     }
-    for(const key of loops.keys())if(key.startsWith('tread/') && !active.has(key))stopMotor(key);
+    for(const key of loops.keys())if((key.startsWith('tread/') || key.startsWith('screech/')) && !active.has(key))stopMotor(key);
   }
   let lastJetRange=null,lastPatrol=null;
   function patrolSiren(listener,yaw,cars=[],dt=1/60){
