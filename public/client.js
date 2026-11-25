@@ -23,7 +23,7 @@ import {marketPanel} from './market-panel.js';
 import {atBeachClub,barMenu,beachClubAction,beachClubLabel,pourTicks} from './beach-club.js';
 import {inClub,inBoothAisle,nearClubDoor} from './club-lucero.js';
 import {breathSeconds} from './scuba.js';
-import {canSpearfish} from './spearfishing.js';
+import {canSpearfish,spearRange} from './spearfishing.js';
 import {fishSpecies} from './reef-fish.js';
 import {createTouchControls,touchLayout,touchUseLabel} from './touch-controls.js';
 import {inSkatePark} from './skate-park.js';
@@ -458,7 +458,8 @@ function spearReady(feet){
 }
 function castSpear(){
   if(!spearReady(self) || socket?.readyState!==WebSocket.OPEN)return;
-  socket.send(JSON.stringify({type:'spearfish',seq:++spearSequence,aimYaw:camera.yaw,aimPitch:camera.pitch}));
+  const aim=scene.aimAt(self,id,spearRange,'spear') || camera;
+  socket.send(JSON.stringify({type:'spearfish',seq:++spearSequence,aimYaw:aim.yaw,aimPitch:aim.pitch}));
 }
 function pressAction(code){
   if(code==='KeyF' && self?.swimming){castSpear();return;}
@@ -1277,7 +1278,8 @@ function updateEquipment(local) {
     if(recent && last.catch){
       const fish=last.catch;
       prompt.textContent='Caught '+fishSpecies[fish.species].name+' · '+fish.lengthCm+' cm · +'+fish.points+' pts';
-    }else if(recent)prompt.textContent='Miss · Aim at a nearby fish'+tally;
+    }else if(recent && last.hitKind)prompt.textContent='Hit '+last.hitKind+(last.hitDead?' · Defeated':' · '+last.hitHp+' HP left')+tally;
+    else if(recent)prompt.textContent='Miss · Aim at nearby fish or wildlife'+tally;
     else if(!sharkNearby)prompt.textContent=(touch.active?'Aim at a fish · Tap Spear':'Aim at a fish · F or click to spear')+tally;
   }
   if(local.swimming && local.outOfAir)prompt.textContent='Out of air · Surfacing';
