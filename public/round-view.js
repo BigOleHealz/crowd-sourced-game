@@ -25,7 +25,7 @@ export function flightRounds(scene) {
   const pose=new THREE.Object3D(),direction=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);
   const offsets=new Map(),tip=new THREE.Vector3(),forward=new THREE.Vector3(),origin=new THREE.Vector3();
   let frame=0;
-  return (bullets,visibleMuzzle)=>{
+  return (bullets,visibleMuzzle,localShooterId)=>{
     frame++;
     mesh.count=Math.min(bullets?.length??0,mesh.instanceMatrix.count);
     for(let i=0;i<mesh.count;i++){
@@ -36,7 +36,9 @@ export function flightRounds(scene) {
       // then converges on the server trajectory within its first four ticks.
       const age=r.visualAge??r.age;
       const jet=r.source==='jet';
-      if(age<4 && (jet || (r.weapon>=1 && r.weapon<=3)) && r.shooter!=null){
+      // The local reticle follows the replicated trajectory. Shifting that
+      // round toward the posed gun makes it visibly fly away from the aim point.
+      if(age<4 && r.shooter!==localShooterId && (jet || (r.weapon>=1 && r.weapon<=3)) && r.shooter!=null){
         let offset=offsets.get(r.id);
         if(!offset && visibleMuzzle(r.shooter,r.weapon,tip,r.source,forward)){
           origin.set(r.vx,r.vy,r.vz).multiplyScalar(-age/30).add(pose.position);

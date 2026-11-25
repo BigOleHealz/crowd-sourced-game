@@ -15,5 +15,8 @@ barrel.x=9;
 assert.equal(sample(1).x,2.25); // the airborne round was released from the old pose
 assert.equal(sample(0,2).x,9); // next shot follows the shooter's new pose
 assert.equal(sample(4,2).x,0); // converges on the replicated trajectory
+draw([{...bullet,id:3,z:0,visualAge:0}],(_actor,_gun,out)=>out.copy(barrel),7);
+mesh.getMatrixAt(0,matrix);
+assert.equal(p.setFromMatrixPosition(matrix).x,0); // local round stays on the aim trajectory
 draw([],()=>null);
 assert.equal(mesh.count,0);
