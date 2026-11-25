@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict';
 import {newExpedition, fire, firePilotGuns, fireTurret, advanceRounds, launchMissile, advanceMissiles, tracePulse} from '../public/expedition.js';
-import {mountPosition,mounts} from '../public/mounts.js';
+import {mountPosition,mounts,gunnerFeet} from '../public/mounts.js';
+import {roadSeat,roadCabin} from '../public/road-cabin.js';
+import {humveePassengerSeat} from '../public/humvee-layout.js';
 import {CITY} from '../public/world.js';
 import {newLife} from '../public/rivals.js';
+
+{
+  const rover=newExpedition().rover;
+  Object.assign(rover,{x:4,y:0,z:8,yaw:0,gunner:2,turretYaw:Math.PI/2});
+  assert.deepEqual(roadSeat(rover,2),humveePassengerSeat);
+  assert.deepEqual(gunnerFeet(rover,'rover'),mountPosition(rover,humveePassengerSeat));
+  assert.notDeepEqual(roadSeat(rover,1),humveePassengerSeat,'the driver keeps the driving seat');
+  assert.ok(humveePassengerSeat[1]+1.525*roadCabin(rover).scale<2.02,'the passenger head stays below the Humvee roof');
+  assert.notDeepEqual(gunnerFeet(rover,'rover'),mountPosition(rover,mounts.rover.turret),'the passenger does not stand at the gun');
+}
 
 for(const kind of ['rover','heli']){
   const world=newExpedition(),v=world[kind],operator=kind==='heli'?'pilot':'driver';

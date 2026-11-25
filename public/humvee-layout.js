@@ -4,6 +4,9 @@
 export const humveeScale={x:2.31/6.862,y:.385,z:4.93/12.815};
 export const humveePlacement={y:1.406*humveeScale.y,z:-.3425*humveeScale.z};
 export const humveeHull={halfWidth:1.155,halfLength:2.465,corner:.18};
+// The turret operator stays in the front passenger footwell. The roof gun
+// keeps its own mount and aim; this is only the occupant's seated position.
+export const humveePassengerSeat=[.4,.11,-.034];
 // Walking collision follows the lower body and the raised passenger cabin.
 export const humveeWalkShapes=[
   [1.155,-2.465,2.465,.04,.90],

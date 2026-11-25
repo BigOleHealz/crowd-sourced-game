@@ -2,7 +2,7 @@ import {carPistolGrip,carSource,sidearmSlot} from './car-sidearm.js';
 import {activeCast} from './pier-fishing.js';
 import {diveMotion} from './estate-diving.js';
 import {rungPitch} from './marina-platform.js';
-import {roadCabin,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
+import {roadCabin,roadSeat,roadWheelGrip,roadHandle,roadBoardingPosition} from './road-cabin.js';
 import {isCheetahCar} from './supercar-layout.js';
 import {boatHelm,helmFeet} from './patrol-boats.js';
 import * as THREE from 'three';
@@ -197,7 +197,7 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
   avatar.root.scale.setScalar(cabin?.scale??helmPosition?.scale??1);
   if (avatar.civilian){avatar.root.scale.x*=avatar.civilian.width;avatar.root.scale.y*=avatar.civilian.height;}
   if (seated) {
-    const seat=helm ? helmFeet(seated) : mountPosition(seated,cabin.seat);
+    const seat=helm ? helmFeet(seated) : mountPosition(seated,roadSeat(seated,state.id));
     avatar.root.position.set(seat.x,seat.y,seat.z);
   }
   if(station) {

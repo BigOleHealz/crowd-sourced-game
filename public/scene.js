@@ -1617,8 +1617,8 @@ export function createScene(canvas) {
       a.throwSwing=Math.max(0,(a.throwSwing??0)-dt);
       a.label.sprite.visible = (!state.beachRole || state.beachRole==='bar') && !state.bankRole && !state.casinoDealer && !state.volleyball && state.id !== local.id && Math.hypot(local.x-state.x,local.z-state.z)<32;
       const boat=crewBoat(world,state.id);
-      const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver ? rover : boat?.driver===state.id ? boat : null);
-      const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : state.id===rover.gunner ? rover : boat?.gunner===state.id ? boat : null;
+      const seated=inTraffic??(state.id===supercar?.driver ? supercar : state.id===rover.driver || state.id===rover.gunner ? rover : boat?.driver===state.id ? boat : null);
+      const station=state.id===world.tank?.gunner ? world.tank : state.id===world.yacht?.gunner ? world.yacht : boat?.gunner===state.id ? boat : null;
       const heliPilot=state.id===heli.pilot,heliGunner=state.id===heli.gunner;
       const heliCrew=heliPilot || heliGunner;
       a.root.visible=state.id!==world.tank?.driver && state.id!==world.jet?.pilot;

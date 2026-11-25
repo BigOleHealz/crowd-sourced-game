@@ -1,5 +1,6 @@
 import {mountPosition} from './mounts.js';
 import {CITY} from './world.js';
+import {humveePassengerSeat} from './humvee-layout.js';
 
 // The footwell is the top of the chassis floor and the ankle's fore/aft position, in vehicle metres.
 const rover={seat:[-.702,.11,-1.65],scale:.85,floorY:.65,ankleZ:-2.155,wheel:[-.74,1.195,-1.855],radius:.117,tilt:-.50,handle:[-1.118,.964,-1.361]};
@@ -13,6 +14,7 @@ const fleet={
   falco:gt,veloce:gt,
   engine:traffic(1.03,.24,.58,true),sedan:traffic(.86,0,.397),hatchback:traffic(.82,.035,.397),van:traffic(.95,.135,.452,true)};
 export const roadCabin=car=>fleet[car.model]??(car.kind==='supercar'?gt:CITY?pickup:rover);
+export const roadSeat=(car,id)=>!car.model && car.kind!=='supercar' && car.gunner===id ? humveePassengerSeat : roadCabin(car).seat;
 const smooth=(v,a,b)=>{const f=Math.max(0,Math.min(1,(v-a)/(b-a)));return f*f*(3-2*f);};
 export function boardingDoorAngle(t){return -1.05*smooth(t,.16,.43)*(1-smooth(t,.76,1));}
 export function roadHandle(car,t){
