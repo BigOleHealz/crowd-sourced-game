@@ -16,9 +16,8 @@ assert.notEqual(a.resortStay.key,b.resortStay.key);
 for(const p of [a,b,c])p.state={x:-83.1,y:1.8,z:53.21,grounded:true};
 use(c,{checkIn:true});assert(!c.resortStay);
 use(c,{building:25,floor:23});assert(c.trip,'walk-in guest can visit the pool');
-use(b,{building:25,floor:12});assert(!b.trip,'moving car is reserved');
+use(b,{building:25,floor:12});assert(b.trip,'another guest can travel without waiting');
 advanceElevator(w,c,c.trip.time);
-use(b,{building:25,floor:12});assert(b.trip,'registered guest can explore other suite floors');
 advanceElevator(w,b,b.trip.time);
 use(a,{building:25,floor:21});assert(a.trip);
 c.state={x:-46.8,y:.8,z:79.9,grounded:true};
@@ -26,7 +25,7 @@ const station=buildingAction(c.state,w.doors);assert.equal(station.kind,'slot');
 use(c,{slot:station.slot},10);assert.equal(c.slotResult.reels.length,3);
 const first=c.slotResult;use(c,{slot:station.slot},11);assert.equal(c.slotResult,first);
 c.state.x+=10;use(c,{slot:station.slot},100);assert.equal(c.slotResult,first);
-console.log('PASS guest keys, shared lift occupancy, public hotel stops, local practice slots and cooldown.');
+console.log('PASS guest keys, simultaneous lift rides, public hotel stops, local practice slots and cooldown.');
 
 // Check the height index against the physical geometry around real edges.
 const {grandTopAt,resortLevels}=await import('../public/grand-resort-layout.js');
