@@ -98,8 +98,9 @@ function column(a,d,c,r,h){
   }
   return span[0]<=span[1] && slab(a.y-c.y,d.y,0,h,span)?span[0]:Infinity;
 }
-const roverBody=[[0,.56,0,1.48,.48,3.12],[0,1.04,-.10,1.35,.55,1.08],
-    [0,.31,0,1.10,.26,2.50],[0,.46,-1.48,1.54,.16,.14],[0,.46,1.49,1.54,.16,.14]];
+const roverBody=[[0,.55,0,1.72,.48,4.70],[0,1.03,-.10,2.02,.96,2.35],
+    [0,.31,0,1.78,.26,4.12],[0,.46,-2.30,2.24,.16,.14],[0,.46,2.30,2.24,.16,.14],
+    [-1.03,.55,0,.25,.48,2.62],[1.03,.55,0,.25,.48,2.62]];
 
 // Split the GT body at its wheel wells so tire sidewalls are exposed.
 const sportBody=[
@@ -142,8 +143,8 @@ export function roverRoundContact(rover,start,delta,skipCabin=false){
   const point={x:dx*c+dz*s,y:start.y-rover.y,z:-dx*s+dz*c};
   const step={x:delta.x*c+delta.z*s,y:delta.y,z:-delta.x*s+delta.z*c};
   const sport=isCheetahCar(rover),profile=civilianProfiles[rover.model],wheelStations=wheelsFor(rover);
-  const breadth=sport?2.18:profile?2*(profile.bodyWidth+.18):1.84;
-  const length=sport?4.68:profile?2*Math.max(-profile.nose,profile.tail):3.56;
+  const breadth=sport?2.10:profile?2*(profile.bodyWidth+.18):2.31;
+  const length=sport?4.60:profile?2*Math.max(-profile.nose,profile.tail):4.93;
   if(box(point,step,{x:0,y:-.34,z:0},breadth,Math.max(2.34,(profile?.skinHeight??0)+.36),length)===Infinity)return null;
   // Sheet metal above the axles, narrower underbody, and the end bumpers.
   // Their overlaps leave the four visually exposed wheel wells selectable.

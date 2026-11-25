@@ -1,10 +1,11 @@
 import {civilianProfiles} from './civilian-fleet.js';
 import {supercarLayout} from './supercar-layout.js';
-import {wheelStations} from './road-wheel-layout.js';
 
-// Wheelbase comes from each model's actual axle positions. Rack travel is
-// expressed as a fraction of parking lock and can also be used by the view.
+// Traffic and Cheetah turning use their axle spacing. The Humvee retains its
+// existing arcade turning response so the established narrow roads stay usable
+// after its visible wheel stations move to the real axle positions.
 const fullLock=.64;
+const humveeTurningWheelbase=1.89;
 export const frontWheelAngle=car=>(car.steer??0)*fullLock;
 
 export function steerRoadWheels(car,input,dt){
@@ -17,6 +18,6 @@ export function steerRoadWheels(car,input,dt){
   car.steer=Math.abs(steer-target)<.0003?target:steer;
   const profile=civilianProfiles[car.model];
   const wheelbase=profile?profile.axles[1]-profile.axles[0]:car.kind==='supercar'?
-    supercarLayout.wheels[1]-supercarLayout.wheels[0]:wheelStations[1][1]-wheelStations[0][1];
+    supercarLayout.wheels[1]-supercarLayout.wheels[0]:humveeTurningWheelbase;
   return car.speed*Math.tan(frontWheelAngle(car))/wheelbase;
 }

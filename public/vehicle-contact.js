@@ -6,7 +6,7 @@ import {marinaModel} from './marina-fleet-layout.js';
 import {tankScale,tankHull} from './tank-layout.js';
 import {humveeWalkShapes} from './humvee-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
-// The helicopter includes the 1.23 airframe model scale. Separating its cabin,
+// The helicopter includes the 1.24 airframe model scale. Separating its cabin,
 // boom and landing gear leaves the sidewalk open underneath the elevated tail.
 const helicopter = [
   [.48,-3.10,-2.46,.70,1.47], [.89,-2.46,-1.56,.56,1.97],

@@ -3,12 +3,10 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {frontWheelAngle} from './road-steering.js';
 import {isFlat,flatWheelDrop} from './road-wheel-layout.js';
 import {crushedScale} from './vehicle-wreck-view.js';
-import {supercarLayout} from './supercar-layout.js';
+import {supercarLayout,supercarModelScale} from './supercar-layout.js';
 
 // One download and one set of geometries/textures serve all three cars. The
-// source model is 5.5 m long including its baked shadow; .89 puts the painted
-// body at 4.85 m and its wheel centers at the matching physics stations.
-const modelScale=.89;
+// Match the 4.565 by 1.958 m layout after removing the baked shadow.
 const wheelNames=['Wheel_FL','Wheel_RL','Wheel_FR','Wheel_RR'];
 const paint={falco:0x789725,veloce:0xa62d35,supercar:0x326b98};
 let templatePromise;
@@ -21,19 +19,19 @@ function template(){
 export function createCheetahView(scene,shadowMap,variant='supercar'){
   const root=new THREE.Group();root.name='Cheetah '+variant;scene.add(root);
   const body=new THREE.Group();root.add(body);
-  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.7,5.15),new THREE.MeshBasicMaterial({
+  const shadow=new THREE.Mesh(new THREE.PlaneGeometry(2.25,4.8),new THREE.MeshBasicMaterial({
     map:shadowMap,color:0x252a2c,transparent:true,opacity:.36,depthWrite:false}));
   shadow.rotation.x=-Math.PI/2;shadow.position.y=.016;root.add(shadow);
   const wheels=[];let bodyPaint;
   const brakeMaterial=new THREE.MeshBasicMaterial({color:0xff2530});
   const brakeLights=[-.68,.68].map(x=>{
     const lamp=new THREE.Mesh(new THREE.BoxGeometry(.28,.055,.018),brakeMaterial);
-    lamp.position.set(x,.65,2.38);lamp.visible=false;body.add(lamp);return lamp;
+    lamp.position.set(x*.838,.65,2.25);lamp.visible=false;body.add(lamp);return lamp;
   });
   template().then(source=>{
     if(!source)return;
     const model=source.clone(true);
-    model.scale.setScalar(modelScale);
+    model.scale.set(supercarModelScale.x,supercarModelScale.y,supercarModelScale.z);
     body.add(model);body.updateMatrixWorld(true);
     model.getObjectByName('Cheetah_Shadow')?.removeFromParent();
     model.traverse(node=>{

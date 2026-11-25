@@ -35,7 +35,7 @@ for(const e of streetPlan.ends) {
     assert(i<300,'complete rolling turn at '+[e.x,e.z]);
     driveRover(world,{throttle:Number(r.speed<1.75),steer:1},1/30,new Map());
     closest=Math.max(closest,(r.x-e.x)*e.dx+(r.z-e.z)*e.dz);
-    assert(roadway(r.x,r.z) && r.y>.6);
+    assert(roadway(r.x,r.z) && r.y>.6,`turn left pavement at ${r.x},${r.z} facing ${r.yaw}`);
     assert.equal(r.hp,250);
   }
   assert(closest>-3.7,'enter the turning head before coming back');
