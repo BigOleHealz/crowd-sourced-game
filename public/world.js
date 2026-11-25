@@ -118,7 +118,9 @@ export function onBuildingLot(x,z,margin=0) {
 export function podiumTop(b,x,z,pad,probe,roof,doors,round=false){
   if(!CITY)return furnishedFloorTop(b,x,z,pad,probe,doors,round)??roof;
   if(ruinedHouseAt(doors,b.x,b.z))return -Infinity;
-  if(towerCollapsed(b,doors))return rubbleHeight(b,x,z,doors);
+  // Rubble is already the terrain height. The building's padded wall probe
+  // would otherwise create an invisible step just outside the visible mound.
+  if(towerCollapsed(b,doors))return -Infinity;
   if(doors?.tankWallCuts){
     // The shop glass is inset from the lot outline; test the actual contact
     // point when the player's radius still overlaps the edge of the lot.
