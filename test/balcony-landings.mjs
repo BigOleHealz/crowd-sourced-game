@@ -3,6 +3,7 @@ process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {MAP,stepPlayer}=await import('../public/world.js');
 const {towerStories,towerBays}=await import('../public/tower-glass.js');
 const {towerCell}=await import('../public/tower-damage.js');
+const {interiorDoors,setDoorOpen,doorIsOpen}=await import('../public/building-interiors.js');
 for(const facade of [0,3]){
   const b=MAP.buildings.find(b=>b.housing && b.facade===facade);
   const {story}=towerStories(b,3.9),deck=4.74+story*2;
@@ -24,11 +25,14 @@ const hotel=MAP.buildings.find(b=>b.towerId===9);
 const {floors,story}=towerStories(hotel,3.9);
 for(const floor of [0,Math.floor(floors/2),floors-1])for(const side of [-1,1]){
   const y=4.70+floor*story,z=hotel.z-2;
+  const door=interiorDoors.find(d=>d.p.b===hotel && d.label.endsWith(' balcony') && Math.abs(d.x-(hotel.x+side*hotel.w/2))<.01 && Math.abs(d.y-y)<.01);
+  assert(door,'each hotel balcony has an operable door');
+  const doors={};setDoorOpen(door,doors,true);assert(doorIsOpen(door,doors));
   let p={x:hotel.x+side*4.5,y,z,vy:0,grounded:true};
-  for(let i=0;i<36;i++)p=stepPlayer(p,{x:side},1/30,{}, {doors:{}});
+  for(let i=0;i<36;i++)p=stepPlayer(p,{x:side},1/30,{}, {doors});
   assert(p.x*side>hotel.x*side+hotel.w/2+.45,'walk from room onto balcony');
   assert(p.grounded && Math.abs(p.y-y)<.001,'level balcony threshold');
-  for(let i=0;i<36;i++)p=stepPlayer(p,{x:-side},1/30,{}, {doors:{}});
+  for(let i=0;i<36;i++)p=stepPlayer(p,{x:-side},1/30,{}, {doors});
   assert(p.x*side<hotel.x*side+hotel.w/2-1,'walk back into hotel room');
   assert(p.grounded && Math.abs(p.y-y)<.001,'level room threshold');
 }

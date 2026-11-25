@@ -177,6 +177,10 @@ export function buildingInteriorView(scene,Batch){
         for(const e of p.lobbyEntries)elevatorSign(e.x,4.21,e.z+e.side*.17,e.side<0?Math.PI:0);
       }
       for(const s of p.panels)if(Math.abs(s.y-feet.y)<2.0 && landingValid(s,doors))lift(s,ride,p.shaft && (shaft===p.shaft?feet:remoteShaft===p.shaft?remoteRider:null));
+      if(p.b.towerId===9 && l?.p!==p){
+        const level=p.levels.find(row=>Math.abs(row.y-feet.y)<2.1);
+        for(const d of level?.doors??[])if(d.label.endsWith(' balcony'))leaf(d,doors,dt);
+      }
       if(p.grandDoors)for(const d of p.grandDoors[floorIndex(feet.y+.16)]??[])leaf(d,doors,dt);
       for(const d of p.entrances)if(Math.abs(d.y-feet.y)<3.5 && (!p.home || furnishingSupported(p.home,d.x,d.y,d.z,doors)))leaf(d,doors,dt);
     }

@@ -108,6 +108,13 @@ export function initializeBuildingInteriors(buildings,city,terrain){
       }
       const {floors,story}=b.finish?{floors:1,story:Math.max(2.50,b.base+b.eave-floorY)}:towerStories(b,3.9);
       for(let n=0;n<floors;n++)floorPlan(p,floorY+n*story,story,n);
+      if(b.towerId===9)for(let n=0;n<floors;n++)for(const side of [-1,1]){
+        const y=floorY+n*story,x=b.x+side*b.w/2;
+        // These facade bays and their balcony slabs already have a walkable
+        // opening. Give each one a visible, operable leaf with shared state.
+        const d=door(p,x,y,b.z-2,'z',1.55,`Room ${(n+2)*100+(side<0?1:2)} balcony`,false,n);
+        d.glazed=true;p.levels[n].doors.push(d);
+      }
     }else{
       const front=b.z+b.d/2;
       p.ramp={front,length:2.3,outer:terrain(b.x,front+2.3),inner:b.base};
