@@ -26,9 +26,9 @@ export function preloadNathan() {
   }).catch(error => console.warn('Nathan unavailable; showing field kit.', error));
 }
 
-export function useNathan(state) {
+export function useNathan(state, available=!!template) {
   const override = new URLSearchParams(location.search).get('avatar');
-  return !!template && (!override || override === 'nathan') && (override === 'nathan' || state.character === 'nathan') && !Object.keys(state.lostParts ?? {}).length;
+  return available && (!override || override === 'nathan') && (override === 'nathan' || state.character === 'nathan');
 }
 
 export function fitNathan(rig) {

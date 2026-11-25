@@ -17,11 +17,11 @@ export function preloadPlayerScan() {
     }).catch(error => console.warn(kind+' player skin unavailable; showing field kit.', error)));
   }
 }
-export function usePlayerScan(state) {
-  if(typeof state.id !== 'number' || state.lostParts && Object.keys(state.lostParts).length)return null;
+export function usePlayerScan(state, available=templates) {
+  if(typeof state.id !== 'number')return null;
   const override=new URLSearchParams(location.search).get('avatar');
   const kind=Object.hasOwn(files,override) || override==='classic' ? override : state.character ?? 'mike';
-  return templates.has(kind) ? kind : null;
+  return available.has(kind) ? kind : null;
 }
 export function fitPlayerScan(rig,kind) {
   const byName = {body:rig.body, spine:rig.spine, upper:rig.upper, head:rig.head};
