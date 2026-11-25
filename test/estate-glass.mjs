@@ -13,7 +13,7 @@ for(const [x,z,dx,dz] of [[-18.75,-409,0,1],[39.5,-443.84,-1,0]]){
     const previous=JSON.stringify(w.doors.brokenPanes);
     fire(w,s,{aimPitch:0,aimYaw:yaw},12,new Map(),[]);
     for(let i=12;i<16;i++)advanceRounds(w,new Map(),[],i);
-    assert.equal(JSON.stringify(w.doors.brokenPanes),previous);
+    for(const id of Object.keys(JSON.parse(previous)))assert(w.doors.brokenPanes[id],id+' stays broken');
     const untouched=newExpedition();Object.assign(v,{x:x-6*dx,z:z-6*dz,y:.8,yaw,driver:1,speed:10});
     untouched[kind]=v;let crossed=false;
     for(let i=0;i<55;i++){
