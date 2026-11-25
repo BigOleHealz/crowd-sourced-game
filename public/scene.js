@@ -641,7 +641,9 @@ function fieldHelicopter(scene,material,shadowMap,panorama) {
     // The Sketchfab export merged both fixed rotors into the body mesh. Move
     // their triangles into separate meshes so they can spin without a second
     // set of blades being drawn over them.
-    const mainPivot=new THREE.Vector3(.08,-.02,.30);
+    // Center of the GLB's rotor mast (the circular hub spans x=.028..178,
+    // y=-.210..-.060). The blades must rotate about this point, not orbit it.
+    const mainPivot=new THREE.Vector3(.103,-.135,.30);
     const tailPivot=new THREE.Vector3(-.803,.94,.097);
     modelMainRotor=new THREE.Group();modelMainRotor.position.copy(mainPivot);
     modelTailRotor=new THREE.Group();modelTailRotor.position.copy(tailPivot);
