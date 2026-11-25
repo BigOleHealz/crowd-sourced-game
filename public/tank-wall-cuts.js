@@ -20,6 +20,11 @@ export function openTankWall(doors,id){
   (doors.tankWallCuts??=[]).push(id);
   return true;
 }
+export function noteWallBreak(doors,material,x,y,z){
+  const seq=doors.wallSeq=(doors.wallSeq??0)+1;
+  (doors.wallSounds??=[]).push({seq,material,x,y,z});
+  if(doors.wallSounds.length>12)doors.wallSounds.shift();
+}
 export function wallSectionContact(box,x,z,reach,doors,tank,contact){
   const first=contact(box);
   if(!first || (!tank && !doors?.tankWallCuts))return first;

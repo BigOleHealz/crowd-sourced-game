@@ -34,7 +34,7 @@ import {boatLoop,boatMix} from './boat-audio.js';
 // Each voice is synthesized once per AudioContext and reused for playback.
 const shapes={
   'water-pop':[.23,92,1310,16],'ember-wash':[.20,48,820,11],masonry:[.61,57,850,7.8],settling:[.35,140,1810,15],
-  glass:[.68,0,1800,1], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
+  glass:[.68,0,1800,1], wood:[.38,145,1400,11], impact:[.13,270,3000,25], metal:[.27,470,3300,16],
   headPop:[.16,340,2600,30], explosion:[1.05,63,790,4.5], wreck:[1.55,47,1050,3.8],
 };
 function synth(context,name) {
@@ -151,7 +151,7 @@ export function createGameAudio(button,slider,level,caption) {
   let listenerSpace=acousticSpace(null,null);
   let priorSharks,priorManatees;
   let previousDolphins,previousSharkDefeats;
-  let previousVehicles={},lastGlass=0,lastTree=0,nextEnvironment=0;
+  let previousVehicles={},lastGlass=0,lastTree=0,lastWall=0,nextEnvironment=0;
   const civilianVoices=crowdPanicAudio(),thefts=dogOwnerDialogue(),ownerLine=ownerSpeech();
   let captionTimer;
   const sprayLines=new Map();
@@ -172,9 +172,9 @@ export function createGameAudio(button,slider,level,caption) {
   async function loadRecordings(){
     if(recordingsStarted || !context)return;
     recordingsStarted=true;
-    await Promise.all(Object.entries({'hoops/swish':'outdoor-net','shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
+    await Promise.all(Object.entries({'hoops/swish':'outdoor-net',wood:'wood-crack', 'shark-defeat':'shark-defeat',glass:'plate-glass',rotor:'helicopter-rotor','tank-engine':'tank-engine-heavy',masonry:'concrete-impact',settling:'concrete-settle','crowd-reactions':'crowd-reactions'}).map(async ([name,file])=>{
       try{
-        const res=await fetch('./audio/'+file+'.ogg');
+        const res=await fetch('./audio/'+file+(name==='wood'?'.flac':'.ogg'));
         if(!res.ok)return;
         // Decode the packed mono dialogue at its native bandwidth even on a 96 kHz output.
         const Offline=window.OfflineAudioContext || window.webkitOfflineAudioContext;
@@ -288,6 +288,7 @@ export function createGameAudio(button,slider,level,caption) {
     voices.clear();loops.clear();nextEnvironment=0;lastJetRange=null;lastPatrol=null;
     lastGlass=world?.doors?.glassSeq??0;
     lastTree=world?.doors?.treeSeq??0;
+    lastWall=world?.doors?.wallSeq??0;
     previousVehicles={};
     sprayLines.clear();
     civilianVoices.reset(audibleResidents(world));
@@ -410,6 +411,9 @@ export function createGameAudio(button,slider,level,caption) {
     lastGlass=world.doors?.glassSeq??0;
     for(const e of world.doors?.treeSounds??[])if(e.seq>lastTree)burst('tree-crack',e,listener,yaw,1.1,e.seq);
     lastTree=world.doors?.treeSeq??0;
+    for(const e of world.doors?.wallSounds??[])if(e.seq>lastWall)
+      burst(e.material==='wood'?'wood':'masonry',e,listener,yaw,e.material==='wood'?1.05:.94,e.seq);
+    lastWall=world.doors?.wallSeq??0;
     collapse.step(world.doors?.structureFalls??[],cue=>{
       if(voices.size>=24)return;
       burst(cue.settling?'settling':'masonry',cue,listener,yaw,cue.settling?.67:1.12,Math.round(cue.at*100));
