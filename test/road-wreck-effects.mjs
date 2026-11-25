@@ -1,19 +1,30 @@
 import assert from 'node:assert/strict';
 import {newExpedition,reportVehicleWreck} from '../public/expedition.js';
 import {damageRover,recoverRover} from '../public/rover.js';
+import {setRoadOccupantContext} from '../public/road-occupants.js';
 import {liveShots} from '../public/shot-events.js';
 const world=newExpedition(),driver={id:1,state:{x:world.rover.x,y:world.rover.y,z:world.rover.z},inputs:[],life:{hp:100}};
 world.rover.driver=driver.id;const players=new Map([[driver.id,driver]]),observer=liveShots([]);
+setRoadOccupantContext(world,[],9);
 damageRover(world,250,players);reportVehicleWreck(world,world.rover,'rover','road',9);
 const [burst]=observer(world.shots);assert.equal(burst.weapon,'vehicleWreck');assert.equal(burst.surface,'road');
-assert.equal(world.rover.driver,null);assert.equal(driver.life.hp,100);
+assert.equal(world.rover.driver,null);assert.equal(driver.life.hp,0);
+assert.equal(driver.life.deathKind,'blast');assert.equal(driver.score?.deaths,undefined);
 reportVehicleWreck(world,world.rover,'rover','road',10);assert.deepEqual(observer(world.shots),[]);
 assert.deepEqual(liveShots(world.shots)(world.shots),[]);
 for(let i=0;i<179;i++)recoverRover(world,1/30);assert(world.rover.wrecked);
 recoverRover(world,1/30);assert(!world.rover.wrecked);assert.equal(world.rover.hp,250);
 damageRover(world,251,players);reportVehicleWreck(world,world.rover,'rover','road',190);
 assert(observer(world.shots).at(-1).id>burst.id);
-console.log('PASS road wreck, ejection without extra damage, one cue per destruction, late observer and six-second replacement.');
+console.log('PASS road wreck kills and releases the driver, emits one cue per destruction, and recovers.');
+
+const traffic=(await import('../public/city-traffic.js')).parkedTrafficCar('test-car','sedan',10,10);
+const resident={id:'rival-test',state:{x:10,y:0,z:10},life:{hp:100,immuneUntil:100},score:{deaths:0}};
+traffic.npcDriver=resident.id;world.traffic=[traffic];
+setRoadOccupantContext(world,[resident],20);
+damageRover(world,traffic.hp,players,traffic.id);
+assert.equal(resident.life.hp,0);assert.equal(resident.life.deathKind,'blast');
+assert.equal(resident.score.deaths,1);
 
 const {expireShots}=await import('../public/shot-events.js');
 const delayed=liveShots([]),feed=[{...burst,tick:1},{id:burst.id+1,weapon:1,tick:2}];

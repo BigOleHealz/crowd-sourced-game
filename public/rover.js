@@ -15,6 +15,7 @@ import {humveeHull} from './humvee-layout.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
 
 import { RECOVERY_SECONDS } from './airframe.js';
+import {defeatRoadOccupants} from './road-occupants.js';
 
 const obstacleRetention={frontage:.8,wood:.84,net:.94,post:.86};
 export const ROVER_HP = 250;
@@ -107,12 +108,13 @@ export function interactRover(world, player,kind='rover') {
     : clearRoadExit(world,r,wasGunner?1:-1) ?? world.rules?.spawn(player) ?? spawn(player.id-1);
 }
 
-export function damageRover(world, amount, players,kind='rover',team,owner) {
+export function damageRover(world, amount, players,kind='rover',team,owner,cause='blast') {
   const r=roadByKind(world,kind);
   if (!r || r.wrecked || r.sinking || !Number.isFinite(amount) || amount<=0) return;
   r.hp=Math.max(0,r.hp-amount);
   if (r.hp>0) return;
   world.wanted?.record(owner,'wreck');
+  defeatRoadOccupants(world,r,players,cause);
   const driver=players?.get(r.driver);
   if (driver) {
     interactRover(world,driver,kind);
