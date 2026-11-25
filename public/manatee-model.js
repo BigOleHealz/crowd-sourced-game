@@ -128,10 +128,20 @@ export function manateeMaterial(assets,tint,waterline,clock){
   const material=new THREE.MeshStandardMaterial({
     color:tint,map:assets.map,vertexColors:true,roughness:.49,transparent:true,depthWrite:true,
   });
+  return marineSurfaceMaterial(material,waterline,clock);
+}
+
+// The licensed shark and dolphin meshes need the same surface projection as
+// the procedural wildlife. Keep their existing maps and shader edits intact.
+export function marineSurfaceMaterial(material,waterline,clock){
+  material.transparent=true;
+  material.depthWrite=true;
+  const previousCompile=material.onBeforeCompile;
   // Project the depth of submerged fragments to the same viewing ray at the
   // surface. The existing opaque bay remains in place, and nearby dock planks
   // and boat hulls still write closer depth over the animal.
   material.onBeforeCompile=shader=>{
+    previousCompile?.(shader);
     shader.uniforms.manateeWaterline={value:waterline};
     shader.uniforms.manateeTime=clock;
     const common='uniform float manateeWaterline; varying vec3 manateePoint;\n';
@@ -162,6 +172,7 @@ export function manateeMaterial(assets,tint,waterline,clock){
       #include <opaque_fragment>
     `);
   };
-  material.customProgramCacheKey=()=>'coastal-manatee';
+  const previousKey=material.customProgramCacheKey.bind(material);
+  material.customProgramCacheKey=()=>previousKey()+'-marine-surface';
   return material;
 }
