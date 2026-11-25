@@ -33,7 +33,7 @@ import {beachHutFloor} from './harbor-key-structures.js';
 // Both the authoritative server and the predicting client use this module.
 import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { brickellMap, cityGround, parapetTop } from './brickell-map.js';
+import { brickellMap, cityGround, coastalBedHeight, parapetTop, waterfront } from './brickell-map.js';
 import {onRunway} from './runway-layout.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
@@ -388,7 +388,7 @@ export function stanceMuzzleHeight(state) {
   return 1.3 - stanceDrop(state) * (state.stance === 'prone' ? .78 : 1);
 }
 
-export function stepPlayer(state, input, dt, hp, world) {
+export function stepPlayer(state, input, dt, hp, world, options={}) {
   if(world?.survival?.phase==='finished')return state;
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
@@ -455,12 +455,15 @@ export function stepPlayer(state, input, dt, hp, world) {
   // Resolving each horizontal axis separately lets players slide along a wall.
   const height=state.swimming?1.12:stanceBodyHeight(stance);
   const doors=world?.doors;
+  // A submerged swimmer must meet the same shore apron that the sand mesh shows.
+  // Surface swimmers and boats keep their existing approach and boarding rules.
+  const sandBlocks=(nx,nz)=>CITY && options.swimmerSand!==false && submerged && state.swimming && coastalBedHeight(nx,nz)>y-.10;
   if (vx) {
-    if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height)) vx=0;
+    if (yachtWalkBlocked(world?.yacht,x+vx*dt,y,z,height) || blocked(x+vx*dt,y,z,hp,doors,height) || sandBlocks(x+vx*dt,z)) vx=0;
     else x+=vx*dt;
   }
   if (vz) {
-    if (yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) || blocked(x,y,z+vz*dt,hp,doors,height)) vz=0;
+    if (yachtWalkBlocked(world?.yacht,x,y,z+vz*dt,height) || blocked(x,y,z+vz*dt,hp,doors,height) || sandBlocks(x,z+vz*dt)) vz=0;
     else z+=vz*dt;
   }
   // Bailouts inherit the flight area. After landing outside the walking map,
@@ -486,10 +489,15 @@ export function stepPlayer(state, input, dt, hp, world) {
   // A swimmer underneath the projecting board remains in the basin.
   const floorProbe=CITY && state.swimming && boardAt(x,z) ? y+.26 : y+height;
   let floor = Math.max(groundHeight(x,z,floorProbe,doors),contact.floor);
+  if(CITY && options.swimmerSand!==false && waterfront(x,z) && !state.ride &&
+    (state.swimming || state.grounded && y<MAP.waterY+1))
+    floor=Math.max(floor,coastalBedHeight(x,z));
   const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
   if (y >= top-.005) floor = Math.max(floor,top);
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
-  const deep=floor<floatY+(state.swimming?.08:-.03);
+  const sandShallow=CITY && options.swimmerSand!==false && state.swimming && waterfront(x,z) &&
+    coastalBedHeight(x,z)>floatY-.10;
+  const deep=!sandShallow && floor<floatY+(state.swimming?.08:-.03);
   if(deep && y<=floatY+.20 && vy<=.2){
     return {x,z,vx,vy:0,vz,grounded:false,swimming:true,
       ...swimColumn(state,input,y,floatY+draft,floor,dt,contact.ceiling),

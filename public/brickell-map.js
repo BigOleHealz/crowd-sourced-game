@@ -1,4 +1,4 @@
-import {seabedHeight,reefAnchorTop} from './reef-channel.js';
+import {seabedHeight,reefAnchorTop,reefGridSpacing} from './reef-channel.js';
 import {shorePads,resortGround,onDrive} from './palma-site.js';
 import {dockHeight,marinaDecks,marinaFittings} from './marina-docks.js';
 import {resortBarriers} from './casino-layout.js';
@@ -41,10 +41,10 @@ export const bridges=[causeway,lanternBridge];
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
 const oldShores=[...shorePads,coast,causeway,harbor],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
-// A visual apron carries the dry shore down to the surveyed seabed instead of
-// ending it at a thin, exposed slab. Existing boat and swim collision stays put.
+// The shore apron uses the same two-metre triangles as the rendered sand.
+// Boats retain the surveyed bed; submerged swimmers use this visible height.
 const shoreLand=[...shorePads,coast,harbor,...lanternLand];
-export function coastalBedHeight(x,z) {
+function shoreSurvey(x,z) {
   const bed=seabedHeight(x,z);
   let distance=Infinity;
   for(const r of shoreLand){
@@ -54,6 +54,14 @@ export function coastalBedHeight(x,z) {
   if(distance>=9)return bed;
   const t=distance/9, blend=t*t*(3-2*t);
   return bed+(0.80-bed)*(1-blend);
+}
+export function coastalBedHeight(x,z) {
+  const i=Math.floor(x/reefGridSpacing),j=Math.floor(z/reefGridSpacing);
+  const x0=i*reefGridSpacing,z0=j*reefGridSpacing;
+  const u=(x-x0)/reefGridSpacing,v=(z-z0)/reefGridSpacing;
+  const a=shoreSurvey(x0,z0),b=shoreSurvey(x0+reefGridSpacing,z0);
+  const c=shoreSurvey(x0,z0+reefGridSpacing),d=shoreSurvey(x0+reefGridSpacing,z0+reefGridSpacing);
+  return u+v<=1 ? a+u*(b-a)+v*(c-a) : d+(1-u)*(c-d)+(1-v)*(b-d);
 }
 export const waterfront=(x,z)=>!(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :

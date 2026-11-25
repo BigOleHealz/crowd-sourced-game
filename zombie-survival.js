@@ -146,7 +146,9 @@ export function zombieSurvival() {
         }
         // Stagger shoreline probes across the wave; use the normal swimmer's ledge grab.
         const swimY=headingAshore && (tick+z.infected)%12===0 ? 1 : 0;
-        z.state=stepPlayer(z.state,{x:x*speed,z:zMove*speed,swimY},1/30,world.hp,world);
+        // Shore-chasing infected use the existing ledge grab instead of
+        // standing on the player's visual sand apron before they can climb.
+        z.state=stepPlayer(z.state,{x:x*speed,z:zMove*speed,swimY},1/30,world.hp,world,{swimmerSand:false});
         if(Math.hypot(z.state.x-z.progressX,z.state.z-z.progressZ)>1){
           z.lastAdvance=tick;
           z.progressX=z.state.x;
