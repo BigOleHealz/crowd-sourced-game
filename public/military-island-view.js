@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {brickellMap,coastalBedHeight} from './brickell-map.js';
-import {shoreRockPile} from './shore-rock-piles.js';
+import {shoreRockPile,rockPileOverlapsBridge} from './shore-rock-piles.js';
 import {militaryFenceView} from './military-fence-view.js';
 
 function addRockShore(base){
@@ -50,6 +50,7 @@ function addRockShore(base){
     if(!onMilitaryRockShore(px,pz))continue;
     const floor=coastalBedHeight(px,pz);
     const {radius,height,centerY}=shoreRockPile(floor,brickellMap.waterY,random);
+    if(rockPileOverlapsBridge(px,pz,radius*1.15,militaryBridge))continue;
     dummy.position.set(px,centerY,pz);
     dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
     dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
