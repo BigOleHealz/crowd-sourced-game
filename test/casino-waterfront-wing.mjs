@@ -15,6 +15,10 @@ for(let i=1;i<passage.length;i++){
   }
 }
 assert.equal(shorePads[0].west,-91);
+for(const [x,z] of [[-60,71],[-18,68]]){
+  assert.equal(waterfront(x,z),false,'casino foundation occupies the water gap');
+  assert.equal(groundHeight(x,z,.8),.8,'foundation and walking support share a top');
+}
 assert.ok(Math.abs(groundHeight(-55,98,.8)-.32)<1e-6);
 assert.equal(groundHeight(-55,96,.8),.8);
 assert.equal(grandTopAt(-71.35,61,0,2),-Infinity);
