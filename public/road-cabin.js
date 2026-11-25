@@ -5,7 +5,9 @@ import {humveePassengerSeat} from './humvee-layout.js';
 // The footwell is the top of the chassis floor and the ankle's fore/aft position, in vehicle metres.
 const rover={seat:[-.702,.11,-1.65],scale:.85,floorY:.65,ankleZ:-2.155,wheel:[-.74,1.195,-1.855],radius:.117,tilt:-.50,handle:[-1.118,.964,-1.361]};
 const pickup={...rover,seat:[-.323,.11,-.034],ankleZ:-.42,wheel:[-.34,1.195,-.25],handle:[-.68,.964,-.10]};
-const gt={seat:[-.365,-.27,-.070],scale:.8,floorY:.235,ankleZ:-.61,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-1.15,.604,.28]};
+// The coupe roof is only 1.19 m high. Leave headroom for the tallest player skin
+// and suspension roll while keeping the hips above the footwell floor.
+const gt={seat:[-.365,-.34,-.070],scale:.75,floorY:.235,ankleZ:-.61,wheel:[-.36,.802,-.325],radius:.144,tilt:-.40,handle:[-1.15,.604,.28]};
 function traffic(width,lift,floorY,van=false){
   return {seat:[-.43,-.22+lift,-.28],scale:.91,floorY,ankleZ:-.86,wheel:[-.43,1.05+lift,-.65],radius:.145,tilt:-.42,
     handle:[-width-.008,.85+lift,van?.13:.11],hinge:[-width+.025,van?-1.07:-1.02],lift};
