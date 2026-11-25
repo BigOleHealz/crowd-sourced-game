@@ -41,3 +41,37 @@ assert(spearCast({},outer,aim,tick,sea,deep));assert(!outer.spearfishing.last.ca
 assert.equal(outer.state.z-outer.spearfishing.last.to.z,spearRange);
 assert.equal(outer.life.hp,100);assert.equal(outer.weapon,undefined);
 console.log('PASS scored diver catches, competing divers and stock return, cooldown/replay, invalid aim, dry/surface eligibility and misses.');
+
+// A cast hits the first marine animal in its path and uses the same hit
+// sequence that drives the shared underwater blood effect.
+for(const kind of ['shark','dolphin','manatee']){
+  const animal={x:0,y:-2,z:32,yaw:0,pitch:0,roll:0,size:1,hp:120,maxHp:120,
+    hitSeq:0,ageSinceHit:null,phase:'patrol',target:7,air:0};
+  const marineWorld={[kind+'s']:[animal]};
+  const hunter=diver();
+  Object.assign(hunter.state,{x:0,y:-2.45,z:35,swimDepth:2.31});
+  for(let shot=1;shot<=3;shot++){
+    assert(spearCast(marineWorld,hunter,{...aim,seq:shot},tick+(shot-1)*31,sea,deep));
+    assert.equal(animal.hp,120-shot*40,kind+' takes one spear hit');
+    assert.equal(animal.hitSeq,shot);
+    assert.equal(animal.ageSinceHit,0);
+    assert.equal(hunter.spearfishing.last.hitKind,kind);
+    assert(hunter.spearfishing.last.to.z>31 && hunter.spearfishing.last.to.z<34,
+      'the spear stops at the animal instead of passing through');
+  }
+  assert.equal(animal.deathKind,'spear');
+  assert.equal(hunter.spearfishing.count,0,'marine hits do not award reef fish points');
+  assert(spearCast(marineWorld,hunter,{...aim,seq:4},tick+93,sea,deep));
+  assert.equal(animal.hitSeq,3,'a dead animal cannot take more damage');
+}
+{
+  const near={x:0,y:-2,z:33,yaw:0,pitch:0,roll:0,size:1,hp:120,hitSeq:0,phase:'patrol'};
+  const far={x:0,y:-2,z:29,yaw:0,pitch:0,roll:0,size:1,hp:120,hitSeq:0};
+  const marineWorld={sharks:[near],dolphins:[far]},hunter=diver();
+  Object.assign(hunter.state,{x:0,y:-2.45,z:35,swimDepth:2.31});
+  assert(spearCast(marineWorld,hunter,aim,tick,sea,deep));
+  assert.equal(near.hp,80);
+  assert.equal(far.hp,120,'a farther animal is shielded by the first contact');
+  assert.equal(hunter.spearfishing.last.hitKind,'shark');
+}
+console.log('PASS shark, dolphin and manatee spear damage, death, hit replication and no extra points.');
