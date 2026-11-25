@@ -421,7 +421,10 @@ export function stepPlayer(state, input, dt, hp, world, options={}) {
     (requested === 'crouch' || requested === 'prone') ? requested : undefined;
   const drySpeed=stance==='prone'?1.05:stance==='crouch'?2.25:parachute==='open'?3.6:parachute?2.3:input.sprint?7.4:4.6;
   const wade=waterBlend(state);
-  const speed=state.swimming?3.05:drySpeed+(Math.min(3.05,drySpeed)-drySpeed)*wade;
+  // Flippers propel an equipped swimmer at the surface and underwater alike.
+  // Apply a surface gear toggle on this tick so movement and equipment agree.
+  const flippers=state.swimming && ((state.swimDepth??0)<=.06 && input.toggleScuba ? !state.scuba : state.scuba);
+  const speed=state.swimming?(flippers?4.35:3.05):drySpeed+(Math.min(3.05,drySpeed)-drySpeed)*wade;
   const ix = Number.isFinite(input.x) ? input.x : 0;
   const iz = Number.isFinite(input.z) ? input.z : 0;
   const scale = speed / Math.max(1, Math.hypot(ix, iz));
