@@ -20,7 +20,8 @@ if(!process.argv[2]){
     if(i===82){assert(next.swimming && mix===1);assert(Math.abs(next.y-(MAP.waterY-.72))<.002);}
     last=mix;s=next;
   }
-  assert(changes===2 && ascending>=7 && descending>=7 && largest<.13);
+  assert(changes===2 && ascending>=7 && descending>=7 && largest<.13,
+    `shore transitions: changes=${changes}, ascending=${ascending}, descending=${descending}, largest=${largest}`);
   assert(s.grounded && waterBlend(s)===0 && !s.swimming);
   console.log(process.argv[2],'PASS reversible transition, continuous pose in',ascending,descending,'steps, full buoyancy and dry footing');
 }
