@@ -5,6 +5,7 @@ const {newExpedition,fire}=await import('../public/expedition.js');
 const {newLife}=await import('../public/rivals.js');
 const {parkedRover,driveRover,interactRover,damageRover,recoverRover,nearestVehicle,drivenRoad}=await import('../public/rover.js');
 const {supercarLayout}=await import('../public/supercar-layout.js');
+const {roadCabin}=await import('../public/road-cabin.js');
 const {onLantern}=await import('../public/lantern-point.js');
 const {groundHeight}=await import('../public/world.js');
 const {vehicleContact}=await import('../public/vehicle-contact.js');
@@ -15,6 +16,11 @@ function tick(world,kind,throttle,steer,ticks){
 }
 
 const world=newExpedition(), car=world.supercar, pickup=world.rover;
+const cabin=roadCabin(car);
+assert(cabin.seat[1]+(1.525+.32)*cabin.scale<supercarLayout.roof-.08,
+  'the seated head has clearance below the coupe roof');
+assert(cabin.seat[1]+.975*cabin.scale>cabin.floorY+.12,
+  'the lowered seat still keeps the hips above the footwell');
 assert(onLantern(car.x,car.z),'Cheetah starts on Lantern Point');
 const player={id:1,inputs:[],life:newLife(0,false),fireReady:0,weapon:1,
   state:{x:car.x+1.65,z:car.z,y:groundHeight(car.x+1.65,car.z),grounded:true}};
