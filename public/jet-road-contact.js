@@ -1,4 +1,5 @@
 import {wingOutline,tailOutline,strakeOutline} from './jet-layout.js';
+import {jetScale,jetWidthScale} from './jet-size.js';
 
 // Piecewise convex prisms leave clear space ahead of the swept wings and
 // underneath the airframe. Clip each to the traveller's height before testing in XZ.
@@ -40,7 +41,8 @@ function transformed(jet){
   if(last && x===last.x && y===last.y && z===last.z && yaw===last.yaw && pitch===last.pitch && roll===last.roll && gear===last.gear)return last.solids;
   const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),cr=Math.cos(roll),sr=Math.sin(roll);
   const solids=pieces.filter(p=>gear || !p.gear).map(({vertices,edges})=>{
-    const points=vertices.map(([u,v,w])=>{
+    const points=vertices.map(([localX,localY,localZ])=>{
+      const u=localX*jetScale*jetWidthScale,v=localY*jetScale,w=localZ*jetScale;
       const a=cr*u-sr*v,b=sr*u+cr*v,c=sp*b+cp*w;
       return [x+cy*a-sy*c,y+cp*b-sp*w,z+sy*a+cy*c];
     });
@@ -81,7 +83,7 @@ function outlineAtHeight(solid,low,high){
 }
 
 export function jetRoadContact(jet,x,y,z,yaw,shape){
-  if(!jet || Math.abs(jet.x-x)>8 || Math.abs(jet.z-z)>8 || Math.abs(jet.y-y)>6)return;
+  if(!jet || Math.abs(jet.x-x)>12 || Math.abs(jet.z-z)>12 || Math.abs(jet.y-y)>8)return;
   const roof=y+(shape.roof??shape.height??1.66),c=Math.cos(yaw),s=Math.sin(yaw);
   let result;
   for(const solid of transformed(jet)){
@@ -153,7 +155,7 @@ function surfaceAt(solid,x,z,radius,top){
 }
 
 export function jetWalkContact(result,jet,x,y,z,radius,height){
-  if(!jet || Math.abs(jet.x-x)>5 || Math.abs(jet.z-z)>5 || Math.abs(jet.y-y)>6)return;
+  if(!jet || Math.abs(jet.x-x)>8 || Math.abs(jet.z-z)>10 || Math.abs(jet.y-y)>8)return;
   for(const solid of transformed(jet)){
     const full=solid.fullOutline??=outlineAtHeight(solid,solid.bottom,solid.top);
     const footprint=circleContact(full,x,z,radius);

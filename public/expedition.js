@@ -196,7 +196,7 @@ export function tracePulse(world, actors, from, direction, range, assist = true,
       insideBody(to, crate, crate.radius, crate.height, halo));
     target = BREAKABLES[crateIndex];
     if (target) { hitKind = 'crystal'; break; }
-    if (world.jet && sourceVehicle!=='jet' && !world.jet.wrecked && insideBody(to,world.jet,1.35,1.8,halo)) {
+    if (world.jet && sourceVehicle!=='jet' && !world.jet.wrecked && insideBody(to,world.jet,3.5,4.4,halo)) {
       target=world.jet;hitKind='jet';break;
     }
     if (sourceVehicle !== 'heli' && !world.heli.wrecked && insideBody(to, world.heli, 1.15, 1.95, halo)) {
@@ -580,7 +580,7 @@ export function dropJetBomb(world,player,tick){
   const jet=world.jet;
   if(jet.fuel===0 || jet.pilot!==player.id || !player.life.hp || jet.grounded || jet.wrecked || tick<(nextBomb.get(jet)??0))return;
   const horizontal=jet.speed*Math.cos(jet.pitch);
-  const bomb={...mountPosition(jet,[0,-.22,0]),id:nextShotId++,source:'jet',bomb:true,shooter:player.id,
+  const bomb={...mountPosition(jet,[0,1.3,0]),id:nextShotId++,source:'jet',bomb:true,shooter:player.id,
     yaw:jet.yaw,pitch:jet.pitch,vx:Math.sin(jet.yaw)*horizontal,vz:-Math.cos(jet.yaw)*horizontal,
     vy:jet.speed*Math.sin(jet.pitch),remaining:600};
   world.missiles.push(bomb);
