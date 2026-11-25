@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {berthDeckY} from './marina-docks.js';
 import {marinaPlatform as p,rungPitch} from './marina-platform.js';
+import {dockPileSpan} from './dock-piles.js';
 
 export function addDivingTower(scene,batch){
   const stone=0xc4cec7,teal=0x255b63,rail=0xa2b9b5,cream=0xe7dfc5,gold=0xdda94d;
@@ -17,7 +18,8 @@ export function addDivingTower(scene,batch){
   const ladderFace=p.near+.06;
   for(const side of [-1,1]){
     const edge=x+side*width/2,post=x+side*.77,stile=x+side*.43;
-    box(teal,post,(p.deck-2.5)/2,p.near-.33,.25,p.deck+2.5,.28);
+    const towerPile=dockPileSpan(post,p.near-.33,p.deck);
+    box(teal,post,towerPile.y,p.near-.33,.25,towerPile.height,.28);
     beam(teal,[post,p.deck-2.03,p.near-.33],[post,p.deck-.20,p.tip+.64],.13);
     beam(rail,[stile,berthDeckY,ladderFace],[stile,p.deck+.98,ladderFace],.058);
     beam(rail,[stile,p.deck+.98,ladderFace],[edge,p.deck+.98,p.near-.12],.05);
@@ -27,7 +29,10 @@ export function addDivingTower(scene,batch){
     }
     for(const z of [p.near-.12,p.near-1.5])beam(rail,[edge,p.deck,z],[edge,p.deck+.98,z],.045);
     for(let z=p.near+.12;z<p.startZ;z+=2.2)beam(rail,[edge,berthDeckY,z],[edge,berthDeckY+.98,z],.04);
-    for(const z of [p.startZ,-457,p.near+.22])box(teal,post,(berthDeckY-2.1)/2,z,.17,berthDeckY+2.1,.19);
+    for(const z of [p.startZ,-457,p.near+.22]){
+      const {y,height}=dockPileSpan(post,z,berthDeckY);
+      box(teal,post,y,z,.17,height,.19);
+    }
     box(gold,edge,p.deck-.055,deckMid,.083,.072,p.apron);
   }
   for(let i=1;i<=p.rungs;i++){
@@ -53,7 +58,10 @@ export function addDivingTower(scene,batch){
       beam(rail,[px,y,z],[px,y+.9,z],.032);
     }
     beam(rail,[px,1.42,exitZ],[px,-.27,exitEnd+.20],.04);
-    for(const z of [exitZ+1,-461,-451])batch.add(pole,teal,px,-.66,z,.20,2.45,.20);
+    for(const z of [exitZ+1,-461,-451]){
+      const {y,height}=dockPileSpan(px,z,.565);
+      batch.add(pole,teal,px,y,z,.20,height,.20);
+    }
   }
   // Buoy lines mark the swimming area. Leave the east side open to the exit.
   for(const [a,b] of [[[x-4.3,p.near],[x-4.3,p.tip-12.8]],[[x-4.3,p.tip-12.8],[exitX+1.25,p.tip-12.8]]]){

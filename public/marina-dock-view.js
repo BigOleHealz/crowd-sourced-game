@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {addDivingTower} from './marina-platform-view.js';
 import {berthDeckY,jettyY,jettySections,jettyRail,jettyBitts,jettyBeacon,marinaFingers,marinaRamp,marinaSpine} from './marina-docks.js';
+import {dockPileSpan} from './dock-piles.js';
 
 // Fixed masonry below the tide line, dressed stone courses and a timber cap.
 // Use the existing marina batch so the jetty adds no scene draw or light pass.
@@ -101,7 +102,10 @@ export function addMarinaDocks(scene,batch){
       post(brass,x,.68,z,.074,.09);block(brass,x,.735,z,.38,.07,.068);
       block(0x293e46,x,.28,f.z+d*1.105,.73,.195,.07);
     }
-    for(const x of [74.4,87.95])post(0x445052,x,-.48,f.z,.25,1.65);
+    for(const x of [74.4,87.95]){
+      const {y,height}=dockPileSpan(x,f.z,.345);
+      post(0x445052,x,y,f.z,.25,height);
+    }
     block(cream,88.83,.44,f.z,.10,.07,1.93);
     for(const side of [-1,1]){
       block(0xb9a483,81.1,.48,f.z+side*1.105,15.65,.052,.045);
