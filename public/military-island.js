@@ -8,6 +8,10 @@ export const militaryShore=[
 export const militaryRunway={west:-234,east:-216,north:-297,south:-163};
 export const militaryTaxiway={west:-216,east:-187,north:-254,south:-246};
 export const militaryHangar={x:-174,z:-250,w:32,d:24};
+export const militaryNorthTaxiway={west:-216,east:-187,north:-286,south:-278};
+export const militaryNorthHangar={x:-174,z:-282,w:32,d:24};
+export const militaryTaxiways=[militaryTaxiway,militaryNorthTaxiway];
+export const militaryHangars=[militaryHangar,militaryNorthHangar];
 export const militaryHelipads=[{x:-169,z:-209,r:9},{x:-169,z:-176,r:9}];
 // The 72 m channel matches the Harbor Key to Lantern Point crossing.
 export const militaryBridge={
@@ -64,9 +68,12 @@ export function blastMilitaryFence(doors,point,radius){
 }
 export const militaryBarriers=[
   ...militaryFence,
-  ...[-1,1].map(side=>({x:militaryHangar.x,z:militaryHangar.z+side*(militaryHangar.d/2-.4),w:militaryHangar.w,d:.8,h:6.8})),
-  ...[-1,1].map(side=>({x:militaryHangar.x+side*(militaryHangar.w/2-.4),z:militaryHangar.z,w:.8,d:militaryHangar.d,h:6.8})),
-  {x:militaryHangar.x,z:militaryHangar.z,w:militaryHangar.w,d:militaryHangar.d,bottom:6.1,h:7.0},
+  ...militaryHangars.flatMap(h=>[
+    ...[-1,1].map(side=>({x:h.x,z:h.z+side*(h.d/2-.4),w:h.w,d:.8,h:6.8})),
+    // The taxiway-facing west end is open for aircraft and players.
+    {x:h.x+h.w/2-.4,z:h.z,w:.8,d:h.d,h:6.8},
+    {x:h.x,z:h.z,w:h.w,d:h.d,bottom:6.1,h:7.0},
+  ]),
   ...[-268,-236].map(z=>({x:-110.5,z,w:.38,d:.38,bottom:.56,h:1.13})),
 ];
 export const insideMilitary=(x,z)=>{

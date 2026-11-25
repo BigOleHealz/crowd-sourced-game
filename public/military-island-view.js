@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
+import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {brickellMap,coastalBedHeight} from './brickell-map.js';
 import {shoreRockPile} from './shore-rock-piles.js';
 import {militaryFenceView} from './military-fence-view.js';
@@ -88,7 +88,9 @@ export function addMilitaryIsland(scene,Batch){
   const blocks=new Batch(),box=new THREE.BoxGeometry();
   const block=(color,x,y,z,w,h,d)=>blocks.add(box,color,x,y,z,w,h,d);
   const rect=(r,color,y=.825)=>block(color,(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,.05,r.south-r.north);
-  rect(militaryRunway,0x343d3d);rect(militaryTaxiway,0x535b58);rect(militaryAccessRoad,0x505b57);
+  rect(militaryRunway,0x343d3d);
+  for(const taxiway of militaryTaxiways)rect(taxiway,0x535b58);
+  rect(militaryAccessRoad,0x505b57);
   for(const x of [militaryRunway.west+.55,militaryRunway.east-.55])
     block(0xf2eee0,x,.859,(militaryRunway.north+militaryRunway.south)/2,.18,.012,130);
   for(let z=militaryRunway.north+11;z<militaryRunway.south-6;z+=12)
@@ -110,8 +112,7 @@ export function addMilitaryIsland(scene,Batch){
     const top=bridge.height(x)-.2;
     block(0x7d8b83,x,(top-2.9)/2,z,1.3,top+2.9,1.3);
   }
-  const h=militaryHangar;
-  block(0x354b48,h.x,.84,h.z,h.w,.08,h.d);
+  for(const h of militaryHangars)block(0x354b48,h.x,.84,h.z,h.w,.08,h.d);
   if(typeof window!=='undefined')new GLTFLoader().load(new URL('./j-type-hangar.glb',import.meta.url).href,({scene:model})=>{
     // The GLB converts its Z-up source to Y-up. Turn its long axis toward the taxiway.
     model.rotation.y=-Math.PI/2;
@@ -119,18 +120,21 @@ export function addMilitaryIsland(scene,Batch){
     const bounds=new THREE.Box3().setFromObject(model);
     const size=bounds.getSize(new THREE.Vector3());
     if(!Number.isFinite(size.x) || !Number.isFinite(size.z) || size.x<=0 || size.z<=0)return;
-    const scale=Math.min(h.w/size.x,h.d/size.z);
-    model.scale.setScalar(scale);
-    model.position.set(h.x-scale*(bounds.min.x+bounds.max.x)/2,
-      .8-scale*bounds.min.y,
-      h.z-scale*(bounds.min.z+bounds.max.z)/2);
-    model.name='J type military hangar';
-    model.traverse(part=>{
-      if(!part.isMesh)return;
-      part.castShadow=true;part.receiveShadow=true;
-      part.userData.impactSurface='solid';
-    });
-    base.add(model);
+    for(const [i,h] of militaryHangars.entries()){
+      const hangar=i===0?model:model.clone(true);
+      const scale=Math.min(h.w/size.x,h.d/size.z);
+      hangar.scale.setScalar(scale);
+      hangar.position.set(h.x-scale*(bounds.min.x+bounds.max.x)/2,
+        .8-scale*bounds.min.y,
+        h.z-scale*(bounds.min.z+bounds.max.z)/2);
+      hangar.name=`J type military hangar ${i+1}`;
+      hangar.traverse(part=>{
+        if(!part.isMesh)return;
+        part.castShadow=true;part.receiveShadow=true;
+        part.userData.impactSurface='solid';
+      });
+      base.add(hangar);
+    }
   },undefined,error=>console.warn('J type hangar model failed to load',error));
   for(const pad of militaryHelipads){
     const circle=new THREE.Mesh(new THREE.CylinderGeometry(pad.r,pad.r,.06,40),new THREE.MeshLambertMaterial({color:0x374543}));
