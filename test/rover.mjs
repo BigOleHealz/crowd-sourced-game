@@ -51,7 +51,7 @@ assert.equal(fight.shots.at(-1).targetId,'rover');
 shooter.weapon=2;
 for(let n=1;n<=6;n++) fireAtRover(30+21*n);
 assert.equal(car.hp,0); assert(car.wrecked); assert.equal(car.driver,null);
-assert.equal(driver.life.hp,100); assert.ok(driver.state.grounded);
+assert.equal(driver.life.hp,0); assert.equal(driver.life.deathKind,'blast');
 interactRover(fight,driver); assert.equal(car.driver,null);
 for(let n=0;n<180;n++) recoverRover(fight,dt);
 assert.equal(fight.rover.hp,250); assert.equal(fight.rover.wrecked,false);

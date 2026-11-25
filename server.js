@@ -38,6 +38,7 @@ import {stepCargoHook} from './public/cargo-hook.js';
 import {finishTrafficDelivery} from './public/city-traffic.js';
 import {stepWakeCrossings} from './public/boat-wakes.js';
 import {stepRoadBoarding} from './public/road-cabin.js';
+import {setRoadOccupantContext} from './public/road-occupants.js';
 import {stepPatrolCruisers} from './public/patrol-cruisers.js';
 import {createWanted} from './public/wanted.js';
 import {newCityTraffic,parkedTrafficCar,syncTrafficDrivers,stepCityTraffic,trafficDriverCar,tryTrafficInteract,driveTrafficCar,leaveTraffic} from './public/city-traffic.js';
@@ -597,6 +598,7 @@ function tick() {
     if(++lobbyTicks%2===0)publish();
     return;
   }
+  setRoadOccupantContext(world,npcs,ticks);
   if(world.spearedFish)clearReturnedFish(world,ticks);
   stepVehicleFuel(world,step);
   stepDrawbridges(world,bridges,step);

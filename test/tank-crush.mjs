@@ -18,7 +18,9 @@ for(const kind of ['rover','supercar','sedan','hatchback','van']){
   assert.equal(car.hp,0);assert(car.crushed);assert.equal(car.driver,null);
   assert(tank.z<33 && !tank.wrecked,'tracks pass clear of the chassis');
   if(kind==='rover')assert.equal(car.gunner,null);
-  assert.equal(players.get(2).life.hp,100);
+  assert.equal(players.get(2).life.hp,0);
+  assert.equal(players.get(2).life.deathKind,'blast');
+  if(kind==='rover')assert.equal(players.get(3).life.hp,0);
   assert.equal(w.shots.length,1);assert.deepEqual([w.shots[0].to.x,w.shots[0].to.z],[-38,37]);
   assert(crushedScale(car)>0 && crushedScale({...car,recoverySeconds:4})===0);
   if(!car.model){recoverRover(w,6.1,kind);assert.equal(w[kind].hp,w[kind].maxHp);assert(!w[kind].crushed);}

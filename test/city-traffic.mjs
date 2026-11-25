@@ -57,7 +57,7 @@ function setup(){
   Object.assign(a.state,{x:car.x,z:car.z-5});
   for(let i=0;i<90;i++)step();
   assert.equal(nearestTraffic(world,a.state),car);
-  const b={...a,id:2,state:{...a.state}};players.set(2,b);
+  const b={...a,id:2,life:newLife(0),state:{...a.state}};players.set(2,b);
   assert(tryTrafficInteract(world,a,npcs));assert(!tryTrafficInteract(world,b,npcs));
   const resident=npcs.find(n=>n.id===originalNpc);
   assert.equal(car.takeover.npcId,resident.id);assert.equal(car.driver,1);
