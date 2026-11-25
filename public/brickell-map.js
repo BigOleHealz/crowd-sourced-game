@@ -18,7 +18,7 @@ import {skateParkFloor} from './skate-park.js';
 import {leafSurface} from './drawbridges.js';
 import {causewayArch} from './causeway-arch.js';
 import {harborSigns,beachSigns,signalPost} from './scenery-layout.js';
-import {beach,onBeach, sandHeight, beachBarriers} from './beach-layout.js';
+import {beach,onBeach,onBeachTerrain, sandHeight, beachBarriers} from './beach-layout.js';
 import {beachClubFixtures,beachClubFloor} from './beach-club.js';
 import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
@@ -92,6 +92,9 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
     if(within(ferrySlip,x,z))return slipHeight(x);
     if(onMarketPier(x,z))return pierDeck;
   }
+  // Foot traffic uses the visible side banks; low-draft boat probes keep the
+  // surveyed deeper bed beneath them.
+  if(!onBeach(x,z) && onBeachTerrain(x,z) && maxBottom>0)return coastalBedHeight(x,z);
   return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? islandOrSeabed(x,z) : roadway(x,z) ? .70 : .80;
 }
 

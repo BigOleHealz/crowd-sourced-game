@@ -3,18 +3,30 @@ import {beachSigns} from './scenery-layout.js';
 import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
-import { beach, courts, sandHeight } from './beach-layout.js';
+import { beach, beachTerrain, courts, sandHeight } from './beach-layout.js';
+import {coastalBedHeight} from './brickell-map.js';
 export function addBeach(scene,Batch) {
   addSkatePark(scene,Batch);
-  // Two-metre cells line up with the reef terrain at every beach edge.
-  const geometry=new THREE.PlaneGeometry(beach.east-beach.west,beach.south-beach.north,19,64);
-  geometry.rotateX(-Math.PI/2);geometry.translate((beach.east+beach.west)/2,0,(beach.south+beach.north)/2);
+  // The side banks and seaward toe keep sloping below water before the mesh ends.
+  // Two-metre cells meet the reef terrain on the same vertices and triangles.
+  const geometry=new THREE.PlaneGeometry(beachTerrain.east-beachTerrain.west,beachTerrain.south-beachTerrain.north,
+    (beachTerrain.east-beachTerrain.west)/2,(beachTerrain.south-beachTerrain.north)/2);
+  geometry.rotateX(-Math.PI/2);
+  geometry.translate((beachTerrain.east+beachTerrain.west)/2,0,(beachTerrain.south+beachTerrain.north)/2);
   const p=geometry.attributes.position, colors=[],c=new THREE.Color();
   for(let i=0;i<p.count;i++){
-    const x=p.getX(i),z=p.getZ(i),y=sandHeight(x,z);p.setY(i,y);
+    const x=p.getX(i),z=p.getZ(i),y=coastalBedHeight(x,z);p.setY(i,y);
     geometry.attributes.uv.setXY(i,x/4,z/4);
+    const bx=Math.max(beach.west,Math.min(beach.east,x));
+    const bz=Math.max(beach.north,Math.min(beach.south,z));
+    const edge=Math.min(1,Math.hypot(x-bx,z-bz)/12);
+    const fade=edge*edge*(3-2*edge);
+    const relief=coastalBedHeight(x+1,z)-y;
     const damp=THREE.MathUtils.smoothstep(y,-.36,.55);
-    c.setRGB(.53+.47*damp,.49+.51*damp,.45+.55*damp);colors.push(c.r,c.g,c.b);
+    c.setRGB((.53+.47*damp)*(1-fade)+(.66+relief*.13)*fade,
+      (.49+.51*damp)*(1-fade)+(.76+relief*.12)*fade,
+      (.45+.55*damp)*(1-fade)+(.65+relief*.10)*fade);
+    colors.push(c.r,c.g,c.b);
   }
   const tex=new THREE.TextureLoader().load('./harbor-sand.webp');tex.colorSpace=THREE.SRGBColorSpace;
   tex.wrapS=tex.wrapT=THREE.RepeatWrapping;
