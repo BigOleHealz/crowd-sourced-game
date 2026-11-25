@@ -9,6 +9,8 @@ import {onBridgeDeck,raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
+import {bridges} from './brickell-map.js';
+import {leafSurface} from './drawbridges.js';
 import {postDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, travelBounds, waterSurfaceAt, groundHeight, terrainHeight } from './world.js';
@@ -20,6 +22,12 @@ const props=[...MAP.rocks,...MAP.trees,...BREAKABLES];
 const bridgeRails=MAP.bridge?[-1,1].map(side=>({
   x:MAP.bridge.x+side*MAP.bridge.width/2,z:MAP.bridge.z,w:.10,d:9.6,h:1,
 })):[];
+const cityBridgeRails=CITY?bridges.flatMap(bridge=>[
+  ...[bridge.west,bridge.east].map(x=>({bridge,x,z:(bridge.north+bridge.south)/2,
+    w:bridge.parapetWidth,d:bridge.south-bridge.north,outer:false})),
+  ...[bridge.walkWest,bridge.walkEast].map(x=>({bridge,x,z:(bridge.north+bridge.south)/2,
+    w:bridge.parapetWidth,d:bridge.south-bridge.north,outer:true})),
+]):[];
 const stationFootprints=stations.map(s=>({x:s.x-.52,z:s.z,w:4.42,d:3.06,woodId:s.number}));
 const wood=new Set(MAP.trees);
 const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
@@ -63,6 +71,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const interior=CITY && onEstate(x,z);
   const floorProbe=interior || CITY && inTankOpening(world.doors,x,vehicle.y??.8,z) ? (vehicle.y??.8)+.32 : Infinity;
   const base=groundHeight(x,z,floorProbe,world.doors);
+  const roof=shape.roof??shape.height??1.66;
   let result;
   const consider=hit=>{if(hit && (!result||hit.depth>result.depth))result=hit;};
   const reach=shape.halfWidth+shape.halfLength;
@@ -93,12 +102,21 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     }
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
+  for(const rail of cityBridgeRails){
+    const {bridge}=rail;
+    const atZ=clamp(z,bridge.north,bridge.south);
+    const deck=leafSurface(bridge,atZ,world.doors?.bridgeLifts?.[bridge.north]??0);
+    if(deck===-Infinity)continue; // Open space between raised leaves.
+    const bottom=(deck??bridge.height(atZ,'road'))+(rail.outer?bridge.sidewalkRise:0);
+    const vehicleBottom=vehicle.y??base;
+    if(vehicleBottom+roof<bottom || vehicleBottom>bottom+bridge.parapetHeight)continue;
+    consider(boxContact(x,z,s,c,rail,shape));
+  }
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     if(prop.treeId==null || !world.doors?.fallenTrees?.[prop.treeId])
       consider(roundContact(x,z,s,c,prop,prop.radius,shape));
   consider(jetRoadContact(world.jet,x,base,z,yaw,shape));
   const heli=world.heli;
-  const roof=shape.roof??shape.height??1.66;
   if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
     if(!parked || parked.crushed || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;
