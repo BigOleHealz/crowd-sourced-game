@@ -16,8 +16,8 @@ function shatter(id,x,y,z,dx,dz,dy=0){
   fire(world,s,{aimPitch:Math.atan2(dy,Math.hypot(dx,dz)),aimYaw:Math.atan2(dx,-dz)},0,new Map(),[]);
   for(let i=0;i<8;i++)advanceRounds(world,new Map(),[],i);
   assert(world.doors.brokenPanes?.[id],id+' at '+[x,y,z]+' struck '+world.shots.at(-1)?.hitKind);
-  assert.equal(world.doors.glassSeq,1);
-  assert.equal(Object.keys(world.doors.brokenPanes).length,1);
+  assert(world.doors.glassSeq>=1,'the round can break aligned panes after the first');
+  assert.equal(Object.keys(world.doors.brokenPanes).length,world.doors.glassSeq);
 }
 if(!CITY){
   const {church,churchParts,rose}=await import('../public/ridge-church.js');

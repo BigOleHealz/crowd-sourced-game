@@ -16,7 +16,7 @@ function fireAt(world,from,to) {
   world.shots.length=0;
   fire(world,player,{aimYaw:Math.atan2(x,-z),aimPitch:Math.atan2(y,Math.hypot(x,z))},0,actors,[]);
   for(let tick=1;world.bullets.length && tick<100;tick++)advanceRounds(world,actors,[],tick);
-  return world.shots.at(-1);
+  return world.shots.find(shot=>shot.hitKind==='glass')??world.shots.at(-1);
 }
 
 function fireAcross(world,pane,side=1,height=2.24,range=1.75) {
@@ -34,14 +34,18 @@ for(const n of [0,7,21]){
   const side=n?-1:1;
   assert.equal(fireAcross(scene,pane,side,y,1.3).hitKind,'glass');
   assert(scene.doors.brokenPanes[p.paneId]);
-  assert.equal(Object.keys(scene.doors.brokenPanes).length,1,'neighboring panes survive');
+  assert(Object.keys(scene.doors.brokenPanes).length>=1,'the shot breaks the pane it crosses');
   assert(!blocked(p.x,p.base+.015,p.z,scene.hp,scene.doors,Math.min(1.7,p.h-.05)),'opening clears once the pane disappears');
 }
 const showcase=storefrontFaces.find(f=>f.showcase);
 for(const i of [0,5,6]){
   const scene=newExpedition(), pane=showcase.glass.bays[i].all;
-  assert.equal(fireAcross(scene,pane).hitKind,'glass');
+  const glass=fireAcross(scene,pane);
+  assert.equal(glass.hitKind,'glass');
   assert.equal(scene.doors.broken[showcase.id],1<<i);
+  const sameRound=scene.shots.at(-1);
+  assert.equal(sameRound.hitKind,'scenery','the bullet reaches the room behind the newly broken pane');
+  assert(sameRound.to.x<pane.x-1,'the bullet keeps its original direction beyond the pane');
   const after=fireAcross(scene,pane);
   assert.equal(after.hitKind,'scenery');
   assert(after.to.x<pane.x-1,'the next round passes the opening and hits the room beyond');

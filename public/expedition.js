@@ -793,6 +793,12 @@ export function advanceRounds(world,players,npcs,tick){
     if(r.hidden && !hit.target && !injury)return false;
     world.shots.push({id:nextShotId++,shooter:r.shooter,weapon:r.weapon,source:r.source,from,to,traveling:true,hit:true,injury,injuryPoint:injury ? injuryPoint : undefined,
       hitKind:hit.hitKind,targetId:hit.target?.id??hit.hitKind,headshot:hit.headshot,tick});
+    if(hit.hitKind==='glass'){
+      // The pane is gone now. Resume this same round at the contact point on
+      // the next tick, with its velocity and untravelled range intact.
+      r.left+=step*fraction*(1-t);
+      return r.left>.00001 && r.age<90;
+    }
     return false;
   });
   for(const actor of [...players.values(),...npcs])lastPosition.set(actor,{...actor.state});
