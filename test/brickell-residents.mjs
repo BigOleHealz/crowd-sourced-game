@@ -3,7 +3,7 @@ process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newRivals,updateRival,rivalView,damageActor}=await import('../public/rivals.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {MAP,groundHeight}=await import('../public/world.js');
-const people=newRivals(),world=newExpedition();
+const people=newRivals().filter(actor=>!actor.id.startsWith('military-guard-')),world=newExpedition();
 const {hotelRegulars}=await import('../public/brickell-conversations.js');
 const regular=new Set(hotelRegulars.map(r=>r.id));
 assert.equal(people.length,22);

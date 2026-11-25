@@ -25,3 +25,10 @@ https://creativecommons.org/licenses/by/4.0/
 Goy Theft Auto adaptation: the original skinned mesh and texture are kept; the game
 drives its skeleton from the existing player pose system. The supplied walking
 animation remains in the source GLB but is not used at runtime.
+
+Army Man by Darksider Crood
+https://sketchfab.com/3d-models/army-man-01600c5a02ce4b13a7e2f02bfa70ef6a
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Goy Theft Auto adaptation: the source mesh and textures were fitted to the existing
+character skeleton so military island guards can patrol and react to damage.

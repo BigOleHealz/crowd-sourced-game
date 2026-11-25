@@ -1,6 +1,7 @@
 import {sidewalkPace,curbWait} from './sidewalk-crossings.js';
 import {stepPedestrianReaction} from './pedestrian-reactions.js';
 import {outpostPatrols} from './outpost-patrols.js';
+import {militaryPatrols} from './military-patrols.js';
 import {brickellResidents} from './brickell-residents.js';
 import {resortGuests} from './resort-guests.js';
 import {packedJoints,releaseJoints} from './ragdoll.js';
@@ -17,7 +18,7 @@ const SHIELD_TICKS = 60;
 const patrols = [
   { id: 'rival-fern', name: 'Fern', points: CITY ? [[-7.55,8],[-7.55,16.2],[-8.25,13.7],[-8.25,8.1]] : [[-3.5, 8], [-2.8, 7.6], [-3.3, 6.7]] },
   { id: 'rival-rowan', name: 'Rowan', points: [[10, 13], [11, 12], [12, 13.5]] },
-  ...(CITY ? brickellResidents : outpostPatrols),
+  ...(CITY ? [...brickellResidents,...militaryPatrols] : outpostPatrols),
 ];
 
 export function newLife(tick, shield = true) {
@@ -73,7 +74,7 @@ function patrolStart(route) {
 
 export function newRivals({resort=false}={}) {
   const routes=CITY && resort ? [...patrols,...resortGuests] : patrols;
-  return routes.map((route,index) => ({ sidewalk:CITY && index>=2 ? sidewalkPace(index) : null, id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
+  return routes.map((route,index) => ({ sidewalk:CITY && index>=2 && !route.id.startsWith('military-guard-') ? sidewalkPace(index) : null, id: route.id, name: route.name, route, next: 1, pauseUntil: 0,
     state: patrolStart(route), yaw: Math.PI, moving: false, weapon: 1, life: newLife(0, false) }));
 }
 
