@@ -820,7 +820,7 @@ function connect() {
       if(samples.at(-1)?.sim===sim)samples.pop();
       samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli: world.heli, supercar:world.supercar, rover: world.rover, npcs: world.npcs, players: m.players.filter(p => p.id !== id),volleyball:world.volleyball });
       if (samples.length > 12) samples.shift();
-      lagDiagnostics?.record({receivedAt,processedAt:arrival,sim,
+      lagDiagnostics?.record({receivedAt,processedAt:arrival,sim,simTick:m.simTick,ack:authoritative.ack,
         beforeFoot:!changedLife && !predictedDriver ? beforeFoot : null,afterFoot:!changedLife && !predictedDriver ? self : null,
         beforeDriver:beforeDriverKind===predictedDriver?.kind ? beforeDriver : null,
         afterDriver:beforeDriverKind===predictedDriver?.kind ? predictedDriver?.pose(1) : null,
