@@ -56,6 +56,39 @@ add('rover','front',[-.611,1.02,-.633],[.611,1.02,-.633],[.553,1.55,-.40],[-.553
 add('rover','rear',[-.635,1.015,.37],[-.573,1.53,.298],[.573,1.53,.298],[.635,1.015,.37]);
 for(const s of [-1,1])add('rover',s<0?'left':'right',[s*.667,1.023,-.58],[s*.597,1.54,-.397],[s*.599,1.53,.299],[s*.665,1.02,.356]);
 
+const trafficGlass={
+  sedan:{w:.86,roof:1.52,topFront:-.42,topRear:.55,cabinEnd:1.29},
+  hatchback:{w:.82,roof:1.55,topFront:-.40,topRear:.84,cabinEnd:1.47},
+  van:{w:.95,roof:2.10,topFront:-.43,topRear:1.91,cabinEnd:2.16},
+};
+for(const [kind,{w,roof,topFront,topRear,cabinEnd}] of Object.entries(trafficGlass)){
+  glassQuads[kind]=[];
+  const van=kind==='van',front=van?-1.07:-1.02,post=van?.28:.26;
+  const belt=van?1.025:.965,topW=w-(van?.19:.185),sideBottom=van?1.033:.964;
+  const frontLower=f=>[f*(w-.066),belt+.012+.026*(1-f*f),front-.053*(1-f*f)];
+  const frontUpper=f=>[f*(topW-.026),roof-.086+.043*(1-f*f),topFront-.017*(1-f*f)];
+  const samples=[-1,-.68,-.30,0,.30,.68,1];
+  for(let i=1;i<samples.length;i++)add(kind,'front',frontLower(samples[i-1]),frontUpper(samples[i-1]),frontUpper(samples[i]),frontLower(samples[i]));
+  for(const side of [-1,1]){
+    const forward=[side*(w-.059),sideBottom,front+.07],forwardTop=[side*topW,roof-.083,topFront+.034];
+    const backTop=[side*topW,roof-.083,post+.025],back=[side*(w-.058),sideBottom,post-.047];
+    if(side>0)add(kind,'right',forward,forwardTop,backTop,back);
+    else{
+      const quarterBase=[side*(w-.060),sideBottom,front+.22];
+      const quarterTop=forward.map((v,i)=>v+.31*(forwardTop[i]-v));
+      add(kind,'leftQuarter',forward,quarterTop,quarterTop,quarterBase);
+    }
+    if(!van)add(kind,side<0?'leftRear':'rightRear',
+      [side*(w-.055),belt+.012,post+.042],[side*topW,roof-.09,post+.11],
+      [side*topW,roof-.09,topRear-.032],[side*(w-.061),belt+.012,cabinEnd-.065]);
+    else add(kind,side<0?'leftRear':'rightRear',
+      [side*.075,1.39,cabinEnd+.012],[side*(w-.158),1.39,cabinEnd+.012],
+      [side*(w-.171),1.82,cabinEnd+.012],[side*.075,1.84,cabinEnd+.012]);
+  }
+  if(!van)add(kind,'rear',[-topW+.025,roof-.082,topRear],[topW-.025,roof-.082,topRear],
+    [w-.061,belt+.022,cabinEnd],[-w+.061,belt+.022,cabinEnd]);
+}
+
 const sub=(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]];
 const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
@@ -63,7 +96,7 @@ const triangles={};
 for(const [kind,quads] of Object.entries(glassQuads)){
   triangles[kind]=quads.flatMap(({id,corners:[a,b,c,d]})=>[[a,b,c],[a,c,d]].map(([p,q,r])=>({id,p,ab:sub(q,p),ac:sub(r,p)})));
 }
-export function windowContact(kind,v,point,velocity,pickup=true){
+export function windowContact(kind,v,point,velocity,pickup=true,includeBroken=false){
   const c=Math.cos(v.yaw),s=Math.sin(v.yaw);
   const pitch=v.pitch??v.suspension?.pitch??0,roll=v.roll??v.suspension?.roll??0;
   function local(x,y,z){
@@ -78,7 +111,7 @@ export function windowContact(kind,v,point,velocity,pickup=true){
   // segment around its contact so a shot into the bumper cannot hit rear glass.
   let nearest=kind==='heli'?1.05:.70,hit=null;
   for(const tri of triangles[kind]){
-    if(v.brokenGlass?.[tri.id] || (kind==='rover' && !pickup && tri.id!=='front'))continue;
+    if((!includeBroken && v.brokenGlass?.[tri.id]) || (kind==='rover' && !pickup && tri.id!=='front'))continue;
     const p=cross(d,tri.ac),det=dot(tri.ab,p);
     if(Math.abs(det)<1e-8)continue;
     const offset=sub(origin,tri.p),u=dot(offset,p)/det;
