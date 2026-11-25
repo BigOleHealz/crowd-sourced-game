@@ -63,10 +63,10 @@ function fixture(){
 }
 {
   const {w,p,npcs,players}=fixture();w.wanted.set(p,true);
-  const victim=make('resident',0,-186.5);npcs.push(victim);Object.assign(w.rover,{x:0,y:.7,z:-185,driver:p.id});
-  vehicleContacts(w,'rover',{x:0,y:.7,z:-184.6},[p,victim],30,1/30);
+  const victim=make('resident',0,-186.5);npcs.push(victim);Object.assign(w.rover,{x:0,y:.7,z:-183.2,driver:p.id});
+  vehicleContacts(w,'rover',{x:0,y:.7,z:-182.8},[p,victim],30,1/30);
   assert.equal(victim.life.hp,0);assert.equal(w.wanted.session(p).heat,2);
-  vehicleContacts(w,'rover',{x:0,y:.7,z:-184.6},[p,victim],31,1/30);
+  vehicleContacts(w,'rover',{x:0,y:.7,z:-182.8},[p,victim],31,1/30);
   assert.equal(w.wanted.session(p).heat,2);
 }
 {

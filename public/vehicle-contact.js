@@ -4,6 +4,7 @@ import {yachtFloorAt,yachtCeilingAt} from './yacht-layout.js';
 import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {marinaModel} from './marina-fleet-layout.js';
 import {tankScale,tankHull} from './tank-layout.js';
+import {humveeWalkShapes} from './humvee-layout.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
 // The helicopter includes the 1.23 airframe model scale. Separating its cabin,
 // boom and landing gear leaves the sidewalk open underneath the elevated tail.
@@ -14,8 +15,6 @@ const helicopter = [
   [.16,5.72,6.57,2.04,3.61], [.18,4.02,4.43,.06,1.88],
   [1.25,-1.05,-.60,.06,.90],
 ];
-const pickup = [[.85,-1.73,1.75,.05,1.01],[.67,-.62,.46,1.01,1.66]];
-const jeep = [[.85,-1.55,1.62,.05,.99],[.66,-.60,.38,.99,1.60]];
 const sport=[[supercarLayout.halfWidth,-supercarLayout.halfLength,supercarLayout.halfLength,.10,.73],
   [.84,-.98,1.10,.73,supercarLayout.roof]];
 const tracks=[[tankHull.halfWidth,-tankHull.halfLength,tankHull.halfLength,.05,1.20*tankScale],
@@ -42,7 +41,7 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
     const vehicle=kind==='traffic'?(traffic[index-firstCar]??patrol[index-firstCar-traffic.length]):kind==='boat'?boats[index-4]:world[kind];
     if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || vehicle.crushed || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli' ? helicopter : city ? pickup : jeep;
+    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli' ? helicopter : humveeWalkShapes;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;
