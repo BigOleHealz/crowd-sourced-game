@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {eisenhowerCarrier,carrierRamp,carrierRampSegments} from './eisenhower-carrier-layout.js';
+import {eisenhowerCarrier,carrierRamp,carrierRampSegments,carrierRampRailSpan} from './eisenhower-carrier-layout.js';
 import {seabedHeight} from './reef-channel.js';
 
 function addCarrierRamp(scene){
@@ -38,8 +38,7 @@ function addCarrierRamp(scene){
     for(const side of [-1,1]){
       beam(point(0,side,-.42),point(1,side,-.42),.18,trimMaterial);
       // The corner opens for the turn; the final opening begins on the deck.
-      const start=segment===0 ? 0 : 2/length;
-      const end=segment===0 ? 1-2/length : 1-2/length;
+      const {start,end}=carrierRampRailSpan(segment,length);
       beam(point(start,side,1.07),point(end,side,1.07),.063,railMaterial);
       beam(point(start,side,.45),point(end,side,.45),.035,railMaterial);
       for(let t=start;t<=end+.001;t+=3/length)

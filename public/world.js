@@ -37,6 +37,7 @@ import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround, coastalBedHeight, parapetTop, waterfront } from './brickell-map.js';
 import {onRunway} from './runway-layout.js';
 import {militaryHelipads} from './military-island.js';
+import {carrierRampRailBlocked} from './eisenhower-carrier-layout.js';
 export const CITY = typeof location === 'object'
   ? (new URLSearchParams(location.search).get('map') ?? 'brickell') === 'brickell'
   : typeof process !== 'undefined' && process.env.GOY_THEFT_AUTO_MAP === 'brickell';
@@ -361,6 +362,7 @@ export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,ro
 
 export function blocked(x, y, z, hp, doors, height=1.7) {
   if(CITY && towerRail(x,y,z))return true;
+  if(CITY && carrierRampRailBlocked(x,y,z,height,PLAYER_RADIUS))return true;
   const floor=groundHeight(x,z,y+1.7,doors);
   if (floor > y + 0.3) return true;
   const bridge = MAP.bridge;

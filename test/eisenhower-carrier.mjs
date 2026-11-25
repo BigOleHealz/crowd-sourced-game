@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 
 process.env.GOY_THEFT_AUTO_MAP='brickell';
-const {MAP,stepPlayer,solidTopAt,travelBounds,groundHeight}=await import('../public/world.js');
+const {MAP,stepPlayer,solidTopAt,travelBounds,groundHeight,blocked}=await import('../public/world.js');
 const {militaryIsland,militaryFence}=await import('../public/military-island.js');
-const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierRamp,carrierRampHeight}=await import('../public/eisenhower-carrier-layout.js');
+const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierRamp,carrierRampHeight,carrierRampSegments,carrierRampRailBlocked}=await import('../public/eisenhower-carrier-layout.js');
 
 const scale=eisenhowerCarrier.length/1061.7968;
 const beam=293.8955*scale;
@@ -44,4 +44,19 @@ for(const goal of [carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:c
   assert(Math.hypot(goal.x-walker.x,goal.z-walker.z)<.15,'shore ramp reaches each landing');
 }
 assert(walker.grounded && Math.abs(walker.y-carrierDeckTop)<.02,'player walks from shore onto flight deck');
+for(const [a,b] of carrierRampSegments){
+  const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz),sideX=-dz/length,sideZ=dx/length;
+  const middle={x:(a.x+b.x)/2,z:(a.z+b.z)/2,y:(a.y+b.y)/2};
+  for(const side of [-1,1]){
+    const railX=middle.x+sideX*side*carrierRamp.width/2;
+    const railZ=middle.z+sideZ*side*carrierRamp.width/2;
+    assert(carrierRampRailBlocked(railX,middle.y,railZ));
+    assert(!carrierRampRailBlocked(railX,middle.y-2,railZ),'water traffic below the rail stays clear');
+    assert(blocked(railX,middle.y,railZ,{},{}),'the server and client movement probe meet the rail');
+    let p={x:middle.x+sideX*side*.7,z:middle.z+sideZ*side*.7,y:middle.y,vy:0,grounded:true};
+    for(let i=0;i<45;i++)p=stepPlayer(p,{x:sideX*side,z:sideZ*side},1/30,{}, {doors:{}});
+    const outward=(p.x-middle.x)*sideX*side+(p.z-middle.z)*sideZ*side;
+    assert(outward<carrierRamp.width/2-.25,'walking sideways stops at each visible rail');
+  }
+}
 console.log('PASS coastside carrier placement, realistic draft, fence gate and walkable flight-deck ramp');
