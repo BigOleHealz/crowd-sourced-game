@@ -13,7 +13,7 @@ export function addEisenhowerCarrier(scene,waterY){
     model.scale.setScalar(scale);
     model.position.set(
       eisenhowerCarrier.x-scale*(bounds.min.x+bounds.max.x)/2,
-      waterY-scale*25,
+      waterY-scale*eisenhowerCarrier.waterlineModelY,
       eisenhowerCarrier.z-scale*(bounds.min.z+bounds.max.z)/2,
     );
     model.name='USS Dwight D. Eisenhower (static scenery)';

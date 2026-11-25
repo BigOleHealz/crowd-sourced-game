@@ -7,12 +7,12 @@ const {stepBoat,interactBoat,helmFeet}=await import('../public/patrol-boats.js')
 
 const dt=1/30;
 for(const [x,z,yaw,axis,sign,edge] of [
-  [74,-211,Math.PI/2,'x',1,109],[-255,-330,-Math.PI/2,'x',-1,275],
+  [74,-211,Math.PI/2,'x',1,109],[-255,-400,-Math.PI/2,'x',-1,-MAP.westBound],
   [14,90,Math.PI,'z',1,118],[15,-484,0,'z',-1,-MAP.northBound],
 ]) {
   const world=newExpedition(),b=world.boats[1],actor={id:7,state:{}},players=new Map([[7,actor]]);
   Object.assign(b,{x,z,yaw,driver:actor.id});
-  for(let i=0;i<240;i++)stepBoat(world,b,{throttle:1},dt,players);
+  for(let i=0;i<(sign<0 && axis==='x'?480:240);i++)stepBoat(world,b,{throttle:1},dt,players);
   assert(b[axis]*sign>edge-3 && b[axis]*sign<=edge-2.75);
   assert.equal(b.hp,300,'chart edge stops the hull without collision damage');
   actor.state=helmFeet(b);interactBoat(world,b,actor);
