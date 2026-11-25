@@ -4,7 +4,8 @@ import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, beachIsland, beachTerrain, onBeachTerrain, onRockShore, courts, sandHeight } from './beach-layout.js';
-import {coastalBedHeight} from './brickell-map.js';
+import {brickellMap,coastalBedHeight} from './brickell-map.js';
+import {shoreRockPile} from './shore-rock-piles.js';
 
 function addRockShoreBoulders(scene) {
   const positions=[];
@@ -25,8 +26,9 @@ function addRockShoreBoulders(scene) {
     const n=Math.sin(x*127.1+z*311.7)*43758.5453,random=n-Math.floor(n);
     const px=x+(random-.5)*.85,pz=z+(Math.sin(n*1.37)*.5)*.7;
     if(!onRockShore(px,pz))continue;
-    const floor=coastalBedHeight(px,pz),radius=.85+random*.75,height=.38+random*.35;
-    dummy.position.set(px,floor+height*.13,pz);
+    const floor=coastalBedHeight(px,pz);
+    const {radius,height,centerY}=shoreRockPile(floor,brickellMap.waterY,random);
+    dummy.position.set(px,centerY,pz);
     dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
     dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
     stones.setMatrixAt(count,dummy.matrix);
