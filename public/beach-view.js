@@ -4,8 +4,8 @@ import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, beachIsland, beachTerrain, onBeachTerrain, onRockShore, courts, sandHeight } from './beach-layout.js';
-import {brickellMap,coastalBedHeight} from './brickell-map.js';
-import {shoreRockPile} from './shore-rock-piles.js';
+import {brickellMap,bridges,coastalBedHeight} from './brickell-map.js';
+import {shoreRockPile,rockPileOverlapsBridge} from './shore-rock-piles.js';
 
 function addRockShoreBoulders(scene) {
   const positions=[];
@@ -28,6 +28,7 @@ function addRockShoreBoulders(scene) {
     if(!onRockShore(px,pz))continue;
     const floor=coastalBedHeight(px,pz);
     const {radius,height,centerY}=shoreRockPile(floor,brickellMap.waterY,random);
+    if(bridges.some(bridge=>rockPileOverlapsBridge(px,pz,radius*1.15,bridge)))continue;
     dummy.position.set(px,centerY,pz);
     dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
     dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
