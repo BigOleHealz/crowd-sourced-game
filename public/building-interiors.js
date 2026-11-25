@@ -184,10 +184,12 @@ export function initializeBuildingInteriors(buildings,city,terrain){
 
 }
 export const doorIsOpen=(d,state)=>d.initial!==!!((state?.roomLeaves?.[d.id>>>5]??0)&(1<<(d.id%32)));
-export function operableDoorAt(p,feet,range=1.57){
+export const doorSupported=(d,state)=>!d.glazed || d.p.b.towerId!==9 ||
+  (!state?.collapsedTowers?.includes(9) && breachedFloor(d.p.b,d.x,d.z,d.y+.3,state)==null);
+export function operableDoorAt(p,feet,range=1.57,state){
   let best,dist=range;
   for(const d of p.doors){
-    if(Math.abs(d.y-feet.y)>.5)continue;
+    if(Math.abs(d.y-feet.y)>.5 || !doorSupported(d,state))continue;
     const distance=Math.hypot(d.x-feet.x,d.z-feet.z);
     if(distance<dist){best=d;dist=distance;}
   }
@@ -209,7 +211,7 @@ export function buildingAction(feet,state){
   if(slot!==undefined)return {kind:'slot',slot,label:'Spin practice slots'};
   for(const p of near(feet.x,feet.z)){
     if(!intact(p,state,feet.x,feet.y,feet.z))continue;
-    const d=operableDoorAt(p,feet,dist);
+    const d=operableDoorAt(p,feet,dist,state);
     if(d){best={kind:'door',d,label:(doorIsOpen(d,state)?'Close ':'Open ')+d.label};dist=Math.hypot(feet.x-d.x,feet.z-d.z);}
     for(const s of p.panels){
       if(Math.abs(s.y-feet.y)>.5)continue;
@@ -243,7 +245,7 @@ export function roomDoorTop(x,z,pad,probe,doors){
     }
     const extra=p.grandDoors?.[floorIndex(probe)]??p.balconyDoors?.filter(d=>Math.abs(d.y-probe)<2.2);
     for(const d of extra?[...p.entrances,...extra]:p.entrances){
-      if(doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
+      if(!doorSupported(d,doors) || doorIsOpen(d,doors) || probe<d.y-.12 || probe>d.y+(d.height??2.18)+.01)continue;
       if(intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+(d.height??2.18));
     }
   }
@@ -280,7 +282,7 @@ export function furnishedFloorTop(b,x,z,pad,probe,doors,round=false){
   let top=partsTop(level.parts,x,z,pad,probe,level.y);
   if(level.residential)top=partsTop(level.residential.collisions,x,z,pad,probe,top);
   for(const d of [...level.doors,...(p.balconyDoors??[])])
-    if(Math.abs(d.y-level.y)<.01 && !doorIsOpen(d,doors) && intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+2.12);
+    if(Math.abs(d.y-level.y)<.01 && doorSupported(d,doors) && !doorIsOpen(d,doors) && intersectsDoor(d,x,z,pad))top=Math.max(top,d.y+2.12);
   return top;
 }
 export function furnishedSupport(x,z,probe,doors){
