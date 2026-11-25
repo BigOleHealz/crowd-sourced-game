@@ -33,6 +33,7 @@ assert(!militaryFence.some(b=>Math.abs(b.x+246)<.1 && Math.abs(b.z-gateZ)<b.d/2+
   'the west fence has an opening at the gangway');
 assert.equal(carrierRampHeight(carrierRamp.shore.x,carrierRamp.shore.z),.8);
 assert.equal(carrierRampHeight(carrierRamp.deck.x,carrierRamp.deck.z),carrierDeckTop);
+assert(carrierRamp.deck.x<eisenhowerCarrier.x+15,'gangway overlaps the visible flight deck');
 let walker={...carrierRamp.shore,vy:0,grounded:true};
 for(const goal of [carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:carrierRamp.deck.z}]){
   for(let i=0;i<700 && Math.hypot(goal.x-walker.x,goal.z-walker.z)>.12;i++){

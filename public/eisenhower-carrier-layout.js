@@ -34,7 +34,9 @@ export const carrierDeckSections=sections.map(({z,d},i)=>{
 export const carrierRamp={
   shore:{x:-243,y:.8,z:-290},
   turn:{x:-249,y:carrierDeckTop,z:-235},
-  deck:{x:-279,y:carrierDeckTop,z:-235},
+  // Carry the landing beyond the visible flight-deck edge, not just the
+  // simplified collision rectangle at the ship's perimeter.
+  deck:{x:-296,y:carrierDeckTop,z:-235},
   width:3.6,
 };
 export const carrierRampSegments=[
