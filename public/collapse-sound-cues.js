@@ -13,6 +13,7 @@ export function collapseSoundCues(event,buildings){
     const pose=piecePose(piece,piece.land,{});
     cues.push({at,x:pose.x,y:pose.low+.16,z:pose.z,settling:fraction===1});
   }
+  if(cues.length)cues[0].collapse=true;
   return cues;
 }
 export function fallAudioTracker(buildings){
