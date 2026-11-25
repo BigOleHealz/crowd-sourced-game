@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {reefAnchor,reefDiveSite,reefTrail,seabedHeight,reefGridSpacing,reefTileSize} from './reef-channel.js';
 import {cityGround,coastalBedHeight} from './brickell-map.js';
 import {beach,onBeachTerrain} from './beach-layout.js';
+import {onMilitaryRockShore} from './military-island.js';
 
 function sandTile(tx,tz,material) {
   const geo=new THREE.PlaneGeometry(reefTileSize,reefTileSize,reefTileSize/reefGridSpacing,reefTileSize/reefGridSpacing);
@@ -24,7 +25,7 @@ function sandTile(tx,tz,material) {
       (.45+.55*damp)*(1-fade)+(.65+relief*.10)*fade);
     colors.push(shade.r,shade.g,shade.b);
     // The island's west edge is at x=-61, halfway through one reef cell.
-    if(i%count!==count-1 && i<p.count-count && !onBeachTerrain(x+.5,z+1))
+    if(i%count!==count-1 && i<p.count-count && !onBeachTerrain(x+.5,z+1) && !onMilitaryRockShore(x+1,z+1))
       indices.push(i,i+count,i+1,i+1,i+count,i+count+1);
   }
   geo.setIndex(indices);geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geo.computeVertexNormals();

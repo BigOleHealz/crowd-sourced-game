@@ -1,5 +1,62 @@
 import * as THREE from 'three';
-import {militaryShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks} from './military-island.js';
+import {militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks} from './military-island.js';
+import {coastalBedHeight} from './brickell-map.js';
+
+function addRockShore(base){
+  // Match the reef's two-metre grid so the exposed bank has no collision seam.
+  const west=-234,east=-96,north=-320,south=-140,step=2;
+  const columns=(east-west)/step+1,rows=(south-north)/step+1;
+  const positions=[],uvs=[],colors=[],indices=[];
+  const shade=new THREE.Color();
+  for(let row=0;row<rows;row++)for(let col=0;col<columns;col++){
+    const x=west+col*step,z=north+row*step,y=coastalBedHeight(x,z);
+    positions.push(x,y+.008,z);uvs.push(x/4,z/4);
+    const wet=1-THREE.MathUtils.smoothstep(y,-.5,.55);
+    shade.setRGB(.93-.24*wet,.91-.18*wet,.85-.13*wet);
+    colors.push(shade.r,shade.g,shade.b);
+    if(col<columns-1 && row<rows-1 && onMilitaryRockShore(x+1,z+1)){
+      const i=row*columns+col;
+      indices.push(i,i+columns,i+1,i+1,i+columns,i+columns+1);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  const texture=new THREE.TextureLoader().load('./granite.webp');
+  texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+  const bank=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:texture,vertexColors:true,side:THREE.DoubleSide}));
+  bank.name='Military island rock shore';bank.receiveShadow=true;bank.userData.impactSurface='solid';base.add(bank);
+
+  const sites=[];
+  for(let i=0;i<militaryShore.length;i++){
+    const [ax,az]=militaryShore[i],[bx,bz]=militaryShore[(i+1)%militaryShore.length];
+    const dx=bx-ax,dz=bz-az,length=Math.hypot(dx,dz),nx=dz/length,nz=-dx/length;
+    for(let along=2;along<length-1;along+=3.4)
+      for(const offset of [1.8,5.2,8.2])sites.push([ax+dx*along/length+nx*offset,az+dz*along/length+nz*offset]);
+  }
+  const stones=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),
+    new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),sites.length);
+  const dummy=new THREE.Object3D(),palette=[0x9d9b90,0xb2ab9b,0x858c87,0xa7a598];
+  let count=0;
+  for(const [x,z] of sites){
+    const n=Math.sin(x*127.1+z*311.7)*43758.5453,random=n-Math.floor(n);
+    const px=x+(random-.5)*.75,pz=z+Math.sin(n*1.37)*.3;
+    if(!onMilitaryRockShore(px,pz))continue;
+    const floor=coastalBedHeight(px,pz),radius=.85+random*.75,height=.38+random*.35;
+    dummy.position.set(px,floor+height*.13,pz);
+    dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
+    dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
+    stones.setMatrixAt(count,dummy.matrix);
+    const color=new THREE.Color(palette[count%palette.length]);
+    if(floor<.15)color.multiplyScalar(.72);
+    stones.setColorAt(count,color);count++;
+  }
+  stones.count=count;stones.instanceMatrix.needsUpdate=true;
+  if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
+  stones.name='Military island shore boulders';stones.userData.impactSurface='solid';base.add(stones);
+}
 
 export function addMilitaryIsland(scene,Batch){
   const base=new THREE.Group();base.name='West Harbor military base';scene.add(base);
@@ -22,6 +79,7 @@ export function addMilitaryIsland(scene,Batch){
   land.setIndex(indices);land.computeVertexNormals();
   const shore=new THREE.Mesh(land,new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide}));
   shore.receiveShadow=true;shore.userData.impactSurface='solid';base.add(shore);
+  addRockShore(base);
   const blocks=new Batch(),box=new THREE.BoxGeometry();
   const block=(color,x,y,z,w,h,d)=>blocks.add(box,color,x,y,z,w,h,d);
   const rect=(r,color,y=.825)=>block(color,(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,.05,r.south-r.north);

@@ -32,6 +32,20 @@ export const insideMilitary=(x,z)=>{
   const edge=Math.min(x-west,east-x);
   return z>=north+12-edge && z<=south-12+edge;
 };
+export function militaryShoreDistance(x,z){
+  if(x<militaryIsland.west-10 || x>militaryIsland.east+10 ||
+    z<militaryIsland.north-10 || z>militaryIsland.south+10)return Infinity;
+  let distance=Infinity;
+  for(let i=0;i<militaryShore.length;i++){
+    const [ax,az]=militaryShore[i],[bx,bz]=militaryShore[(i+1)%militaryShore.length];
+    const dx=bx-ax,dz=bz-az;
+    const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));
+    distance=Math.min(distance,Math.hypot(x-ax-t*dx,z-az-t*dz));
+  }
+  return distance;
+}
+export const onMilitaryRockShore=(x,z)=>!insideMilitary(x,z) &&
+  militaryShoreDistance(x,z)<=10 && militaryDockHeight(x,z)===undefined;
 const inside=(r,x,z)=>x>=r.west&&x<=r.east&&z>=r.north&&z<=r.south;
 export function militaryDockHeight(x,z){
   if(inside(militaryDock.ramp,x,z))return .8-(.8-militaryDock.height)*(x-militaryDock.ramp.west)/(militaryDock.ramp.east-militaryDock.ramp.west);
