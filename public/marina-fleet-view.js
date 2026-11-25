@@ -189,8 +189,10 @@ function buildBoat(scene,Batch,boat,glass){
   return {root,wake,useImported(model){
     root.clear();
     imported=model;
-    // The Sketchfab scene is already Y-up. Its bow points toward local -Z.
+    // The Sketchfab scene faces +Z after its axis conversion. Match the
+    // simulated hull, whose bow and forward motion point toward local -Z.
     model.scale.set(1.15,.87,.87);
+    model.rotation.y=Math.PI;
     model.position.y=-.50;
     model.traverse(object=>{
       if(!object.isMesh)return;
