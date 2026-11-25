@@ -8,6 +8,7 @@
 - Never push directly to `main`.
 - Never merge `main` into a feature branch, including through a pull that merges `origin/main`.
 - Use a pull request for any change targeting `main`.
+- The user has granted standing authorization to merge pull requests for work they request once required checks pass and branch protection permits it. Do not ask for separate merge permission. Rebase a clean feature branch when GitHub requires it to be current. Honor any explicit request to leave a PR open and any platform approval gate.
 
 ## Rust Token Killer (RTK)
 
