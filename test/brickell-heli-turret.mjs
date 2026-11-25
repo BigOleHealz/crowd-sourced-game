@@ -17,7 +17,7 @@ for(let tick=0;tick<300;tick++){
   if((tick+1)%30===0)assert.equal(heli.chainRounds,(tick+1)*5/3);
 }
 assert.equal(world.shots.filter(s=>s.weapon==='muzzle').length,100);
-assert(peakRounds>=128 && peakRounds<=130);
+assert(peakRounds>=64 && peakRounds<=66,'faster rounds leave the world sooner without losing the gun cadence');
 assert(peakTracers<=26);
 fireTurret(world,'heli',gunner,9000);
 assert.equal(heli.chainRounds,502,'resume only schedules the current tick');
