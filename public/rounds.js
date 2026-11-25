@@ -8,6 +8,7 @@ import {tankHull} from './tank-layout.js';
 import {inTowerBreach,towerCollapsed} from './tower-damage.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
+import {fenceDown} from './military-island.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
 import {cabinPieces} from './solana-interior.js';
 import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
@@ -277,6 +278,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
   for(const p of roundCandidates(roundBarriers(world.doors),round,d,boxExtent)){
+    if(p.fenceId && fenceDown(world.doors,p.fenceId))continue;
     if(p.postId!=null || p.lamp!=null || world.doors?.beachWood?.[p.woodId] || p.netting || (p.net!=null && world.doors?.nets?.[p.net]))continue;
     if(world.doors?.brokenSills?.[p.sillPaneId])continue;
     if(p.paneId){

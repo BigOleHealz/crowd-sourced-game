@@ -1,0 +1,4 @@
+chainlink fence (tileable) by ChoboiAssets
+https://sketchfab.com/3d-models/chainlink-fence-tileable-397735ac4f5b4ac9a4b582576315d065
+Licensed under CC BY 4.0: https://creativecommons.org/licenses/by/4.0/
+Used as instanced perimeter fence sections, scaled to the military island layout.

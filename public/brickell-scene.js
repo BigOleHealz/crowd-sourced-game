@@ -73,7 +73,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const patch=(r,y)=>[(r.west+r.east)/2,y,(r.north+r.south)/2,r.east-r.west,r.south-r.north];
   const bay=ground('water',verges({west:-750,east:750,north:-902,south:698},estatePoolHoles).map(r=>patch(r,MAP.waterY)),14,{roughness:.30});
   lightBaySurface(bay.material,panorama);
-  addMilitaryIsland(scene,Batch);
+  const updateMilitaryFence=addMilitaryIsland(scene,Batch);
   ground('asphalt',[[cx,.70,cz,w,d],patch(harbor,.70),...lanternLand.flatMap(r=>verges(r,estatePoolHoles)).map(r=>patch(r,.70))],5);
   const lots=verges(coast,streetPlan.mainland), lawns=verges(harbor,streetPlan.island);
   for(const lot of [...lots,...lawns]) {
@@ -224,6 +224,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   const updateLamps=streetLampView(scene,Batch);
 
   return (doors,dt,local,remotes,tick,bankVisual)=>{
+    updateMilitaryFence(doors);
     updateFuelStop(doors);
     updateDamage(doors,dt);updateTowers(doors,dt);updateHomes(doors,dt);updateFalls(doors,dt);
     updateHarborWindows(doors);updateApartments(doors);updateEstates(doors);updateCauseway(doors);updateLantern(doors);

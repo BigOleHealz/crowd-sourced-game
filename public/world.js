@@ -16,6 +16,7 @@ import {balconySurfaces} from './balcony-surfaces.js';
 import {noise} from './terrain-noise.js';
 import {breachedFloor,inTowerBreach,collapsedLot,towerCollapsed,rubbleHeight} from './tower-damage.js';
 import {estateSolids,estateSupportLimit} from './estate-damage.js';
+import {fenceDown} from './military-island.js';
 import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} from './ridge-church.js';
 import {casaFloor,casaCeiling} from './casa-luma.js';
 import {mareFloor,mareCeiling} from './palazzo-mare.js';
@@ -203,6 +204,7 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false
   for(const b of nearbyBarriers(x,z,padding,doors)){
     // Expanding a walkable slab lip would add an invisible curb at its edge.
     if(b.resortShell)continue;
+    if(b.fenceId && fenceDown(doors,b.fenceId))continue;
     const pad=b.flushEdge ? 0 : padding;
     if(Math.abs(x-b.x)>b.w/2+pad || Math.abs(z-b.z)>b.d/2+pad)continue;
     if(doors?.beachWood?.[b.woodId] || b.netting || (b.net!=null && doors?.nets?.[b.net]))continue;

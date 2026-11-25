@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {militaryIsland,militaryShore,onMilitaryRockShore,militaryRunway,militaryTaxiway,militaryHangar,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {brickellMap,coastalBedHeight} from './brickell-map.js';
 import {shoreRockPile} from './shore-rock-piles.js';
+import {militaryFenceView} from './military-fence-view.js';
 
 function addRockShore(base){
   // Match the reef's two-metre grid so the exposed bank has no collision seam.
@@ -62,6 +63,7 @@ function addRockShore(base){
 }
 export function addMilitaryIsland(scene,Batch){
   const base=new THREE.Group();base.name='West Harbor military base';scene.add(base);
+  const updateFence=militaryFenceView(base);
   const positions=[],colors=[],indices=[];
   const addVertex=(x,y,z,color)=>{
     const tint=new THREE.Color(color),index=positions.length/3;
@@ -142,4 +144,5 @@ export function addMilitaryIsland(scene,Batch){
   const structures=blocks.mesh(base,new THREE.MeshLambertMaterial({vertexColors:true}));
   structures.userData.impactSurface='solid';
   box.dispose();
+  return updateFence;
 }

@@ -13,6 +13,7 @@ import {parkedJet,damageJet} from './jet.js';
 import {launcherSpec,lockStatus,guideGameMissile,updateLock} from './handheld-launcher.js';
 import {lotHeight,lotWidth} from './island-rules.js';
 import {breachEstate,onEstate} from './estate-damage.js';
+import {blastMilitaryFence} from './military-island.js';
 import {glassQuads,windowContact} from './vehicle-glass-layout.js';
 import {roadCabin} from './road-cabin.js';
 import {noteGlass} from './pane-damage.js';
@@ -671,6 +672,7 @@ export function advanceMissiles(world,players,npcs,tick) {
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);
     }
+    if(CITY)blastMilitaryFence(world.doors,hit.to,3.1);
     const damage=m.source==='handLauncher'?launcherSpec.damage:150;
     const injury=applyHit(world,hit,actors,players,m.shooter,tick,damage,m.source==='handLauncher'?damage:3,true,m.source,direction,undefined,undefined,scoreAtLaunch.get(m),world.wanted?.owner(m));
     world.shots.push({id:nextShotId++,shooter:m.shooter,weapon:'missile',injury,injuryPoint:injury ? hit.injuryPoint : undefined,source:m.source,from,to:hit.to,targetId:hit.target?.id ?? hit.hitKind,headshot:hit.headshot,hit:true,hitKind:hit.hitKind,tick});

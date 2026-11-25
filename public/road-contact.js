@@ -5,6 +5,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 import {tankHull} from './tank-layout.js';
 import {towerCollapsed,collapsedLot} from './tower-damage.js';
 import {estateSolids,onEstate} from './estate-damage.js';
+import {fenceDown} from './military-island.js';
 import {onBridgeDeck,raisedRoadAt} from './bridge-driving.js';
 import {supercarLayout} from './supercar-layout.js';
 import {visitRoadPodium} from './frontage-glass.js';
@@ -89,6 +90,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
     if(!world.doors?.beachWood?.[stand.woodId])consider(boxContact(x,z,s,c,stand,shape));
   }
   for(const b of estateSolids(MAP.barriers,world.doors)){
+    if(b.fenceId && fenceDown(world.doors,b.fenceId))continue;
     if(Math.abs(x-b.x)>b.w/2+reach || Math.abs(z-b.z)>b.d/2+reach)continue;
     if(collapsedLot(MAP.buildings,world.doors,b.x,b.z) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(world.doors?.beachWood?.[b.woodId])continue;
