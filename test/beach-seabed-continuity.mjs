@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {beach,beachIsland,beachTerrain,onBeachTerrain,onRockShore,onSandShore,sandHeight} from '../public/beach-layout.js';
-import {brickellMap,cityGround,coastalBedHeight} from '../public/brickell-map.js';
+import {brickellMap,cityGround,coastalBedHeight,harborShoreBedHeight} from '../public/brickell-map.js';
 
 // Beach and reef meshes meet on the same two-metre vertex grid.
 for(let z=beach.north;z<=beach.south;z+=8){
@@ -45,7 +45,7 @@ assert(coastalBedHeight(beachTerrain.west,islandMidZ)<brickellMap.waterY-1,
   'west shore apron ends below water');
 assert(coastalBedHeight(beachIsland.west,islandMidZ)>coastalBedHeight(beachIsland.west-6,islandMidZ),
   'west island shore slopes toward the water');
-assert(Math.abs(cityGround(beachIsland.west-6,islandMidZ)-coastalBedHeight(beachIsland.west-6,islandMidZ))<1e-6,
+assert(Math.abs(cityGround(beachIsland.west-6,islandMidZ)-harborShoreBedHeight(beachIsland.west-6,islandMidZ))<1e-6,
   'west shore walking collision follows the visible rock bank');
 const bankX=44,bankZ=beach.north-4;
 assert(coastalBedHeight(bankX,beach.north)>coastalBedHeight(bankX,bankZ),
@@ -55,7 +55,7 @@ assert(Math.abs(cityGround(bankX,bankZ)-coastalBedHeight(bankX,bankZ))<1e-6,
 assert(cityGround(bankX,bankZ,brickellMap.waterY)<coastalBedHeight(bankX,bankZ)-1,
   'boats keep the deeper surveyed bed below the bank');
 for(const z of [beach.north-4,beach.south+4]){
-  assert(Math.abs(cityGround(32,z)-coastalBedHeight(32,z))<1e-6,
+  assert(Math.abs(cityGround(32,z)-harborShoreBedHeight(32,z))<1e-6,
     'west corner bank has solid walking collision');
   assert(cityGround(32,z,brickellMap.waterY)<coastalBedHeight(32,z)-1,
     'boats retain clearance beside the west corner bank');

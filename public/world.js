@@ -34,8 +34,8 @@ import {beachHutFloor} from './harbor-key-structures.js';
 // Both the authoritative server and the predicting client use this module.
 import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
-import { brickellMap, cityGround, coastalBedHeight, militaryShoreBedHeight, militaryShoreRocks, parapetTop, waterfront } from './brickell-map.js';
-import {militaryRockTopAt} from './military-shore-rocks.js';
+import { brickellMap, cityGround, coastalBedHeight, militaryShoreBedHeight, militaryShoreRocks, harborShoreBedHeight, harborShoreRocks, urbanShoreRocks, parapetTop, waterfront } from './brickell-map.js';
+import {shoreRockTopAt} from './shore-rock-piles.js';
 import {onRunway} from './runway-layout.js';
 import {militaryHelipads} from './military-island.js';
 import {carrierRampRailBlocked} from './eisenhower-carrier-layout.js';
@@ -317,8 +317,10 @@ export function groundHeight(x, z, maxBottom=Infinity, doors) {
     if(storefrontRoom(x,storefrontFloor,z))return storefrontFloor;
     if(retailRoom(x,shopFloor,z))return shopFloor;
     const floor=beachHutFloor(x,z,lookoutFloor(x,z,cityGround(x,z,maxBottom,doors),doors));
-    const rock=militaryRockTopAt(militaryShoreRocks,x,z,militaryShoreBedHeight,maxBottom);
-    return Math.max(floor,rock??-Infinity);
+    const militaryRock=shoreRockTopAt(militaryShoreRocks,x,z,militaryShoreBedHeight,maxBottom);
+    const harborRock=shoreRockTopAt(harborShoreRocks,x,z,harborShoreBedHeight,maxBottom);
+    const urbanRock=shoreRockTopAt(urbanShoreRocks,x,z,coastalBedHeight,maxBottom);
+    return Math.max(floor,militaryRock??-Infinity,harborRock??-Infinity,urbanRock??-Infinity);
   }
   const bridge = MAP.bridge;
   if (Math.abs(x - bridge.x) <= bridge.width / 2 &&

@@ -7,6 +7,7 @@ import {addFuelStop} from './pelican-fuel-view.js';
 import {clubInterior} from './club-lucero-view.js';
 import {lightBaySurface} from './biscayne-water.js';
 import {addQuayMasonry} from './quay-masonry.js';
+import {addShoreBoulders} from './shore-rock-view.js';
 import {junctionSignalView} from './junction-signal-view.js';
 import {furnishMarketStreet} from './harbor-market-view.js';
 import {residentialRuinView} from './residential-ruin-view.js';
@@ -39,7 +40,7 @@ import { addHarborKeyStructures } from './harbor-key-structure-view.js';
 import {addMilitaryIsland} from './military-island-view.js';
 import * as THREE from 'three';
 import { MAP } from './world.js';
-import { avenues, streets, coast, harbor, causeway, streetPlan, bayfrontLawns } from './brickell-map.js';
+import { avenues, streets, coast, harbor, causeway, streetPlan, bayfrontLawns, urbanShoreRocks } from './brickell-map.js';
 
 import {breakablePostView} from './breakable-post-view.js';
 export function cityStreets(scene,renderer,Batch,panorama) {
@@ -82,6 +83,7 @@ export function cityStreets(scene,renderer,Batch,panorama) {
   }
   solids.add(box,0xa99985,...patch(harbor,.15).slice(0,3),harbor.east-harbor.west,1,harbor.south-harbor.north);
   addQuayMasonry(scene,solids,renderer);
+  addShoreBoulders(scene,urbanShoreRocks,'Brickell and Lantern Point shore boulders');
   const bridgePavers=material('pavers');
   const updateCauseway=addCauseway(scene,Batch,solids,material('asphalt'),causeway,bridgePavers);
   const updateLantern=addCauseway(scene,Batch,solids,material('asphalt'),lanternBridge,bridgePavers);
