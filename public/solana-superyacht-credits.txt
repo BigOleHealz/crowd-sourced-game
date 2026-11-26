@@ -1,0 +1,9 @@
+"Superyacht" by vinish.dev
+https://vinish.dev/free-3d-models/yachts
+https://vinish-models.pages.dev/yachts/superyacht.glb
+Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+Adapted for the Solana. Reshaped the hull and transom to match the game's
+waterline, decks, stairs and swim platform. Resized and repositioned the
+upper structure. The game provides the walkable decks, cabin and fittings.

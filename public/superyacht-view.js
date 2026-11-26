@@ -2,15 +2,16 @@ import {sinkingHull} from './sinking-hull.js';
 import {wakeTrail} from './boat-wake-view.js';
 import {paneBatch} from './pane-damage-view.js';
 import {yachtRoomDoors} from './yacht-room-doors.js';
-import {cabinTop,lowerStair} from './solana-interior.js';
+import {lowerStair} from './solana-interior.js';
 import {fitSolanaInterior} from './solana-interior-view.js';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {alpineGlass} from './landscape.js';
-import {yachtKeelY,yachtSections,yachtHalfBeam,yachtStairs,yachtPlatform,yachtLadder,yachtGangway,yachtPad,yachtDeckY,yachtRailRuns,yachtRailTop} from './yacht-layout.js';
+import {yachtKeelY,yachtSections,yachtHalfBeam,yachtStairs,yachtPlatform,yachtLadder,yachtGangway,yachtDeckY,yachtRailRuns,yachtRailTop} from './yacht-layout.js';
 
-const ivory=0xe7e5dc,cream=0xf6f1df,navy=0x17323f,steel=0x9eacac,teak=0xa57953;
-const box=new THREE.BoxGeometry(),ball=new THREE.SphereGeometry(1,16,10);
-const post=new THREE.CylinderGeometry(.5,.5,1,12),rim=new THREE.TorusGeometry(1,.065,8,28);
+const ivory=0xe7e5dc,navy=0x17323f,steel=0x9eacac,teak=0xa57953;
+const box=new THREE.BoxGeometry();
+const rim=new THREE.TorusGeometry(1,.065,8,28);
 
 function teakMaterial(renderer){
   const c=document.createElement('canvas');c.width=256;c.height=512;
@@ -87,12 +88,24 @@ function nameplate(){
 
 export function superyachtView(scene,Batch,renderer,panorama){
   const root=new THREE.Group();root.name='Solana superyacht';root.visible=false;scene.add(root);
-  const fittings=new Batch(),metal=new Batch(),glass=new Batch(),stripe=new Batch();
+  const fittings=new Batch(),metal=new Batch(),glass=new Batch();
   const wood=teakMaterial(renderer);
   const solid=(c,x,y,z,w,h,d,rx=0,ry=0,rz=0)=>fittings.add(box,c,x,y,z,w,h,d,rx,ry,rz);
   const tubing=(a,b,width=.052)=>metal.beam(steel,a,b,width);
-  const ellipse=(c,x,y,z,w,h,d)=>fittings.add(ball,c,x,y,z,w,h,d);
-  root.add(hullShell(yachtSections));
+  const fallback=hullShell(yachtSections);
+  root.add(fallback);
+  new GLTFLoader().load(new URL('./solana-superyacht.glb',import.meta.url).href,({scene:exterior})=>{
+    exterior.traverse(mesh=>{
+      if(mesh.isMesh){
+        mesh.receiveShadow=true;
+        Object.assign(mesh.userData,{target:'superyacht',impactSurface:'solid'});
+      }
+    });
+    root.add(exterior);
+    root.remove(fallback);
+    fallback.geometry.dispose();
+    fallback.material.dispose();
+  },undefined,error=>console.warn('Solana exterior could not load; using fallback hull',error));
   const main=yachtSections.filter(([z])=>z<=yachtStairs.fore);
   root.add(deckSurface(main,yachtDeckY+.004,wood,lowerStair));
   const stern=yachtSections.at(-1);
@@ -132,42 +145,6 @@ export function superyachtView(scene,Batch,renderer,panorama){
   }
   const cabinGlass=paneBatch(glass);
   fitSolanaInterior(root,Batch,fittings,metal,glass,wood,cabinGlass);
-  for(const side of [-1,1]){
-    for(const z of [-14,-10,-6,-2,2,6,10,14]){
-      const w=yachtHalfBeam(z)*.982;
-      fittings.add(ball,0x0d2631,side*w,1.34,z,.09,.247,.53);
-      metal.add(ball,steel,side*(w+.008),1.32,z-.46,.035,.034,.035);
-    }
-  }
-  for(const side of [-1,1]){
-    for(const z of [-13.3,2.8,13.4]){
-      const w=yachtHalfBeam(z);
-      solid(steel,side*(w-.36),2.62,z,.068,.095,.32);
-      solid(steel,side*(w-.36),2.69,z,.079,.048,.50);
-    }
-    fittings.add(ball,0x213741,side*yachtHalfBeam(-15.8)*.98,1.54,-15.8,.075,.210,.40);
-    metal.beam(steel,[side*yachtHalfBeam(-15.93)*.99,1.62,-15.93],[side*yachtHalfBeam(-15.53),1.35,-15.53],.074);
-    for(const z of [1.8,5.4]){
-      const w=yachtHalfBeam(z);
-      metal.beam(0x646c60,[side*(w-.15),3.38,z],[side*(w+.12),2.13,z+.04],.034);
-      ellipse(0xe2dfd1,side*(w+.13),1.89,z+.04,.148,.44,.139);
-    }
-  }
-  // Radomes, navigation lights, mast cross-trees and VHF whips sit forward
-  // of the clear aft landing zone.
-  solid(ivory,0,cabinTop+.10,-5.5,2.22,.20,1.72);
-  for(const side of [-1,1]){
-    fittings.beam(ivory,[side*.99,cabinTop+.10,-4.85],[side*.54,8.11,-5.80],.25,.28);
-    ellipse(ivory,side*1.60,cabinTop+.49,-6.55,.49,.49,.49);
-    fittings.add(post,0x5c6b72,side*1.60,cabinTop+.10,-6.55,.67,.14,.67);
-    tubing([side*.68,7.93,-5.6],[side*2.17,7.93,-5.6],.09);
-    tubing([side*1.90,7.91,-5.6],[side*2.20,9.29,-5.56],.033);
-    ellipse(side<0?0xcc4c39:0x68ac84,side*3.56,cabinTop-.08,-7,.078,.08,.11);
-  }
-  solid(0x39474a,0,8.16,-5.81,1.35,.22,.41);
-  solid(ivory,0,8.51,-5.8,2.28,.16,.31);
-  tubing([0,8.0,-5.8],[0,9.62,-5.86],.065);
-  ellipse(cream,0,9.65,-5.86,.089,.094,.089);
   // Forward flybridge station, facing out over the bow.
   solid(ivory,0,2.99,-14.88,1.53,.80,.56);
   solid(0x27373a,0,3.52,-14.86,1.62,.18,.65,-.18);
@@ -186,22 +163,10 @@ export function superyachtView(scene,Batch,renderer,panorama){
       last=[x,yachtRailTop,z];
     }
   }
-  // Recessed rim lights remain flush with the working helipad.
-  const pad=new THREE.Mesh(new THREE.CircleGeometry(4.93,72).rotateX(-Math.PI/2),
-    new THREE.MeshStandardMaterial({color:0x56635c,roughness:.93}));
-  pad.position.set(yachtPad.x,yachtPad.y+.02,yachtPad.z);root.add(pad);
-  const circle=new THREE.RingGeometry(4.46,4.57,80).rotateX(-Math.PI/2);
-  stripe.add(circle,0xeee2b6,0,2.582,9.3);
-  for(const x of [-.92,.92])solid(0xf4e8be,x,2.588,9.3,.31,.014,3.10);
-  solid(0xf4e8be,0,2.59,9.3,1.84,.013,.31);
-  for(let i=0;i<12;i++){
-    const a=i*Math.PI/6;
-    fittings.add(post,0xc6dac4,4.78*Math.sin(a),2.59,9.3+4.78*Math.cos(a),.10,.022,.10);
-  }
   const name=new THREE.Mesh(new THREE.PlaneGeometry(2.0,.26),nameplate());
   name.position.set(0,4.81,1.016);root.add(name);
   const bodyMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.42,metalness:.08,side:THREE.DoubleSide});
-  fittings.mesh(root,bodyMat,false);stripe.mesh(root,bodyMat,false);
+  fittings.mesh(root,bodyMat,false);
   metal.mesh(root,new THREE.MeshPhongMaterial({vertexColors:true,shininess:98,specular:0xc1cbd1}),false);
   const updatePanes=cabinGlass.bind(glass.mesh(root,alpineGlass(panorama,{side:THREE.DoubleSide,shininess:100,transparent:true,opacity:.32,depthWrite:false}),false));
   const cabinLeaves=new THREE.InstancedMesh(new THREE.BoxGeometry(),new THREE.MeshStandardMaterial({color:0xc0ae8b,roughness:.63}),yachtRoomDoors.length*2);

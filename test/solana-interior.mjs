@@ -21,7 +21,7 @@ function walk(x,z){
   assert.fail('blocked on way to '+[x,z]+' at '+JSON.stringify(yachtLocal(yacht,guest.state.x,guest.state.z)));
 }
 function onLevel(h){assert(Math.abs(guest.state.y-yacht.y-h)<.012);}
-walk(0,-14.1);onLevel(mainSole); // helipad through both open doors to helm
+walk(0,-14.1);onLevel(mainSole); // aft deck through both open doors to helm
 walk(0,-5.2);
 for(let i=0;i<45;i++){
   go({jump:i===0});assert(guest.state.y+1.8<=yacht.y+upperSole-.18+.001);
@@ -62,4 +62,4 @@ assert(Math.hypot(old.x-yacht.x,old.z-yacht.z)>4 && Math.abs(Math.sin(old.yaw-ya
 assert(Math.hypot(berthed.x-carried.x,berthed.z-carried.z)<1e-6 && aboardYacht(yacht,guest.state));
 walk(.57,-4.93);walk(stairX,-4.93);walk(stairX,-11.22);onLevel(mainSole);
 walk(0,-11.22);walk(0,4);onLevel(mainSole);
-console.log('PASS walk down into the furnished dry guest suite, jump under the headliner, ride through a turn and return to the helipad.');
+console.log('PASS walk down into the furnished dry guest suite, jump under the headliner, ride through a turn and return to the aft deck.');

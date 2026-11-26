@@ -29,7 +29,7 @@ export function fuelSiteFor(world,v){
   if(!v || v.wrecked || v.sinking || v.sling || v.bridgeFlight || v.boarding || v.takeover ||
      Math.hypot(v.speed??0,v.slip??v.lateralSpeed??0)>.45 || Math.abs(v.turnRate??v.yawRate??0)>.18)return null;
   const kind='pilot' in v?'air':(v.id==='superyacht' || world.boats?.some(b=>b.id===v.id))?'marine':'road';
-  if(kind==='air' && (!v.grounded || v.onYacht))return null;
+  if(kind==='air' && !v.grounded)return null;
   return fuelSites.find(site=>{
     if(site.kind!==kind && site.kind!=='depot')return false;
     if(Math.hypot(v.x-site.x,v.z-site.z)>site.radius)return false;

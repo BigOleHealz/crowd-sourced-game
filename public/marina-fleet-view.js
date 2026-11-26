@@ -1,7 +1,7 @@
 import {sinkingHull} from './sinking-hull.js';
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {marinaModel,minnowScale} from './marina-fleet-layout.js';
+import {marinaModel,minnowScale,ariaSpeedboatFit} from './marina-fleet-layout.js';
 import {wakeTrail} from './boat-wake-view.js';
 
 const white=0xece9dd,cream=0xded7bf,polished=0xc7cfcb,wood=0xae805a,leather=0xd7c4a1;
@@ -186,14 +186,13 @@ function buildBoat(scene,Batch,boat,glass){
   const paintWreck=()=>{
     for(const {material,color} of importedFinishes)material.color.copy(color).multiplyScalar(wrecked ? .34 : 1);
   };
-  return {root,wake,useImported(model){
+  return {root,wake,useImported(model,fit){
     root.clear();
     imported=model;
-    // The Sketchfab scene faces +Z after its axis conversion. Match the
-    // simulated hull, whose bow and forward motion point toward local -Z.
-    model.scale.setScalar(minnowScale);
+    // Both source scenes face +Z. The simulated hull points toward local -Z.
+    model.scale.fromArray(fit.scale);
     model.rotation.y=Math.PI;
-    model.position.y=-.78;
+    model.position.set(0,fit.y,fit.z);
     model.traverse(object=>{
       if(!object.isMesh)return;
       Object.assign(object.userData,{target:boat.id,impactSurface:'solid'});
@@ -222,7 +221,11 @@ function buildBoat(scene,Batch,boat,glass){
 
 export function marinaFleetView(scene,Batch){
   const views=new Map();
-  let minnowLoad=null;
+  const loader=new GLTFLoader();
+  const importedBoats={
+    'marina-paloma':{file:'./ss-minnow-iii.glb',label:'SS Minnow III',fit:{scale:[minnowScale,minnowScale,minnowScale],y:-.78,z:0}},
+    'marina-aria':{file:'./marina-aria-speedboat.glb',label:'Aria speedboat',fit:ariaSpeedboatFit},
+  };
   const glass=new THREE.MeshStandardMaterial({
     color:0xbbd3d6,transparent:true,opacity:.40,roughness:.21,metalness:.19,side:THREE.DoubleSide,depthWrite:false,
   });
@@ -231,11 +234,12 @@ export function marinaFleetView(scene,Batch){
     for(const boat of boats??[]){
       if(!boat.boatModel || boat.partyYacht || Math.hypot(boat.x-local.x,boat.z-local.z)>190)continue;
       let view=views.get(boat.id);
-      if(!view){view=buildBoat(scene,Batch,boat,glass);views.set(boat.id,view);}
-      if(boat.id==='marina-paloma' && !minnowLoad){
-        minnowLoad=new GLTFLoader().loadAsync(new URL('./ss-minnow-iii.glb',import.meta.url).href)
-          .then(({scene:model})=>view.useImported(model))
-          .catch(error=>console.warn('SS Minnow III could not load; using cabin cruiser fallback',error));
+      if(!view){
+        view=buildBoat(scene,Batch,boat,glass);views.set(boat.id,view);
+        const asset=importedBoats[boat.id];
+        if(asset)loader.loadAsync(new URL(asset.file,import.meta.url).href)
+          .then(({scene:model})=>view.useImported(model,asset.fit))
+          .catch(error=>console.warn(asset.label+' could not load; using procedural boat',error));
       }
       live.add(boat.id);view.root.visible=true;view.update(boat,dt,local);
     }
