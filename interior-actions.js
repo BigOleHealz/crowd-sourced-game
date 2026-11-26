@@ -1,7 +1,5 @@
 import {randomInt} from 'node:crypto';
 import {buildingAction,doorIsOpen,doorWouldHit,setDoorOpen,landingValid} from './public/building-interiors.js';
-import {yachtDoorAction,yachtLocal} from './public/yacht-layout.js';
-import {yachtDoorHit} from './public/yacht-room-doors.js';
 import {canUseInventory} from './harbor-trade.js';
 import {frozenPhase} from './public/island-rules.js';
 
@@ -11,7 +9,7 @@ export function requestInterior(world,players,player,input,tick){
   if(!Number.isSafeInteger(input.seq) || input.seq<1 || input.seq<=(player.interiorSeq??0))return;
   player.interiorSeq=input.seq;
   if(player.trip || !canUseInventory(world,player) || frozenPhase(world.match?.phase) || world.match?.phase==='setup')return;
-  const use=yachtDoorAction(world.yacht,player.state)??buildingAction(player.state,world.doors);
+  const use=buildingAction(player.state,world.doors);
   if(use?.kind==='slot' && input.slot===use.slot && tick>=(player.slotReady??0)){
     player.slotReady=tick+42;
     const reel=()=>['Palm','Shell','Pearl','Sun','Fan'][randomInt(5)];
@@ -23,17 +21,6 @@ export function requestInterior(world,players,player,input,tick){
     const occupied=new Set([...players.values()].map(p=>p.resortStay?.key));
     const key=Array.from({length:32},(_,i)=>i).find(i=>!occupied.has(i));
     if(key!==undefined)player.resortStay={key,floor:5+Math.floor(key/2)};
-    return;
-  }
-  if(use?.kind==='yachtDoor' && input.cabin===use.d.id && typeof input.open==='boolean'){
-    const y=world.yacht;
-    if(!input.open)for(const other of players.values()){
-      const p=yachtLocal(y,other.state.x,other.state.z),feet=other.state.y-y.y;
-      if(other.life.hp && yachtDoorHit(use.d,p.x,feet+.2,p.z,feet+1.65,.29))return;
-    }
-    const mask=1<<use.d.id;
-    y.closedCabins=input.open?(y.closedCabins??0)&~mask:(y.closedCabins??0)|mask;
-    if(!y.closedCabins)delete y.closedCabins;
     return;
   }
   if(use?.kind==='door' && input.door===use.d.id && typeof input.open==='boolean'){

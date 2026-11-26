@@ -5,6 +5,7 @@ import {addClubResidents,stepClubResidents,clubAppearance,staffAtWork,canServeDr
 import {refuelVehicle,stepVehicleFuel} from './public/vehicle-fuel.js';
 import {compactAmbientView} from './ambient-snapshot.js';
 import {resortArrivals} from './public/palma-site.js';
+import {yachtArrival} from './public/yacht-layout.js';
 import {stepSharkScavenging} from './public/shark-scavenging.js';
 import {startDogPursuit,stepDogPursuit} from './public/dog-owner-pursuit.js';
 import {requestDogAction} from './dog-actions.js';
@@ -291,7 +292,7 @@ const sockets = new WebSocketServer({
 });
 // Each district owns its authoritative timers, vehicles, NPCs and players.
 const cityWorkers = new Map();
-const arrivalRoutes=new Map([...resortArrivals].map(([key,pose])=>['/world?map=brickell&arrival='+key,pose]));
+const arrivalRoutes=new Map([...resortArrivals,['solana',yachtArrival]].map(([key,pose])=>['/world?map=brickell&arrival='+key,pose]));
 const cityRoutes=new Map([['/world?map=brickell',''],...[zombieMode,marinaMode,...Object.keys(modes)].map(key=>['/world?map=brickell&mode='+key,key])]);
 function accept(request,socket,head) {
   sockets.handleUpgrade(request,socket,head,ws=>sockets.emit('connection',ws,request));

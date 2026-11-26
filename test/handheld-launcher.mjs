@@ -11,6 +11,7 @@ function setup(){
 for(const key of ['rover','supercar','heli','bay-rhib','key-rhib','superyacht']){
   const {world,p,peers}=setup(),v=lockVehicle(world,key);
   Object.assign(v,{x:0,y:100.6,z:0,yaw:0});
+  if(key==='superyacht')p.state.z=25; // Start beyond the imported yacht's full stern.
   // Aim through the hull at its own height.
   const input={...aim,aimPitch:key==='superyacht'?.055:0};
   for(let t=0;t<=18;t++)trackLauncher(world,p,input,t,peers,[]);
