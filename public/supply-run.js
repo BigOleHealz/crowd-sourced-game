@@ -55,7 +55,9 @@ export function supplyGuidance(world, local, id, touch=false) {
   const boardRover = () => guide('Humvee', rover.driver != null ? 'Your teammate is driving.' :
     touch ? 'Approach the Humvee and tap Get in Humvee.' : near(local, rover, 2.6) ? 'Press E to drive the Humvee.' : 'Reach the Humvee and press E to drive.', rover);
   const returnHeli = () => guide(CITY ? 'Military base helipad' : 'Trailhead helipad', 'Fly back and land on the H.', HELIPAD);
-  if (mission.stage === 'complete') return guide('Delivery complete', touch?'Three cases delivered. Tap Replay in Gear for another run.':'Three cases delivered. Press R for another run.', null);
+  if (mission.stage === 'complete') return guide('Delivery complete', touch
+    ? flying ? 'Three cases delivered. Tap Exit helicopter, then Replay in Gear for another run.' : 'Three cases delivered. Tap Replay in Gear for another run.'
+    : flying ? 'Three cases delivered. Press E to exit the helicopter, then R for another run.' : 'Three cases delivered. Press R for another run.', null);
   if (rover.wrecked && (mission.stage === 'pickup' || mission.stage === 'transfer')) return guide('Humvee','Replacement Humvee returning to the trailhead.',ROVER_PAD);
   if (mission.stage === 'pickup') {
     if (flying) return home ? guide('Humvee', touch?'Tap Exit helicopter, then board the Humvee.':'Press E to exit, then board the Humvee.', rover) : returnHeli();
