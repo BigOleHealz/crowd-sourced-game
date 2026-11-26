@@ -40,6 +40,15 @@ export const marinaModels={
     wave:{rise:.022,roll:.52,trim:.025},motorPitch:.74,
   }),
 };
+// Fit the source hull to the existing berth and place the ranger on its starboard seat.
+export const ariaSpeedboatFit={scale:[2.18/2.30,1,5.28/6.82],y:-.55,z:-.224};
+const [ariaX,,ariaZ]=ariaSpeedboatFit.scale;
+const ariaCushion={x:.55*ariaX,y:1.01+ariaSpeedboatFit.y,z:-.25*ariaZ+ariaSpeedboatFit.z};
+const ariaModel={...marinaModels.launch,helm:{
+  scale:seatScale,cushion:ariaCushion,
+  offset:[ariaCushion.x,ariaCushion.y-.893*seatScale,ariaCushion.z],
+  wheel:{x:.58*ariaX,y:1.20+ariaSpeedboatFit.y,z:-.72*ariaZ+ariaSpeedboatFit.z,radius:.148,tilt:-.48},
+}};
 const partyModel=makeModel({
   title:'Party yacht',length:19,beam:5.5,deck:1.32,keel:-.99,helmX:-.8,helmZ:-1.7,roof:4.2,maxHp:780,
   hydrodynamics:{ahead:6.2,astern:2.1,thrust:1.32,brake:2.7,drag:.55,dragSpeed:.067,
@@ -61,7 +70,12 @@ minnowModel.helm={...minnowModel.helm,
   offset:[-.50,3.32-.893*seatScale,-.62],
   wheel:{...minnowModel.helm.wheel,x:-.50,y:3.517,z:-.27},
 };
-export const marinaModel=boat=>boat?.partyYacht?partyModel:boat?.id==='marina-paloma'?minnowModel:marinaModels[boat?.boatModel];
+export function marinaModel(boat){
+  if(boat?.partyYacht)return partyModel;
+  if(boat?.id==='marina-paloma')return minnowModel;
+  if(boat?.id==='marina-aria')return ariaModel;
+  return marinaModels[boat?.boatModel];
+}
 
 function east(id,name,boatModel,hull,z,side){
   const besidePier=1.1+(id==='paloma'?minnowModel:marinaModels[boatModel]).halfWidth+.28;

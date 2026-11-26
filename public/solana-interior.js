@@ -1,5 +1,5 @@
 // Yacht-local metres, with the bow toward negative Z. The open centerline
-// connects the landing deck, main salon and forward helm.
+// connects the aft deck, main salon and forward helm.
 export const lowerSole=.27, mainSole=2.55, upperSole=4.92, cabinTop=7.19;
 export const companionway={left:1.46,right:3.26,aft:-2.2,fore:-6.62,count:13};
 // A port-side flight descends aft from the forward salon passage to the guest suite.

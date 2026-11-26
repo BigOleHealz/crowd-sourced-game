@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {Raycaster,Vector3} from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 process.env.GOY_THEFT_AUTO_MAP='brickell';
-const {newExpedition,fire,advanceRounds,fly,interact}=await import('../public/expedition.js');
+const {newExpedition,fire,advanceRounds,fly}=await import('../public/expedition.js');
 const {stepYacht,interactYacht,damageYacht}=await import('../public/superyacht.js');
 const {stepPlayer}=await import('../public/world.js');
 const {newLife}=await import('../public/rivals.js');
 const {stepBoat}=await import('../public/patrol-boats.js');
-const {yachtLocal,yachtPoint,yachtPad,yachtDeckY,yachtHelm,yachtBerth}=await import('../public/yacht-layout.js');
+const {yachtLocal,yachtPoint,yachtDeckY,yachtHelm,yachtBerth}=await import('../public/yacht-layout.js');
 const dt=1/30,w=newExpedition(),y=w.yacht,h=w.heli;
 function guest(id,feet){return {id,state:{...feet,grounded:true,vy:0},yaw:0,moving:false,life:newLife(0,false),weapon:1,fireReady:0};}
 const a=guest(1,{x:64,y:.8,z:-374.5}),b=guest(2,{x:64,y:.8,z:-374.5}),pilot=guest(3,h);
@@ -34,25 +37,26 @@ for(let i=0;i<32;i++)railWalker.state=stepPlayer(railWalker.state,{x:-1,z:0,jump
 assert(yachtLocal(y,railWalker.state.x,railWalker.state.z).x>6,'deliberate jump clears the low rail');
 const swimmer=guest(4,yachtPoint(y,0,-.72,23.4));swimmer.state.grounded=false;swimmer.state.swimming=true;
 deckWalk(swimmer,0,14.7);assert(swimmer.state.onYacht && swimmer.state.grounded);assert(Math.abs(swimmer.state.y-(y.y+yachtDeckY))<.01);
-const p=yachtPoint(y,yachtPad.x,yachtPad.y,yachtPad.z);
+const p=yachtPoint(y,0,yachtDeckY,9.3);
 Object.assign(h,{x:p.x,z:p.z,y:p.y+3,yaw:y.yaw,grounded:false,pilot:pilot.id});
 let descent=0;
-for(let i=0;i<150 && !h.grounded;i++){
-  const before=h.y;fly(w,{x:0,z:0,lift:descent<1.4?-1:0,aimYaw:h.yaw},dt,people);descent=(before-h.y)/dt;
+for(let i=0;i<150;i++){
+  const before=h.y;
+  fly(w,{x:0,z:0,lift:descent<1.4?-1:0,aimYaw:h.yaw},dt,people);
+  descent=(before-h.y)/dt;
 }
-assert(h.grounded && h.onYacht && h.hp===500,'gentle landing at sea, outside original flight limits '+JSON.stringify(h));
-interact(w,pilot);assert.equal(h.pilot,null);assert(pilot.state.onYacht && pilot.state.grounded);
-const landed=yachtLocal(y,h.x,h.z),passenger=yachtLocal(y,b.state.x,b.state.z);
+assert(!h.grounded && h.y>p.y && h.hp===500,'the aft deck keeps aircraft clearance without accepting a landing');
+const dryFlight=newExpedition(),dryHeli=dryFlight.heli;
+Object.assign(dryHeli,{x:p.x,z:p.z,y:p.y+.5,grounded:false,fuel:0});
+for(let i=0;i<90 && !dryHeli.wrecked;i++)fly(dryFlight,{x:0,z:0,lift:0,aimYaw:0},dt,new Map());
+assert(dryHeli.wrecked && !dryHeli.grounded,'an engine-out helicopter cannot park on the yacht');
+const passenger=yachtLocal(y,b.state.x,b.state.z);
 for(let i=0;i<170;i++)stepYacht(w,{throttle:1},dt,people);
 for(let i=0;i<120;i++)stepYacht(w,{throttle:1,steer:-.65},dt,people);
 assert.equal(y.hp,y.maxHp);assert(!y.gangway && Math.abs(y.speed-5.2)<.01);
-const passengerNow=yachtLocal(y,b.state.x,b.state.z),parkedNow=yachtLocal(y,h.x,h.z);
+const passengerNow=yachtLocal(y,b.state.x,b.state.z);
 assert(Math.hypot(passengerNow.x-passenger.x,passengerNow.z-passenger.z)<.001);
-assert(Math.hypot(parkedNow.x-landed.x,parkedNow.z-landed.z)<.001);
 assert(Math.hypot(y.x-yachtBerth.x,y.z-yachtBerth.z)>27);
-interact(w,pilot);assert.equal(h.pilot,pilot.id);
-for(let i=0;i<60;i++)fly(w,{x:0,z:0,lift:1,aimYaw:h.yaw},dt,people);
-assert(!h.grounded && !h.onYacht && h.y>p.y+4 && h.hp===500);
 // A passenger can hit an unobstructed target on deck. The enclosed salon stops their next shot.
 const shooter=guest(7,yachtPoint(y,5.2,yachtDeckY,-4)),target=guest(8,yachtPoint(y,5.2,yachtDeckY,-9));
 const combat=new Map([[7,shooter],[8,target]]);
@@ -74,4 +78,11 @@ assert.equal(oy.hp,2000,'chart edges do not damage the hull');
 const boat=outer.boats[0];Object.assign(oy,{x:74,z:-323,yaw:0,driver:null});Object.assign(boat,{x:61,z:-323,yaw:Math.PI/2,driver:1});
 for(let i=0;i<150;i++)stepBoat(outer,boat,{throttle:1},dt,new Map());
 assert(boat.x>62.5 && boat.x<67,'small vessel stays outside broadside');
-console.log('PASS quay and water boarding, single helm, attached standing passengers and aircraft, passenger gunfire, slow cruising, damage and recovery, hull and chart contacts.');
+const model=await readFile(new URL('../public/solana-superyacht.glb',import.meta.url));
+const {scene:exterior}=await new GLTFLoader().parseAsync(new Uint8Array(model).buffer,'');
+exterior.updateMatrixWorld(true);
+const sternApproach=new Raycaster(new Vector3(0,1.37,21),new Vector3(0,0,-1),0,6);
+assert.equal(sternApproach.intersectObject(exterior,true).length,0,'the imported transom leaves the boarding stairs open');
+const broadside=new Raycaster(new Vector3(8,1.2,3),new Vector3(-1,0,0),0,4);
+assert(broadside.intersectObject(exterior,true).length,'the imported hull faces out along the broadside');
+console.log('PASS quay and water boarding, single helm, attached standing passengers, aircraft clearance, passenger gunfire, slow cruising, damage and recovery, hull and chart contacts.');

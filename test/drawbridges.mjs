@@ -30,8 +30,8 @@ for(const bridge of bridges){
       const world=newExpedition(),v=world[kind];
       Object.assign(world.yacht,{x:0,z:mid});
       for(let n=0;n<155;n++)stepDrawbridges(world,bridges,dt);
-      // The aircraft is parked on the yacht helipad directly under the approach lip.
-      Object.assign(world.heli,{x:sign*2,z:mid-sign,y:world.yacht.y+2.55,grounded:true,onYacht:true});
+      // Keep an aircraft hovering over the yacht directly under the approach lip.
+      Object.assign(world.heli,{x:sign*2,z:mid-sign,y:world.yacht.y+3,grounded:false});
       const gap=leafGeometry(bridge,maxLift).gap;
       assert.equal(groundHeight(0,mid,Infinity,world.doors),seabedHeight(0,mid));
       Object.assign(v,{x:sign*2,z:mid-sign*45,yaw:sign>0?Math.PI:0,driver:2});

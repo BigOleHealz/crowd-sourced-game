@@ -6,7 +6,7 @@ export const yachtSections=[[-20,.35],[-18,2.45],[-14,4.6],[-9,6.0],[-3,6.4],[12
 export const yachtDeckY=mainSole;
 export const yachtKeelY=-1.34;
 export const yachtCabin={west:-4.2,east:4.2,fore:-12,aft:1,bottom:yachtDeckY,top:cabinTop};
-export const yachtPad={x:0,z:9.3,y:yachtDeckY,halfWidth:5.75,fore:2.5,aft:15};
+export const yachtFlybridge={halfWidth:3.31,fore:-10,aft:-.70,top:9.78};
 export const yachtHelm={x:0,y:yachtDeckY,z:-14.1};
 export const yachtStairs={halfWidth:2.1,fore:15,aft:19,steps:12,bottom:.30,top:yachtDeckY};
 export const yachtPlatform={halfWidth:4.35,fore:19,aft:21,y:.30};
@@ -84,7 +84,9 @@ export function yachtTopAt(yacht,x,z,padding=0){
   const deck=yachtDeckHeight(yacht,x,z);
   if(!nearCabin(yacht,x,z))return deck;
   const p=yachtLocal(yacht,x,z);
-  return Math.max(deck,yacht.y+cabinSupport(p.x,Infinity,p.z,padding,yacht.brokenGlass));
+  const flybridge=yachtFlybridge;
+  const aboveCabin=Math.abs(p.x)<=flybridge.halfWidth+padding && p.z>=flybridge.fore-padding && p.z<=flybridge.aft+padding;
+  return Math.max(deck,yacht.y+(aboveCabin ? flybridge.top : cabinSupport(p.x,Infinity,p.z,padding,yacht.brokenGlass)));
 }
 export function carryOnYacht(from,to,feet){
   const p=yachtLocal(from,feet.x,feet.z);
