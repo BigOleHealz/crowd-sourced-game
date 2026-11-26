@@ -5,7 +5,7 @@ import {damageBoat} from './patrol-boats.js';
 import {CITY,MAP,groundHeight,insideTravelArea} from './world.js';
 import {carrierHullContains} from './eisenhower-carrier-layout.js';
 import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelmFeet,yachtPrompt,
-  aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin,yachtFlybridge} from './yacht-layout.js';
+  aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtFlybridge} from './yacht-layout.js';
 
 export function mooredYacht(){
   return {id:'superyacht',fuel:100,...yachtBerth,y:MAP.waterY,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
@@ -14,16 +14,11 @@ export function mooredYacht(){
 export function interactYacht(world,player){
   const prompt=yachtPrompt(world,player.state,player.id),y=world.yacht;
   if(prompt==='leave'){y.driver=null;y.throttle=0;return true;}
-  if(prompt==='leaveGun'){y.gunner=null;return true;}
-  if(prompt==='gun'){
-    y.gunner=player.id;y.turretYaw=y.yaw;y.turretPitch=0;
-    player.moving=player.sprint=false;return true;
-  }
   if(prompt==='helm'){
     y.driver=player.id;player.state={...yachtHelmFeet(y),grounded:true,vy:0};
     player.yaw=y.yaw;player.moving=player.sprint=false;return true;
   }
-  return prompt==='occupied' || prompt==='gunOccupied';
+  return prompt==='occupied';
 }
 export function damageYacht(world,amount,team,owner){
   const y=world.yacht;
@@ -35,8 +30,8 @@ export function damageYacht(world,amount,team,owner){
   Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,yawRate:0,slip:0,throttle:0,gangway:false,recoverySeconds:9});
 }
 const samples=[];
-for(const z of [...new Set([...yachtSections.map(s=>s[0]),...Array.from({length:21},(_,i)=>-20+2*i),21])]){
-  const w=z>=19?yachtPlatform.halfWidth:yachtHalfBeam(z);
+for(const z of [...new Set([...yachtSections.map(s=>s[0]),...Array.from({length:21},(_,i)=>-20+2*i),21.6])]){
+  const w=yachtHalfBeam(z);
   for(const x of [-w,-w*.5,0,w*.5,w])samples.push([x,z]);
 }
 function clear(world,pose,players,old){
@@ -45,9 +40,8 @@ function clear(world,pose,players,old){
   const c=Math.cos(pose.yaw),s=Math.sin(pose.yaw);
   for(const [side,aft] of samples){
     const x=pose.x+c*side-s*aft,z=pose.z+s*side+c*aft;
-    const top=Math.abs(side)<=yachtFlybridge.halfWidth && aft>=yachtFlybridge.fore && aft<=yachtFlybridge.aft ? yachtFlybridge.top :
-      side>=yachtCabin.west && side<=yachtCabin.east && aft>=yachtCabin.fore && aft<=yachtCabin.aft ? yachtCabin.top : 3.6;
-    if(!insideTravelArea(x,z) || CITY && carrierHullContains(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
+    const top=yachtTopAt(pose,x,z);
+    if(!insideTravelArea(x,z) || CITY && carrierHullContains(x,z) || groundHeight(x,z,top+.15,world.doors)>MAP.waterY-.35)return false;
   }
   for(const b of world.boats){
     const {halfWidth,halfLength}=hullSize(b);

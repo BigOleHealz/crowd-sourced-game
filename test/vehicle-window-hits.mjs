@@ -3,7 +3,6 @@ process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {newExpedition,fire,advanceRounds}=await import('../public/expedition.js');
 const {newLife}=await import('../public/rivals.js');
 const {parkedTrafficCar}=await import('../public/city-traffic.js');
-const {yachtPoint}=await import('../public/yacht-layout.js');
 const w=newExpedition(),people=new Map();
 function fireAcross(x,y,z,yaw){
   const shooter={id:7,state:{x,y:y-1.3,z},weapon:1,life:{hp:100},fireReady:0};
@@ -19,11 +18,8 @@ for(const [kind,height,aft] of [['rover',1.30,0],['supercar',.94,.15],['heli',1.
   assert.deepEqual(v.bodyDamage,body,kind+' glass hit leaves bodywork intact');
   v.x=55;
 }
-const y=w.yacht,from=yachtPoint(y,7.2,3.8,-5);
-fireAcross(from.x,from.y,from.z,y.yaw-Math.PI/2);
-assert.equal(Object.keys(y.brokenGlass??{}).length,1,'yacht salon window shatters');
-assert.equal(w.doors.glassSounds.length,4);
-console.log('PASS replicated pane damage and shatter events on truck, GT, Black Hawk and yacht');
+assert.equal(w.doors.glassSounds.length,3);
+console.log('PASS replicated pane damage and shatter events on truck, GT and Black Hawk');
 
 function shootCar(kind,height,driver=true,breakFirst=false){
   const world=newExpedition(),car=world[kind]??parkedTrafficCar('test-car',kind,0,0,0);
