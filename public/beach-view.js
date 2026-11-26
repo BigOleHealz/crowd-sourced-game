@@ -4,42 +4,22 @@ import {addBeachShades} from './beach-shades.js';
 import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, beachIsland, beachTerrain, onBeachTerrain, onRockShore, courts, sandHeight } from './beach-layout.js';
-import {brickellMap,bridges,coastalBedHeight} from './brickell-map.js';
-import {militaryBridge} from './military-island.js';
-import {shoreRockPile,rockPileOverlapsBridge} from './shore-rock-piles.js';
-const rockBridges=[...bridges,militaryBridge];
+import {coastalBedHeight,harborShoreBedHeight,harborShoreRocks} from './brickell-map.js';
 
 function addRockShoreBoulders(scene) {
-  const positions=[];
-  // Three staggered rows follow the west bank and turn along both island ends.
-  for(let z=beachIsland.north+2;z<beachIsland.south-1;z+=3.4)
-    for(const offset of [1.8,5.2,9.1])positions.push([beachIsland.west-offset,z]);
-  for(const side of ['north','south']){
-    const edge=beachIsland[side],sign=side==='north'?-1:1;
-    for(let x=beachIsland.west+2;x<beachIsland.east;x+=3.4)
-      for(const offset of [1.7,4.9,8.1])positions.push([x,edge+sign*offset]);
-    positions.push([beachIsland.east-1.2,edge+sign*2.2]);
-  }
   const shape=new THREE.IcosahedronGeometry(1,0);
-  const stones=new THREE.InstancedMesh(shape,new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),positions.length);
+  const stones=new THREE.InstancedMesh(shape,new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),harborShoreRocks.rocks.length);
   const dummy=new THREE.Object3D(),palette=[0x9d9b90,0xb2ab9b,0x858c87,0xa7a598];
-  let count=0;
-  for(const [x,z] of positions){
-    const n=Math.sin(x*127.1+z*311.7)*43758.5453,random=n-Math.floor(n);
-    const px=x+(random-.5)*.85,pz=z+(Math.sin(n*1.37)*.5)*.7;
-    if(!onRockShore(px,pz))continue;
-    const floor=coastalBedHeight(px,pz);
-    const {radius,height,centerY}=shoreRockPile(floor,brickellMap.waterY,random);
-    if(rockBridges.some(bridge=>rockPileOverlapsBridge(px,pz,radius*1.15,bridge)))continue;
-    dummy.position.set(px,centerY,pz);
-    dummy.rotation.set(random*.14,random*Math.PI*2,random*.17);
-    dummy.scale.set(radius,height,radius*(.78+.2*random));dummy.updateMatrix();
+  for(const [count,rock] of harborShoreRocks.rocks.entries()){
+    dummy.position.set(rock.x,rock.centerY,rock.z);
+    dummy.rotation.set(rock.rotation*.14,rock.rotation*Math.PI*2,rock.rotation*.17);
+    dummy.scale.set(rock.radius,rock.height,rock.zRadius);dummy.updateMatrix();
     stones.setMatrixAt(count,dummy.matrix);
-    const color=new THREE.Color(palette[count%palette.length]);
-    if(floor<.15)color.multiplyScalar(.72);
-    stones.setColorAt(count,color);count++;
+    const color=new THREE.Color(palette[rock.palette]);
+    if(rock.floor<.15)color.multiplyScalar(.72);
+    stones.setColorAt(count,color);
   }
-  stones.count=count;stones.instanceMatrix.needsUpdate=true;
+  stones.instanceMatrix.needsUpdate=true;
   if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
   stones.name='Harbor Key rock shore';stones.userData.impactSurface='solid';
   scene.add(stones);
@@ -58,13 +38,14 @@ export function addBeach(scene,Batch) {
   geometry.translate((beachTerrain.east+beachTerrain.west)/2,0,(beachTerrain.south+beachTerrain.north)/2);
   const p=geometry.attributes.position, sandColors=[],rockColors=[],c=new THREE.Color();
   for(let i=0;i<p.count;i++){
-    const x=xs[i%xs.length],z=p.getZ(i),y=coastalBedHeight(x,z);p.setX(i,x);p.setY(i,y);
+    const x=xs[i%xs.length],z=p.getZ(i),y=onRockShore(x,z)?harborShoreBedHeight(x,z):coastalBedHeight(x,z);
+    p.setX(i,x);p.setY(i,y);
     geometry.attributes.uv.setXY(i,x/4,z/4);
     const bx=Math.max(beach.west,Math.min(beach.east,x));
     const bz=Math.max(beach.north,Math.min(beach.south,z));
     const edge=Math.min(1,Math.hypot(x-bx,z-bz)/12);
     const fade=edge*edge*(3-2*edge);
-    const relief=coastalBedHeight(x+1,z)-y;
+    const relief=(onRockShore(x,z)?harborShoreBedHeight(x+1,z):coastalBedHeight(x+1,z))-y;
     const damp=THREE.MathUtils.smoothstep(y,-.36,.55);
     c.setRGB((.53+.47*damp)*(1-fade)+(.66+relief*.13)*fade,
       (.49+.51*damp)*(1-fade)+(.76+relief*.12)*fade,
