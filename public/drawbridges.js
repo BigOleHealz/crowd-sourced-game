@@ -2,8 +2,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 
 // Two hinged roadway leaves meet at the crown of each Brickell crossing.
 export const leafLength=16;
-// The taller imported Solana needs a little more room under the leaf tips.
-export const maxLift=28*Math.PI/180;
+export const maxLift=25*Math.PI/180;
 export const bridgeMiddle=bridge=>(bridge.north+bridge.south)/2;
 
 export const trafficStopLine=car=>leafLength+civilianProfiles[car.model].halfLength+1;

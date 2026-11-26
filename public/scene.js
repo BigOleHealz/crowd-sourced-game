@@ -809,7 +809,7 @@ function fieldEffects(scene) {
     nextHullPuff-=dt;
     if(nextHullPuff>0)return;
     nextHullPuff=.18;
-    const vent=yachtPoint(yacht,-3.2,3.25,13.8);
+    const vent=yachtPoint(yacht,-5.7,2.35,13.8);
     plume.puff(new THREE.Vector3().copy(vent),new THREE.Vector3(.40+rng()*.26,1.5+rng()*.65,.25),
       .65,2.9+rng(),2.5+rng()*.55,rng()>.5?0x48494a:0x615e5b,.76);
   }
@@ -1338,6 +1338,7 @@ export function createScene(canvas) {
   const updatePatrolBoats=patrolBoatView(scene,Batch,material);
   const updatePartyYachts=CITY?partyYachtView(scene,Batch):null;
   const updateMarinaFleet=CITY?marinaFleetView(scene,Batch):null;
+  const bowGun=CITY && turretView(scene,'superyacht',Batch,material);
   const updateYacht=CITY ? superyachtView(scene,Batch,renderer,panorama) : null;
   const updateTraffic=cityTrafficView(scene,Batch,shadowMap,panorama);
   const updateSupercar=CITY && createCheetahView(scene,shadowMap);
@@ -1523,7 +1524,7 @@ export function createScene(canvas) {
     updatePartyYachts?.(world.boats,dt,local,world.simTick,world.panicCues);
     updateMarinaFleet?.(world.boats,dt,local);
     updateYacht?.(world.yacht,dt,local);
-    if(world.yacht)effects.yachtExhaust(world.yacht,dt);
+    if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     jetModel.update(world.jet,dt);
     const flyingJet=world.jet?.pilot===local.id;
     const aircraft=flyingJet ? world.jet : heli2?.pilot===local.id?heli2:heli;
