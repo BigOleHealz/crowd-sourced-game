@@ -98,8 +98,17 @@ export function harborShoreBedHeight(x,z){
 export const militaryShoreRocks=makeMilitaryShoreRocks(militaryShoreBedHeight,-.14);
 export const harborShoreRocks=makeHarborShoreRocks(harborShoreBedHeight,-.14,[...bridges,militaryBridge]);
 const urbanRockLand=[coast,...lanternLand];
+// Keep the working waterfront clear for the bay RHIB, Solana, the marina
+// fleet, and boats entering the south chart edge.
+const urbanBoatLanes=[
+  {west:42,east:52,north:-64,south:80},
+  {west:61,east:78,north:-411,south:-350},
+  {west:-82,east:-68,north:-463,south:-410},
+  {west:-70,east:-52,north:-450,south:-425},
+  {west:-52,east:52,north:-487,south:-474},
+];
 export const urbanShoreRocks=makeUrbanShoreRocks(coastalBedHeight,-.14,urbanRockLand,
-  [...urbanRockLand,...shorePads,harbor,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges,militaryBridge,militaryAccessRoad]);
+  [...urbanRockLand,...shorePads,harbor,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges,militaryBridge,militaryAccessRoad,...urbanBoatLanes]);
 export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>onMilitaryBridge(x,z) || within(militaryAccessRoad,x,z) || (z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z)));

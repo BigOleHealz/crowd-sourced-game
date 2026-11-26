@@ -10,8 +10,8 @@ const {bridges}=await import('../public/brickell-map.js');
 const {militaryBridge}=await import('../public/military-island.js');
 const {ferrySlip,marketPiers}=await import('../public/lantern-point.js');
 
-assert(urbanShoreRocks.rocks.filter(r=>r.z>-100).length>80,'Brickell has a continuous rock shore');
-assert(urbanShoreRocks.rocks.filter(r=>r.z<-350).length>80,'Lantern Point has a continuous rock shore');
+assert(urbanShoreRocks.rocks.filter(r=>r.z>-100).length>40,'Brickell has shoreline rocks outside boat lanes');
+assert(urbanShoreRocks.rocks.filter(r=>r.z<-350).length>40,'Lantern Point has shoreline rocks outside boat lanes');
 const scene=new THREE.Scene();
 const mesh=addShoreBoulders(scene,urbanShoreRocks,'Urban shore boulders');
 assert.equal(mesh.count,urbanShoreRocks.rocks.length,'rendering uses every collision rock');
