@@ -5,5 +5,5 @@ Creative Commons Attribution 4.0 International
 https://creativecommons.org/licenses/by/4.0/
 
 Adapted for the Solana. Reshaped the hull and transom to match the game's
-waterline, decks, stairs and swim platform. Resized and repositioned the
-upper structure. The game provides the walkable decks, cabin and fittings.
+waterline, decks, stairs and swim platform. Resized and repositioned the complete cabin, glazing, decks and upper structure.
+The game retains the walkable interior and boarding fittings.

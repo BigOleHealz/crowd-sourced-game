@@ -78,11 +78,25 @@ assert.equal(oy.hp,2000,'chart edges do not damage the hull');
 const boat=outer.boats[0];Object.assign(oy,{x:74,z:-323,yaw:0,driver:null});Object.assign(boat,{x:61,z:-323,yaw:Math.PI/2,driver:1});
 for(let i=0;i<150;i++)stepBoat(outer,boat,{throttle:1},dt,new Map());
 assert(boat.x>62.5 && boat.x<67,'small vessel stays outside broadside');
-const model=await readFile(new URL('../public/solana-superyacht.glb',import.meta.url));
-const {scene:exterior}=await new GLTFLoader().parseAsync(new Uint8Array(model).buffer,'');
+const model=new Uint8Array(await readFile(new URL('../public/solana-superyacht.glb',import.meta.url)));
+// Geometry checks run in Node, where the browser image decoder is unavailable.
+const jsonLength=new DataView(model.buffer).getUint32(12,true);
+const json=JSON.parse(new TextDecoder().decode(model.subarray(20,20+jsonLength)));
+for(const material of json.materials){
+  delete material.pbrMetallicRoughness?.baseColorTexture;
+  delete material.normalTexture;
+}
+const plain=new TextEncoder().encode(JSON.stringify(json));
+model.fill(32,20,20+jsonLength);
+model.set(plain,20);
+const {scene:exterior}=await new GLTFLoader().parseAsync(model.buffer,'');
 exterior.updateMatrixWorld(true);
 const sternApproach=new Raycaster(new Vector3(0,1.37,21),new Vector3(0,0,-1),0,6);
 assert.equal(sternApproach.intersectObject(exterior,true).length,0,'the imported transom leaves the boarding stairs open');
+for(const [z,y] of [[.88,3.5],[-11.85,3.5],[-.88,5.9],[-10.05,5.9]]){
+  const ray=new Raycaster(new Vector3(0,y,z+1),new Vector3(0,0,-1),0,2);
+  assert.equal(ray.intersectObject(exterior,true).length,0,'the imported cabin leaves the walkable door clear at '+z);
+}
 const broadside=new Raycaster(new Vector3(8,1.2,3),new Vector3(-1,0,0),0,4);
 assert(broadside.intersectObject(exterior,true).length,'the imported hull faces out along the broadside');
 console.log('PASS quay and water boarding, single helm, attached standing passengers, aircraft clearance, passenger gunfire, slow cruising, damage and recovery, hull and chart contacts.');
