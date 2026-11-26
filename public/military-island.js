@@ -47,8 +47,7 @@ fenceRun('x',-301,-246,-137);
 fenceRun('z',-137,-301,-159,[[-257,-247],[-237,-223]]);
 fenceRun('x',-159,-246,-137);
 // The carrier shore ramp passes through this opening in the west perimeter.
-const rampGateZ=carrierRamp.shore.z+(-246-carrierRamp.shore.x)*
-  (carrierRamp.turn.z-carrierRamp.shore.z)/(carrierRamp.turn.x-carrierRamp.shore.x);
+const rampGateZ=carrierRamp.turn.z;
 fenceRun('z',-246,-301,-159,[[rampGateZ-7,rampGateZ+7]]);
 export const fenceDown=(doors,id)=>Boolean(doors?.militaryFence?.[id]);
 export function breakMilitaryFence(doors,id){

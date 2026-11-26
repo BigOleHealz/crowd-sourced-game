@@ -7,20 +7,22 @@ import {seabedHeight} from './reef-channel.js';
 // The waterline leaves roughly 11 m of hull below water and 14 m to the flight deck.
 export const eisenhowerCarrier={x:-308,z:-230,length:275,waterlineModelY:45};
 const sections=[
-  {z:-110,d:50,w:18},
-  {z:-55,d:60,w:42},
-  {z:0,d:60,w:48},
-  {z:55,d:60,w:42},
-  {z:110,d:50,w:18},
+  // The hull is asymmetric around the flight-deck centre and widens near the
+  // waterline. The old narrow boxes left visible side plating non-solid.
+  {z:-110,d:55,x:-308,w:24},
+  {z:-55,d:60,x:-306,w:50},
+  {z:0,d:60,x:-303,w:58},
+  {z:55,d:60,x:-306,w:54},
+  {z:110,d:55,x:-306,w:36},
 ];
 // The broad flight deck at the gangway landing is near source Y=98.5.
 // Follow that surface instead of suspending walking collision above it.
 export const carrierDeckTop=-.14+(98.5-eisenhowerCarrier.waterlineModelY)*eisenhowerCarrier.length/1061.7968+.12;
-export const carrierHullSections=sections.map(({z,d,w})=>{
-  const worldZ=eisenhowerCarrier.z+z,base=seabedHeight(eisenhowerCarrier.x,worldZ);
+export const carrierHullSections=sections.map(({z,d,x,w})=>{
+  const worldZ=eisenhowerCarrier.z+z,base=seabedHeight(x,worldZ);
   // A constant 21.2 m above the varying seabed put the invisible hull above
   // the flight deck in several bays, blocking a player mid-runway.
-  return {x:eisenhowerCarrier.x,z:worldZ,w,d,h:carrierDeckTop-2.4-base};
+  return {x,z:worldZ,w,d,h:carrierDeckTop-2.4-base};
 });
 export const carrierHullContains=(x,z,padding=0)=>carrierHullSections.some(s=>
   Math.abs(x-s.x)<=s.w/2+padding && Math.abs(z-s.z)<=s.d/2+padding);
@@ -40,27 +42,43 @@ export const carrierDeckSections=sections.map(({z,d},i)=>{
 
 // A gradual shore ramp runs beside the west fence, then a level gangway
 // crosses the water gap to the flight deck. Both pieces share this surface.
+const gangwayWidth=4.4;
 export const carrierRamp={
   shore:{x:-243,y:.8,z:-290},
-  turn:{x:-249,y:carrierDeckTop,z:-235},
+  // Keep the rising leg aligned with the approach. A diagonal six-metre drift
+  // sent players walking straight into its rail before they reached the turn.
+  turn:{x:-243,y:carrierDeckTop,z:-235},
+  // The crosswise deck begins at the near edge of this level landing. End the
+  // incline there so its overlap never creates an invisible step.
+  riseEnd:{x:-243,y:carrierDeckTop,z:-235-gangwayWidth/2},
   // Carry the landing beyond the visible flight-deck edge, not just the
   // simplified collision rectangle at the ship's perimeter.
   deck:{x:-296,y:carrierDeckTop,z:-235},
-  width:3.6,
+  width:gangwayWidth,
 };
 export const carrierRampSegments=[
-  [carrierRamp.shore,carrierRamp.turn],
+  [carrierRamp.shore,carrierRamp.riseEnd],
+  [carrierRamp.riseEnd,carrierRamp.turn],
   [carrierRamp.turn,carrierRamp.deck],
 ];
 export function carrierRampRailSpan(segment,length){
-  return {start:segment===0?0:2/length,end:1-2/length};
+  return {start:segment===2?2/length:0,end:segment===2?1-2/length:1};
 }
+export const carrierRampRailSides=segment=>segment===1?[-1]:[-1,1];
+export const carrierRampTurnGuard={
+  west:carrierRamp.turn.x-carrierRamp.width/2,
+  east:carrierRamp.turn.x,
+  z:carrierRamp.turn.z+carrierRamp.width/2,
+};
 export function carrierRampRailBlocked(x,y,z,height=1.7,radius=.32){
+  if(x>=carrierRampTurnGuard.west-radius && x<=carrierRampTurnGuard.east+radius &&
+      Math.abs(z-carrierRampTurnGuard.z)<=radius+.07 &&
+      y<carrierDeckTop+1.1 && y+height>carrierDeckTop+.35)return true;
   for(const [segment,[a,b]] of carrierRampSegments.entries()){
     const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
     const {start,end}=carrierRampRailSpan(segment,length);
     const sideX=-dz/length*carrierRamp.width/2,sideZ=dx/length*carrierRamp.width/2;
-    for(const side of [-1,1]){
+    for(const side of carrierRampRailSides(segment)){
       const ax=a.x+dx*start+side*sideX,az=a.z+dz*start+side*sideZ;
       const bx=a.x+dx*end+side*sideX,bz=a.z+dz*end+side*sideZ;
       const t=Math.max(0,Math.min(1,((x-ax)*(bx-ax)+(z-az)*(bz-az))/((bx-ax)**2+(bz-az)**2)));

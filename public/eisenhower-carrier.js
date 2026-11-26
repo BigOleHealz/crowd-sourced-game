@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {eisenhowerCarrier,carrierRamp,carrierRampSegments,carrierRampRailSpan} from './eisenhower-carrier-layout.js';
+import {eisenhowerCarrier,carrierRamp,carrierRampSegments,carrierRampRailSpan,carrierRampRailSides,carrierRampTurnGuard} from './eisenhower-carrier-layout.js';
 import {seabedHeight} from './reef-channel.js';
 
 function addCarrierRamp(scene){
   const ramp=new THREE.Group();ramp.name='Carrier shore ramp';
   const deckMaterial=new THREE.MeshStandardMaterial({color:0x535f62,metalness:.32,roughness:.78,side:THREE.DoubleSide});
+  const plateMaterials=[0x626e70,0x596568].map(color=>new THREE.MeshStandardMaterial({color,metalness:.26,roughness:.82,side:THREE.DoubleSide}));
+  const safetyMaterial=new THREE.MeshStandardMaterial({color:0xc5a34b,metalness:.18,roughness:.76,side:THREE.DoubleSide});
+  const landingMaterial=new THREE.MeshStandardMaterial({color:0x46555a,metalness:.28,roughness:.8,side:THREE.DoubleSide});
   const railMaterial=new THREE.MeshStandardMaterial({color:0xaab7b4,metalness:.58,roughness:.48});
   const trimMaterial=new THREE.MeshStandardMaterial({color:0x34464b,metalness:.38,roughness:.7});
   const beam=(a,b,radius,material)=>{
@@ -19,6 +22,16 @@ function addCarrierRamp(scene){
     const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz);
     const sideX=-dz/length*carrierRamp.width/2,sideZ=dx/length*carrierRamp.width/2;
     const point=(t,side=0,lift=0)=>[a.x+dx*t+side*sideX,a.y+(b.y-a.y)*t+lift,a.z+dz*t+side*sideZ];
+    const plate=(from,to,left,right,lift,material)=>{
+      const geometry=new THREE.BufferGeometry();
+      geometry.setAttribute('position',new THREE.Float32BufferAttribute([
+        ...point(from,left,lift),...point(from,right,lift),
+        ...point(to,left,lift),...point(to,right,lift),
+      ],3));
+      geometry.setIndex([0,1,2,1,3,2]);geometry.computeVertexNormals();
+      const mesh=new THREE.Mesh(geometry,material);
+      mesh.receiveShadow=true;mesh.userData.impactSurface='metal';ramp.add(mesh);
+    };
     // A closed, thick deck reads as a steel gangway from the shore and water.
     // Its upper face is exactly the height used by walking collision.
     const vertices=[
@@ -34,8 +47,18 @@ function addCarrierRamp(scene){
     geometry.computeVertexNormals();
     const surface=new THREE.Mesh(geometry,deckMaterial);
     surface.receiveShadow=true;surface.userData.impactSurface='metal';ramp.add(surface);
+    // Flush plates, seams and side markings make the route read as a finished
+    // steel boarding gangway without adding lips to walking collision.
+    for(let distance=0;distance<length-.08;distance+=3){
+      const from=(distance+.08)/length,to=Math.min(distance+2.9,length-.08)/length;
+      if(to>from)plate(from,to,-.87,.87,.012,plateMaterials[Math.floor(distance/3)%2]);
+    }
+    for(const side of [-1,1])plate(0,1,side*.91,side*.97,.018,safetyMaterial);
+    if(segment===1 || segment===2)
+      plate(0,Math.min(3/length,1),-.82,.82,.023,landingMaterial);
     for(const side of [-1,1]){
       beam(point(0,side,-.42),point(1,side,-.42),.18,trimMaterial);
+      if(!carrierRampRailSides(segment).includes(side))continue;
       // The corner opens for the turn; the final opening begins on the deck.
       const {start,end}=carrierRampRailSpan(segment,length);
       beam(point(start,side,1.07),point(end,side,1.07),.063,railMaterial);
@@ -58,8 +81,14 @@ function addCarrierRamp(scene){
       }
       beam(point(t,-.82,-.53),point(t,.82,-.53),.16,trimMaterial);
     }
-    // Keep the landing level with the deck; raised crossbars read as barriers.
   }
+  // Close the exposed outside corner while leaving the westward turn open.
+  for(const lift of [.45,1.07])
+    beam([carrierRampTurnGuard.west,carrierDeckTop+lift,carrierRampTurnGuard.z],
+      [carrierRampTurnGuard.east,carrierDeckTop+lift,carrierRampTurnGuard.z],
+      lift>1?.063:.035,railMaterial);
+  beam([carrierRampTurnGuard.east,carrierDeckTop,carrierRampTurnGuard.z],
+    [carrierRampTurnGuard.east,carrierDeckTop+1.07,carrierRampTurnGuard.z],.046,railMaterial);
   scene.add(ramp);
 }
 
