@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {eisenhowerCarrier,carrierRamp,carrierRampSegments,carrierRampRailSpan,carrierRampRailSides,carrierRampTurnGuard} from './eisenhower-carrier-layout.js';
+import {eisenhowerCarrier,carrierDeckTop,carrierRamp,carrierRampSegments,carrierRampRailSpan,carrierRampRailSides,carrierRampTurnGuard} from './eisenhower-carrier-layout.js';
 import {seabedHeight} from './reef-channel.js';
 
-function addCarrierRamp(scene){
+export function addCarrierRamp(scene){
   const ramp=new THREE.Group();ramp.name='Carrier shore ramp';
   const deckMaterial=new THREE.MeshStandardMaterial({color:0x535f62,metalness:.32,roughness:.78,side:THREE.DoubleSide});
   const plateMaterials=[0x626e70,0x596568].map(color=>new THREE.MeshStandardMaterial({color,metalness:.26,roughness:.82,side:THREE.DoubleSide}));
