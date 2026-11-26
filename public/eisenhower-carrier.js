@@ -8,7 +8,6 @@ function addCarrierRamp(scene){
   const deckMaterial=new THREE.MeshStandardMaterial({color:0x535f62,metalness:.32,roughness:.78,side:THREE.DoubleSide});
   const railMaterial=new THREE.MeshStandardMaterial({color:0xaab7b4,metalness:.58,roughness:.48});
   const trimMaterial=new THREE.MeshStandardMaterial({color:0x34464b,metalness:.38,roughness:.7});
-  const landingMaterial=new THREE.MeshStandardMaterial({color:0xd2ac61,metalness:.35,roughness:.65});
   const beam=(a,b,radius,material)=>{
     const start=new THREE.Vector3(...a),end=new THREE.Vector3(...b),direction=end.clone().sub(start);
     const mesh=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,direction.length(),8),material);
@@ -59,9 +58,7 @@ function addCarrierRamp(scene){
       }
       beam(point(t,-.82,-.53),point(t,.82,-.53),.16,trimMaterial);
     }
-    // Mark each transition without adding a raised step or blocking the route.
-    for(const t of segment?[1-1.2/length]:[.015])
-      beam(point(t,-.94,.012),point(t,.94,.012),.045,landingMaterial);
+    // Keep the landing level with the deck; raised crossbars read as barriers.
   }
   scene.add(ramp);
 }

@@ -6,8 +6,8 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
   execFileSync(process.execPath,[fileURLToPath(import.meta.url)],{
     env:{...process.env,GOY_THEFT_AUTO_MAP:'brickell'},stdio:'inherit'});
 }else{
-  const {groundHeight,insideTravelArea,MAP,HELIPAD}=await import('../public/world.js');
-  const {coastalBedHeight}=await import('../public/brickell-map.js');
+  const {groundHeight,insideTravelArea,stepPlayer,MAP,HELIPAD}=await import('../public/world.js');
+  const {militaryShoreBedHeight,militaryShoreRocks}=await import('../public/brickell-map.js');
   const {onRunway,onAirfield}=await import('../public/runway-layout.js');
   const {parkedJet}=await import('../public/jet.js');
   const {parkedHelicopter}=await import('../public/airframe.js');
@@ -22,11 +22,27 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
   assert(groundHeight(-85,-210)<0,'gap is navigable water');
   for(const [x,z] of [[-251,-240],[-132,-240],[-246,-305],[-136,-305],[-246,-155],[-136,-155]]){
     assert(onMilitaryRockShore(x,z),`rock apron covers exposed shore at ${x},${z}`);
-    assert(Math.abs(groundHeight(x,z)-coastalBedHeight(x,z))<1e-6,
-      `walking collision follows visible rock at ${x},${z}`);
+    assert(groundHeight(x,z)>=militaryShoreBedHeight(x,z)-1e-6,
+      `walking collision follows visible bank or boulder at ${x},${z}`);
     assert(groundHeight(x,z,MAP.waterY)<groundHeight(x,z)-1,
       `boats retain the deeper bed beside the rock at ${x},${z}`);
   }
+  assert(militaryShoreRocks.rocks.length>400,'the military shore has continuous boulder coverage');
+  for(const rock of militaryShoreRocks.rocks){
+    assert(militaryShoreBedHeight(rock.x,rock.z)>MAP.waterY,
+      'the boulder sits on exposed ground rather than a water hole');
+    assert(groundHeight(rock.x,rock.z)>militaryShoreBedHeight(rock.x,rock.z)+.3,
+      'the same visible boulder has a walkable top');
+  }
+  const stepRock=militaryShoreRocks.rocks.find(r=>r.x<-253 && r.x>-255 && r.z>-220 && r.z<-200);
+  assert(stepRock,'west shoreline has a reachable test boulder');
+  let climber={x:-249.2,z:stepRock.z,y:.8,vy:0,grounded:true},highest=climber.y;
+  for(let tick=0;tick<50;tick++){
+    climber=stepPlayer(climber,{x:-1},1/30,{}, {doors:{}});
+    highest=Math.max(highest,climber.y);
+  }
+  assert(highest>1.2 && climber.x<stepRock.x-1,
+    'the player walks up and across a visible boulder without jumping or clipping through it');
   assert(!onMilitaryRockShore(-85,-210),'rock apron leaves the water channel open');
   assert.equal(militaryBridge.east-militaryBridge.west,72,'west channel matches Lantern Bridge');
   assert(onMilitaryBridge(-97,-230));

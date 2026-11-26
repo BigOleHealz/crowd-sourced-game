@@ -17,12 +17,13 @@ assert(MAP.waterY-(MAP.waterY+(3.9625-eisenhowerCarrier.waterlineModelY)*scale)>
 
 // A landing on the overhanging flight deck must not leave only the player's
 // head above the texture, even where the narrow waterline hull does not reach.
-for(const x of [eisenhowerCarrier.x,eisenhowerCarrier.x+30]){
-  assert(x===eisenhowerCarrier.x || !carrierHullContains(x,eisenhowerCarrier.z));
+for(const x of [eisenhowerCarrier.x,carrierRamp.deck.x]){
   let p={x,z:eisenhowerCarrier.z,y:carrierDeckTop+2,vy:-4,grounded:false};
   for(let i=0;i<90;i++)p=stepPlayer(p,{},1/30,{}, {doors:{}});
   assert(p.grounded && Math.abs(p.y-carrierDeckTop)<.01,'player stands on the visible deck');
 }
+assert(groundHeight(eisenhowerCarrier.x+30,eisenhowerCarrier.z,carrierDeckTop+2)<MAP.waterY,
+  'empty water outside the visible flight deck has no invisible walking floor');
 assert(solidTopAt(eisenhowerCarrier.x,eisenhowerCarrier.z,{},0,MAP.waterY+2)>MAP.waterY+5,
   'waterline hull still blocks boats');
 assert(groundHeight(eisenhowerCarrier.x+33,eisenhowerCarrier.z,MAP.waterY+2)<MAP.waterY-2,
@@ -44,6 +45,18 @@ for(const goal of [carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:c
   assert(Math.hypot(goal.x-walker.x,goal.z-walker.z)<.15,'shore ramp reaches each landing');
 }
 assert(walker.grounded && Math.abs(walker.y-carrierDeckTop)<.02,'player walks from shore onto flight deck');
+// The hull must stay below the deck all the way along the runway. Its old
+// seabed-relative height created an invisible wall across several sections.
+for(const start of [-104,-358]){
+  let runner={x:eisenhowerCarrier.x,z:start,y:carrierDeckTop,vy:0,grounded:true};
+  const target=start===-104?-358:-104,sign=Math.sign(target-start);
+  for(let i=0;i<2000 && Math.abs(target-runner.z)>.2;i++){
+    runner=stepPlayer(runner,{z:sign},1/30,{}, {doors:{}});
+    assert(runner.grounded && Math.abs(runner.y-carrierDeckTop)<.02,
+      'the entire carrier runway remains walkable');
+  }
+  assert(Math.abs(target-runner.z)<.2,'the player reaches the far end of the flight deck');
+}
 for(const [a,b] of carrierRampSegments){
   const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz),sideX=-dz/length,sideZ=dx/length;
   const middle={x:(a.x+b.x)/2,z:(a.z+b.z)/2,y:(a.y+b.y)/2};

@@ -24,6 +24,7 @@ import {beach,beachIsland,onBeach,onBeachTerrain, sandHeight, beachBarriers} fro
 import {beachClubFixtures,beachClubFloor} from './beach-club.js';
 import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
+import {makeMilitaryShoreRocks} from './military-shore-rocks.js';
 // A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
 // collision dimensions come from the same layout on the server and client.
 export const avenues = [-38, 0, 32];
@@ -73,6 +74,15 @@ export function coastalBedHeight(x,z) {
   const c=shoreSurvey(x0,z0+reefGridSpacing),d=shoreSurvey(x0+reefGridSpacing,z0+reefGridSpacing);
   return u+v<=1 ? a+u*(b-a)+v*(c-a) : d+(1-u)*(c-d)+(1-v)*(b-d);
 }
+// Keep solid ground beneath the visible military boulders. The surveyed bed
+// otherwise dips below the waterline between stones along this shoreline.
+export function militaryShoreBedHeight(x,z){
+  const bed=coastalBedHeight(x,z),distance=militaryShoreDistance(x,z);
+  if(distance>=11)return bed;
+  const fade=Math.max(0,Math.min(1,(11-distance)/2));
+  return Math.max(bed,bed+(.02-bed)*fade);
+}
+export const militaryShoreRocks=makeMilitaryShoreRocks(militaryShoreBedHeight,-.14);
 export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>onMilitaryBridge(x,z) || within(militaryAccessRoad,x,z) || (z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z)));
@@ -108,7 +118,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   // Foot traffic uses the visible side banks; low-draft boat probes keep the
   // surveyed deeper bed beneath them.
   if(!onBeach(x,z) && onBeachTerrain(x,z) && maxBottom>0)return coastalBedHeight(x,z);
-  if(onMilitaryRockShore(x,z) && maxBottom>0)return coastalBedHeight(x,z);
+  if(onMilitaryRockShore(x,z))return maxBottom>0?militaryShoreBedHeight(x,z):seabedHeight(x,z);
   return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? islandOrSeabed(x,z) : roadway(x,z) ? .70 : .80;
 }
 
