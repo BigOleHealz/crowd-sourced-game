@@ -1,6 +1,6 @@
 import {leafLength} from './drawbridges.js';
 // Transverse sections shared by the concrete mesh and the two traffic levels.
-export function causewayArch(west, east, north, south) {
+export function causewayArch(west, east, north, south, shoreHeight=.70) {
   const length = south - north, middle = (north + south) / 2;
   // A level pair of steel leaves meets without a ridge. Ease the concrete
   // approaches into both the shore and the hinges, using the same sections
@@ -17,7 +17,7 @@ export function causewayArch(west, east, north, south) {
         : remaining<ease ? approach-ease-remaining*remaining/(2*ease) : fromShore-ease/2;
       rise=distance/(approach-ease);
     }
-    const road=.70+5.80*rise;
+    const road=shoreHeight+(6.50-shoreHeight)*rise;
     const soffit=fromShore>=approach ? road-.65 :
       Math.min(road-.65,Math.max(-2.80,5.72-8.52*((z-middle)/24)**2));
     return {z,road,soffit};

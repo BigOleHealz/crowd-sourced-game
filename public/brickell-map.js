@@ -11,7 +11,7 @@ import {casaBarriers,casaRails} from './casa-luma.js';
 import {estateBarriers,berthing} from './lantern-buildings-layout.js';
 import {lanternLand,lanternBridge,lanternPalms,bollards,benches,quayLamps,signBarriers,onLanternRoad,marketPiers,onMarketPier,pierDeck,ferrySlip,slipHeight} from './lantern-point.js';
 import {keyGround} from './offshore-keys.js';
-import {militaryBridge,militaryAccessRoad,onMilitaryBridge,insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
+import {militaryBridgeDeck,militaryCauseway,militaryBridgeCenterZ,militaryAccessRoad,onMilitaryBridge,onMilitaryBridgeDeck,insideMilitary,militaryShoreDistance,onMilitaryRockShore,militaryDockHeight,militaryBarriers} from './military-island.js';
 import {carrierHullSections,carrierDeckSections,carrierRampHeight} from './eisenhower-carrier-layout.js';
 import {streetLamps} from './street-lamps.js';
 import {waterfrontRoads,contains} from './waterfront-roads.js';
@@ -45,7 +45,7 @@ export const bridges=[causeway,lanternBridge];
 // Open the former avenue turning head into the resort drive.
 streetPlan.ends=streetPlan.ends.filter(e=>!(e.x===-38 && e.z===71.5));
 streetPlan.curbs=streetPlan.curbs.filter(c=>!(Math.abs(c.x+38)<9 && Math.abs(c.z-71.65)<.03));
-const oldShores=[...shorePads,coast,causeway,harbor,militaryBridge,militaryAccessRoad],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
+const oldShores=[...shorePads,coast,causeway,harbor,militaryBridgeDeck,militaryAccessRoad],newShores=[lanternBridge,ferrySlip,berthing.lip,...lanternLand,...marketPiers,...marinaDecks];
 // The shore apron uses the same two-metre triangles as the rendered sand.
 // Boats retain the surveyed bed; submerged swimmers use this visible height.
 const shoreLand=[...shorePads,coast,harbor,...lanternLand];
@@ -96,7 +96,7 @@ export function harborShoreBedHeight(x,z){
   return Math.max(bed,bed+(.02-bed)*fade);
 }
 export const militaryShoreRocks=makeMilitaryShoreRocks(militaryShoreBedHeight,-.14);
-export const harborShoreRocks=makeHarborShoreRocks(harborShoreBedHeight,-.14,[...bridges,militaryBridge]);
+export const harborShoreRocks=makeHarborShoreRocks(harborShoreBedHeight,-.14,[...bridges,militaryBridgeDeck]);
 const urbanRockLand=[coast,...lanternLand];
 // Keep the working waterfront clear for the bay RHIB, Solana, the marina
 // fleet, and boats entering the south chart edge.
@@ -108,7 +108,7 @@ const urbanBoatLanes=[
   {west:-52,east:52,north:-487,south:-474},
 ];
 export const urbanShoreRocks=makeUrbanShoreRocks(coastalBedHeight,-.14,urbanRockLand,
-  [...urbanRockLand,...shorePads,harbor,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges,militaryBridge,militaryAccessRoad,...urbanBoatLanes]);
+  [...urbanRockLand,...shorePads,harbor,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges,militaryBridgeDeck,militaryAccessRoad,...urbanBoatLanes]);
 export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>onMilitaryBridge(x,z) || within(militaryAccessRoad,x,z) || (z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z)));
@@ -119,9 +119,8 @@ function islandOrSeabed(x,z) {
 export function cityGround(x,z,maxBottom=Infinity,doors) {
   const carrierRamp=carrierRampHeight(x,z,maxBottom);
   if(carrierRamp!==undefined)return carrierRamp;
-  if(onMilitaryBridge(x,z)){
-    const road=militaryBridge.height(x);
-    return maxBottom>=road-.65 ? road : Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
+  if(onMilitaryBridgeDeck(x,z)){
+    return bridgeGround(militaryCauseway,militaryBridgeCenterZ-z,x,maxBottom,0,x,z);
   }
   const militaryDock=militaryDockHeight(x,z);if(militaryDock!==undefined)return militaryDock;
   if(insideMilitary(x,z))return .80;
@@ -129,13 +128,7 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   if(Math.abs(x-club.x)<club.w/2 && Math.abs(z-club.z)<club.d/2)return club.floor;
   const arrival=resortGround(x,z);if(arrival!==undefined)return arrival;
   const bridge=bridges.find(r=>z>=r.north && z<=r.south && x>=r.walkWest && x<=r.walkEast);
-  if(bridge){
-    const deck=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0);
-    const road=deck??bridge.height(z,'road'), soffit=deck==null?bridge.height(z,'soffit'):deck-.65;
-    const walk=x<bridge.west || x>bridge.east;
-    return Number.isFinite(road) && maxBottom>=soffit ? road+(walk?bridge.sidewalkRise:0) :
-      Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
-  }
+  if(bridge)return bridgeGround(bridge,x,z,maxBottom,doors?.bridgeLifts?.[bridge.north]??0,x,z);
   if(z<=lanternBridge.north){
     const marina=dockHeight(x,z);if(marina!==undefined)return marina;
     if(within(ferrySlip,x,z))return slipHeight(x);
@@ -149,21 +142,31 @@ export function cityGround(x,z,maxBottom=Infinity,doors) {
   return onBeach(x,z) ? (skateParkFloor(x,z)??beachClubFloor(x,z)??basketballFloor(x,z)??sandHeight(x,z)) : waterfront(x,z) ? islandOrSeabed(x,z) : roadway(x,z) ? .70 : .80;
 }
 
+function bridgeGround(bridge,across,along,maxBottom,lift,x,z) {
+  const deck=leafSurface(bridge,along,lift);
+  const road=deck??bridge.height(along,'road'),soffit=deck==null?bridge.height(along,'soffit'):deck-.65;
+  const walk=across<bridge.west || across>bridge.east;
+  return Number.isFinite(road) && maxBottom>=soffit ? road+(walk?bridge.sidewalkRise:0) :
+    Math.max(seabedHeight(x,z),reefAnchorTop(x,z));
+}
+
 export function parapetTop(x,z,padding,maxBottom,doors) {
-  if(x>=militaryBridge.west-padding && x<=militaryBridge.east+padding &&
-      (Math.abs(z-militaryBridge.north)<.3+padding || Math.abs(z-militaryBridge.south)<.3+padding)){
-    const top=militaryBridge.height(x);
-    return top<=maxBottom ? top+.84 : -Infinity;
+  if(x>=militaryCauseway.north-padding && x<=militaryCauseway.south+padding &&
+    Math.abs(z-militaryBridgeCenterZ)<=militaryCauseway.walkEast+padding){
+    return bridgeParapetTop(militaryCauseway,militaryBridgeCenterZ-z,x,padding,maxBottom,0);
   }
   const bridge=bridges.find(b=>z>=b.north-padding && z<=b.south+padding);
-  if(!bridge)return -Infinity;
+  return bridge ? bridgeParapetTop(bridge,x,z,padding,maxBottom,doors?.bridgeLifts?.[bridge.north]??0) : -Infinity;
+}
+
+function bridgeParapetTop(bridge,x,z,padding,maxBottom,lift) {
   const {west,east,walkWest,walkEast,parapetWidth,parapetHeight}=bridge;
   const inner=(x>=west-padding && x<=west+parapetWidth+padding) ||
     (x>=east-parapetWidth-padding && x<=east+padding);
   const outer=(x>=walkWest-padding && x<=walkWest+parapetWidth+padding) ||
     (x>=walkEast-parapetWidth-padding && x<=walkEast+padding);
   if(!inner && !outer)return -Infinity;
-  const road=leafSurface(bridge,z,doors?.bridgeLifts?.[bridge.north]??0)??bridge.height(z,'road');
+  const road=leafSurface(bridge,z,lift)??bridge.height(z,'road');
   const base=road+(outer?bridge.sidewalkRise:0);
   return base<=maxBottom ? base+parapetHeight : -Infinity;
 }
