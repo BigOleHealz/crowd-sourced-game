@@ -7,7 +7,7 @@ const {groundHeight,stepPlayer,MAP}=await import('../public/world.js');
 const {addShoreBoulders}=await import('../public/shore-rock-view.js');
 const {rockPileOverlapsBridge}=await import('../public/shore-rock-piles.js');
 const {bridges}=await import('../public/brickell-map.js');
-const {militaryBridge}=await import('../public/military-island.js');
+const {militaryBridgeDeck}=await import('../public/military-island.js');
 const {ferrySlip,marketPiers}=await import('../public/lantern-point.js');
 
 assert(urbanShoreRocks.rocks.filter(r=>r.z>-100).length>40,'Brickell has shoreline rocks outside boat lanes');
@@ -20,7 +20,7 @@ for(const rock of urbanShoreRocks.rocks){
     'every visible boulder has a walkable top');
   assert(groundHeight(rock.x,rock.z,MAP.waterY)<MAP.waterY,
     'boats retain the surveyed channel beneath the rock');
-  assert(![...bridges,militaryBridge,ferrySlip,...marketPiers].some(rect=>
+  assert(![...bridges,militaryBridgeDeck,ferrySlip,...marketPiers].some(rect=>
     rockPileOverlapsBridge(rock.x,rock.z,rock.radius*1.15,rect)),
     'rock footprints leave bridge and dock approaches clear');
 }

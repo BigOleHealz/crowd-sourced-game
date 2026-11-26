@@ -7,14 +7,14 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
     env:{...process.env,GOY_THEFT_AUTO_MAP:'brickell'},stdio:'inherit'});
 }else{
   const {groundHeight,insideTravelArea,stepPlayer,MAP,HELIPAD}=await import('../public/world.js');
-  const {militaryShoreBedHeight,militaryShoreRocks}=await import('../public/brickell-map.js');
+  const {militaryShoreBedHeight,militaryShoreRocks,parapetTop}=await import('../public/brickell-map.js');
   const {onRunway,onAirfield}=await import('../public/runway-layout.js');
   const {parkedJet}=await import('../public/jet.js');
   const {parkedHelicopter}=await import('../public/airframe.js');
   const {patrolFleet,nearBoat,stepBoat}=await import('../public/patrol-boats.js');
   const {newExpedition}=await import('../public/expedition.js');
   const {driveRover}=await import('../public/rover.js');
-  const {militaryIsland,militaryBridge,onMilitaryBridge,insideMilitary,onMilitaryRockShore,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDockHeight,militaryBarriers}=await import('../public/military-island.js');
+  const {militaryIsland,militaryBridge,militaryCauseway,onMilitaryBridge,insideMilitary,onMilitaryRockShore,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDockHeight,militaryBarriers}=await import('../public/military-island.js');
   assert(insideTravelArea(militaryIsland.west+1,-230));
   assert(insideMilitary(-160,-230));
   assert(!insideMilitary(-85,-210),'water gap remains between the islands');
@@ -48,6 +48,16 @@ if(process.env.GOY_THEFT_AUTO_MAP!=='brickell'){
   assert(onMilitaryBridge(-97,-230));
   assert(groundHeight(-97,-230)>5,'raised bridge deck is driveable');
   assert(groundHeight(-97,-230,0)<MAP.waterY,'boats can pass below the bridge');
+  for(const x of [-125,-113,-97,-69]){
+    const deck=groundHeight(x,-230);
+    for(const z of [-237,-223]){
+      assert.equal(groundHeight(x,z),deck+militaryCauseway.sidewalkRise,
+        'both sidewalk surfaces follow the bridge deck on the approaches and leaves');
+    }
+    assert.equal(parapetTop(x,-239.35,0,Infinity),deck+militaryCauseway.sidewalkRise+militaryCauseway.parapetHeight,
+      'the outside sidewalk guard has matching pedestrian collision');
+  }
+
   assert(onRunway(-225,-230,true));
   assert(onAirfield(-200,-250));
   assert(onAirfield(-200,-282),'north hangar has a taxiway to the runway');

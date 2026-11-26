@@ -1,4 +1,4 @@
-import {militaryShore,onMilitaryRockShore,militaryBridge} from './military-island.js';
+import {militaryShore,onMilitaryRockShore,militaryBridgeDeck} from './military-island.js';
 import {shoreRockPile,rockPileOverlapsBridge,indexShoreRocks,shoreRockTopAt} from './shore-rock-piles.js';
 
 // Render and walking support use the same deterministic stones. Index their
@@ -15,7 +15,7 @@ export function makeMilitaryShoreRocks(bedHeight,waterY){
       if(!onMilitaryRockShore(px,pz))continue;
       const floor=bedHeight(px,pz);
       const {radius,height,centerY}=shoreRockPile(floor,waterY,variation);
-      if(rockPileOverlapsBridge(px,pz,radius*1.15,militaryBridge))continue;
+      if(rockPileOverlapsBridge(px,pz,radius*1.15,militaryBridgeDeck))continue;
       const rock={x:px,z:pz,radius,zRadius:radius*(.78+.2*variation),height,centerY,
         floor,rotation:variation,palette:rocks.length%4};
       rocks.push(rock);

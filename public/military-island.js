@@ -1,4 +1,5 @@
 // All base footprints are shared by terrain, aircraft, the chart and scenery.
+import {causewayArch} from './causeway-arch.js';
 import {carrierRamp} from './eisenhower-carrier-layout.js';
 export const militaryIsland={west:-250,east:-133,north:-309,south:-151};
 export const militaryShore=[
@@ -13,11 +14,19 @@ export const militaryNorthHangar={x:-174,z:-282,w:32,d:24};
 export const militaryTaxiways=[militaryTaxiway,militaryNorthTaxiway];
 export const militaryHangars=[militaryHangar,militaryNorthHangar];
 export const militaryHelipads=[{x:-169,z:-209,r:9},{x:-169,z:-176,r:9}];
-// The 72 m channel matches the Harbor Key to Lantern Point crossing.
+// The causeway asset uses local Z along the span. At the base that axis
+// points east, with local X pointing north.
+export const militaryBridgeCenterZ=-230;
+export const militaryCauseway=causewayArch(-5,5,militaryIsland.east,-61,.80);
 export const militaryBridge={
-  west:militaryIsland.east,east:-61,north:-235,south:-225,
-  height(x){const t=Math.max(0,Math.min(1,(x-this.west)/(this.east-this.west)));
-    return .8+4.4*Math.sin(Math.PI*t)**2;},
+  west:militaryCauseway.north,east:militaryCauseway.south,
+  north:militaryBridgeCenterZ-militaryCauseway.east,south:militaryBridgeCenterZ-militaryCauseway.west,
+  height(x){return militaryCauseway.height(x,'road');},
+};
+export const militaryBridgeDeck={
+  ...militaryBridge,
+  north:militaryBridgeCenterZ-militaryCauseway.walkEast,
+  south:militaryBridgeCenterZ-militaryCauseway.walkWest,
 };
 export const militaryAccessRoad={west:-190,east:militaryIsland.east,north:-235,south:-225};
 export const militaryDock={
@@ -94,9 +103,10 @@ export function militaryShoreDistance(x,z){
   return distance;
 }
 export const onMilitaryRockShore=(x,z)=>!insideMilitary(x,z) &&
-  militaryShoreDistance(x,z)<=10 && !onMilitaryBridge(x,z) && militaryDockHeight(x,z)===undefined;
+  militaryShoreDistance(x,z)<=10 && !onMilitaryBridgeDeck(x,z) && militaryDockHeight(x,z)===undefined;
 const inside=(r,x,z)=>x>=r.west&&x<=r.east&&z>=r.north&&z<=r.south;
 export const onMilitaryBridge=(x,z)=>inside(militaryBridge,x,z);
+export const onMilitaryBridgeDeck=(x,z)=>inside(militaryBridgeDeck,x,z);
 export function militaryDockHeight(x,z){
   if(inside(militaryDock.ramp,x,z))return .8-(.8-militaryDock.height)*(x-militaryDock.ramp.west)/(militaryDock.ramp.east-militaryDock.ramp.west);
   return militaryDecks.slice(1).some(r=>inside(r,x,z))?militaryDock.height:undefined;

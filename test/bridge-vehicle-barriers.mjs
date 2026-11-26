@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 process.env.GOY_THEFT_AUTO_MAP='brickell';
 
 const {bridges,cityGround}=await import('../public/brickell-map.js');
-const {militaryBridge}=await import('../public/military-island.js');
+const {militaryBridge,militaryBridgeDeck}=await import('../public/military-island.js');
 const {leafSurface,bridgeMiddle,maxLift}=await import('../public/drawbridges.js');
 const {newExpedition}=await import('../public/expedition.js');
 const {roadContact}=await import('../public/road-contact.js');
@@ -43,10 +43,10 @@ for(const bridge of bridges){
   }
 }
 
-for(const z of [militaryBridge.north+.22,militaryBridge.south-.22]){
+for(const z of [militaryBridge.north,militaryBridge.south,militaryBridgeDeck.north,militaryBridgeDeck.south]){
   const world=newExpedition(),car=world.rover;
   const x=(militaryBridge.west+militaryBridge.east)/2;
-  Object.assign(car,{x,z,y:militaryBridge.height(x),yaw:0});
+  Object.assign(car,{x,z,y:cityGround(x,z),yaw:0});
   assert.equal(roadContact(world,x,z,0,x,z,car)?.object?.z,z,
     'the military bridge guard contacts a car at deck height');
   car.y=militaryBridge.height(x)-3;

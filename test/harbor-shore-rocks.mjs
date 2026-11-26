@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 
 process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {harborShoreRocks,harborShoreBedHeight,coastalBedHeight}=await import('../public/brickell-map.js');
+const {militaryBridgeDeck}=await import('../public/military-island.js');
+const {rockPileOverlapsBridge}=await import('../public/shore-rock-piles.js');
 const {groundHeight,stepPlayer,MAP}=await import('../public/world.js');
 
 assert(harborShoreRocks.rocks.length>200,'the west, north, and south rock rows remain populated');
 for(const rock of harborShoreRocks.rocks){
+  assert(!rockPileOverlapsBridge(rock.x,rock.z,rock.radius*1.15,militaryBridgeDeck),
+    'Harbor Key boulders leave the military bridge sidewalks clear');
   const bed=harborShoreBedHeight(rock.x,rock.z);
   assert(bed>MAP.waterY,'visible shore rocks sit on an exposed bank');
   assert(groundHeight(rock.x,rock.z)>bed+.3,'every rendered stone has a walkable top');

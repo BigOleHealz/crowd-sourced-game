@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {militaryIsland,militaryShore,militaryShoreDistance,onMilitaryBridge,militaryDockHeight,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
+import {militaryIsland,militaryShore,militaryShoreDistance,onMilitaryBridgeDeck,militaryDockHeight,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDock,militaryDecks,militaryAccessRoad} from './military-island.js';
 import {militaryShoreBedHeight,militaryShoreRocks} from './brickell-map.js';
 import {militaryFenceView} from './military-fence-view.js';
 import {addShoreBoulders} from './shore-rock-view.js';
@@ -20,7 +20,7 @@ function addRockShore(base){
     colors.push(shade.r,shade.g,shade.b);
     // Overlap the cliff edge so there are no holes between the bank and land.
     if(col<columns-1 && row<rows-1 && militaryShoreDistance(x+1,z+1)<10 &&
-        !onMilitaryBridge(x+1,z+1) && militaryDockHeight(x+1,z+1)===undefined){
+        !onMilitaryBridgeDeck(x+1,z+1) && militaryDockHeight(x+1,z+1)===undefined){
       const i=row*columns+col;
       indices.push(i,i+columns,i+1,i+1,i+columns,i+columns+1);
     }
@@ -72,21 +72,6 @@ export function addMilitaryIsland(scene,Batch){
     block(0xf4f1e6,(militaryRunway.west+militaryRunway.east)/2,.861,z,.25,.014,4);
   for(const z of [militaryRunway.north+5,militaryRunway.south-5])for(const x of [-231,-228,-225,-222,-219])
     block(0xf4f1e6,x,.864,z,1.35,.014,2.8);
-  const bridge=militaryBridge,bridgeZ=(bridge.north+bridge.south)/2;
-  for(let x=bridge.west;x<bridge.east-.01;x+=2){
-    const end=Math.min(x+2,bridge.east),a=bridge.height(x),b=bridge.height(end),mid=(a+b)/2;
-    const angle=Math.atan2(b-a,end-x),length=Math.hypot(end-x,b-a);
-    blocks.add(box,0x505b57,(x+end)/2,mid-.13,bridgeZ,length,.26,bridge.south-bridge.north,0,0,angle);
-    blocks.add(box,0xd8d4bd,(x+end)/2,mid+.018,bridgeZ,length-.04,.015,.12,0,0,angle);
-    for(const side of [-1,1]){
-      blocks.add(box,0x8d978d,(x+end)/2,mid+.40,bridgeZ+side*4.78,length,.80,.30,0,0,angle);
-      blocks.add(box,0xd7d3bf,(x+end)/2,mid+.82,bridgeZ+side*4.78,length,.07,.34,0,0,angle);
-    }
-  }
-  for(const x of [bridge.west+5,bridge.east-5])for(const z of [bridge.north+.8,bridge.south-.8]){
-    const top=bridge.height(x)-.2;
-    block(0x7d8b83,x,(top-2.9)/2,z,1.3,top+2.9,1.3);
-  }
   for(const h of militaryHangars)block(0x354b48,h.x,.84,h.z,h.w,.08,h.d);
   if(typeof window!=='undefined')new GLTFLoader().load(new URL('./j-type-hangar.glb',import.meta.url).href,({scene:model})=>{
     // The GLB converts its Z-up source to Y-up. Turn its long axis toward the taxiway.

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {shoreRockPile,rockPileOverlapsBridge} from '../public/shore-rock-piles.js';
 import {onRockShore,onSandShore} from '../public/beach-layout.js';
 import {bridges} from '../public/brickell-map.js';
-import {militaryIsland,militaryDock,militaryBridge,onMilitaryRockShore} from '../public/military-island.js';
+import {militaryIsland,militaryDock,militaryBridge,militaryBridgeDeck,onMilitaryRockShore} from '../public/military-island.js';
 
 const waterY=-.14;
 for(const floor of [.8,-.5,-2.8,-4]){
@@ -17,7 +17,7 @@ assert(!onRockShore(62,-220),'the beach stays clear');
 assert(onSandShore(78,-220));
 assert(onMilitaryRockShore(militaryIsland.west-1,-220));
 assert(!onMilitaryRockShore(militaryDock.ramp.west+2,-252),'the military dock stays clear');
-for(const bridge of [...bridges,militaryBridge]){
+for(const bridge of [...bridges,militaryBridgeDeck]){
   const west=bridge.walkWest??bridge.west;
   for(const [shore,sign] of [[bridge.north,-1],[bridge.south,1]]){
     const outside=shore+sign*.5;
