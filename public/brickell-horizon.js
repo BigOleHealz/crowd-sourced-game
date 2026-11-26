@@ -5,15 +5,20 @@ import * as THREE from 'three';
 // Each waterfront is outside the playable district. In local metres, u follows
 // the waterfront and v points inland. Breaks between the landforms open onto
 // Biscayne Bay; the near mangrove keys and the mainland have separate contours.
+// The western skyline is one distant landmass. Keep all three joined districts
+// west of the carrier, including their shore mesh, streets, and buildings.
+export const westernWaterfronts=[
+  [-417,-49,-1,0,273,88,'condos',22],
+  [-440,-230,-1,0,144,84,'beach',67],
+  [-488,-123,-1,0,362,95,'downtown',39],
+];
 const waterfronts=[
   // origin x,z; inland direction; frontage, inland depth; development and seed
   [130,-11,1,0,146,94,'condos',17],
   [166,-201,1,0,160,90,'beach',45],
   [244,-38,1,0,310,106,'downtown',81],
   [174,-391,1,0,170,83,'midtown',117],
-  [-272,-49,-1,0,273,88,'condos',22],
-  [-295,-230,-1,0,144,84,'beach',67],
-  [-343,-123,-1,0,362,95,'downtown',39],
+  ...westernWaterfronts,
   [-28,131,0,1,201,88,'condos',63],
   [18,245,0,1,285,86,'downtown',92],
   [-3,-548,0,-1,219,105,'condos',73],
