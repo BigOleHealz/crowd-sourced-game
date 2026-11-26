@@ -26,6 +26,7 @@ import {basketballBarriers,basketballFloor} from './basketball-layout.js';
 import {harborHouses, coastalStructureBarriers} from './harbor-key-structures.js';
 import {makeMilitaryShoreRocks} from './military-shore-rocks.js';
 import {makeHarborShoreRocks} from './harbor-shore-rocks.js';
+import {makeUrbanShoreRocks} from './urban-shore-rocks.js';
 // A compact, fictional Brickell waterfront district. Road, sidewalk, mesh and
 // collision dimensions come from the same layout on the server and client.
 export const avenues = [-38, 0, 32];
@@ -96,6 +97,9 @@ export function harborShoreBedHeight(x,z){
 }
 export const militaryShoreRocks=makeMilitaryShoreRocks(militaryShoreBedHeight,-.14);
 export const harborShoreRocks=makeHarborShoreRocks(harborShoreBedHeight,-.14,[...bridges,militaryBridge]);
+const urbanRockLand=[coast,...lanternLand];
+export const urbanShoreRocks=makeUrbanShoreRocks(coastalBedHeight,-.14,urbanRockLand,
+  [...urbanRockLand,...shorePads,harbor,beach,ferrySlip,berthing.lip,...marketPiers,...marinaDecks,...bridges,militaryBridge,militaryAccessRoad]);
 export const waterfront=(x,z)=>!insideMilitary(x,z) && !(z<harbor.north ? newShores : oldShores).some(r=>within(r,x,z));
 export const roadway=(x,z)=>onMilitaryBridge(x,z) || within(militaryAccessRoad,x,z) || (z<harbor.north ? within(lanternBridge,x,z) || onLanternRoad(x,z) :
   within(causeway,x,z) || (z<coast.north ? streetPlan.island : streetPlan.mainland).some(r=>within(r,x,z)));

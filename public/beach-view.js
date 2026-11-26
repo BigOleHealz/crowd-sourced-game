@@ -5,24 +5,10 @@ import {addLookouts} from './lifeguard-lookouts.js';
 import * as THREE from 'three';
 import { beach, beachIsland, beachTerrain, onBeachTerrain, onRockShore, courts, sandHeight } from './beach-layout.js';
 import {coastalBedHeight,harborShoreBedHeight,harborShoreRocks} from './brickell-map.js';
+import {addShoreBoulders} from './shore-rock-view.js';
 
 function addRockShoreBoulders(scene) {
-  const shape=new THREE.IcosahedronGeometry(1,0);
-  const stones=new THREE.InstancedMesh(shape,new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),harborShoreRocks.rocks.length);
-  const dummy=new THREE.Object3D(),palette=[0x9d9b90,0xb2ab9b,0x858c87,0xa7a598];
-  for(const [count,rock] of harborShoreRocks.rocks.entries()){
-    dummy.position.set(rock.x,rock.centerY,rock.z);
-    dummy.rotation.set(rock.rotation*.14,rock.rotation*Math.PI*2,rock.rotation*.17);
-    dummy.scale.set(rock.radius,rock.height,rock.zRadius);dummy.updateMatrix();
-    stones.setMatrixAt(count,dummy.matrix);
-    const color=new THREE.Color(palette[rock.palette]);
-    if(rock.floor<.15)color.multiplyScalar(.72);
-    stones.setColorAt(count,color);
-  }
-  stones.instanceMatrix.needsUpdate=true;
-  if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
-  stones.name='Harbor Key rock shore';stones.userData.impactSurface='solid';
-  scene.add(stones);
+  addShoreBoulders(scene,harborShoreRocks,'Harbor Key rock shore');
 }
 
 export function addBeach(scene,Batch) {

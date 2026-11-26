@@ -3,6 +3,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {militaryIsland,militaryShore,militaryShoreDistance,onMilitaryBridge,militaryDockHeight,militaryRunway,militaryTaxiways,militaryHangars,militaryHelipads,militaryDock,militaryDecks,militaryBridge,militaryAccessRoad} from './military-island.js';
 import {militaryShoreBedHeight,militaryShoreRocks} from './brickell-map.js';
 import {militaryFenceView} from './military-fence-view.js';
+import {addShoreBoulders} from './shore-rock-view.js';
 
 function addRockShore(base){
   // Match the reef's two-metre grid so the exposed bank has no collision seam.
@@ -34,21 +35,7 @@ function addRockShore(base){
   const bank=new THREE.Mesh(geometry,new THREE.MeshLambertMaterial({map:texture,vertexColors:true,side:THREE.DoubleSide}));
   bank.name='Military island rock shore';bank.receiveShadow=true;bank.userData.impactSurface='solid';base.add(bank);
 
-  const stones=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),
-    new THREE.MeshStandardMaterial({roughness:1,flatShading:true}),militaryShoreRocks.rocks.length);
-  const dummy=new THREE.Object3D(),palette=[0x9d9b90,0xb2ab9b,0x858c87,0xa7a598];
-  for(const [count,rock] of militaryShoreRocks.rocks.entries()){
-    dummy.position.set(rock.x,rock.centerY,rock.z);
-    dummy.rotation.set(rock.rotation*.14,rock.rotation*Math.PI*2,rock.rotation*.17);
-    dummy.scale.set(rock.radius,rock.height,rock.zRadius);dummy.updateMatrix();
-    stones.setMatrixAt(count,dummy.matrix);
-    const color=new THREE.Color(palette[rock.palette]);
-    if(rock.floor<.15)color.multiplyScalar(.72);
-    stones.setColorAt(count,color);
-  }
-  stones.instanceMatrix.needsUpdate=true;
-  if(stones.instanceColor)stones.instanceColor.needsUpdate=true;
-  stones.name='Military island shore boulders';stones.userData.impactSurface='solid';base.add(stones);
+  addShoreBoulders(base,militaryShoreRocks,'Military island shore boulders');
 }
 export function addMilitaryIsland(scene,Batch){
   const base=new THREE.Group();base.name='West Harbor military base';scene.add(base);
