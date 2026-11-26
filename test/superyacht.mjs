@@ -8,7 +8,9 @@ const {newExpedition}=await import('../public/expedition.js');
 const {stepYacht,interactYacht,damageYacht}=await import('../public/superyacht.js');
 const {stepPlayer}=await import('../public/world.js');
 const {newLife}=await import('../public/rivals.js');
-const {yachtLocal,yachtPoint,yachtDeckHeight,yachtHelmFeet,yachtBerth,yachtArrival,yachtGangway,yachtModelYaw,yachtModelYOffset}=await import('../public/yacht-layout.js');
+const {yachtLocal,yachtPoint,yachtDeckHeight,yachtFloorAt,yachtWalkBlocked,yachtRoomDepth,yachtHelmFeet,yachtBerth,yachtArrival,yachtGangway,yachtModelYaw,yachtModelYOffset}=await import('../public/yacht-layout.js');
+const {yachtLadderAt}=await import('../public/yacht-ladders.js');
+const {openSolanaRearDoor}=await import('../public/yacht-model-openings.js');
 const dt=1/30,w=newExpedition(),y=w.yacht;
 const rampEnd=yachtPoint(y,yachtGangway.outer,0,yachtGangway.centerZ);
 assert(Math.hypot(yachtArrival.x-rampEnd.x,yachtArrival.z-rampEnd.z)<3,'direct arrival starts beside boarding ramp');
@@ -28,7 +30,8 @@ for(const person of [captain,passenger]){
   for(const [x,z] of [[9,10.5],[7,10.5],[5,10.5],[4,10.5],[3.6,10.5]])walkTo(person,x,z);
   assert(person.state.onYacht && person.state.grounded,'ramp boards from quay');
 }
-for(const [x,z] of [[3.6,5],[3.6,0],[3.6,-5],[3.4,-8],[3,-10],[2.3,-12],[0,-14]])walkTo(captain,x,z);
+for(const [x,z] of [[3.6,14],[0,14],[0,11],[0,8.5]])walkTo(captain,x,z);
+assert(yachtRoomDepth(y,captain.state.x,captain.state.y+1,captain.state.z)>0,'rear door leads into main cabin');
 assert(interactYacht(w,captain));assert.equal(y.driver,1);
 assert(Math.hypot(captain.state.x-yachtHelmFeet(y).x,captain.state.z-yachtHelmFeet(y).z)<.01);
 const before=yachtLocal(y,passenger.state.x,passenger.state.z);
@@ -54,6 +57,7 @@ assert(json.meshes[0].primitives.length>=10 && json.materials.length>=8,'source 
 for(const material of json.materials){delete material.pbrMetallicRoughness?.baseColorTexture;delete material.normalTexture;}
 const plain=new TextEncoder().encode(JSON.stringify(json));model.fill(32,20,20+jsonLength);model.set(plain,20);
 const {scene:modelScene}=await new GLTFLoader().parseAsync(model.buffer,'');
+assert(openSolanaRearDoor(modelScene)>0,'rear glazing receives a doorway');
 modelScene.rotation.y=yachtModelYaw;modelScene.position.y=yachtModelYOffset;modelScene.updateMatrixWorld(true);
 const bounds=new Box3().setFromObject(modelScene);
 assert(bounds.min.x>=-4.26 && bounds.max.x<=4.26 && bounds.min.z<-20 && bounds.max.z>21);
@@ -65,4 +69,34 @@ for(const [x,z] of [[0,-14],[3.6,5],[3.6,10]]){
   assert(Math.abs(deck.point.y-(yachtDeckHeight(w.yacht,point.x,point.z)-w.yacht.y))<.12,'collision deck follows source at '+[x,z]);
 }
 assert(yachtGangway.inner<4.25 && yachtGangway.outer>8.9);
+const ray=(x,height)=>new Raycaster(new Vector3(x,height,14),new Vector3(0,0,-1),0,4)
+  .intersectObject(modelScene,true).filter(hit=>hit.object.material.name==='Glass_Dark');
+assert.equal(ray(0,3.6).length,0,'rear center glazing is open at standing height');
+assert(ray(1.5,3.6).length>0,'glass beside the rear entry remains');
+const respawned=w.yacht;
+const at=(x,h,z)=>({...yachtPoint(respawned,x,h,z),grounded:true,vy:0});
+assert.equal(yachtWalkBlocked(respawned,...Object.values(yachtPoint(respawned,3.2,3.1,5)),1.8),true);
+assert.equal(yachtWalkBlocked(respawned,...Object.values(yachtPoint(respawned,3.65,3.1,5)),1.8),false,'side deck remains walkable');
+assert.equal(yachtWalkBlocked(respawned,...Object.values(yachtPoint(respawned,0,3.1,11.9)),1.8),false);
+assert.equal(yachtWalkBlocked(respawned,...Object.values(yachtPoint(respawned,1.5,3.1,11.9)),1.8),true,'rear glass remains solid beside doorway');
+assert.equal(yachtFloorAt(respawned,...Object.values(yachtPoint(respawned,0,5.43,14.9))),respawned.y+5.43);
+assert.equal(yachtLadderAt(respawned,at(0,2.63,16.45))?.route,'upper');
+function climbFrom(feet,route){
+  assert.equal(yachtLadderAt(respawned,feet)?.route,route);
+  let next=stepPlayer(feet,{jump:true},dt,w.hp,w);
+  assert.equal(next.climb?.route,route);
+  for(let i=0;i<150 && next.climb;i++)next=stepPlayer(next,{},dt,w.hp,w);
+  assert(!next.climb && next.grounded && next.onYacht,'finished '+route+' ladder aboard');
+  return next;
+}
+const surface={...at(0,-.72,22.1),grounded:false,swimming:true};
+const sternBoard=climbFrom(surface,'water');
+assert(Math.abs(sternBoard.y-(respawned.y+.8))<.01,'water ladder reaches swim platform');
+const mainDeck=climbFrom(at(0,.8,20.9),'stern');
+assert(Math.abs(mainDeck.y-(respawned.y+2.61))<.01,'stern ladder reaches main deck');
+const upperDeck=climbFrom(at(0,2.63,16.45),'upper');
+assert(Math.abs(upperDeck.y-(respawned.y+5.43))<.01,'upper ladder reaches upper deck');
+assert.equal(yachtLadderAt(respawned,upperDeck)?.down,true,'upper ladder can descend');
+const descended=climbFrom(upperDeck,'upper');
+assert(Math.abs(descended.y-(respawned.y+2.63))<.01,'upper ladder returns to main deck');
 console.log('PASS original yacht GLB '+hash.slice(0,12)+', quay boarding, helm, driving, passenger carry, damage and recovery');

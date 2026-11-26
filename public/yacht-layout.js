@@ -7,10 +7,12 @@ export const yachtSections=[[-20,.2],[-19,.8],[-16,1.75],[-14,2.45],[-10,3.15],[
 const sheer=[[-20,3.89],[-16,3.51],[-14,3.31],[-10,3.04],[-8,2.95],[-5,2.84],[0,2.71],[5,2.67],[10,2.66],[16,2.63],[19,2.61],[20.5,2.58]];
 export const yachtDeckY=2.66;
 export const yachtKeelY=-1.73;
-export const yachtCabin={west:-2.7,east:2.7,fore:-9,aft:13,bottom:2.66,top:8.1};
+export const yachtCabin={west:-3.2,east:3.2,fore:-9.5,aft:12,bottom:2.66,top:5.35};
 export const yachtFlybridge={halfWidth:1.6,fore:-6,aft:10,top:13.73};
-export const yachtHelm={x:0,y:3.31,z:-14};
+export const yachtHelm={x:0,y:2.67,z:8.5};
 export const yachtPlatform={halfWidth:3.8,fore:20.5,aft:21.6,y:.8};
+export const yachtUpperDeck={halfWidth:3.05,fore:8.2,aft:15.5,y:5.43};
+export const yachtRearDoor={halfWidth:1.02,z:12,bottom:2.55,top:4.9};
 export const yachtGangway={inner:4.0,outer:9.02,centerZ:10.5,halfWidth:.85,top:2.65,bottom:.56};
 export const yachtMaxHp=2000;
 export const yachtGun={x:0,z:-17.5,y:4.75};
@@ -46,27 +48,57 @@ export function yachtDeckHeight(yacht,x,z){
   if(!yacht || yacht.wrecked || Math.abs(x-yacht.x)>25 || Math.abs(z-yacht.z)>25)return -Infinity;
   const p=yachtLocal(yacht,x,z);return yacht.y+localDeck(yacht,p.x,p.z);
 }
-export function yachtFloorAt(yacht,x,y,z){return yachtDeckHeight(yacht,x,z);}
+function upperDeckAt(p){
+  return p.z>=yachtUpperDeck.fore && p.z<=yachtUpperDeck.aft &&
+    Math.abs(p.x)<=yachtUpperDeck.halfWidth;
+}
+export function yachtFloorAt(yacht,x,y,z){
+  const deck=yachtDeckHeight(yacht,x,z);
+  if(!Number.isFinite(deck))return deck;
+  const p=yachtLocal(yacht,x,z);
+  return upperDeckAt(p) && y>=yacht.y+yachtUpperDeck.y-.34
+    ? yacht.y+yachtUpperDeck.y : deck;
+}
 export function yachtCeilingAt(yacht,x,y,z){
   const deck=yachtDeckHeight(yacht,x,z);
-  return Number.isFinite(deck) && y<yacht.y+yachtKeelY ? yacht.y+yachtKeelY : Infinity;
+  if(!Number.isFinite(deck))return Infinity;
+  const p=yachtLocal(yacht,x,z);
+  if(y<yacht.y+yachtKeelY)return yacht.y+yachtKeelY;
+  if(y<yacht.y+5.27 && p.z>=-8.6 && p.z<=15.4 &&
+    Math.abs(p.x)<cabinSide(p.z)-.2)return yacht.y+5.27;
+  return Infinity;
 }
-export function yachtRoomDepth(){return -1;}
+function cabinSide(z){return interpolate([[-10,1.92],[-8,2.64],[-5,3.07],[0,3.28],[10,3.27],[12,3.24]],z);}
+export function yachtRoomDepth(yacht,x,y,z){
+  if(!yacht || yacht.wrecked)return -1;
+  const p=yachtLocal(yacht,x,z),h=y-yacht.y,side=cabinSide(p.z);
+  return h>2.55 && h<5.25 && p.z>=-9.4 && p.z<11.8 &&
+    Math.abs(p.x)<side-.25 ? Math.min(side-Math.abs(p.x),p.z+9.4,11.8-p.z): -1;
+}
 function modelTopLocal(x,z,padding=0){
   const side=Math.abs(x);
   if(z>=-6-padding && z<=6+padding){
     if(side<=1.6+padding)return 13.73;
     if(side<=2.3+padding)return 12.8;
   }
-  if(z>=yachtCabin.fore-padding && z<=yachtCabin.aft+padding && side<=yachtCabin.east+padding)
-    return yachtCabin.top;
+  if(z>=yachtCabin.fore-padding && z<=yachtCabin.aft+padding && side<=cabinSide(Math.max(-10,Math.min(12,z)))+padding)
+    return 8.1;
   return -Infinity;
 }
 export function yachtSolidAt(yacht,x,y,z,r=0){
   if(!yacht || yacht.wrecked || y<yacht.y+yachtKeelY-r)return false;
   const deck=yachtDeckHeight(yacht,x,z);if(y<=deck+r)return true;
   const p=yachtLocal(yacht,x,z),h=y-yacht.y;
-  return h<=modelTopLocal(p.x,p.z,r)+r;
+  if(h>=5.27-r && h<=5.53+r && upperDeckAt(p))return true;
+  if(h>=2.55-r && h<=5.35+r && p.z>=-10-r && p.z<=12+r){
+    const side=cabinSide(Math.max(-10,Math.min(12,p.z)));
+    if(Math.abs(Math.abs(p.x)-side)<.12+r)return true;
+    if(Math.abs(p.z-12)<.12+r && Math.abs(p.x)>yachtRearDoor.halfWidth-r && Math.abs(p.x)<side+r)return true;
+    if(Math.abs(p.z+10)<.12+r && Math.abs(p.x)<side+r)return true;
+  }
+  if(h>5.53 && h<=modelTopLocal(p.x,p.z,r)+r && p.z<=8 &&
+    Math.abs(Math.abs(p.x)-Math.min(2.7,cabinSide(Math.max(-10,p.z))))<.2+r)return true;
+  return false;
 }
 export function yachtTopAt(yacht,x,z,padding=0){
   const deck=yachtDeckHeight(yacht,x,z);if(!Number.isFinite(deck))return deck;
@@ -108,7 +140,14 @@ export function yachtWalkBlocked(yacht,x,y,z,bodyHeight){
   const p=yachtLocal(yacht,x,z),h=y-yacht.y;
   if(h+bodyHeight<=yachtKeelY)return false;
   if(h<localDeck(yacht,p.x,p.z)-.3)return true;
-  // The source model's cabin is enclosed; keep players on its side decks.
-  if(h<modelTopLocal(p.x,p.z) && h+bodyHeight>localDeck(yacht,p.x,p.z)+.25)return true;
+  const radius=.29;
+  if(h<5.36 && h+bodyHeight>2.7 && p.z>=-10.25 && p.z<=12.3){
+    const side=cabinSide(Math.max(-10,Math.min(12,p.z)));
+    if(Math.abs(Math.abs(p.x)-side)<radius+.08)return true;
+    if(Math.abs(p.z-12)<radius+.08 && Math.abs(p.x)>yachtRearDoor.halfWidth-radius && Math.abs(p.x)<side+radius)return true;
+    if(Math.abs(p.z+10)<radius+.08 && Math.abs(p.x)<side+radius)return true;
+  }
+  // The aft upper terrace has a rail except at its central ladder opening.
+  if(h>=5.1 && h<7.2 && Math.abs(p.x)<3.3 && p.z>15.48 && p.z<15.85 && Math.abs(p.x)>.62)return true;
   return false;
 }

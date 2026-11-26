@@ -21,6 +21,7 @@ import {church,churchLot,churchParts,churchFloor,churchCeiling,churchTerrace} fr
 import {casaFloor,casaCeiling} from './casa-luma.js';
 import {mareFloor,mareCeiling} from './palazzo-mare.js';
 import {yachtFloorAt,yachtWalkBlocked} from './yacht-layout.js';
+import {stepYachtLadder} from './yacht-ladders.js';
 import {northTrail,northRocks,northernPines,ridgeBench} from './north-ridge.js';
 import {shopFloor,shopCeiling} from './street-shop-layout.js';
 import {faceAt,frontageOpenToRound,frontageSupportOpening,retailSurface,brokenSpan,retailRoom,retailHeadroom} from './frontage-glass.js';
@@ -405,6 +406,10 @@ export function stepPlayer(state, input, dt, hp, world, options={}) {
   // One jump press can catch a ledge reached during the first quarter-second
   // of the approach. Preserve launch height so the buffer never extends reach.
   if(state.liftTravel)return state;
+  if(CITY && (state.climb?.kind==='yachtLadder' || input.jump || state.swimming && input.swimY===1)){
+    const ladder=stepYachtLadder(world?.yacht,state,input,dt);
+    if(ladder)return carryScuba(state,ladder,dt);
+  }
   const submerged=(state.swimDepth??0)>.18;
   if(CITY && !submerged && (state.climb?.kind==='platformLadder' || input.jump)){
     const ladder=stepPlatformLadder(state,input,dt);
