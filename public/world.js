@@ -36,7 +36,7 @@ import {trailMarkers} from './scenery-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
 import { brickellMap, cityGround, coastalBedHeight, militaryShoreBedHeight, militaryShoreRocks, harborShoreBedHeight, harborShoreRocks, urbanShoreRocks, parapetTop, waterfront } from './brickell-map.js';
 import {shoreRockTopAt} from './shore-rock-piles.js';
-import {onRunway} from './runway-layout.js';
+import {onRunway,outpostRunway} from './runway-layout.js';
 import {militaryHelipads} from './military-island.js';
 import {carrierRampRailBlocked} from './eisenhower-carrier-layout.js';
 export const CITY = typeof location === 'object'
@@ -229,6 +229,8 @@ if(!CITY)for(const p of interiorPlans)if(p.glazing)MAP.barriers.push(...p.glazin
 MAP.rocks=MAP.rocks.filter(r=>!onBuildingLot(r.x,r.z,r.radius*.65));
 
 // Deterministic groves. Keep foliage out of the spawn clearing, creek and path.
+const outpostRunwayTreeClearance=(x,z)=>x>=outpostRunway.west-3 && x<=outpostRunway.east+3 &&
+  z>=outpostRunway.north-15 && z<=outpostRunway.south+5;
 for (let i = 0; !CITY && i < 9; i++) {
   for (let j = 0; j < 9; j++) {
     const x = -30 + i * 7.4 + Math.sin(i * 5 + j) * 2.2;
@@ -243,13 +245,13 @@ for (let i = 0; !CITY && i < 9; i++) {
       return Math.hypot(x - ax - t * dx, z - az - t * dz) < 4;
     });
     const byRock = MAP.rocks.some(rock => Math.hypot(x - rock.x, z - rock.z) < rock.radius + 1.2);
-    if (byTrail || byRock || onBuildingLot(x,z,1.1)) continue;
+    if (byTrail || byRock || onBuildingLot(x,z,1.1) || outpostRunwayTreeClearance(x,z)) continue;
     const height = 5.6 + 2.8 * (0.5 + 0.5 * Math.sin(i * 3 + j * 9));
     MAP.trees.push({ x, z, height, radius: height * 0.035 });
   }
 }
 
-if(!CITY)MAP.trees.push(...northernPines().filter(t=>!churchLot(t.x,t.z,2)));
+if(!CITY)MAP.trees.push(...northernPines().filter(t=>!churchLot(t.x,t.z,2) && !outpostRunwayTreeClearance(t.x,t.z)));
 MAP.trees.forEach((tree,i)=>{tree.treeId=i;});
 
 function smoothstep(start, end, position) {

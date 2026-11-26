@@ -8,9 +8,11 @@ if(!process.env.RUNWAY_TEST){
 }else{
   const {newExpedition}=await import('../public/expedition.js');
   const {stepJet,parkedJet}=await import('../public/jet.js');
-  const {CITY,groundHeight}=await import('../public/world.js');
-  const {onRunway,rotationSpeed,stallSpeed}=await import('../public/runway-layout.js');
+  const {CITY,MAP,groundHeight}=await import('../public/world.js');
+  const {onRunway,outpostRunway,rotationSpeed,stallSpeed}=await import('../public/runway-layout.js');
   const w=newExpedition(),j=w.jet,crew=new Map();
+  if(!CITY) assert(MAP.trees.every(t=>t.x<outpostRunway.west-3 || t.x>outpostRunway.east+3 ||
+    t.z<outpostRunway.north-15 || t.z>outpostRunway.south+5),'outpost runway and approach are free of trees');
   assert(onRunway(j.x,j.z,CITY),'jet parks on its runway');
   assert.equal(j.y,groundHeight(j.x,j.z));
   j.pilot=1;
@@ -18,6 +20,13 @@ if(!process.env.RUNWAY_TEST){
   assert(j.grounded && j.speed<rotationSpeed,'pitch alone cannot lift a slow jet');
   for(let n=0;n<85 && j.grounded;n++)stepJet(w,{throttle:1,jetPitch:1},1/30,crew);
   assert(!j.grounded && !j.wrecked && j.speed>=rotationSpeed,'runway acceleration permits rotation');
+  if(!CITY) for(const pauseAt of [45,70,90]) {
+    const attempt=newExpedition(),plane=attempt.jet;
+    plane.pilot=1;
+    for(let n=0;n<180 && plane.grounded && !plane.wrecked;n++)
+      stepJet(attempt,{throttle:n>=pauseAt && n<pauseAt+6?0:1,jetPitch:1},1/30,new Map());
+    assert(!plane.wrecked && !plane.grounded,`outpost takeoff survives a brief throttle pause at tick ${pauseAt}`);
+  }
   Object.assign(j,{y:30,speed:stallSpeed-1,pitch:.8});
   const stallY=j.y;
   stepJet(w,{jetPitch:0},1/30,crew);
