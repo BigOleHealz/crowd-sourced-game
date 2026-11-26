@@ -1,5 +1,5 @@
 import {collapsedLot} from './tower-damage.js';
-import {yachtTopAt} from './yacht-layout.js';
+import {yachtTopAt,yachtDeckHeight,yachtLocal,yachtPad,yachtDeckY} from './yacht-layout.js';
 import {nearbyHull} from './patrol-boats.js';
 import { vehicleContact } from './vehicle-contact.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
@@ -128,6 +128,15 @@ function roofSupportsWheels(h, floor, hp, doors) {
   });
 }
 
+function onFlightDeck(yacht,h,floor){
+  if(!yacht || yacht.wrecked || Math.abs(floor-yacht.y-yachtDeckY)>.035)return false;
+  const c=Math.cos(h.yaw),s=Math.sin(h.yaw);
+  return wheels.every(([side,aft])=>{
+    const p=yachtLocal(yacht,h.x+c*side-s*aft,h.z+s*side+c*aft);
+    return Math.abs(p.x)<=yachtPad.halfWidth && p.z>=yachtPad.fore && p.z<=yachtPad.aft;
+  });
+}
+
 function landingSite(x, z, floor, doors) {
   const y = groundHeight(x, z, Infinity, doors);
   if (y < MAP.waterY + 0.45 || floor > y + 0.05) return false;
@@ -156,7 +165,7 @@ function flightFloor(x, z, hp,world) {
 
 function lostRoof(world,kind='heli'){
   const h=world[kind];
-  return CITY && h.grounded && collapsedLot(MAP.buildings,world.doors,h.x,h.z) &&
+  return CITY && h.grounded && !h.onYacht && collapsedLot(MAP.buildings,world.doors,h.x,h.z) &&
     h.y>flightFloor(h.x,h.z,world.hp,world)+.22;
 }
 
@@ -201,14 +210,11 @@ export function fly(world, input, dt, players,kind='heli') {
   const floor = flightFloor(h.x, h.z, world.hp, world);
   const rooftop = CITY && nextY <= floor + .22 && onBuildingLot(h.x, h.z) &&
     roofSupportsWheels(h, floor, world.hp,world.doors);
+  const yachtLanding=onFlightDeck(world.yacht,h,floor);
   const rubbleLanding=motion.roofDrop && collapsedLot(MAP.buildings,world.doors,h.x,h.z) && Math.abs(floor-groundHeight(h.x,h.z,Infinity,world.doors))<.05;
-  const landable = rubbleLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
+  const landable = rubbleLanding || yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
   const minY = floor + (landable || outOfFuel ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
-  if(floorContact && outOfFuel && !landable && floor===yachtTopAt(world.yacht,h.x,h.z,1.65)){
-    damageHelicopter(world,h.hp,players,null,undefined,undefined,kind);
-    return;
-  }
   if(floorContact && outOfFuel && !landable && floor===MAP.waterY+.6){
     const water=crashAircraftInWater(world,h,h.x,h.z,Math.hypot(motion.vx,motion.vz),motion.vy);
     damageHelicopter(world,h.hp,players,null,undefined,undefined,kind);
@@ -222,13 +228,18 @@ export function fly(world, input, dt, players,kind='heli') {
     return;
   }
   if (floorContact && !motion.floorContact) {
-    const stoppedSpeed=rooftop?Math.hypot(motion.vx,motion.vy,motion.vz):-motion.vy;
+    let stoppedSpeed=rooftop?Math.hypot(motion.vx,motion.vy,motion.vz):-motion.vy;
+    if(yachtLanding){
+      const y=world.yacht;
+      stoppedSpeed=Math.hypot(motion.vx-y.speed*Math.sin(y.yaw),motion.vy,motion.vz+y.speed*Math.cos(y.yaw));
+    }
     damageHelicopter(world,impactDamage(stoppedSpeed),players,null,undefined,world.wanted?.session(players?.get(h.pilot)),kind);
   }
   motion.floorContact = floorContact;
   h.y = clamp(nextY, minY, flightBounds.ceiling);
   if (floorContact || h.y === (flightBounds.ceiling)) motion.vy = 0;
   h.grounded = (landable || outOfFuel) && floorContact;
+  if(h.grounded && yachtLanding)h.onYacht=true;else delete h.onYacht;
   if (h.grounded || h.wrecked) {
     delete motion.roofDrop;
     motion.vx = 0;
@@ -291,9 +302,9 @@ export function interact(world, player,kind='heli') {
       const angle = heli.yaw + i * Math.PI / 4;
       const x = heli.x + 2.15 * Math.cos(angle);
       const z = heli.z + 2.15 * Math.sin(angle);
-      const y = CITY && onBuildingLot(x,z) ? solidTopAt(x,z,world.hp,0,Infinity,world.doors) : groundHeight(x,z,Infinity,world.doors);
+      const y = Math.max(yachtDeckHeight(world.yacht,x,z),CITY && onBuildingLot(x,z) ? solidTopAt(x,z,world.hp,0,Infinity,world.doors) : groundHeight(x,z,Infinity,world.doors));
       if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp) && !vehicleContact(x,y,z,world,CITY).depth) {
-        exit = {x,y,z,vy:0,grounded:true};
+        exit = {x,y,z,vy:0,grounded:true,...(heli.onYacht?{onYacht:true}:{})};
         break;
       }
     }

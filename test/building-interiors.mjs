@@ -81,6 +81,15 @@ if(!process.env.INTERIOR_TEST_MAP){
     p.state=feet(hotel.panels[0].exitX,.824,hotel.panels[0].exitZ);send({building:hotel.id,floor:999});assert(!p.trip);
     send({building:hotel.id,floor:1});assert(p.trip);
     w.doors.collapsedTowers=[hotel.b.towerId];advanceElevator(w,p,++t);assert(!p.trip && !p.state.liftTravel);
+    const {yachtPoint,yachtDoorAction,yachtWalkBlocked}=await import('../public/yacht-layout.js');
+    const {yachtRoomDoors}=await import('../public/yacht-room-doors.js');
+    for(const d of yachtRoomDoors){
+      p.state={...yachtPoint(w.yacht,d.x,d.y,d.z+.72),grounded:true};const coord=yachtPoint(w.yacht,d.x,d.y,d.z);
+      assert.equal(yachtDoorAction(w.yacht,p.state)?.d,d);send({cabin:d.id,open:false});assert(w.yacht.closedCabins);
+      assert(yachtWalkBlocked(w.yacht,coord.x,coord.y,coord.z,1.70));
+      send({cabin:d.id,open:true});assert.equal(w.yacht.closedCabins,undefined);
+      assert(!yachtWalkBlocked(w.yacht,coord.x,coord.y,coord.z,1.70));
+    }
   }else{
     for(const b of interiorPlans.filter(p=>p.type==='outpost')){
       const d=b.doors[0];assert(doorIsOpen(d,w.doors));

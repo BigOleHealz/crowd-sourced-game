@@ -5,7 +5,7 @@ import {damageBoat} from './patrol-boats.js';
 import {CITY,MAP,groundHeight,insideTravelArea} from './world.js';
 import {carrierHullContains} from './eisenhower-carrier-layout.js';
 import {yachtBerth,yachtMaxHp,yachtHalfBeam,yachtDeckHeight,yachtTopAt,yachtHelmFeet,yachtPrompt,
-  aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtFlybridge} from './yacht-layout.js';
+  aboardYacht,carryOnYacht,yachtOverlap,yachtSections,yachtPlatform,yachtCabin} from './yacht-layout.js';
 
 export function mooredYacht(){
   return {id:'superyacht',fuel:100,...yachtBerth,y:MAP.waterY,speed:0,yawRate:0,slip:0,throttle:0,driver:null,gunner:null,turretYaw:yachtBerth.yaw,turretPitch:0,gangway:true,
@@ -14,11 +14,16 @@ export function mooredYacht(){
 export function interactYacht(world,player){
   const prompt=yachtPrompt(world,player.state,player.id),y=world.yacht;
   if(prompt==='leave'){y.driver=null;y.throttle=0;return true;}
+  if(prompt==='leaveGun'){y.gunner=null;return true;}
+  if(prompt==='gun'){
+    y.gunner=player.id;y.turretYaw=y.yaw;y.turretPitch=0;
+    player.moving=player.sprint=false;return true;
+  }
   if(prompt==='helm'){
     y.driver=player.id;player.state={...yachtHelmFeet(y),grounded:true,vy:0};
     player.yaw=y.yaw;player.moving=player.sprint=false;return true;
   }
-  return prompt==='occupied';
+  return prompt==='occupied' || prompt==='gunOccupied';
 }
 export function damageYacht(world,amount,team,owner){
   const y=world.yacht;
@@ -28,10 +33,14 @@ export function damageYacht(world,amount,team,owner){
   world.wanted?.record(owner,'wreck');
   world.rules?.wreckVehicle(team,'yacht');
   Object.assign(y,{wrecked:true,driver:null,gunner:null,speed:0,yawRate:0,slip:0,throttle:0,gangway:false,recoverySeconds:9});
+  if(world.heli?.onYacht){
+    delete world.heli.onYacht;world.heli.grounded=false;
+    if(!world.heli.wrecked && world.heli.pilot==null)world.heli.abandonedFor=0;
+  }
 }
 const samples=[];
-for(const z of [...new Set([...yachtSections.map(s=>s[0]),...Array.from({length:21},(_,i)=>-20+2*i),21.6])]){
-  const w=yachtHalfBeam(z);
+for(const z of [...new Set([...yachtSections.map(s=>s[0]),...Array.from({length:21},(_,i)=>-20+2*i),21])]){
+  const w=z>=19?yachtPlatform.halfWidth:yachtHalfBeam(z);
   for(const x of [-w,-w*.5,0,w*.5,w])samples.push([x,z]);
 }
 function clear(world,pose,players,old){
@@ -40,15 +49,16 @@ function clear(world,pose,players,old){
   const c=Math.cos(pose.yaw),s=Math.sin(pose.yaw);
   for(const [side,aft] of samples){
     const x=pose.x+c*side-s*aft,z=pose.z+s*side+c*aft;
-    const top=yachtTopAt(pose,x,z);
-    if(!insideTravelArea(x,z) || CITY && carrierHullContains(x,z) || groundHeight(x,z,top+.15,world.doors)>MAP.waterY-.35)return false;
+    const top=Math.abs(side)<=2.25 && Math.abs(aft+5.8)<1.9 ? 9.78 :
+      side>=yachtCabin.west && side<=yachtCabin.east && aft>=yachtCabin.fore && aft<=yachtCabin.aft ? yachtCabin.top : 3.6;
+    if(!insideTravelArea(x,z) || CITY && carrierHullContains(x,z) || groundHeight(x,z,pose.y+top+.15,world.doors)>MAP.waterY-.35)return false;
   }
   for(const b of world.boats){
     const {halfWidth,halfLength}=hullSize(b);
     if(!b.wrecked && yachtOverlap(pose,b.x,b.z,b.yaw,halfWidth,halfLength))return false;
   }
   const h=world.heli;
-  if(!h.wrecked && h.y<pose.y+yachtFlybridge.top && yachtOverlap(pose,h.x,h.z,h.yaw,1.3,4.3)){
+  if(!h.onYacht && !h.wrecked && h.y<pose.y+yachtCabin.top && yachtOverlap(pose,h.x,h.z,h.yaw,1.3,4.3)){
     const hcos=Math.cos(h.yaw),hsin=Math.sin(h.yaw);
     for(const side of [-1.2,0,1.2])for(const aft of [-2.8,0,4.2]){
       const top=yachtTopAt(pose,h.x+hcos*side-hsin*aft,h.z+hsin*side+hcos*aft);
@@ -62,10 +72,15 @@ function clear(world,pose,players,old){
   }
   return true;
 }
-function carryCrew(from,to,players){
-  const turn=to.yaw-from.yaw;
+function carryCrew(world,from,to,players){
+  const h=world.heli,turn=to.yaw-from.yaw;
+  if(h.onYacht && h.grounded && !h.wrecked){
+    Object.assign(h,carryOnYacht(from,to,h));h.yaw+=turn;h.turretYaw+=turn;
+  }
   for(const p of players?.values()??[]){
-    if(p.id!==to.driver && (p.state.onYacht && Number.isFinite(yachtDeckHeight(from,p.state.x,p.state.z)) || aboardYacht(from,p.state))){
+    if(h.onYacht && p.id===h.pilot){
+      Object.assign(p.state,{x:h.x,y:h.y,z:h.z});p.yaw=h.yaw;
+    }else if(p.id!==to.driver && (p.state.onYacht && Number.isFinite(yachtDeckHeight(from,p.state.x,p.state.z)) || aboardYacht(from,p.state) || p.id===h.gunner && h.onYacht)){
       p.state=carryOnYacht(from,to,p.state);p.yaw+=turn;
       const rag=p.life?.fall?.ragdoll;
       if(rag)for(const point of [...rag.points,...rag.previous]){
@@ -112,7 +127,7 @@ export function stepYacht(world,input,dt,players){
     if(y.wrecked)return;
     const angleToBerth=y.yaw-yachtBerth.yaw;
     y.gangway=Math.abs(y.speed)<.15 && Math.hypot(y.x-yachtBerth.x,y.z-yachtBerth.z)<.22 && Math.cos(angleToBerth)>.9998;
-    carryCrew(from,y,players);
+    carryCrew(world,from,y,players);
   }
   const driver=players?.get(y.driver);
   if(driver){driver.state={...yachtHelmFeet(y),grounded:true,vy:0};driver.yaw=y.yaw;driver.moving=driver.sprint=false;}

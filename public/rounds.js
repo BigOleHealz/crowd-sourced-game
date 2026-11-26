@@ -10,7 +10,8 @@ import {lotHeight,lotWidth} from './island-rules.js';
 import {estateSolids} from './estate-damage.js';
 import {fenceDown} from './military-island.js';
 import {towerGlassIndex,visitTowerGlass} from './tower-glass.js';
-import {yachtSolidAt} from './yacht-layout.js';
+import {cabinPieces} from './solana-interior.js';
+import {yachtSolidAt,yachtLocal} from './yacht-layout.js';
 import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {paneCenter,visitRoundGlass} from './frontage-glass.js';
 import {postDown,damagePost} from './street-lamps.js';
@@ -172,6 +173,7 @@ export function supercarRoundContact(car,from,delta){
   return roverRoundContact(car,from,delta)?.t??Infinity;
 }
 const towerGlass=CITY?towerGlassIndex(MAP.buildings):[];
+const cabinPanes=cabinPieces.filter(p=>p.paneId);
 const trunks=[...MAP.trees,...MAP.rocks].map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const crates=BREAKABLES.map(p=>({...p,y:groundHeight(p.x,p.z)}));
 const cellWidth=8,roundCells=new WeakMap(),emptyCell=[];
@@ -355,9 +357,16 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     const hit=actorIntersection({...actor,state:{...start,stance:now.stance}},round,rel);
     accept(hit.distance,actor,typeof actor.id==='number'?'player':'npc',hit.headshot,hit.hitPart,hit.visualT);
   }
-  // Sample the imported hull and its enclosed cabin at the same spatial
+  // Sample the stepped stern, side decks and tapered hull at the same spatial
   // interval as terrain. The shooter's muzzle stays above their own deck.
   if(world.yacht && !world.yacht.wrecked && Math.hypot(round.x-world.yacht.x,round.z-world.yacht.z)<24+Math.hypot(d.x,d.z)){
+    const yacht=world.yacht,origin=yachtLocal(yacht,round.x,round.z);
+    const end=yachtLocal(yacht,round.x+d.x,round.z+d.z),delta={x:end.x-origin.x,y:d.y,z:end.z-origin.z};
+    for(const p of cabinPanes){
+      if(yacht.brokenGlass?.[p.paneId])continue;
+      const hit=box({...origin,y:round.y-yacht.y},delta,{...p,y:p.y-p.h/2},p.w,p.h,p.d);
+      accept(hit,{vehicle:yacht,paneId:p.paneId},'vehicleGlass');
+    }
     const count=Math.max(1,Math.ceil(Math.hypot(d.x,d.y,d.z)/.12));
     const inside=f=>{
       const y=round.y+d.y*f;

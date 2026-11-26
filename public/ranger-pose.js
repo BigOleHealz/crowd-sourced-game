@@ -452,8 +452,8 @@ export function poseRig(avatar,state,dt,seated=null,station=null,doors,tick) {
       holdWorld(avatar,arm,forearm,side,roadWheelGrip(seated,side));
     } else if(helm) {
       // Hold the upper left/right spokes in the same frame as the cushion.
-      const {offset,wheel,scale}=helmPosition,{x,y,z,radius,tilt}=wheel,up=radius*.5;
-      gripPose(arm,forearm,((x??offset[0])-offset[0]+side*radius*Math.cos(Math.PI/6))/scale,
+      const {offset,wheel,scale}=helmPosition,{y,z,radius,tilt}=wheel,up=radius*.5;
+      gripPose(arm,forearm,side*radius*Math.cos(Math.PI/6)/scale,
         (y+up*Math.cos(tilt)-offset[1])/scale,
         (z+up*Math.sin(tilt)-offset[2])/scale,side);
     }

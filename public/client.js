@@ -12,6 +12,7 @@ import {fanDecks,arcadeDecks,supperDeck,shorePads,valet,resortArrivals} from './
 import {nearBlackjack} from './casino-layout.js';
 import {safeInReach} from './estate-safes.js';
 import {nearbySidearm} from './market-goods.js';
+import {yachtDoorAction} from './yacht-layout.js';
 import {elevatorControls} from './elevator-controls.js';
 import {buildingAction,doorIsOpen,roomAtFeet,ridingHotelShaft} from './building-interiors.js';
 import {marinaDecks} from './marina-docks.js';
@@ -214,7 +215,7 @@ function counter(){
 }
 let interiorSeq=0;
 function interiorAction(){
-  const action=canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? buildingAction(self,world?.doors) : null;
+  const action=canChangeStance(self) && !frozenPhase(world?.match?.phase) && world?.match?.phase!=='setup' ? yachtDoorAction(world?.yacht,self)??buildingAction(self,world?.doors) : null;
   if(action?.kind==='slot' && vitals.slotResult?.slot===action.slot){
     const reels=vitals.slotResult.reels;
     return {...action,label:reels.join(' · ')+(new Set(reels).size===1?' — Jackpot!':'')+' · Spin again'};
@@ -579,6 +580,7 @@ function pressAction(code){
     const building=interiorAction();
     if(building?.kind==='slot'){sendInterior({slot:building.slot});return;}
     if(building?.kind==='concierge'){sendInterior({checkIn:true});return;}
+    if(building?.kind==='yachtDoor'){sendInterior({cabin:building.d.id,open:!!(world.yacht.closedCabins&(1<<building.d.id))});return;}
     if(building?.kind==='door'){sendInterior({door:building.d.id,open:!doorIsOpen(building.d,world.doors)});return;}
     const person=speaker();
     if(person)talk.open(person);
@@ -700,7 +702,7 @@ const scoreStorage=mode?'island-score-'+mode:CITY?'brickell-match-score':'outpos
 try{previousScoreKey=sessionStorage.getItem(scoreStorage);}catch{}
 function connect() {
   byId('presence').textContent = 'Connecting';
-  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(zombies?'&mode='+zombieMode:racing?'&mode='+marinaMode:mode?'&mode='+mode:resortArrivals.has(arrival)||arrival==='solana'?'&arrival='+arrival:'') : '/world'));
+  socket = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (CITY ? '/world?map=brickell'+(zombies?'&mode='+zombieMode:racing?'&mode='+marinaMode:mode?'&mode='+mode:resortArrivals.has(arrival)?'&arrival='+arrival:'') : '/world'));
   let full = false;
   const connection = socket;
   let incoming = Promise.resolve();
@@ -752,7 +754,7 @@ function connect() {
       previousScoreKey=m.scoreKey;
       try{sessionStorage.setItem(scoreStorage,m.scoreKey);}catch{}
       id = m.id; self = m.state; facing = m.state.yaw;
-      if(CITY && !mode && (resortArrivals.has(arrival)||arrival==='solana'))camera.yaw=facing;
+      if(CITY && !mode && resortArrivals.has(arrival))camera.yaw=facing;
       damageEdges.reset();scene.resetSurfaceMarks();
       canvas.classList.remove('bow-sight');
       world = m.world; roadImpact=null; lastGlass=world.doors?.glassSeq??0; readShots=liveShots(world.shots); audio.reset(world); vitals = m.state; wantedHud(vitals.wanted); weapon = m.state.weapon;manualHolster=!!m.state.holstered;holsterSeq=0;

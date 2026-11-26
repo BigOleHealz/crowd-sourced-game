@@ -1,7 +1,0 @@
-"Speedboat" by vinish.dev
-https://vinish.dev/free-3d-models/boats
-https://models.vinish.dev/boats/speedboat.glb
-Creative Commons Attribution 4.0 International
-https://creativecommons.org/licenses/by/4.0/
-
-The game rescales, rotates and repositions the model to fit Aria.

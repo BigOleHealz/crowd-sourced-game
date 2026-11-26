@@ -1,9 +1,0 @@
-"Superyacht" by vinish.dev
-https://vinish.dev/free-3d-models/yachts
-https://vinish-models.pages.dev/yachts/superyacht.glb
-Creative Commons Attribution 4.0 International
-https://creativecommons.org/licenses/by/4.0/
-
-The original, unmodified GLB is used for the entire Solana exterior.
-In the game it is rotated to face the berth and lowered to the waterline.
-A separate removable boarding ramp connects the yacht to the marina.
