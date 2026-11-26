@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 
 process.env.GOY_THEFT_AUTO_MAP='brickell';
-const {MAP,stepPlayer,solidTopAt,travelBounds,groundHeight,blocked}=await import('../public/world.js');
+const {MAP,stepPlayer,solidTopAt,travelBounds,flightBounds,insideTravelArea,groundHeight,blocked}=await import('../public/world.js');
+const {newExpedition,fly}=await import('../public/expedition.js');
+const {stepBoat}=await import('../public/patrol-boats.js');
+const {stepJet}=await import('../public/jet.js');
 const {militaryIsland,militaryFence}=await import('../public/military-island.js');
-const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierRamp,carrierRampHeight,carrierRampSegments,carrierRampRailBlocked}=await import('../public/eisenhower-carrier-layout.js');
+const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierHullSections,carrierRamp,carrierRampHeight,carrierRampSegments,carrierRampRailBlocked,carrierRampRailSides,carrierRampTurnGuard}=await import('../public/eisenhower-carrier-layout.js');
 
 const scale=eisenhowerCarrier.length/1061.7968;
 const beam=293.8955*scale;
@@ -12,6 +15,10 @@ assert(shoreGap>18 && shoreGap<24,'clear water separates the flight deck from th
 assert(eisenhowerCarrier.x-beam/2>travelBounds.west+30,'boats can sail around the west side');
 assert(eisenhowerCarrier.z-eisenhowerCarrier.length/2>travelBounds.north);
 assert(eisenhowerCarrier.z+eisenhowerCarrier.length/2<travelBounds.south);
+for(const x of [-350,-262])for(const z of [-390,-90])
+  assert(insideTravelArea(x,z),'water beside the full carrier stays within the playable chart');
+assert(flightBounds.north<eisenhowerCarrier.z-eisenhowerCarrier.length/2-100,
+  'aircraft have approach room beyond the carrier bow');
 assert(carrierDeckTop-MAP.waterY>12 && carrierDeckTop-MAP.waterY<17,'deck remains above a realistic waterline');
 assert(MAP.waterY-(MAP.waterY+(3.9625-eisenhowerCarrier.waterlineModelY)*scale)>9,'lower hull has a visible draft');
 
@@ -28,15 +35,26 @@ assert(solidTopAt(eisenhowerCarrier.x,eisenhowerCarrier.z,{},0,MAP.waterY+2)>MAP
   'waterline hull still blocks boats');
 assert(groundHeight(eisenhowerCarrier.x+33,eisenhowerCarrier.z,MAP.waterY+2)<MAP.waterY-2,
   'water remains beneath the flight-deck overhang');
-const gateZ=carrierRamp.shore.z+(-246-carrierRamp.shore.x)*
-  (carrierRamp.turn.z-carrierRamp.shore.z)/(carrierRamp.turn.x-carrierRamp.shore.x);
+const gateZ=carrierRamp.turn.z;
 assert(!militaryFence.some(b=>Math.abs(b.x+246)<.1 && Math.abs(b.z-gateZ)<b.d/2+2),
   'the west fence has an opening at the gangway');
 assert.equal(carrierRampHeight(carrierRamp.shore.x,carrierRamp.shore.z),.8);
 assert.equal(carrierRampHeight(carrierRamp.deck.x,carrierRamp.deck.z),carrierDeckTop);
 assert(carrierRamp.deck.x<eisenhowerCarrier.x+15,'gangway overlaps the visible flight deck');
+for(const offset of [-1,0,1]){
+  let p={x:carrierRamp.shore.x+offset,z:carrierRamp.shore.z,y:.8,vy:0,grounded:true};
+  for(let tick=0;tick<600 && p.z<carrierRamp.turn.z-.15;tick++){
+    p=stepPlayer(p,{z:1},1/30,{}, {doors:{}});
+    assert(!p.swimming,'straight approach stays on the gangway');
+  }
+  assert(p.z>=carrierRamp.turn.z-.15 && Math.abs(p.y-carrierDeckTop)<.02,
+    'walking forward reaches the level landing across the gangway width');
+  for(let tick=0;tick<600 && p.z>carrierRamp.shore.z+.15;tick++)
+    p=stepPlayer(p,{z:-1},1/30,{}, {doors:{}});
+  assert(p.z<=carrierRamp.shore.z+.15,'walking backward reaches shore again');
+}
 let walker={...carrierRamp.shore,vy:0,grounded:true};
-for(const goal of [carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:carrierRamp.deck.z}]){
+for(const goal of [carrierRamp.riseEnd,carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:carrierRamp.deck.z}]){
   for(let i=0;i<700 && Math.hypot(goal.x-walker.x,goal.z-walker.z)>.12;i++){
     const dx=goal.x-walker.x,dz=goal.z-walker.z,length=Math.hypot(dx,dz);
     walker=stepPlayer(walker,{x:dx/length,z:dz/length},1/30,{}, {doors:{}});
@@ -45,6 +63,36 @@ for(const goal of [carrierRamp.turn,carrierRamp.deck,{x:carrierRamp.deck.x-3,z:c
   assert(Math.hypot(goal.x-walker.x,goal.z-walker.z)<.15,'shore ramp reaches each landing');
 }
 assert(walker.grounded && Math.abs(walker.y-carrierDeckTop)<.02,'player walks from shore onto flight deck');
+assert(carrierRampRailBlocked(carrierRamp.turn.x,carrierDeckTop,carrierRampTurnGuard.z),
+  'the exposed outer edge of the turn has a guardrail');
+assert(!carrierRampRailBlocked(carrierRamp.turn.x-1,carrierDeckTop,carrierRamp.turn.z),
+  'the westward walking turn remains open');
+// The visible side plating is solid to swimmers at the surface and underwater.
+for(const section of carrierHullSections)for(const side of [-1,1])for(const depth of [.4,2]){
+  const edge=section.x+side*section.w/2;
+  let swimmer={x:edge+side*7,z:section.z,y:-depth,vy:0,grounded:false,swimming:true,swimDepth:depth};
+  for(let tick=0;tick<150;tick++)
+    swimmer=stepPlayer(swimmer,{x:-side},1/30,{}, {doors:{}});
+  assert(!carrierHullContains(swimmer.x,swimmer.z,.1),
+    'the swimmer cannot pass through the carrier side');
+  assert(Math.abs(swimmer.x-edge)<1.2,'the hull collision tracks the visible side');
+}
+for(const x of [-350,-262]){
+  const world=newExpedition(),boat=world.boats[1];
+  Object.assign(boat,{x,z:-112,yaw:0,driver:1});
+  for(let tick=0;tick<1100;tick++)stepBoat(world,boat,{throttle:1},1/30,new Map());
+  assert(boat.z<-390 && boat.hp>0,'a boat can cruise the full length of either carrier side');
+}
+for(const kind of ['jet','heli']){
+  const world=newExpedition(),aircraft=world[kind];
+  Object.assign(aircraft,{x:eisenhowerCarrier.x,z:-80,y:60,yaw:0,pilot:1,grounded:false});
+  for(let tick=0;tick<600;tick++){
+    if(kind==='jet')stepJet(world,{throttle:1,steer:0,jetPitch:0},1/30,new Map());
+    else fly(world,{x:0,z:-1,lift:1,throttle:1,steer:0,aimYaw:0},1/30,new Map());
+  }
+  assert(aircraft.z<-390 && aircraft.y>carrierDeckTop+10 && aircraft.hp>0,
+    'a flyable aircraft passes the carrier with room for an approach');
+}
 // The hull must stay below the deck all the way along the runway. Its old
 // seabed-relative height created an invisible wall across several sections.
 for(const start of [-104,-358]){
@@ -57,10 +105,10 @@ for(const start of [-104,-358]){
   }
   assert(Math.abs(target-runner.z)<.2,'the player reaches the far end of the flight deck');
 }
-for(const [a,b] of carrierRampSegments){
+for(const [segment,[a,b]] of carrierRampSegments.entries()){
   const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz),sideX=-dz/length,sideZ=dx/length;
   const middle={x:(a.x+b.x)/2,z:(a.z+b.z)/2,y:(a.y+b.y)/2};
-  for(const side of [-1,1]){
+  for(const side of carrierRampRailSides(segment)){
     const railX=middle.x+sideX*side*carrierRamp.width/2;
     const railZ=middle.z+sideZ*side*carrierRamp.width/2;
     assert(carrierRampRailBlocked(railX,middle.y,railZ));
