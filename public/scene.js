@@ -50,6 +50,7 @@ import {noise} from './terrain-noise.js';
 import {trailDistance} from './road-surface.js';
 import {monitorHeight} from './water-monitor.js';
 import {cityTrafficView,poseTakeover} from './city-traffic-view.js';
+import {fireEngineCameraContains,fireEngineCameraClearance} from './fire-engine-camera.js';
 import {jetView} from './jet-view.js';
 import {jetScale} from './jet-size.js';
 import {outpostRunway} from './runway-layout.js';
@@ -1206,7 +1207,7 @@ function pose(avatar,state,dt,seated,station,doors,tick) {
 }
 
 const marinaBlocks=(boats,x,y,z,padding)=>boats?.some(b=>marinaHullContains(b,x,y,z,padding));
-function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yacht,marinaBoats) {
+function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yacht,marinaBoats,fireEngines=[]) {
   let distance=wanted;
   const close=indoors || yacht || marinaBoats?.length;
   const increment=close ? .08 : .20, minimum=close ? .10 : .45;
@@ -1234,7 +1235,7 @@ function cameraDistance(target,vector,wanted,hp,margin=0,doors,indoors=false,yac
   for(const tree of MAP.trees)if(!doors?.fallenTrees?.[tree.treeId])test(tree,tree.radius+.2);
   for(const rock of MAP.rocks) test(rock,rock.radius+.16);
   for(const prop of BREAKABLES) if (hp?.[prop.id] !== 0) test(prop,prop.radius+.12);
-  return distance;
+  return Math.min(distance,fireEngineCameraClearance(fireEngines,target,vector,distance));
 }
 
 import {createSprintGate} from './marina-sprint-view.js';
@@ -1739,6 +1740,8 @@ export function createScene(canvas) {
     const interiorTarget=Math.max(doorway*.45,indoors ? .28+.72*THREE.MathUtils.smoothstep(depth,0,1.10) : 0);
     interiorBlend=THREE.MathUtils.damp(interiorBlend,interiorTarget,8,dt);
     const roomBlend=interiorBlend,nearInterior=indoors || doorway>0 || roomBlend>.015;
+    const nearbyFireEngines=!driving && !piloting && !localStation ? cars.filter(car=>car.model==='engine' &&
+      Math.hypot(car.x-local.x,car.z-local.z)<12) : [];
     // Horizontal field of view narrows in portrait while the shoulder rig is
     // measured in metres. Keep the avatar inside the left third of the screen.
     const portraitInset=view.touch?Math.max(0,1-camera.aspect):0;
@@ -1767,6 +1770,7 @@ export function createScene(canvas) {
       shoreCamera+=clamp(waterBlend(local)-shoreCamera,-dt*3.8,dt*3.8);
       const clear=!yachtSolidAt(nearbyYacht,x,local.y+shoulderHeight,z,.16) &&
         !marinaBlocks(marinaBoats,x,local.y+shoulderHeight,z,.16) &&
+        !fireEngineCameraContains(nearbyFireEngines,x,local.y+shoulderHeight,z) &&
         buildingTopAt(x,z,.15,local.y+shoulderHeight,world.doors)<local.y+shoulderHeight-.16;
       desired.set(clear ? x : local.x,local.y+(local.parachute==='open' ? 2.1 : mix(shoulderHeight,1.00,shoreCamera)),clear ? z : local.z);
     }
@@ -1798,7 +1802,7 @@ export function createScene(canvas) {
     const outdoorDistance=flyingJet ? 10+(view.distance||4.4)*jetScale : yachtHelm ? 24+1.45*(view.distance||4.4) : clamp((view.distance||4.4)*(onFoot ? (view.basketball?.82:.53)+.16*portraitInset : 1),1.35,inTank?11:humveeDriving?12:7.5) + (piloting ? 6.0 : boat ? 2.5 : inTank ? 6.8+(view.road?.reach??0) : humveeDriving ? 6.8+(view.road?.reach??0) : driving ? 1.7+(view.road?.reach??0) : Math.min(6,separation*.5));
     const wanted=mix(outdoorDistance,Math.min(2.25,outdoorDistance),roomBlend);
     const cameraYacht=onFoot ? nearbyYacht : null;
-    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats);
+    let clearance=cameraDistance(target,boom,wanted,world.hp,driving ? 1.1 : 0,world.doors,nearInterior,cameraYacht,marinaBoats,nearbyFireEngines);
     // When backed against an interior wall, the usual boom can collapse into
     // the character. Swing it along the wall for a short three-quarter view.
     if(onFoot && (nearInterior || marinaBoats?.length)){
@@ -1810,7 +1814,7 @@ export function createScene(canvas) {
         let best=clearance;
         for(const angle of [first*turn,-first*turn,first*Math.PI*.57,-first*Math.PI*.57]){
           sideways.copy(boom).applyAxisAngle(up,angle);
-          const available=cameraDistance(target,sideways,Math.min(wanted,1.64),world.hp,0,world.doors,true,cameraYacht,marinaBoats);
+          const available=cameraDistance(target,sideways,Math.min(wanted,1.64),world.hp,0,world.doors,true,cameraYacht,marinaBoats,nearbyFireEngines);
           if(available>best+.18){orbit=angle;best=available;}
           if(best>1.47)break;
         }
@@ -1818,7 +1822,7 @@ export function createScene(canvas) {
       indoorAngle=THREE.MathUtils.damp(indoorAngle,orbit,10,dt);
       if(Math.abs(indoorAngle)>.01){
         boom.applyAxisAngle(up,indoorAngle);
-        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true,cameraYacht,marinaBoats);
+        clearance=cameraDistance(target,boom,wanted,world.hp,0,world.doors,true,cameraYacht,marinaBoats,nearbyFireEngines);
       }
     }else indoorAngle=0;
     // Pull in at obstructions, then ease back out as the orbit clears them.
