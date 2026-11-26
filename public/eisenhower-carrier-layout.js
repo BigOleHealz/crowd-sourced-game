@@ -13,19 +13,28 @@ const sections=[
   {z:55,d:60,w:42},
   {z:110,d:50,w:18},
 ];
-export const carrierHullSections=sections.map(({z,d,w})=>({
-  x:eisenhowerCarrier.x,z:eisenhowerCarrier.z+z,w,d,h:21.2,
-}));
+// The broad flight deck at the gangway landing is near source Y=98.5.
+// Follow that surface instead of suspending walking collision above it.
+export const carrierDeckTop=-.14+(98.5-eisenhowerCarrier.waterlineModelY)*eisenhowerCarrier.length/1061.7968+.12;
+export const carrierHullSections=sections.map(({z,d,w})=>{
+  const worldZ=eisenhowerCarrier.z+z,base=seabedHeight(eisenhowerCarrier.x,worldZ);
+  // A constant 21.2 m above the varying seabed put the invisible hull above
+  // the flight deck in several bays, blocking a player mid-runway.
+  return {x:eisenhowerCarrier.x,z:worldZ,w,d,h:carrierDeckTop-2.4-base};
+});
 export const carrierHullContains=(x,z,padding=0)=>carrierHullSections.some(s=>
   Math.abs(x-s.x)<=s.w/2+padding && Math.abs(z-s.z)<=s.d/2+padding);
 
 // The broad, nearly planar source flight deck is at model Y≈100. Keep its
 // walking support just above the visible surface, separate from the lower hull
 // so small boats still pass beneath the overhang without hitting invisible air.
-export const carrierDeckTop=-.14+(100-eisenhowerCarrier.waterlineModelY)*eisenhowerCarrier.length/1061.7968+.12;
+// Conservative walking spans follow the flight deck silhouette. The old
+// centered rectangles reached far beyond the starboard edge, leaving people
+// suspended over open water beside the gangway.
+const deckSpans=[{x:-306,w:24},{x:-310,w:44},{x:-313,w:42},{x:-307,w:50},{x:-301,w:42}];
 export const carrierDeckSections=sections.map(({z,d},i)=>{
-  const x=eisenhowerCarrier.x,worldZ=eisenhowerCarrier.z+z,base=seabedHeight(x,worldZ);
-  return {x,z:worldZ,w:[56,72,76,76,60][i],d,
+  const {x,w}=deckSpans[i],worldZ=eisenhowerCarrier.z+z,base=seabedHeight(x,worldZ);
+  return {x,z:worldZ,w,d,
     bottom:carrierDeckTop-1.8-base,h:carrierDeckTop-base};
 });
 
