@@ -1,4 +1,4 @@
-import {wallSectionContact,inTankOpening} from './tank-wall-cuts.js';
+import {wallSectionContact} from './tank-wall-cuts.js';
 import {houseAtPoint,ruinedHouseAt} from './residential-sites.js';
 import {jetRoadContact} from './jet-road-contact.js';
 import {civilianProfiles} from './civilian-fleet.js';
@@ -12,6 +12,7 @@ import {visitRoadPodium} from './frontage-glass.js';
 import {stations} from './beach-layout.js';
 import {bridges} from './brickell-map.js';
 import {leafSurface} from './drawbridges.js';
+import {carrierRampHeight,carrierRampSupportRows} from './eisenhower-carrier-layout.js';
 import {postDown} from './street-lamps.js';
 import { nearbyHull } from './patrol-boats.js';
 import { BREAKABLES, CITY, MAP, travelBounds, waterSurfaceAt, groundHeight, terrainHeight } from './world.js';
@@ -76,8 +77,9 @@ function roundContact(x,z,s,c,prop,radius,shape){
 export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   const shape=roadHullFor(vehicle);
   const s=Math.sin(yaw),c=Math.cos(yaw);
-  const interior=CITY && onEstate(x,z);
-  const floorProbe=interior || CITY && inTankOpening(world.doors,x,vehicle.y??.8,z) ? (vehicle.y??.8)+.32 : Infinity;
+  // Keep the probe near the vehicle's wheels so an overhead gangway or deck
+  // does not turn into an impassable terrain step beneath the vehicle.
+  const floorProbe=(vehicle.y??.8)+.32;
   const base=groundHeight(x,z,floorProbe,world.doors);
   const roof=shape.roof??shape.height??1.66;
   let result;
@@ -109,6 +111,14 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
       const destructible=CITY && !b.postId && b.lamp==null && houseAtPoint(b.x,b.z,.25);
       consider(destructible ? wall(b) : contact(b));
     }
+  }
+  if(CITY){
+    const underside=carrierRampHeight(x,z)-.48;
+    if(Number.isFinite(underside) && (vehicle.y??base)<underside && (vehicle.y??base)+roof>underside)
+      consider({nx:fromX>x?1:fromX<x?-1:0,nz:fromZ>z?1:fromZ<z?-1:0,depth:.01,object:'carrier-gangway'});
+    for(const row of carrierRampSupportRows)for(const post of row.posts)
+      if((vehicle.y??base)+roof>=post.base && (vehicle.y??base)<=post.top)
+        consider(roundContact(x,z,s,c,post,.26,shape));
   }
   for(const rail of bridgeRails)consider(boxContact(x,z,s,c,rail,shape));
   for(const rail of militaryBridgeRails){

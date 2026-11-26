@@ -61,6 +61,19 @@ export const carrierRampSegments=[
   [carrierRamp.riseEnd,carrierRamp.turn],
   [carrierRamp.turn,carrierRamp.deck],
 ];
+export const carrierRampSupportRows=carrierRampSegments.flatMap(([a,b],segment)=>{
+  const dx=b.x-a.x,dz=b.z-a.z,length=Math.hypot(dx,dz),rows=[];
+  for(let distance=8;distance<length-(segment?27:4);distance+=12){
+    const t=distance/length;
+    const posts=[-.78,.78].map(side=>{
+      const x=a.x+dx*t-side*dz/length*carrierRamp.width/2;
+      const z=a.z+dz*t+side*dx/length*carrierRamp.width/2;
+      return {x,z,top:a.y+(b.y-a.y)*t-.5,base:seabedHeight(x,z)-.45};
+    });
+    rows.push({segment,distance,posts});
+  }
+  return rows;
+});
 export function carrierRampRailSpan(segment,length){
   return {start:segment===2?2/length:0,end:segment===2?1-2/length:1};
 }

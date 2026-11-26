@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {eisenhowerCarrier,carrierDeckTop,carrierRamp,carrierRampSegments,carrierRampRailSpan,carrierRampRailSides,carrierRampTurnGuard} from './eisenhower-carrier-layout.js';
-import {seabedHeight} from './reef-channel.js';
+import {eisenhowerCarrier,carrierDeckTop,carrierRamp,carrierRampSegments,carrierRampSupportRows,carrierRampRailSpan,carrierRampRailSides,carrierRampTurnGuard} from './eisenhower-carrier-layout.js';
 
 export function addCarrierRamp(scene){
   const ramp=new THREE.Group();ramp.name='Carrier shore ramp';
@@ -71,11 +70,11 @@ export function addCarrierRamp(scene){
       beam(point(distance/length,-.97,.014),point(distance/length,.97,.014),.012,trimMaterial);
     // Paired trestles and cross-braces connect the elevated route to the bed.
     // Stop before the hull so supports never pass through the carrier.
-    for(let distance=8;distance<length-(segment?27:4);distance+=12){
+    for(const {distance,posts} of carrierRampSupportRows.filter(row=>row.segment===segment)){
       const t=distance/length;
-      for(const side of [-.78,.78]){
-        const top=point(t,side,-.5),floor=seabedHeight(top[0],top[2])-.45;
-        beam([top[0],floor,top[2]],top,.26,trimMaterial);
+      for(const [index,side] of [-.78,.78].entries()){
+        const top=point(t,side,-.5),floor=posts[index].base;
+        beam([posts[index].x,floor,posts[index].z],top,.26,trimMaterial);
         const brace=point((distance+5)/length,side,-.5);
         beam([top[0],floor+(top[1]-floor)*.55,top[2]],brace,.11,trimMaterial);
       }

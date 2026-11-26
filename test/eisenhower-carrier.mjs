@@ -5,8 +5,9 @@ const {MAP,stepPlayer,solidTopAt,travelBounds,flightBounds,insideTravelArea,grou
 const {newExpedition,fly}=await import('../public/expedition.js');
 const {stepBoat}=await import('../public/patrol-boats.js');
 const {stepJet}=await import('../public/jet.js');
+const {sweepRoad,roadContact}=await import('../public/road-contact.js');
 const {militaryIsland,militaryFence}=await import('../public/military-island.js');
-const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierHullSections,carrierRamp,carrierRampHeight,carrierRampSegments,carrierRampRailBlocked,carrierRampRailSides,carrierRampTurnGuard}=await import('../public/eisenhower-carrier-layout.js');
+const {eisenhowerCarrier,carrierDeckTop,carrierHullContains,carrierHullSections,carrierRamp,carrierRampHeight,carrierRampSegments,carrierRampSupportRows,carrierRampRailBlocked,carrierRampRailSides,carrierRampTurnGuard}=await import('../public/eisenhower-carrier-layout.js');
 
 const scale=eisenhowerCarrier.length/1061.7968;
 const beam=293.8955*scale;
@@ -35,6 +36,27 @@ assert(solidTopAt(eisenhowerCarrier.x,eisenhowerCarrier.z,{},0,MAP.waterY+2)>MAP
   'waterline hull still blocks boats');
 assert(groundHeight(eisenhowerCarrier.x+33,eisenhowerCarrier.z,MAP.waterY+2)<MAP.waterY-2,
   'water remains beneath the flight-deck overhang');
+// The island Humvee fits under the level gangway at its fence opening.
+// Collision must use the road under the deck instead of treating the deck as
+// a sudden terrain step when the vehicle enters its footprint.
+{
+  const world=newExpedition();
+  for(const [x,dx] of [[-240,-9],[-249,9]]){
+    const humvee={...world.rover,x,z:carrierRamp.turn.z,y:.8,yaw:Math.PI/2};
+    assert.equal(sweepRoad(world,humvee,dx,0).fraction,1,
+      'Humvee drives beneath the gangway in either direction');
+  }
+  const humvee={...world.rover,x:-247,z:-275,y:.8,yaw:Math.PI/2};
+  assert(roadContact(world,humvee.x,humvee.z,humvee.yaw,humvee.x-.2,humvee.z,humvee)?.object?.fenceId,
+    'visible military fence still blocks the Humvee');
+  const lowDeck={...humvee,x:carrierRamp.shore.x,z:-285,y:.8,yaw:0};
+  assert.equal(roadContact(world,lowDeck.x,lowDeck.z,0,lowDeck.x,lowDeck.z-.2,lowDeck)?.object,'carrier-gangway',
+    'Humvee cannot drive through a section with insufficient overhead clearance');
+  const post=carrierRampSupportRows[1].posts[1];
+  const atPost={...humvee,x:post.x,z:post.z,y:.8,yaw:0};
+  assert.equal(roadContact(world,post.x,post.z,0,post.x-.2,post.z,atPost)?.object,post,
+    'visible gangway support still blocks the Humvee');
+}
 const gateZ=carrierRamp.turn.z;
 assert(!militaryFence.some(b=>Math.abs(b.x+246)<.1 && Math.abs(b.z-gateZ)<b.d/2+2),
   'the west fence has an opening at the gangway');
