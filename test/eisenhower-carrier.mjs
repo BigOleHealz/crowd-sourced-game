@@ -36,6 +36,23 @@ assert(solidTopAt(eisenhowerCarrier.x,eisenhowerCarrier.z,{},0,MAP.waterY+2)>MAP
   'waterline hull still blocks boats');
 assert(groundHeight(eisenhowerCarrier.x+33,eisenhowerCarrier.z,MAP.waterY+2)<MAP.waterY-2,
   'water remains beneath the flight-deck overhang');
+// Compare points measured on the visible upper deck mesh with nearby open
+// water at the bow, midship extension, stern, and both side edges.
+for(const [onX,offX,z] of [
+  [-320,-295,-340],
+  [-330,-341,-270],
+  [-280,-276,-230],
+  [-290,-285,-105],
+]){
+  let onDeck={x:onX,z,y:carrierDeckTop+1,vy:-2,grounded:false};
+  for(let tick=0;tick<45;tick++)onDeck=stepPlayer(onDeck,{},1/30,{}, {doors:{}});
+  assert(onDeck.grounded && Math.abs(onDeck.y-carrierDeckTop)<.02,
+    'visible flight deck remains walkable along its perimeter');
+  let overWater={x:offX,z,y:carrierDeckTop,vy:0,grounded:true};
+  for(let tick=0;tick<45;tick++)overWater=stepPlayer(overWater,{},1/30,{}, {doors:{}});
+  assert(overWater.swimming && overWater.y<MAP.waterY,
+    'stepping beyond the visible deck falls into the water, including above the hull');
+}
 // The island Humvee fits under the level gangway at its fence opening.
 // Collision must use the road under the deck instead of treating the deck as
 // a sudden terrain step when the vehicle enters its footprint.

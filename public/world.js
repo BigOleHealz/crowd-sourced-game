@@ -189,7 +189,7 @@ function nearbyBarriers(x, z, padding, doors) {
 const balconyAt=balconySurfaces(CITY?MAP.buildings:[]);
 
 // Align the models, walking collision, aim traces and aircraft clearance.
-export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false) {
+export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false,ignoreCarrierHull=false) {
   let top=CITY ? Math.max(grandTopAt(x,z,padding,maxBottom,doors),parapetTop(x,z,padding,maxBottom,doors),balconyAt(x,z,padding,maxBottom,doors,false,round)) : -Infinity;
   if(!inTankOpening(doors,x,maxBottom,z))top=Math.max(top,roomDoorTop(x,z,padding,maxBottom,doors));
   if(CITY)for(const stair of residenceSpirals){
@@ -206,6 +206,9 @@ export function buildingTopAt(x,z,padding=0,maxBottom=Infinity,doors,round=false
     top=Math.max(top,surface);
   }
   for(const b of nearbyBarriers(x,z,padding,doors)){
+    // The hull is a vertical obstacle to swimmers and boats, not a second
+    // walking deck that catches someone after they step off the flight deck.
+    if(ignoreCarrierHull && b.carrierHull)continue;
     // Expanding a walkable slab lip would add an invisible curb at its edge.
     if(b.resortShell)continue;
     if(b.fenceId && fenceDown(doors,b.fenceId))continue;
@@ -357,8 +360,8 @@ function overlaps(x, z, obstacle, padding) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,round=false) {
-  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round));
+export function solidTopAt(x, z, hp, padding = 0, maxBottom = Infinity, doors,round=false,ignoreCarrierHull=false) {
+  let top = Math.max(groundHeight(x,z,maxBottom,doors),buildingTopAt(x,z,padding,maxBottom,doors,round,ignoreCarrierHull));
   for (const obstacle of candidates(obstacleCells,obstacles,x,z,padding)) {
     if (obstacle.id && hp?.[obstacle.id] === 0) continue;
     if (obstacle.treeId!=null && doors?.fallenTrees?.[obstacle.treeId]) continue;
@@ -509,7 +512,7 @@ export function stepPlayer(state, input, dt, hp, world, options={}) {
   if(CITY && options.swimmerSand!==false && waterfront(x,z) && !state.ride &&
     (state.swimming || state.grounded && y<MAP.waterY+1))
     floor=Math.max(floor,coastalBedHeight(x,z));
-  const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors);
+  const top = solidTopAt(x, z, hp, PLAYER_RADIUS,y+.01,doors,false,true);
   if (y >= top-.005) floor = Math.max(floor,top);
   const draft=.72, floatY=waterSurfaceAt(x,z,y)-draft;
   const sandShallow=CITY && options.swimmerSand!==false && !state.ride && waterfront(x,z) &&
