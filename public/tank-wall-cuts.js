@@ -1,5 +1,5 @@
-// Low wall sections share one grid between vehicle contact, walking and rendering.
-export const cutGrid={west:-128,north:-512,width:128,height:320,size:2,low:1.09,high:3.55};
+// One-metre wall sections share a grid between vehicle contact, walking and rendering.
+export const cutGrid={west:-128,north:-512,width:256,height:640,size:1,low:1.09,high:3.55};
 const {west,north,width,height,size,high}=cutGrid;
 const indexes=new WeakMap();
 function removed(doors){

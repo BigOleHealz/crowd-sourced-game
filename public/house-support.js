@@ -19,10 +19,11 @@ export function houseSupportCells(id){
   function add(box){
     if(box.face || box.paneId || box.sillPaneId || box.kind==='glass' || box.piece || box.fixedFixture)return;
     if(box.bottom!=null && box.bottom>cutGrid.high-.8)return;
-    for(let x=Math.floor((box.x-box.w/2-cutGrid.west)/2);x<=Math.floor((box.x+box.w/2-cutGrid.west)/2);x++)
-      for(let z=Math.floor((box.z-box.d/2-cutGrid.north)/2);z<=Math.floor((box.z+box.d/2-cutGrid.north)/2);z++){
-        const cx=cutGrid.west+(x+.5)*2,cz=cutGrid.north+(z+.5)*2;
-        if(inside(cx,cz) && cx+1>box.x-box.w/2 && cx-1<box.x+box.w/2 && cz+1>box.z-box.d/2 && cz-1<box.z+box.d/2){
+    const size=cutGrid.size;
+    for(let x=Math.floor((box.x-box.w/2-cutGrid.west)/size);x<=Math.floor((box.x+box.w/2-cutGrid.west)/size);x++)
+      for(let z=Math.floor((box.z-box.d/2-cutGrid.north)/size);z<=Math.floor((box.z+box.d/2-cutGrid.north)/size);z++){
+        const cx=cutGrid.west+(x+.5)*size,cz=cutGrid.north+(z+.5)*size;
+        if(inside(cx,cz) && cx+size/2>box.x-box.w/2 && cx-size/2<box.x+box.w/2 && cz+size/2>box.z-box.d/2 && cz-size/2<box.z+box.d/2){
           const id=cell(cx,cz);if(id!=null)cells.add(id);
         }
       }
