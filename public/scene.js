@@ -1527,7 +1527,7 @@ export function createScene(canvas) {
     updateYacht?.(world.yacht,dt,local);
     if(bowGun && world.yacht){bowGun(world.yacht);effects.yachtExhaust(world.yacht,dt);}
     for(const kind of jetKinds)if(world[kind])jetModels[kind]?.update(world[kind],dt);
-    const localJetKind=pilotJetKind(world,local.id);
+    const localJetKind=pilotJetKind(world,local.id),flyingJet=Boolean(localJetKind);
     const aircraft=localJetKind ? world[localJetKind] : world[pilotHelicopterKind(world,local.id)]??heli;
     const piloting=aircraft.pilot!=null && local.id===aircraft.pilot;
     updateCargoHook(world);
