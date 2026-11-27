@@ -89,7 +89,7 @@ export function stepTank(world,input,dt,players){
       if(!breakRoadObstacle(world,t,hit.object,vx,vz,incoming,driver?.team)){
         if(incoming>0 && openTankWall(world.doors,hit.wallCell)){
           const home=houseAtPoint(hit.object?.x??t.x,hit.object?.z??t.z,.35);
-          const material=home && home.parts[0].finish!=='stucco' && home.estate==null?'wood':'concrete';
+          const material=home && ['clapboard','batten'].includes(home.parts[0].finish)?'wood':'concrete';
           noteWallBreak(world.doors,material,t.x,t.y+.9,t.z);
           world.rules?.damageProperty?.(driver?.team,{x:t.x,y:t.y,z:t.z},'wall:'+hit.wallCell,'Wall section',5_000);
           if(home && houseLostSupport(world.doors,home.id))ramHouse(world.doors,home.id,t.x,t.z,vx,vz);

@@ -37,6 +37,21 @@ export function houseSupportCells(id){
     for(const x of [p.x-p.w/2,p.x+p.w/2])add({x,z:p.z,w:.18,d:p.d});
     for(const z of [p.z-p.d/2,p.z+p.d/2])add({x:p.x,z,w:p.w,d:.18});
   }
+  if(id.startsWith('harbor-')){
+    // Storefront and furnishing solids fill the middle of a Harbor plot, but
+    // the roof is carried by its shell. Count only perimeter supports so
+    // repeated hits along the reachable facades can finish demolition.
+    for(const p of home.parts){
+      for(const x of [p.x-p.w/2,p.x+p.w/2])add({x,z:p.z,w:.18,d:p.d});
+      for(const z of [p.z-p.d/2,p.z+p.d/2])add({x:p.x,z,w:p.w,d:.18});
+    }
+    for(const id of cells){
+      const x=cutGrid.west+(id%cutGrid.width+.5)*cutGrid.size;
+      const z=cutGrid.north+(Math.floor(id/cutGrid.width)+.5)*cutGrid.size;
+      if(!home.parts.some(p=>Math.abs(Math.abs(x-p.x)-p.w/2)<cutGrid.size*1.4 ||
+        Math.abs(Math.abs(z-p.z)-p.d/2)<cutGrid.size*1.4))cells.delete(id);
+    }
+  }
   cache.set(id,cells);
   return cells;
 }
@@ -47,6 +62,18 @@ export function houseLostSupport(doors,id){
   const cut=new Set(doors.tankWallCuts??[]);
   let standing=0;
   for(const cell of cells)if(!cut.has(cell))standing++;
+  if(id.startsWith('harbor-')){
+    // Several complete track lanes can shear the core while corner piers
+    // still stand. Count that lower-storey damage as well as shell support.
+    const p=homeById(id).parts[0];
+    const limit=Math.ceil(p.w*p.d*.4/cutGrid.size**2);
+    let damaged=0;
+    for(const cell of cut){
+      const x=cutGrid.west+(cell%cutGrid.width+.5)*cutGrid.size;
+      const z=cutGrid.north+(Math.floor(cell/cutGrid.width)+.5)*cutGrid.size;
+      if(Math.abs(x-p.x)<p.w/2 && Math.abs(z-p.z)<p.d/2 && ++damaged>=limit)return true;
+    }
+  }
   // The upper floor cannot balance on a few isolated posts after most of its
   // perimeter has been sheared away by the tracks.
   return standing/cells.size<=.35;

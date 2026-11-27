@@ -9,6 +9,7 @@ import {burnableContact,hitFireSite} from './district-fire.js';
 import {tankMuzzle} from './tank-layout.js';
 import {parkedTank,damageTank} from './tank.js';
 import {breachTower} from './tower-damage.js';
+import {breachHarborHouse} from './harbor-demolition.js';
 import {parkedJet,damageJet} from './jet.js';
 import {launcherSpec,lockStatus,guideGameMissile,updateLock} from './handheld-launcher.js';
 import {lotHeight,lotWidth} from './island-rules.js';
@@ -676,6 +677,11 @@ export function advanceMissiles(world,players,npcs,tick) {
     if (CITY && (hit.blocked || hit.hitKind==='glass')) {
       const cell=breachTower(MAP.buildings,world.doors,hit.to);
       if (cell!=null) world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'tower:'+cell,'Tower structure',31_250);
+      if(m.source==='handLauncher'){
+        const breach=breachHarborHouse(world.doors,hit.to,direction);
+        if(breach)for(const id of breach.cells)
+          world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+id,'Wall section',5_000);
+      }
     }
     if(CITY && (hit.blocked || hit.hitKind==='glass') && breachEstate(world.doors,hit.to)){
       world.rules?.damageProperty(scoreAtLaunch.get(m)?.team,hit.to,'wall:'+world.doors.estateBreaches.at(-1),'Estate wall',250_000);

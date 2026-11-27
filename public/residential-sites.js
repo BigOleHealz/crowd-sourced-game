@@ -1,6 +1,7 @@
 import {villaWings} from './casa-luma.js';
 import {mareBase,mareUpper,mareLoggiaRoof} from './palazzo-mare.js';
 import {harborHouses} from './harbor-key-structures.js';
+import {marketHalls} from './harbor-market.js';
 import {clubSalon} from './lantern-buildings-layout.js';
 
 export const homes=[
@@ -8,6 +9,7 @@ export const homes=[
   {id:'mare',estate:1,parts:[mareBase,...mareUpper,mareLoggiaRoof],siding:0xe5d6b8,roof:0xb4afa3},
   {id:'club-salon',parts:[clubSalon],siding:0xc5b092,roof:0x5c5551},
   ...harborHouses.map((b,i)=>({id:'harbor-'+i,parts:[{...b,h:b.eave}],siding:b.siding,roof:b.roof})),
+  ...marketHalls.map((b,i)=>({id:'harbor-market-'+i,parts:[{...b,h:b.eave}],siding:0xb7b7a9,roof:0x777b76})),
 ];
 const byId=new Map(homes.map(h=>[h.id,h]));
 export const homeById=id=>byId.get(id);
