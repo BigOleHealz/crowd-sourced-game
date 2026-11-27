@@ -5,7 +5,7 @@ import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 import {onRunway,rotationSpeed,stallSpeed,runwayStart,outpostRunwayStart} from './runway-layout.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
-const fullTurn=Math.PI*2, rollSpeed=1.6;
+const fullTurn=Math.PI*2, rollSpeed=2.4;
 export function parkedJet(){
   const start=CITY?runwayStart:outpostRunwayStart;
   const x=start.x,z=start.z;
@@ -100,7 +100,7 @@ export function stepJet(world,input,dt,players){
     // Releasing A/D leaves the wings at their current angle.
     j.roll+=roll*rollSpeed*dt;
   }
-  j.yaw+=steer*(j.grounded?.8:1.7)*dt;
+  if(j.grounded && j.speed>.25)j.yaw+=steer*.8*dt;
   if(!j.grounded)j.yaw-=Math.sin(j.roll)*.9*clamp(j.speed/stallSpeed,0,1)*dt;
   // Pitch is continuous across the top of a loop, including during snapshot interpolation.
   if(!j.grounded && !powered){
