@@ -6,6 +6,7 @@ import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './a
 import { CITY, MAP, flightBounds, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
 import {militaryHelipads} from './military-island.js';
 import {carrierHelipads} from './aircraft-fleet.js';
+import {carrierDeckSections,carrierDeckTop} from './eisenhower-carrier-layout.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -131,6 +132,16 @@ function roofSupportsWheels(h, floor, hp, doors) {
   });
 }
 
+function carrierSupportsWheels(h, floor) {
+  if (Math.abs(floor-carrierDeckTop)>.035) return false;
+  const c=Math.cos(h.yaw),s=Math.sin(h.yaw);
+  return wheels.every(([side,aft])=>{
+    const x=h.x+side*c-aft*s,z=h.z+side*s+aft*c;
+    return carrierDeckSections.some(section=>
+      Math.abs(x-section.x)<=section.w/2 && Math.abs(z-section.z)<=section.d/2);
+  });
+}
+
 function onFlightDeck(yacht,h,floor){
   if(!yacht || yacht.wrecked || Math.abs(floor-yacht.y-yachtDeckY)>.035)return false;
   const c=Math.cos(h.yaw),s=Math.sin(h.yaw);
@@ -213,9 +224,10 @@ export function fly(world, input, dt, players,kind='heli') {
   const floor = flightFloor(h.x, h.z, world.hp, world);
   const rooftop = CITY && nextY <= floor + .22 && onBuildingLot(h.x, h.z) &&
     roofSupportsWheels(h, floor, world.hp,world.doors);
+  const carrierLanding = CITY && nextY <= floor + .22 && carrierSupportsWheels(h,floor);
   const yachtLanding=onFlightDeck(world.yacht,h,floor);
   const rubbleLanding=motion.roofDrop && collapsedLot(MAP.buildings,world.doors,h.x,h.z) && Math.abs(floor-groundHeight(h.x,h.z,Infinity,world.doors))<.05;
-  const landable = rubbleLanding || yachtLanding || rooftop || landingSite(h.x, h.z, floor,world.doors);
+  const landable = rubbleLanding || yachtLanding || rooftop || carrierLanding || landingSite(h.x, h.z, floor,world.doors);
   const minY = floor + (landable || outOfFuel ? 0 : 0.22);
   const floorContact = nextY <= minY && motion.vy <= 0;
   if(floorContact && outOfFuel && !landable && floor===MAP.waterY+.6){
@@ -231,7 +243,7 @@ export function fly(world, input, dt, players,kind='heli') {
     return;
   }
   if (floorContact && !motion.floorContact) {
-    let stoppedSpeed=rooftop?Math.hypot(motion.vx,motion.vy,motion.vz):-motion.vy;
+    let stoppedSpeed=rooftop || carrierLanding?Math.hypot(motion.vx,motion.vy,motion.vz):-motion.vy;
     if(yachtLanding){
       const y=world.yacht;
       stoppedSpeed=Math.hypot(motion.vx-y.speed*Math.sin(y.yaw),motion.vy,motion.vz+y.speed*Math.cos(y.yaw));
