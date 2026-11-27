@@ -71,7 +71,8 @@ function wheelModel(Batch,tire,depth,van,patrol){
 
 function model(Batch,type,materials,patrol=false){
   if(type==='engine')return finishTrafficModel(Batch,type,materials,buildPumper(Batch,materials,{skin,pane,run,box}));
-  const {roofEnd,cabinEnd,topFront}=fleet[type];
+  const {roofEnd,cabinEnd,topFront}=patrol?
+    {roofEnd:.69,cabinEnd:1.34,topFront:-.53}:fleet[type];
   const paint=patrol?0x20292e:fleet[type].paint;
   const {nose,tail,skinHeight:roof,bodyWidth:w,axles,tire}=civilianProfiles[type];
   const van=type==='van',hatch=type==='hatchback',lift=roadCabin({model:type}).lift;
