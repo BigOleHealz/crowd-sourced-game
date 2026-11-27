@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import {newExpedition} from '../public/expedition.js';
 import {stepJet} from '../public/jet.js';
 
@@ -33,4 +34,18 @@ const world=newExpedition();
 world.jet.pilot=1;
 stepJet(world,{jetRoll:1},1/30,new Map());
 assert.equal(world.jet.roll,0,'grounded aircraft stays level');
+const forward=j=>new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(j.pitch,-j.yaw,j.roll,'YXZ'));
+const screenUp=j=>new THREE.Vector3(0,1,0).applyEuler(new THREE.Euler(j.pitch,-j.yaw,j.roll,'YXZ'));
+for(const pitch of [.2,1.2,1.5,2.2])for(const roll of [-Math.PI*2,-Math.PI*1.5,-Math.PI,-Math.PI/2,0,Math.PI/2,Math.PI,Math.PI*1.5,Math.PI*2]){
+  const base={pilot:1,grounded:false,y:80,speed:20,pitch,yaw:0,roll};
+  const neutral=newExpedition();Object.assign(neutral.jet,base);
+  stepJet(neutral,{jetPitch:0},1/30,new Map());
+  for(const direction of [-1,1]){
+    const steered=newExpedition();Object.assign(steered.jet,base);
+    stepJet(steered,{jetPitch:direction*.8},1/30,new Map());
+    const screenMotion=forward(steered.jet).sub(forward(neutral.jet)).dot(screenUp(base));
+    assert(screenMotion*direction>.005,
+      'cursor pitch moves the nose toward the cursor through either barrel roll');
+  }
+}
 console.log('PASS jet roll follows held A/D input, holds bank on release, and turns with bank');
