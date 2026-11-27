@@ -103,7 +103,9 @@ async function clientBuild(){
   return hash.digest('hex').slice(0,20);
 }
 const build=await clientBuild();
-const accountStore=await createAccountStore();
+let accountStore;
+try { accountStore=await createAccountStore(); }
+catch(error) { console.error('Account database unavailable; guest play remains available:',error); }
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
