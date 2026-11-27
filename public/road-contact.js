@@ -90,7 +90,7 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const b of MAP.buildings){
     if(towerCollapsed(b,world.doors) || ruinedHouseAt(world.doors,b.x,b.z))continue;
     if(CITY && world.doors)visitRoadPodium(b,x,z,world.doors,box=>{
-      const destructible=b.finish && b.towerId==null;
+      const destructible=(b.finish || b.market) && b.towerId==null;
       consider(destructible && !box.piece && !box.fixedFixture ? wall(box) : contact(box));
     },reach);
     else consider(boxContact(x,z,s,c,b,shape));
