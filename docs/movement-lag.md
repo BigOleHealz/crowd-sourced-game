@@ -200,4 +200,5 @@ and a browser city-room run concurrently: they create two active simulations.
 The tested capacity remedy is at least 0.5 CPU for this two-player workload.
 It does not establish capacity for 16 players or multiple active districts.
 Changing the public service from free to paid compute is a separate, billable
-operation; it was not performed during this repository investigation.
+operation requiring explicit approval. Check the Render deployment and service
+plan for current operational status; measurements above are the local experiments.

@@ -6,6 +6,7 @@ const browser=await chromium.launch({headless:true,channel:process.env.LAG_BROWS
 const page=await browser.newPage({viewport:{width:1280,height:720}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 const origin=process.env.LAG_HTTP??'http://127.0.0.1:4188';
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(origin).hostname))throw new Error('The fixture runner only accepts loopback servers');
 let gunner,timer;
 try{
  await page.goto(origin+'/?map=brickell&perf=1',{waitUntil:'networkidle',timeout:120000});

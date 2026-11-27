@@ -7,6 +7,7 @@ process.env.GOY_THEFT_AUTO_MAP='brickell';
 const {stepPlayer}=await import('../public/world.js');
 const {driverPrediction}=await import('../public/driver-prediction.js');
 const url=process.env.LAG_URL??'ws://127.0.0.1:4187/world';
+if(!['127.0.0.1','localhost','[::1]'].includes(new URL(url).hostname))throw new Error('The fixture runner only accepts loopback servers');
 for(let attempt=0;;attempt++){
   const ready=await new Promise(resolve=>{const request=get(url.replace(/^ws/,'http').replace(/\/world.*$/,'/'),response=>{response.resume();resolve(response.statusCode===200);});request.setTimeout(2000,()=>request.destroy());request.on('error',()=>resolve(false));});
   if(ready)break;
