@@ -5,10 +5,19 @@ const {newExpedition}=await import('../public/expedition.js');
 const {carrierDeckTop}=await import('../public/eisenhower-carrier-layout.js');
 const {jetKinds,helicopterKinds}=await import('../public/aircraft-fleet.js');
 const {nextUse}=await import('../public/use-target.js');
+const {resortArrivals}=await import('../public/palma-site.js');
+const {solidTopAt,blocked}=await import('../public/world.js');
+const {vehicleContact}=await import('../public/vehicle-contact.js');
 const {stepJet,damageJet}=await import('../public/jet.js');
 const {fly,interact,damageHelicopter,recoverHelicopter}=await import('../public/airframe.js');
 
 const world=newExpedition(),players=new Map();
+const arrival=resortArrivals.get('carrier');
+assert(arrival && Math.abs(arrival.y-solidTopAt(arrival.x,arrival.z,world.hp,0,Infinity,world.doors))<.01,
+  'the direct carrier arrival stands on the visible flight deck');
+assert(!blocked(arrival.x,arrival.y,arrival.z,world.hp,world.doors) &&
+  !vehicleContact(arrival.x,arrival.y,arrival.z,world,true).depth,
+  'the carrier arrival clears the ship and parked aircraft');
 const carrierJets=jetKinds.slice(1),carrierHelicopters=helicopterKinds.slice(2);
 const aircraft=[...carrierJets,...carrierHelicopters];
 for(const kind of aircraft){
