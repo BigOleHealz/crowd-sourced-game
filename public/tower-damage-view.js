@@ -73,7 +73,9 @@ export function towerDamageView(scene,buildings,meshes,renderer) {
     if(!installed){
       bind(depthMat);
       for(const root of meshes)root.traverse(obj=>{
-        if(!obj.isMesh)return;
+        // The mask removes exterior shell material. Room floors, partitions
+        // and furnishings behind it must remain visible through the cut.
+        if(!obj.isMesh || obj.userData.breachInterior)return;
         for(const mat of [].concat(obj.material))bind(mat);
         if(obj.castShadow)obj.customDepthMaterial=depthMat;
       });

@@ -77,6 +77,7 @@ export function windowRoomView(scene,Batch,plans){
     }
     const mesh=batch.mesh(scene,material,false);
     mesh.name=p.name+' · window rooms';mesh.userData.interiorFixtures=true;
+    mesh.userData.breachInterior=true;
     const show=ranges.bind(mesh);
     for(const l of p.levels)floors.set(l,show);
     if(p.b.facade!==1){

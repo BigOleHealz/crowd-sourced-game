@@ -278,6 +278,7 @@ export function galleryLobbyView(scene,renderer,Batch,panorama,debris) {
     for(let i=0;i<points.count;i++){local[i*3]=points.getX(i)-plan.x;local[i*3+1]=points.getZ(i)-plan.b.z;local[i*3+2]=plan.b.d/2;}
     mesh.geometry.setAttribute('galleryCoords',new THREE.BufferAttribute(local,3));
     mesh.userData.impactSurface='solid';
+    mesh.userData.breachInterior=true;
   }
   const glass=frontageGlassMaterial(panorama,true);
   const panes=[...galleryPanes,...galleryDoorPanes];
