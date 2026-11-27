@@ -20,10 +20,14 @@ function lettering(){
 }
 const panel=new THREE.PlaneGeometry(1.19,.34);
 export function markPatrolSedan(chassis,door,body,box){
-  const graphite=0x303539,steel=0x5a6163;
+  const graphite=0x303539,steel=0x5a6163,white=0xe3e6e1;
   const spot=new THREE.SphereGeometry(1,12,7);
   // Uprights follow the nose into the bumper. The crossbars bow around the grille.
   for(const side of [-1,1]){
+    // The rear door is a separate white panel; the front door is skinned in
+    // white by the sedan builder so it can still swing open during a takeover.
+    box(body,white,side*.859,.745,.55,.016,.344,.56);
+    box(body,graphite,side*.872,.547,.55,.019,.046,.59);
     body.beam(graphite,[side*.39,.32,-2.12],[side*.39,.57,-2.22],.073,.10);
     body.beam(graphite,[side*.39,.57,-2.22],[side*.39,.88,-2.16],.073,.10);
     body.beam(steel,[side*.37,.57,-2.19],[side*.57,.57,-2.04],.043,.055);
@@ -34,7 +38,8 @@ export function markPatrolSedan(chassis,door,body,box){
     // A dark rear quarter and low champagne/blue pinstripes make a real four-door livery.
     for(const [y,c] of [[.69,0x344e65],[.665,0xc5a469]]){
       const x=side*.853;
-      box(body,c,x,y,.78,.016,.018,.95);
+      box(body,c,side*.875,y,.55,.020,.018,.60);
+      box(body,c,x,y,1.12,.016,.018,.44);
       body.beam(c,[x,y,1.24],[side*.82,y+.055,1.63],.015,.014);
     }
 
@@ -51,13 +56,23 @@ export function markPatrolSedan(chassis,door,body,box){
   box(body,0x326d94,-.31,1.618,.04,.54,.083,.20);
   box(body,0x964536,.31,1.618,.04,.54,.083,.20);
   box(body,0xe8dfc1,0,1.623,.04,.09,.073,.2);
+  const grilleLens=new THREE.BoxGeometry(.145,.055,.034);
+  const rearLens=new THREE.BoxGeometry(.13,.05,.027);
   const lamps=lit.map((material,i)=>{
     const lamp=new THREE.Mesh(lens,material);lamp.name='Patrol beacon';
     lamp.position.set(i?.31:-.31,1.618,.04);lamp.scale.setScalar(1.025);
-    lamp.visible=false;chassis.add(lamp);return lamp;
+    lamp.visible=false;chassis.add(lamp);
+    const side=i?1:-1;
+    const grille=new THREE.Mesh(grilleLens,material);
+    grille.name='Patrol grille flasher';grille.position.set(side*.34,.655,-2.235);
+    grille.visible=false;chassis.add(grille);
+    const rear=new THREE.Mesh(rearLens,material);
+    rear.name='Patrol rear flasher';rear.position.set(side*.44,.77,2.184);
+    rear.visible=false;chassis.add(rear);
+    return [lamp,grille,rear];
   });
   return (car,time)=>{
     const side=patrolLampSide(car,time);
-    lamps[0].visible=side<0;lamps[1].visible=side>0;
+    lamps.forEach((group,i)=>group.forEach(lamp=>{lamp.visible=side===(i?1:-1);}));
   };
 }
