@@ -278,6 +278,15 @@ let seq = 0, pending = [], samples = [], queuedJump = false, retry = 500;
 let predictedDriver, nextFrame=0;
 const snapshotClock=new SnapshotClock();
 const lagDiagnostics=new URLSearchParams(location.search).get('perf')==='1' ? new LagDiagnostics() : null;
+if(lagDiagnostics){
+  window.gameLag={export:()=>lagDiagnostics.export(),mark:label=>lagDiagnostics.event('mark',{label:String(label).slice(0,80)}),
+    download(){const url=URL.createObjectURL(new Blob([JSON.stringify(lagDiagnostics.export())],{type:'application/json'}));
+      const a=document.createElement('a');a.href=url;a.download='game-lag-'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}};
+  try{new PerformanceObserver(list=>{for(const e of list.getEntries())lagDiagnostics.event('longtask',{duration:e.duration},e.startTime);}).observe({type:'longtask',buffered:true});}catch{}
+  document.addEventListener('visibilitychange',()=>lagDiagnostics.event('visibility',{hidden:document.hidden}));
+}
+let diagnosticPingAt=0;
+const diagnosticPose=p=>p?{x:p.x,y:p.y,z:p.z}:null;
 let accumulator = 0, lastTime = performance.now(), nextHud = 0;
 const controls = new Set(['KeyP','KeyU','KeyX','KeyI','KeyK','KeyL','KeyV','KeyH','KeyB','KeyG','KeyW','KeyA','KeyS','KeyD','Space','ShiftLeft','ShiftRight','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyR','KeyJ',...equipmentKeys,'Digit0','KeyQ','KeyF','KeyE','KeyC','KeyZ']);
 
@@ -707,6 +716,7 @@ function connect() {
   const connection = socket;
   let incoming = Promise.resolve();
   connection.onopen = () => {
+    if(lagDiagnostics){lagDiagnostics.event('connect');connection.send(JSON.stringify({type:'diagnostics',enabled:true}));}
     if (canUnpack && !connection.extensions.includes('permessage-deflate')) {
       connection.send(JSON.stringify({type:'snapshotEncoding', encoding:'deflate'}));
     }
@@ -715,6 +725,7 @@ function connect() {
   // asynchronous decompression, and discard work belonging to closed sockets.
   connection.onmessage = ({data}) => {
     const receivedAt=lagDiagnostics ? performance.now() : 0;
+    lagDiagnostics?.event('receive',{bytes:typeof data==='string'?new TextEncoder().encode(data).length:data.size,buffered:connection.bufferedAmount},receivedAt);
     incoming = incoming.then(async () => {
       if (connection !== socket || connection.readyState === WebSocket.CLOSED) return;
       let text = data;
@@ -732,6 +743,8 @@ function connect() {
     }).catch(error => {console.error(error); connection.close();});
   };
   function receive(m,receivedAt) {
+    if(m.type==='diagnostics'){lagDiagnostics?.event('server',m,receivedAt);return;}
+    if(m.type==='diagnosticPong'){lagDiagnostics?.event('rtt',{ms:receivedAt-m.at,serverNow:m.serverNow,tick:m.tick,run:m.run,processMs:performance.now()-receivedAt},receivedAt);return;}
     if(m.type==='wallet'){
       market.receive(m);
       if(m.message?.startsWith('Estate safe'))showBankReceipt(m.message);
@@ -746,6 +759,7 @@ function connect() {
     if (m.type === 'full') { full = true; return; }
     if (m.type === 'welcome') {
       lagDiagnostics?.reset();
+      lagDiagnostics?.event('welcome',{build:m.build});
       if(connectedBuild && m.build && connectedBuild!==m.build){location.reload();return;}
       if(costume.checked)socket.send(JSON.stringify({type:'paradeCostume',enabled:true}));
       sprintBoard=m.raceBoard??[];
@@ -848,6 +862,7 @@ function connect() {
       samples.push({time:arrival,sim, bullets:world.bullets, traffic:world.traffic,patrolCars:world.patrolCars,tank:world.tank, jet:world.jet, boats:world.boats, yacht:world.yacht, heli:world.heli,heli2:world.heli2, supercar:world.supercar, rover:world.rover,rover2:world.rover2,rover3:world.rover3, npcs:world.npcs, players:m.players.filter(p=>p.id!==id),volleyball:world.volleyball });
       if (samples.length > 12) samples.shift();
       lagDiagnostics?.record({receivedAt,processedAt:arrival,sim,simTick:m.simTick,ack:authoritative.ack,
+        authoritativeFoot:authoritative,authoritativeDriver:predictedDriver?(predictedDriver.kind==='boat'?myBoat():predictedDriver.vehicleId?myRoad():world[predictedDriver.kind]):null,
         beforeFoot:!changedLife && !predictedDriver ? beforeFoot : null,afterFoot:!changedLife && !predictedDriver ? self : null,
         beforeDriver:beforeDriverKind===predictedDriver?.kind ? beforeDriver : null,
         afterDriver:beforeDriverKind===predictedDriver?.kind ? predictedDriver?.pose(1) : null,
@@ -857,6 +872,7 @@ function connect() {
     }
   }
   socket.onclose = () => {
+    lagDiagnostics?.event('disconnect');
     scoreboard.hidden=true;scorePlayers=[];
     casino.close();elevator.close();byId('elevator-status').hidden=true;bankDialog.close();byId('bank-event').hidden=true;market.reset();bankSeq=bankReceiptUntil=0;byId('bank-receipt').hidden=true;
     talk.close();
@@ -952,7 +968,9 @@ function tick() {
   requestedStance = undefined;
   handleCase=false;
   queuedHorn=queuedBomb=queuedMissile=false;
-  socket.send(JSON.stringify(cmd));
+  const wire=JSON.stringify(cmd);
+  socket.send(wire);
+  lagDiagnostics?.event('input',{seq:cmd.seq,bytes:wire.length,buffered:socket.bufferedAmount,position:diagnosticPose(predictedDriver?.pose(1)??self)});
   pending.push(cmd);
   predictedDriver?.step(cmd,step);
   if (pending.length > 150) { socket.close(); return; }
@@ -1542,7 +1560,11 @@ function frame(time) {
   const frameStart=frameReadout?performance.now():0;
   const interval=1000/60;
   nextFrame=nextFrame && time-nextFrame<interval ? nextFrame+interval : time+interval;
-  const dt = clamp((time - lastTime) / 1000, 0, .14);
+  const frameDelta=time-lastTime;
+  if(lagDiagnostics && time-diagnosticPingAt>=1000 && socket?.readyState===WebSocket.OPEN){
+    diagnosticPingAt=time;socket.send(JSON.stringify({type:'diagnosticPing',at:performance.now()}));
+  }
+  const dt = clamp(frameDelta / 1000, 0, .14);
   lastTime = time;
   if (edgeYaw || edgePitch) {
     if (!windowBlurred && !document.hidden && canvas.matches(':hover')) {
@@ -1608,6 +1630,10 @@ function frame(time) {
     const latest=samples.at(-1),volleyballTick=(world.simTick??0)-1+clamp((time-(latest?.time??time))*.03,0,2);
     const sceneStart=frameReadout?performance.now():0;
     const frameCost=scene.render(local, remotes, view, dt, { ...world, patrolCars, traffic:cars, tank, jet:shownJet, heli,heli2, rover,rover2,rover3, supercar, boats, yacht, npcs, bullets:roundFrame(time),volleyballAthletes:traffic.volleyball,volleyballTick,meleeRemoteTick:(traffic.sim??0)*.03,frameTick:volleyballTick });
+    lagDiagnostics?.event('frame',{delta:frameDelta,cost:performance.now()-frameStart,...frameCost,
+      tick:world.simTick,seq,ack:vitals.ack,pending:pending.length,bullets:world.bullets.length,
+      mode:predictedDriver?.kind??(gunnerRole()?'gunner':'foot'),entity:predictedDriver?.vehicleId??predictedDriver?.kind??id,
+      simulated:diagnosticPose(predictedDriver?.pose(1)??self),rendered:diagnosticPose(local)},time);
     if(frameReadout)measureFrame(time,remotes.length+1,{preMs:sceneStart-frameStart,...frameCost,totalMs:performance.now()-frameStart});
     if (time >= nextHud) {
       nextHud = time + 80;

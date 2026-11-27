@@ -16,7 +16,6 @@ export function rockPileOverlapsBridge(x,z,radius,bridge) {
 }
 
 const cellSize=4;
-const cellKey=(x,z)=>`${x},${z}`;
 
 // The rendered stones and walking support use the same indexed footprints.
 export function indexShoreRocks(rocks){
@@ -24,20 +23,26 @@ export function indexShoreRocks(rocks){
   for(const rock of rocks)
     for(let cx=Math.floor((rock.x-rock.radius)/cellSize);cx<=Math.floor((rock.x+rock.radius)/cellSize);cx++)
       for(let cz=Math.floor((rock.z-rock.radius)/cellSize);cz<=Math.floor((rock.z+rock.radius)/cellSize);cz++){
-        const key=cellKey(cx,cz);
-        if(!cells.has(key))cells.set(key,[]);
-        cells.get(key).push(rock);
+        let column=cells.get(cx);
+        if(!column)cells.set(cx,column=new Map());
+        if(!column.has(cz))column.set(cz,[]);
+        column.get(cz).push(rock);
       }
   return {rocks,cells};
 }
 
 export function shoreRockTopAt(field,x,z,bedHeight,maxBottom=Infinity){
   if(maxBottom<=0)return undefined;
-  let top;
-  for(const rock of field.cells.get(cellKey(Math.floor(x/cellSize),Math.floor(z/cellSize)))??[]){
+  // Numeric columns avoid allocating three string keys and empty arrays for
+  // every terrain sample (including every airborne projectile sample).
+  const rocks=field.cells.get(Math.floor(x/cellSize))?.get(Math.floor(z/cellSize));
+  if(!rocks)return undefined;
+  let top,bed;
+  for(const rock of rocks){
     const dx=(x-rock.x)/rock.radius,dz=(z-rock.z)/rock.zRadius,distance2=dx*dx+dz*dz;
     if(distance2>=1)continue;
-    const surface=bedHeight(x,z)+rock.height*1.30*(1-distance2);
+    bed??=bedHeight(x,z);
+    const surface=bed+rock.height*1.30*(1-distance2);
     if(surface<=maxBottom+.65)top=Math.max(top??-Infinity,surface);
   }
   return top;

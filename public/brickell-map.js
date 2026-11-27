@@ -49,7 +49,19 @@ const oldShores=[...shorePads,coast,causeway,harbor,militaryBridgeDeck,militaryA
 // The shore apron uses the same two-metre triangles as the rendered sand.
 // Boats retain the surveyed bed; submerged swimmers use this visible height.
 const shoreLand=[...shorePads,coast,harbor,...lanternLand];
+// Immutable survey vertices are shared by every 12 cm projectile terrain
+// probe, walking support and boat query. Cache exact vertices, not rounded
+// gameplay positions; never cache doors, damage, or maxBottom-dependent floors.
+const shoreSurveyCache=new Map();
 function shoreSurvey(x,z) {
+  const key=x+','+z;
+  if(shoreSurveyCache.has(key))return shoreSurveyCache.get(key);
+  const height=surveyShore(x,z);
+  if(shoreSurveyCache.size>=32768)shoreSurveyCache.delete(shoreSurveyCache.keys().next().value);
+  shoreSurveyCache.set(key,height);
+  return height;
+}
+function surveyShore(x,z) {
   const bed=seabedHeight(x,z);
   let distance=Infinity;
   for(const r of shoreLand){

@@ -262,9 +262,19 @@ export function blastPosts(world,center,radius,damage,team){
   }
 }
 export const roundActorSweep=2.5;
+// Only the diagnostic server path enables counters; no geometry is disabled.
+let contactMetrics=null;
+export function measureRoundContacts(run){
+  const metrics={calls:0,candidates:0,terrainSamples:0,ms:0};
+  contactMetrics=metrics;
+  try{run();return metrics;}finally{contactMetrics=null;}
+}
 export function segmentContact(world,round,d,actors,previous,actorIntersection){
+  const measured=contactMetrics,started=measured?performance.now():0;
+  if(measured)measured.calls++;
   let t=Infinity,target=null,hitKind=null,headshot=false,hitPart=null,visualT=Infinity,wheel=null;
   function accept(value,obj,kind,head=false,part=null,visual=value,wheelIndex=null){
+    if(measured)measured.candidates++;
     if((kind==='glass' || kind==='scenery') && Number.isFinite(value) &&
       (inTankOpening(world.doors,round.x+d.x*value,round.y+d.y*value,round.z+d.z*value) || ruinedHouseAt(world.doors,round.x+d.x*value,round.z+d.z*value) || inTowerBreach(MAP.buildings,world.doors,round.x+d.x*value,round.y+d.y*value,round.z+d.z*value)))return;
     if(value>=0 && value<=1 && value<t){t=value;target=obj;hitKind=kind;headshot=head;hitPart=part;visualT=visual;wheel=wheelIndex;}
@@ -388,6 +398,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     if(contact)accept(contact.t,contact.target,contact.kind);
   }
   const above=f=>{
+    if(measured)measured.terrainSamples++;
     const x=round.x+f*d.x,y=round.y+f*d.y,z=round.z+f*d.z;
     return y-Math.max(waterStop,groundHeight(x,z,y,world.doors),CITY ? parapetTop(x,z,0,y,world.doors) : -Infinity);
   };
@@ -399,5 +410,6 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
     for(let k=0;k<6;k++){const m=(lo+hi)/2;if(above(m)>0)lo=m;else hi=m;}
     accept(hi,null,'scenery');break;
   }
+  if(measured)measured.ms+=performance.now()-started;
   return {t,target,hitKind,headshot,hitPart,visualT,wheel};
 }
