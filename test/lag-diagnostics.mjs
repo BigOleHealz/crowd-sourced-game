@@ -26,3 +26,9 @@ assert.equal(diagnostics.lastCorrection.groundedFlip,null);
 diagnostics.reset();
 assert.equal(diagnostics.lastCorrection,null);
 console.log('PASS: correction timing stays attached to its own snapshot.');
+// Ring rollover stays bounded, copies poses and keeps server message types
+// from overwriting the event category used to correlate browser/server clocks.
+for(let i=0;i<9000;i++)diagnostics.event('server',{type:'diagnostics',tick:i},i);
+const saved=diagnostics.export();assert.equal(saved.events.length,8192);
+assert.equal(saved.events[0].tick,808);assert.equal(saved.events.at(-1).tick,8999);
+assert.equal(saved.events.at(-1).type,'server');

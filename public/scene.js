@@ -1956,7 +1956,8 @@ export function createScene(canvas) {
       renderer.render(scene,camera);
       scene.fog=airFog;camera.far=far;camera.updateProjectionMatrix();diveBackdrop.visible=false;
     }else renderer.render(scene,camera);
-    if(profileFrames)return {updateMs:drawStart-updateStart,drawMs:performance.now()-drawStart};
+    const localMesh=profileFrames?avatars.get(local.id)?.root.position:null;
+    if(profileFrames)return {mesh:localMesh?{x:localMesh.x,y:localMesh.y,z:localMesh.z}:null,updateMs:drawStart-updateStart,drawMs:performance.now()-drawStart,camera:{x:camera.position.x,y:camera.position.y,z:camera.position.z},drawCalls:renderer.info.render.calls,triangles:renderer.info.render.triangles};
   }
   const pendingMuzzles=[];
   const muzzlePoint=new THREE.Vector3();

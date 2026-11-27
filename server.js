@@ -1,3 +1,5 @@
+import {measureRoundContacts} from './public/rounds.js';
+import {ServerLagTelemetry} from './lag-telemetry.js';
 import {sidearmSlot,sidearmCar,hasMountedTool} from './public/car-sidearm.js';
 import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
 import {spearCast,clearReturnedFish} from './public/spearfishing.js';
@@ -338,17 +340,30 @@ function playerState(player) {
     sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
+const lagTelemetry=new ServerLagTelemetry();
+const diagnosing=()=>{for(const p of players.values())if(p.diagnostics)return true;return false;};
 function publish() {
+  const measured=diagnosing(),started=measured?performance.now():0;
   if (!players.size) return;
   const view=worldView();
   const message = JSON.stringify({ type: 'snapshot', simTick:ticks, players: [...players.values()].map(playerState), world: CITY?compactAmbientView(view):view });
   let packed;
-  for (const { ws, packedSnapshots } of players.values()) {
-    if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) continue;
+  for (const player of players.values()) {
+    const {ws,packedSnapshots}=player;
+    if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount >= 64 * 1024) {
+      if(measured)player.skippedSnapshots=(player.skippedSnapshots??0)+1;
+      continue;
+    }
+    if(player.diagnostics)ws.send(JSON.stringify({type:'diagnostics',...lagTelemetry.sample(player,ticks,performance.now())}));
     if (packedSnapshots) {
       packed ??= deflateSync(message, {level: 1});
       ws.send(packed, {compress: false});
     } else ws.send(message);
+  }
+  if(measured){
+    const now=performance.now();
+    lagTelemetry.publish(now,now-started,Buffer.byteLength(message),ticks);
+    lagTelemetry.clearWindow();
   }
 }
 
@@ -358,6 +373,18 @@ function acceptInput(player, data, binary) {
   try {
     input = JSON.parse(data);
   } catch {
+    return;
+  }
+  if(player.diagnostics){player.rxMessages=(player.rxMessages??0)+1;player.rxBytes=(player.rxBytes??0)+data.length;}
+  if(input?.type==='diagnostics'){
+    player.diagnostics=input.enabled===true;return;
+  }
+  if(input?.type==='diagnosticPing'){
+    const now=performance.now();
+    if(player.diagnostics && Number.isFinite(input.at) && now-(player.lastDiagnosticPing??-Infinity)>=500){
+      player.lastDiagnosticPing=now;
+      player.ws.send(JSON.stringify({type:'diagnosticPong',at:input.at,serverNow:now,tick:ticks,run:lagTelemetry.run}));
+    }
     return;
   }
   if(zombies && input?.type==='startSurvival'){
@@ -464,7 +491,7 @@ function acceptInput(player, data, binary) {
   player.lastSeq = input.seq;
   // Retain up to one second of commands while the fixed-step clock catches up
   // after a brief server stall. Bound longer backlogs so controls stay current.
-  if (player.inputs.length >= 30) player.inputs.shift();
+  if (player.inputs.length >= 30) {player.inputs.shift();player.droppedInputs=(player.droppedInputs??0)+1;}
   player.inputs.push({
     refuel:input.refuel===true, handleCase:input.handleCase===true, replaySupply: input.replaySupply === true, deploy: input.deploy === true,
     stance: ['crouch', 'prone', 'stand'].includes(input.stance) ? input.stance : undefined,
@@ -531,6 +558,7 @@ sockets.on('connection', (ws,request) => {
     ws.close(1013, 'World full');
     return;
   }
+  lagTelemetry.connections++;
   if(!players.size)wakeWorld();
   let id = 1;
   while (players.has(id)) id++;
@@ -556,6 +584,7 @@ sockets.on('connection', (ws,request) => {
   ws.on('message', (data, binary) => acceptInput(players.get(id), data, binary));
   ws.on('pong', () => { players.get(id).alive = true; });
   ws.on('close', () => {
+    lagTelemetry.disconnects++;
     const player=players.get(id);
     match?.release(player);
     parkRide(world,player,!player.state.grounded);
@@ -973,7 +1002,11 @@ function tick() {
     }
   }
   stepHydrants(world);
-  advanceRounds(world,players,npcs,ticks);
+  const roundStart=diagnosing()?performance.now():0;
+  const roundCount=world.bullets.length;
+  if(roundStart)lagTelemetry.collision=measureRoundContacts(()=>advanceRounds(world,players,npcs,ticks));
+  else advanceRounds(world,players,npcs,ticks);
+  if(roundStart){lagTelemetry.roundMs=performance.now()-roundStart;lagTelemetry.rounds=roundCount;}
   stepBurningActors(world,players,npcs,ticks);
   advanceThrowables(world,players,npcs,ticks);
   advanceMissiles(world,players,npcs,ticks);
@@ -1014,11 +1047,15 @@ function wakeWorld(){
     const now=performance.now();
     // Keep a short stall's elapsed time instead of permanently slowing the
     // authoritative world. Spread catch-up across callbacks to bound work.
-    accumulated=Math.min(accumulated+(now-previous)/1000,1);
+    const debt=accumulated+(now-previous)/1000;
+    if(diagnosing())lagTelemetry.loop(now,previous,debt*1000,Math.max(0,debt-1)*1000);
+    accumulated=Math.min(debt,1);
     previous=now;
     let catchupTicks=0;
     while(accumulated>=step && catchupTicks++<4){
+      const started=diagnosing()?performance.now():0;
       tick();
+      if(started)lagTelemetry.tick(performance.now()-started,ticks);
       accumulated-=step;
     }
   },8).unref();

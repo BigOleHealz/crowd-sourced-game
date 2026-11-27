@@ -1,2 +1,5 @@
 node_modules/
 .DS_Store
+
+# Local performance captures can be large and are not production assets.
+output/lag/

@@ -1,3 +1,4 @@
+const position=p=>p?{x:p.x,y:p.y,z:p.z}:null;
 // Session-wide diagnostics for ?perf=1. Keep the receive time separate from
 // processing time so a browser decode backlog does not look like network lag.
 const displacement=(a,b)=>a && b && {
@@ -11,8 +12,16 @@ export class LagDiagnostics {
     this.worstGap={received:0,sim:0,at:0};
     this.lastCorrection=null;
   }
-  constructor(){this.reset();}
-  record({receivedAt,processedAt,sim,simTick,ack,beforeFoot,afterFoot,beforeDriver,afterDriver,pending}){
+  constructor(){this.reset();this.events=new Array(8192);this.cursor=0;this.count=0;}
+  event(type,data={},at=performance.now()){
+    this.events[this.cursor]={...data,type,at};this.cursor=(this.cursor+1)%this.events.length;
+    this.count=Math.min(this.count+1,this.events.length);
+  }
+  export(){
+    const start=(this.cursor-this.count+this.events.length)%this.events.length;
+    return {version:1,timeOrigin:performance.timeOrigin,events:Array.from({length:this.count},(_,i)=>this.events[(start+i)%this.events.length])};
+  }
+  record({receivedAt,processedAt,sim,simTick,ack,beforeFoot,afterFoot,beforeDriver,afterDriver,authoritativeFoot,authoritativeDriver,pending}){
     if(this.firstReceivedAt==null)this.firstReceivedAt=receivedAt;
     const receivedGap=this.lastReceivedAt==null ? 0 : receivedAt-this.lastReceivedAt;
     const simGap=this.lastSim==null ? 0 : sim-this.lastSim;
@@ -34,6 +43,8 @@ export class LagDiagnostics {
         ? `${beforeFoot.grounded?'ground':'air'}→${afterFoot.grounded?'ground':'air'}` : null,
       at:(receivedAt-this.firstReceivedAt)/1000,
     };
+    this.event('correction',{simTick,ack,pending,authoritativeFoot:position(authoritativeFoot),authoritativeDriver:position(authoritativeDriver),receivedGap,simGap,processMs:processedAt-receivedAt,
+      beforeFoot:position(beforeFoot),afterFoot:position(afterFoot),beforeDriver:position(beforeDriver),afterDriver:position(afterDriver),foot,driver},receivedAt);
     this.lastReceivedAt=receivedAt;this.lastSim=sim;this.lastTick=simTick;this.lastAck=ack;
   }
   summary(){
