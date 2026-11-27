@@ -148,7 +148,7 @@ function renderScoreboard(){
     body.append(row);
   }
 }
-let stickX=0, stickY=0;
+let stickY=0;
 const stickOutput=n=>Math.sign(n)*Math.max(0,Math.abs(n)-.06)/.94;
 let lastPointer = null, pressedAim = null, releaseSwimTrigger=false;
 let lookPaused=false;
@@ -318,13 +318,13 @@ const touch=createTouchControls(canvas,{
   look(dx,dy){
     if(jetPilot()){
       const radius=Math.max(40,Math.min(innerWidth,innerHeight)*.20);
-      stickX=clamp(stickX+dx/radius,-1,1);stickY=clamp(stickY-dy/radius,-1,1);
-      byId('flight-cursor').style.transform='translate('+stickX*radius+'px,'+-stickY*radius+'px)';
+      stickY=clamp(stickY-dy/radius,-1,1);
+      byId('flight-cursor').style.transform='translateY('+-stickY*radius+'px)';
     }else{
       camera.yaw+=dx*.0052;camera.pitch=viewPitch(camera.pitch-dy*.0041);
     }
   },
-  endLook(){if(jetPilot()){stickX=stickY=0;byId('flight-cursor').style.transform='';}},
+  endLook(){if(jetPilot()){stickY=0;byId('flight-cursor').style.transform='';}},
   action(code){
     if(code==='aim'){if(canAim() && !meleeItems[weapon])showSight(!camera.sighted);return;}
     if(code==='run'){touchSprint=!touchSprint;return;}
@@ -337,7 +337,7 @@ const down=code=>held.has(code)||touch.down(code);
 function clearInput() {
   touch.reset();touchSprint=false;queuedScuba=queuedRefuel=false;
   queuedHorn=queuedBomb=queuedMissile=false;
-  stickX=stickY=0;byId('flight-cursor').style.transform='';
+  stickY=0;byId('flight-cursor').style.transform='';
   handleCase=false;
   showSight(false);
   held.clear();
@@ -676,13 +676,11 @@ canvas.addEventListener('pointermove', e => {
     const rect=canvas.getBoundingClientRect();
     const radius=Math.max(36,Math.min(rect.width,rect.height)*.20);
     if(locked()){
-      stickX=clamp(stickX+e.movementX/radius,-1,1);
       stickY=clamp(stickY-e.movementY/radius,-1,1);
     } else {
-      stickX=clamp((e.clientX-rect.left-rect.width/2)/radius,-1,1);
       stickY=clamp((rect.top+rect.height/2-e.clientY)/radius,-1,1);
     }
-    byId('flight-cursor').style.transform='translate('+stickX*radius+'px,'+-stickY*radius+'px)';
+    byId('flight-cursor').style.transform='translateY('+-stickY*radius+'px)';
     stopLook();return;
   }
   if(locked()){
@@ -826,7 +824,7 @@ function connect() {
         if(!wasPlayingHoops){camera.yaw=facing=hoopHeading(authoritative);camera.pitch=-.17;stopLook();}
       }
       if(wasJet!==jetPilot()){
-        stickX=stickY=0;stopLook();
+        stickY=0;stopLook();
         byId('flight-cursor').style.transform='';
         camera.yaw=world.jet.yaw;
         camera.pitch=-.10;
@@ -955,7 +953,7 @@ function tick() {
     sprint: sprint && !pilot, weapon:holstered?null:weapon, hoopShot, fire:fire && !atYachtHelm(), interact: !!queuedInteract,useTarget:queuedInteract?.target,useRole:queuedInteract?.role, seat:queuedSeat, seatKind:queuedSeatKind,
     bomb:jetPilot() && queuedBomb,
     missile:pilot && (queuedMissile || down('KeyR')),
-    throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?stickOutput(stickX):(driving || self.ride)?lateral:0,
+    throttle: driving || jetPilot() || self.ride ? forward : 0, steer:jetPilot()?Number(down('KeyD'))-Number(down('KeyA')):(driving || self.ride)?lateral:0,
     jetPitch:jetPilot()?stickOutput(stickY):undefined,
     jetRoll:jetPilot()?Number(down('KeyA'))-Number(down('KeyD')):0,
     lift: pilot && !jetPilot() ? Number(down('Space')) - Number(descending) : 0,
@@ -1239,8 +1237,8 @@ function updateEquipment(local) {
   else if(person)prompt.textContent='E  ·  Talk to '+conversations[person].name;
   else if(inTank())prompt.textContent='W/S drive · A/D turn tracks · Mouse aims turret · F / click fire';
   else if(jetPilot())prompt.textContent=world.jet.grounded?
-    'Runway · '+Math.round(world.jet.speed*3.6)+' / 86 km/h to rotate · W throttle · Cursor up to lift off':
-    'Hold A/D to roll; release to hold bank · Cursor to steer and loop · W/S throttle · F cannon · R missile · B bomb';
+    'Runway · '+Math.round(world.jet.speed*3.6)+' / 86 km/h to rotate · W throttle · A/D steer · Mouse up to lift off':
+    'Hold A/D to roll; release to hold bank · Mouse up/down pitches · W/S throttle · F cannon · R missile · B bomb';
   else if(atYachtHelm() || (boat && !gunner))prompt.textContent='W/S throttle · A/D steer';
   else if(trafficCar?.takeover)prompt.textContent='Taking the wheel…';
   else if(trafficCar?.patrol)prompt.textContent='W/S drive · A/D steer · L emergency lights';
