@@ -1,5 +1,13 @@
 # Goy Theft Auto
 
+## Player accounts
+
+Players can keep playing as guests or use **Guest · Account** to create a username and password. Signed-in usernames appear on the scoreboard. The account panel shows lifetime kills, deaths, time played, and connection sessions. These totals come from the server's existing score and connection events; they do not include play from before registration. Match scores still reset with each round.
+
+Set `DATABASE_URL` to a PostgreSQL connection string to enable accounts. On Render, use the database's internal URL in the same workspace and region as the game service. The server creates the `player_accounts` and `player_sessions` tables on startup. Without `DATABASE_URL`, guest play remains available and the account panel explains that accounts are unavailable. Do not commit connection strings or passwords. Sessions expire after 30 days. There is currently no password recovery flow.
+
+Run `TEST_DATABASE_URL=postgres://... node --test test/player-accounts.mjs` against a disposable PostgreSQL database to exercise registration, login, signed-in WebSocket identity, saved play time, and logout.
+
 ### Supply run
 
 Every expedition starts a shared three-case delivery. The amber route on the map points to your next vehicle or stop. One hiker can handle every leg, or a driver and pilot can split the work.

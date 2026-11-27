@@ -142,7 +142,7 @@ function renderScoreboard(){
   for(const player of ordered){
     const row=document.createElement('tr');
     if(player.id===id)row.className='self';
-    const cells=[(player.id===id?'You · ':'')+'Player '+player.id,
+    const cells=[(player.id===id?'You · ':'')+(player.username || 'Player '+player.id),
       player.team==null?'—':String(player.team),player.score?.kills??0,
       player.score?.deaths??0,Math.max(0,Math.round(player.hp??0))];
     for(const value of cells){const cell=document.createElement('td');cell.textContent=String(value);row.append(cell);}
