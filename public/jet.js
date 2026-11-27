@@ -106,7 +106,14 @@ export function stepJet(world,input,dt,players){
   if(!j.grounded && !powered){
     const level=-.14-j.pitch;
     j.pitch+=Math.atan2(Math.sin(level),Math.cos(level))*response;
-  }else if(j.pilot!=null && !j.grounded)j.pitch+=lift*1.6*dt;
+  }else if(j.pilot!=null && !j.grounded){
+    // The cursor is screen-relative. Rotate its pitch command with the bank:
+    // inverted wings reverse world pitch, and a quarter roll turns it into yaw.
+    const turn=lift*1.6*dt;
+    const cosPitch=Math.cos(j.pitch);
+    j.pitch+=turn*Math.cos(j.roll);
+    j.yaw-=turn*Math.sin(j.roll)*Math.sign(cosPitch||1)/Math.max(.25,Math.abs(cosPitch));
+  }
   const horizontal=j.speed*Math.cos(j.pitch);
   const climb=j.grounded?0:j.pilot==null?-6:!powered ? -2.4-Math.max(0,8-j.speed)*.3 :
     j.speed<stallSpeed ? -2.4-(stallSpeed-j.speed)*1.5 : j.speed*Math.sin(j.pitch);
