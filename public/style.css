@@ -389,6 +389,9 @@ body:not(.touch-play) #zombie-start::after {content:' ↵';opacity:.7}
 #google-username-form label {display:grid;gap:5px;font-size:13px;}
 #google-username-form input {width:100%;padding:9px;color:#fff;background:#141c17;border:1px solid #a4af9b;border-radius:3px;font:inherit;}
 #google-username-form button {background:#d5b882;color:#172922;border:0;border-radius:3px;font-weight:700;}
+.footer-links {display:flex;align-items:center;gap:10px;}
+.footer-links a {pointer-events:auto;color:#d5b882;font-size:11px;white-space:nowrap;}
+@media(max-width:520px){.footer-links a {font-size:10px;}}
 #player-scoreboard header {display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
 #player-scoreboard strong {font-size:1.35rem;letter-spacing:.04em}
 #player-scoreboard header span,#player-scoreboard small {color:#b8c9ba}
