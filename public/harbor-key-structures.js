@@ -54,7 +54,9 @@ function sandBarrier({x,z,w,d,top,bottom}) {
 }
 
 export const coastalStructureBarriers = [
-  sandBarrier(beachHut.canopy), ...beachHut.posts.map(sandBarrier), ...beachHut.benches.map(sandBarrier),
+  {...sandBarrier(beachHut.canopy),woodMaterial:false},
+  ...beachHut.posts.map((post,i)=>({...sandBarrier(post),fireSite:'hut-post-'+i})),
+  ...beachHut.benches.map((bench,i)=>({...sandBarrier(bench),fireSite:'hut-bench-'+i})),
 ];
 
 export function beachHutFloor(x,z,floor) {

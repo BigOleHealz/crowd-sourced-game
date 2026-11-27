@@ -57,7 +57,7 @@ export const beachBarriers=[
   ]),
   ...shadeSpots.flatMap(({x,z},i)=>[
     {x,z,w:.08,d:.08,h:2.12,woodId:'parasol-'+i},
-    {x,z,w:2.44,d:2.44,bottom:1.99,h:2.56,woodId:'parasol-'+i},
+    {x,z,w:2.44,d:2.44,bottom:1.99,h:2.56,woodId:'parasol-'+i,woodMaterial:false},
     ...[-1,1].map(side=>({x:x+.85,z:z+side*.86,w:1.80,d:.58,h:.56,woodId:'lounger-'+i+'-'+side})),
   ]),
   ...stations.flatMap(({x,z,number})=>[
