@@ -13,6 +13,7 @@ test('registration, login, WebSocket identity, play time and logout persist in P
     const port = randomInt(45000, 55000);
     const base = `http://127.0.0.1:${port}`;
     const username = `player_${randomInt(1_000_000_000)}`;
+    const googleUsername = `google_${randomInt(1_000_000_000)}`;
     const password = 'local-test-password-123';
     const database = new pg.Pool({ connectionString: process.env.TEST_DATABASE_URL });
     const server = spawn(process.execPath, ['server.js'], {
@@ -57,6 +58,22 @@ test('registration, login, WebSocket identity, play time and logout persist in P
       assert.equal((await totals.json()).account.kills, 2);
       const deaths = await fetch(base + '/api/account', { headers: { Cookie: cookie } });
       assert.equal((await deaths.json()).account.deaths, 1);
+      const googleStore = await store.createAccountStore(process.env.TEST_DATABASE_URL, {
+        googleClientId: 'test-client-id',
+        verifyGoogleToken: async credential => {
+          if (credential !== 'valid-test-token') throw new Error('Invalid token');
+          return { sub: 'test-google-sub-' + googleUsername };
+        },
+      });
+      assert.equal((await googleStore.googleSignIn('invalid')).status, 401);
+      assert.equal((await googleStore.googleSignIn('valid-test-token')).body.needsUsername, true);
+      const googleCreated = await googleStore.googleSignIn('valid-test-token', googleUsername);
+      assert.equal(googleCreated.status, 201);
+      const googleProfile = await googleStore.session({ headers: { cookie: `gta_session=${googleCreated.token}` } });
+      assert.equal(googleProfile.username, googleUsername);
+      assert.equal((await googleStore.googleSignIn('valid-test-token')).status, 200);
+      assert.equal((await post('login', { username: googleUsername, password })).status, 401);
+      await googleStore.close();
       const hashed = await database.query('SELECT password_hash FROM player_accounts WHERE username=$1', [username]);
       assert.ok(hashed.rows[0].password_hash && !hashed.rows[0].password_hash.includes(password));
 
@@ -84,6 +101,7 @@ test('registration, login, WebSocket identity, play time and logout persist in P
     } finally {
       server.kill();
       await database.query('DELETE FROM player_accounts WHERE username=$1', [username]);
+      await database.query('DELETE FROM player_accounts WHERE username=$1', [googleUsername]);
       await database.end();
     }
   });

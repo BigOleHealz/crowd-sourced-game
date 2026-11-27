@@ -47,6 +47,15 @@
       <button id="account-submit" type="submit">Create account</button>
       <button id="account-switch" type="button">Already have an account? Sign in</button>
     </form>
+    <section id="google-account" hidden>
+      <p>Or sign in with Google</p>
+      <div id="google-button"></div>
+      <form id="google-username-form" hidden>
+        <label>Choose a game username <input name="username" autocomplete="off" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="3–20 letters, numbers, _"></label>
+        <button type="submit">Create Google account</button>
+      </form>
+    </section>
+    <p class="account-privacy"><a href="/privacy.html" target="_blank" rel="noopener">How account data is used</a></p>
   </dialog>
   <aside id="zombie-card" aria-label="Co-op zombie survival" hidden>
     <strong>Zombie Survival</strong><div id="zombie-status" role="status"></div>

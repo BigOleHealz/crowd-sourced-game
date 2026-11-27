@@ -383,6 +383,12 @@ body:not(.touch-play) #zombie-start::after {content:' ↵';opacity:.7}
 #account-profile dl div {padding:10px;background:#141c17;border:1px solid var(--line);}
 #account-profile dt {font-size:11px;color:#c5ceaa;}
 #account-profile dd {margin:4px 0 0;font-size:19px;font-weight:700;}
+#google-account {border-top:1px solid var(--line);margin-top:18px;padding-top:5px;}
+#google-account p {font-size:12px;color:#c5ceaa;}
+#google-username-form {display:grid;gap:10px;margin-top:12px;}
+#google-username-form label {display:grid;gap:5px;font-size:13px;}
+#google-username-form input {width:100%;padding:9px;color:#fff;background:#141c17;border:1px solid #a4af9b;border-radius:3px;font:inherit;}
+#google-username-form button {background:#d5b882;color:#172922;border:0;border-radius:3px;font-weight:700;}
 #player-scoreboard header {display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
 #player-scoreboard strong {font-size:1.35rem;letter-spacing:.04em}
 #player-scoreboard header span,#player-scoreboard small {color:#b8c9ba}

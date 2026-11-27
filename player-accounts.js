@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, scrypt as scryptCallback, createHash, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import pg from 'pg';
+import googleAuth from 'google-auth-library';
 
 const scrypt = promisify(scryptCallback);
 const cookieName = 'gta_session';
@@ -34,7 +35,7 @@ async function bodyFrom(request) {
   let raw = '';
   for await (const chunk of request) {
     raw += chunk;
-    if (raw.length > 2048) throw new Error('Request too large');
+    if (raw.length > 8192) throw new Error('Request too large');
   }
   return JSON.parse(raw);
 }
@@ -64,16 +65,25 @@ function limited(request, pathname) {
   return entry.count > 10;
 }
 
-export async function createAccountStore(databaseUrl = process.env.DATABASE_URL) {
+export async function createAccountStore(databaseUrl = process.env.DATABASE_URL, options = {}) {
   if (!databaseUrl) return null;
+  const googleClientId = options.googleClientId ?? process.env.GOOGLE_CLIENT_ID;
+  const googleClient = googleClientId ? new googleAuth.OAuth2Client() : null;
+  const verifyGoogleToken = options.verifyGoogleToken ?? (async credential => {
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: googleClientId });
+    return ticket.getPayload();
+  });
   const pool = new pg.Pool({ connectionString: databaseUrl, max: 2, connectionTimeoutMillis: 5000 });
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS player_accounts (
       id uuid PRIMARY KEY, username varchar(20) NOT NULL UNIQUE,
-      password_hash text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+      password_hash text, google_sub text, created_at timestamptz NOT NULL DEFAULT now(),
       kills integer NOT NULL DEFAULT 0, deaths integer NOT NULL DEFAULT 0,
       play_seconds integer NOT NULL DEFAULT 0, sessions integer NOT NULL DEFAULT 0
     )`);
+    await pool.query('ALTER TABLE player_accounts ALTER COLUMN password_hash DROP NOT NULL');
+    await pool.query('ALTER TABLE player_accounts ADD COLUMN IF NOT EXISTS google_sub text');
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS player_accounts_google_sub ON player_accounts (google_sub)');
     await pool.query(`CREATE TABLE IF NOT EXISTS player_sessions (
       token_hash char(64) PRIMARY KEY, player_id uuid NOT NULL REFERENCES player_accounts(id) ON DELETE CASCADE,
       expires_at timestamptz NOT NULL
@@ -97,8 +107,36 @@ export async function createAccountStore(databaseUrl = process.env.DATABASE_URL)
       VALUES ($1,$2,now() + interval '30 days')`, [tokenHash(token), id]);
     return token;
   }
+  async function googleSignIn(credential, username) {
+    if (!googleClientId) return { status: 503, body: { error: 'Google sign-in is not configured yet.' } };
+    if (typeof credential !== 'string' || credential.length > 8000) {
+      return { status: 400, body: { error: 'Invalid Google credential.' } };
+    }
+    let payload;
+    try { payload = await verifyGoogleToken(credential); }
+    catch { return { status: 401, body: { error: 'Google sign-in failed. Please try again.' } }; }
+    if (typeof payload?.sub !== 'string' || !payload.sub) {
+      return { status: 401, body: { error: 'Google sign-in failed. Please try again.' } };
+    }
+    const existing = await pool.query('SELECT id FROM player_accounts WHERE google_sub=$1', [payload.sub]);
+    if (existing.rows[0]) return { status: 200, token: await startSession(existing.rows[0].id), body: { ok: true } };
+    if (username == null) return { status: 200, body: { needsUsername: true } };
+    if (typeof username !== 'string' || !usernamePattern.test(username)) {
+      return { status: 400, body: { error: 'Choose a username with 3–20 letters, numbers, or underscores.' } };
+    }
+    try {
+      const id = randomUUID();
+      await pool.query('INSERT INTO player_accounts (id,username,google_sub) VALUES ($1,$2,$3)',
+        [id, username.toLowerCase(), payload.sub]);
+      return { status: 201, token: await startSession(id), body: { ok: true } };
+    } catch (error) {
+      if (error.code === '23505') return { status: 409, body: { error: 'Username already taken, or this Google account is already registered.' } };
+      throw error;
+    }
+  }
   return {
     session,
+    googleSignIn,
     close: () => pool.end(),
     async stats(id, kills, deaths, playSeconds, sessions = 0) {
       await pool.query(`UPDATE player_accounts SET kills=kills+$2, deaths=deaths+$3,
@@ -107,7 +145,7 @@ export async function createAccountStore(databaseUrl = process.env.DATABASE_URL)
     },
     async handle(request, response, pathname) {
       if (request.method === 'GET' && pathname === '/api/account') {
-        return json(response, 200, { enabled: true, account: await session(request) });
+        return json(response, 200, { enabled: true, googleClientId, account: await session(request) });
       }
       if (request.method !== 'POST' || !allowedOrigin(request)) {
         return json(response, 403, { error: 'Forbidden' });
@@ -117,13 +155,19 @@ export async function createAccountStore(databaseUrl = process.env.DATABASE_URL)
         if (token) await pool.query('DELETE FROM player_sessions WHERE token_hash=$1', [tokenHash(token)]);
         return json(response, 200, { ok: true }, { 'Set-Cookie': cookie(request, '', 0) });
       }
-      if (pathname !== '/api/account/register' && pathname !== '/api/account/login') {
+      if (pathname !== '/api/account/register' && pathname !== '/api/account/login' && pathname !== '/api/account/google') {
         return json(response, 404, { error: 'Not found' });
       }
       if (limited(request, pathname)) return json(response, 429, { error: 'Too many attempts. Try again later.' });
       let body;
       try { body = await bodyFrom(request); }
       catch { return json(response, 400, { error: 'Invalid request' }); }
+      if (pathname === '/api/account/google') {
+        const result = await googleSignIn(body?.credential, body?.username);
+        if (result.token) attempts.delete(attemptKey(request, pathname));
+        return json(response, result.status, result.body,
+          result.token ? { 'Set-Cookie': cookie(request, result.token) } : {});
+      }
       const username = body?.username;
       const password = body?.password;
       if (typeof username !== 'string' || !usernamePattern.test(username) ||

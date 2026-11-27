@@ -2,11 +2,15 @@
 
 ## Player accounts
 
-Players can keep playing as guests or use **Guest · Account** to create a username and password. Signed-in usernames appear on the scoreboard. The account panel shows lifetime kills, deaths, time played, and connection sessions. These totals come from the server's existing score and connection events; they do not include play from before registration. Match scores still reset with each round.
+Players can keep playing as guests or use **Guest · Account** to create a username and password or sign in with Google. First-time Google players choose a unique game username. Signed-in usernames appear on the scoreboard. The account panel shows lifetime kills, deaths, time played, and connection sessions. These totals come from the server's existing score and connection events; they do not include play from before registration. Match scores still reset with each round.
 
 Set `DATABASE_URL` to a PostgreSQL connection string to enable accounts. On Render, use the database's internal URL in the same workspace and region as the game service. The server creates the `player_accounts` and `player_sessions` tables on startup. Without `DATABASE_URL`, guest play remains available and the account panel explains that accounts are unavailable. Do not commit connection strings or passwords. Sessions expire after 30 days. There is currently no password recovery flow.
 
-Run `TEST_DATABASE_URL=postgres://... node --test test/player-accounts.mjs` against a disposable PostgreSQL database to exercise registration, login, signed-in WebSocket identity, saved play time, and logout.
+To enable Google sign in, create an OAuth **Web application** client in Google Cloud, authorize `https://goy-theft-auto.onrender.com` as a JavaScript origin, and set its public client ID as `GOOGLE_CLIENT_ID` on the game service. This button uses Google's Identity Services JavaScript library and the server verifies each ID token for that client ID. No client secret is needed. Google-only accounts cannot sign in with a password, and existing password accounts are not automatically linked to Google accounts with a similar name.
+
+Render's free PostgreSQL plan expires after 30 days and has no backups. Upgrade or export account data before expiration if players are meant to retain their accounts and stats beyond that period. The in-game [account data notice](public/privacy.html) discloses this limit.
+
+Run `TEST_DATABASE_URL=postgres://... node --test test/player-accounts.mjs` against a disposable PostgreSQL database to exercise registration, password and Google account logic, signed-in WebSocket identity, saved play time, and logout. The Google test uses a simulated verified token; finish setup with a real Google sign-in on the public origin.
 
 ### Supply run
 
