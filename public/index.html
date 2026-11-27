@@ -25,6 +25,7 @@
     <div id="compass" aria-label="Compass heading"><span id="left-bearing">NW</span><b id="bearing">N</b><span id="degrees">000°</span><span id="right-bearing">NE</span></div>
     <div class="session-controls">
       <span class="presence" role="status"><i></i><span id="presence">Connecting</span></span>
+      <button id="account-open" type="button">Guest · Account</button>
       <select id="lighting-choice" aria-label="World lighting"><option value="day">Day</option><option value="dusk">Dusk</option><option value="night">Night</option></select>
       <button id="wanted-toggle" type="button" aria-pressed="false" title="Enable or disable police response for your player" hidden>Police off</button>
       <button id="sound-mute" type="button" aria-label="Mute game sound" aria-pressed="false" aria-keyshortcuts="M">
@@ -32,6 +33,30 @@
       </button>
     </div>
   </header>
+  <dialog id="account-dialog" aria-labelledby="account-title">
+    <div class="account-heading"><h2 id="account-title">Player account</h2><button type="button" id="account-close" aria-label="Close account panel">×</button></div>
+    <p id="account-message" role="status"></p>
+    <section id="account-profile" hidden>
+      <strong id="account-username"></strong>
+      <dl><div><dt>Kills</dt><dd id="account-kills">0</dd></div><div><dt>Deaths</dt><dd id="account-deaths">0</dd></div><div><dt>Time played</dt><dd id="account-time">0 min</dd></div><div><dt>Sessions</dt><dd id="account-sessions">0</dd></div></dl>
+      <button id="account-logout" type="button">Sign out</button>
+    </section>
+    <form id="account-form" hidden>
+      <label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="3–20 letters, numbers, _"></label>
+      <label>Password <input name="password" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label>
+      <button id="account-submit" type="submit">Create account</button>
+      <button id="account-switch" type="button">Already have an account? Sign in</button>
+    </form>
+    <section id="google-account" hidden>
+      <p>Or sign in with Google</p>
+      <div id="google-button"></div>
+      <form id="google-username-form" hidden>
+        <label>Choose a game username <input name="username" autocomplete="off" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="3–20 letters, numbers, _"></label>
+        <button type="submit">Create Google account</button>
+      </form>
+    </section>
+    <p class="account-privacy"><a href="/privacy.html" target="_blank" rel="noopener">How account data is used</a></p>
+  </dialog>
   <aside id="zombie-card" aria-label="Co-op zombie survival" hidden>
     <strong>Zombie Survival</strong><div id="zombie-status" role="status"></div>
     <div id="zombie-tally"></div>
@@ -88,7 +113,7 @@
   </main>
   <footer>
     <div class="shortcuts"><span><kbd>WASD</kbd> / <kbd>Arrows</kbd> Move</span><span><kbd>Space</kbd> <span id="space-action">Jump</span></span><span><kbd>Shift</kbd> <span id="shift-action">Sprint</span></span><span id="crouch-shortcut"><kbd>C</kbd> <span id="crouch-action">Crouch</span></span><span id="prone-shortcut"><kbd>Z</kbd> <span id="prone-action">Prone</span></span><span id="tool-shortcut"><kbd>1</kbd><kbd>2</kbd><kbd id="third-tool-key">3</kbd><kbd id="fourth-tool-key">4</kbd><kbd id="fifth-tool-key">5</kbd><kbd id="sixth-tool-key">6</kbd> <span id="number-action">Weapons</span></span><span id="look-back-control" hidden><kbd>V</kbd> Hold to look back</span><span id="fire-shortcut"><kbd>F</kbd> / click <span id="fire-verb">Fire</span></span></div>
-    <button id="help" aria-expanded="false" aria-controls="guide">Controls <kbd>?</kbd></button>
+    <div class="footer-links"><a href="/privacy.html" target="_blank" rel="noopener">Account data</a><button id="help" aria-expanded="false" aria-controls="guide">Controls <kbd>?</kbd></button></div>
   </footer>
   <section id="guide" hidden aria-label="Controls">
     <div class="guide-heading"><h2>Field controls</h2><button id="close-guide" aria-label="Close controls">×</button></div>
@@ -163,5 +188,6 @@
     <button type="button" data-world-guide>World guide</button>
   </dialog>
   <script type="module" src="/client.js"></script>
+  <script type="module" src="/account.js"></script>
 </body>
 </html>

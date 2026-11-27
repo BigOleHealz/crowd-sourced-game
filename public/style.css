@@ -366,6 +366,32 @@ body:not(.touch-play) #zombie-start::after {content:' ↵';opacity:.7}
 
 #player-scoreboard {position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,94vw);max-height:80dvh;overflow:auto;box-sizing:border-box;padding:20px 24px;border:1px solid #9cb4a1;border-radius:9px;background:rgba(16,28,26,.96);color:#f2f6ec;box-shadow:0 18px 60px #0009;pointer-events:none}
 #player-scoreboard[hidden] {display:none}
+#account-open {pointer-events:auto;min-height:32px;padding:5px 9px;color:#f8f4e3;background:var(--panel);border:1px solid var(--line);border-radius:2px;font:600 12px inherit;cursor:pointer;}
+#account-dialog {width:min(390px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;padding:20px;color:#f8f4e3;background:#20231f;border:1px solid var(--accent);border-radius:7px;box-shadow:0 15px 45px #0009;}
+#account-dialog::backdrop {background:#07120dbb;}
+#account-dialog [hidden] {display:none;}
+.account-heading {display:flex;justify-content:space-between;align-items:center;}
+.account-heading button {font-size:24px;line-height:1;background:transparent;color:inherit;border:0;cursor:pointer;}
+#account-message {min-height:1.2em;font-size:13px;}
+#account-form {display:grid;gap:13px;}
+#account-form label {display:grid;gap:5px;font-size:13px;}
+#account-form input {width:100%;padding:9px;color:#fff;background:#141c17;border:1px solid #a4af9b;border-radius:3px;font:inherit;}
+#account-dialog button:not(.account-heading button) {min-height:34px;padding:7px 10px;cursor:pointer;}
+#account-submit,#account-logout {background:#d5b882;color:#172922;border:0;border-radius:3px;font-weight:700;}
+#account-switch {background:transparent;color:#f8f4e3;border:1px solid var(--line);border-radius:3px;}
+#account-profile dl {display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:16px 0;}
+#account-profile dl div {padding:10px;background:#141c17;border:1px solid var(--line);}
+#account-profile dt {font-size:11px;color:#c5ceaa;}
+#account-profile dd {margin:4px 0 0;font-size:19px;font-weight:700;}
+#google-account {border-top:1px solid var(--line);margin-top:18px;padding-top:5px;}
+#google-account p {font-size:12px;color:#c5ceaa;}
+#google-username-form {display:grid;gap:10px;margin-top:12px;}
+#google-username-form label {display:grid;gap:5px;font-size:13px;}
+#google-username-form input {width:100%;padding:9px;color:#fff;background:#141c17;border:1px solid #a4af9b;border-radius:3px;font:inherit;}
+#google-username-form button {background:#d5b882;color:#172922;border:0;border-radius:3px;font-weight:700;}
+.footer-links {display:flex;align-items:center;gap:10px;}
+.footer-links a {pointer-events:auto;color:#d5b882;font-size:11px;white-space:nowrap;}
+@media(max-width:520px){.footer-links a {font-size:10px;}}
 #player-scoreboard header {display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px}
 #player-scoreboard strong {font-size:1.35rem;letter-spacing:.04em}
 #player-scoreboard header span,#player-scoreboard small {color:#b8c9ba}

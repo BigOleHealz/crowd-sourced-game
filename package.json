@@ -8,6 +8,8 @@
     "test": "node --test --test-concurrency=4 --test-timeout=180000 \"test/*.mjs\""
   },
   "dependencies": {
+    "google-auth-library": "^11.3.4",
+    "pg": "^8.23.1",
     "three": "0.180.0",
     "ws": "^8.18.3"
   }

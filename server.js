@@ -1,5 +1,6 @@
 import {measureRoundContacts} from './public/rounds.js';
 import {ServerLagTelemetry} from './lag-telemetry.js';
+import {createAccountStore, accountUnavailable} from './player-accounts.js';
 import {sidearmSlot,sidearmCar,hasMountedTool} from './public/car-sidearm.js';
 import {activeCast,fishingAction,stepFishing} from './public/pier-fishing.js';
 import {spearCast,clearReturnedFish} from './public/spearfishing.js';
@@ -102,6 +103,9 @@ async function clientBuild(){
   return hash.digest('hex').slice(0,20);
 }
 const build=await clientBuild();
+let accountStore;
+try { accountStore=await createAccountStore(); }
+catch(error) { console.error('Account database unavailable; guest play remains available:',error); }
 const threeBuild = join(root, 'node_modules/three/build');
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || '4173');
@@ -229,6 +233,14 @@ const types = {
 };
 
 async function serve(request, response) {
+  let pathname;
+  try { pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname); }
+  catch { response.writeHead(400).end(); return; }
+  if(pathname.startsWith('/api/account')){
+    if(!accountStore) return accountUnavailable(response);
+    try { return await accountStore.handle(request,response,pathname); }
+    catch(error){ console.error('Account request:',error); return accountUnavailable(response); }
+  }
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
@@ -243,13 +255,6 @@ async function serve(request, response) {
     } catch {
       response.writeHead(400).end();
     }
-    return;
-  }
-  let pathname;
-  try {
-    pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-  } catch {
-    response.writeHead(400).end();
     return;
   }
   const vendorFiles = ['/vendor/three.module.js', '/vendor/three.core.js'];
@@ -338,7 +343,7 @@ server.on('upgrade', (request, socket, head) => {
 function playerState(player) {
   const lock=lockStatus(player,ticks);
   return { ...player.state,character:player.character,...(player.carShot && ticks-player.carShot.tick<18 && {carShot:player.carShot}),magazine:magazineView(player,ticks,sidearmCar(world,player.id)?sidearmSlot:player.weapon),...(player.fishing && {fishing:player.fishing}),...(player.spearfishing && {spearfishing:player.spearfishing}),...(player.holstered && {holstered:true}),...(player.meleeSwing && {meleeSwing:player.meleeSwing}),beachOrder:player.beachOrder,beachPose:player.beachPose,...(player.slotResult && {slotResult:player.slotResult}),...(player.resortStay && {resortStay:player.resortStay}),...(player.lastDive && ticks-player.lastDive.tick<180 && {lastDive:player.lastDive}),...(player.paradeCostume && {paradeCostume:true}),...(player.clubSince!=null && {clubSince:player.clubSince}),...(world.wanted && {wanted:world.wanted.view(player,ticks)}),use:world.survival?.phase!=='finished' && player.life.hp && !player.life.fall && !frozenPhase(world.match?.phase) && world.match?.phase!=='setup' ? nextUse(world,player.state,player.id) : null,...(marina && {race:marina.state(player)}),...(lock && {launcherLock:lock}), team:player.team, id: player.id, yaw: player.yaw, moving: player.moving,
-    sprint: player.sprint, score:player.score, ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
+    sprint: player.sprint, score:player.score, ...(player.username && {username:player.username}), ack: player.ack, weapon: player.weapon, ...healthView(player, ticks) };
 }
 
 const lagTelemetry=new ServerLagTelemetry();
@@ -479,7 +484,10 @@ function acceptInput(player, data, binary) {
     return;
   }
   if(!mode && input?.type==='resumeScore' && !player.lastSeq && departedScores.has(input.key)){
-    player.score=departedScores.get(input.key);departedScores.delete(input.key);return;
+    collectStats(player);
+    player.score=departedScores.get(input.key);departedScores.delete(input.key);
+    if(player.statsLedger){player.statsLedger.lastKills=player.score.kills;player.statsLedger.lastDeaths=player.score.deaths;}
+    return;
   }
   if (input?.type !== 'input' || !Number.isSafeInteger(input.seq) ||
       input.seq <= player.lastSeq || !Number.isFinite(input.x) ||
@@ -521,6 +529,28 @@ function acceptInput(player, data, binary) {
 
 // Keep the competitive simulation parked while the lone player practices.
 let parkedRound;
+function collectStats(player){
+  const ledger=player?.statsLedger;
+  if(!ledger)return;
+  ledger.kills+=Math.max(0,(player.score?.kills??0)-ledger.lastKills);
+  ledger.deaths+=Math.max(0,(player.score?.deaths??0)-ledger.lastDeaths);
+  ledger.lastKills=player.score?.kills??0;
+  ledger.lastDeaths=player.score?.deaths??0;
+  const now=Date.now();
+  const seconds=Math.max(0,Math.floor((now-ledger.lastAt)/1000));
+  ledger.seconds+=seconds;
+  ledger.lastAt+=seconds*1000;
+}
+function saveStats(player){
+  const ledger=player?.statsLedger;
+  if(!ledger)return;
+  collectStats(player);
+  const kills=ledger.kills,deaths=ledger.deaths,seconds=ledger.seconds;
+  if(!kills && !deaths && !seconds)return;
+  ledger.kills=ledger.deaths=ledger.seconds=0;
+  ledger.write=ledger.write.then(()=>accountStore.stats(player.accountId,kills,deaths,seconds))
+    .catch(error=>{ledger.kills+=kills;ledger.deaths+=deaths;ledger.seconds+=seconds;console.error('Save player stats:',error);});
+}
 function updateRoom() {
   match?.updateRoster(players);
   if(mode!=='total-loss')return;
@@ -531,19 +561,25 @@ function updateRoom() {
     world=saved.world;match=world.rules;npcs=saved.npcs;ticks=saved.tick;
     for(const p of players.values()){
       if(p.id===saved.player.id){
+        collectStats(p);
         saved.player.ack=saved.player.lastSeq=p.lastSeq;
         saved.player.packedSnapshots=p.packedSnapshots;
         saved.player.alive=p.alive;
+        saved.player.statsLedger=p.statsLedger;
+        if(saved.player.statsLedger){saved.player.statsLedger.lastKills=saved.player.score.kills; saved.player.statsLedger.lastDeaths=saved.player.score.deaths;}
         players.set(p.id,saved.player);
       }else p.life=newLife(ticks);
     }
     match.updateRoster(players);
   }else if(!parkedRound && players.size===1 && ['waiting','paused'].includes(match.state.phase)){
     const [p]=players.values();
+    collectStats(p);
     p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;
     parkedRound={world,npcs,tick:ticks,player:p};
     world=freshWorld();npcs=freshResidents();
+    if(p.statsLedger){p.statsLedger.lastKills=0;p.statsLedger.lastDeaths=0;}
     players.set(p.id,{id:p.id,ws:p.ws,team:p.team,slot:p.slot,scoreKey:p.scoreKey,character:p.character,
+      accountId:p.accountId,username:p.username,statsLedger:p.statsLedger,
       alive:p.alive,packedSnapshots:p.packedSnapshots,lastSeq:p.lastSeq,ack:p.lastSeq,inputs:[],
       state:teamSpawn(p.team,p.slot),life:newLife(ticks),score:{kills:0,deaths:0,team:p.team},
       yaw:0,moving:false,sprint:false,weapon:4,fireReady:0});
@@ -552,7 +588,7 @@ function updateRoom() {
   }
 }
 
-sockets.on('connection', (ws,request) => {
+sockets.on('connection', async (ws,request) => {
   ws.on('error', () => ws.terminate());
   if (players.size >= capacity) {
     ws.send(JSON.stringify({ type: 'full' }));
@@ -567,6 +603,18 @@ sockets.on('connection', (ws,request) => {
     id, ws, score:{kills:0,deaths:0}, scoreKey:randomUUID(), character:['classic','mike','pink','nathan'][randomInt(4)], life: newLife(ticks), state: { ...spawn(id - 1), grounded: true, vy: 0 },
     yaw: 0, moving: false, sprint: false, weapon: 4, fireReady: 0, inputs: [], ack: 0, lastSeq: 0, alive: true,
   };
+  if(accountStore){
+    try{
+      const account=await accountStore.session(request);
+      if(ws.readyState!==WebSocket.OPEN)return;
+      if(account){
+        player.accountId=account.id;
+        player.username=account.username;
+        player.statsLedger={kills:0,deaths:0,seconds:0,lastKills:0,lastDeaths:0,lastAt:Date.now(),write:Promise.resolve()};
+        accountStore.stats(account.id,0,0,0,1).catch(error=>console.error('Save player session:',error));
+      }
+    }catch(error){console.error('Load player account:',error);ws.close(1011,'Account unavailable');return;}
+  }
   const arrival=arrivalRoutes.get(request.url);
   if(CITY && !match && arrival){
     player.state={x:arrival.x,y:arrival.y,z:arrival.z+(id%3)*.55,grounded:true,vy:0};
@@ -587,6 +635,8 @@ sockets.on('connection', (ws,request) => {
   ws.on('close', () => {
     lagTelemetry.disconnects++;
     const player=players.get(id);
+    if(!player)return;
+    saveStats(player);
     match?.release(player);
     parkRide(world,player,!player.state.grounded);
     world.blackjack?.leave(player);
@@ -646,10 +696,12 @@ function resetRound(){
   npcs=freshResidents();
   departedScores.clear();
   for(const player of players.values()){
+    collectStats(player);
     delete player.trip;
     player.state=teamSpawn(player.team,player.slot);
     player.life=newLife(ticks);
     player.score={kills:0,deaths:0,team:player.team};
+    if(player.statsLedger){player.statsLedger.lastKills=0;player.statsLedger.lastDeaths=0;}
     player.inputs.length=0;
     player.ack=player.lastSeq;
     player.yaw=0;player.weapon=4;player.holstered=false;player.releaseSwimTrigger=false;delete player.meleeSwing;player.launcherLock=null;player.moving=player.sprint=false;
@@ -1035,6 +1087,7 @@ function tick() {
   for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);
   expireShots(world.shots,ticks);
+  for(const player of players.values())collectStats(player);
   if (++ticks % 2 === 0) publish();
 }
 
@@ -1070,6 +1123,19 @@ function sleepWorld(){
 }
 
 setInterval(() => {
+  for(const player of players.values())saveStats(player);
+}, 5000).unref();
+
+async function flushAllStats(){
+  for(const player of players.values())saveStats(player);
+  await Promise.all([...players.values()].map(player=>player.statsLedger?.write));
+}
+process.on('SIGTERM',async()=>{
+  await flushAllStats();
+  process.exit(0);
+});
+
+setInterval(() => {
   for (const player of players.values()) {
     if (!player.alive) player.ws.terminate();
     else {
@@ -1085,7 +1151,7 @@ if(CITY && process.send) {
     accept(request,socket,Buffer.from(request.head,'base64'));
     socket.resume();
   });
-  process.on('disconnect',()=>process.exit(0));
+  process.on('disconnect',async()=>{await flushAllStats();process.exit(0);});
 } else server.listen(port, host, () => {
   console.log(`Shared world listening at http://${host}:${server.address().port}/`);
 });
