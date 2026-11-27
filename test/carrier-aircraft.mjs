@@ -49,6 +49,9 @@ for(const kind of carrierHelicopters){
   assert.equal(heli.pilot,17,`${kind} can be boarded`);
   for(let i=0;i<90;i++)fly(world,{x:0,z:0,lift:1,aimYaw:0},1/30,players,kind);
   assert(!heli.grounded && heli.y>carrierDeckTop+1,`${kind} lifts from the deck`);
+  for(let i=0;i<120 && !heli.grounded;i++)fly(world,{x:0,z:0,lift:-1,aimYaw:0},1/30,players,kind);
+  assert(heli.grounded && !heli.wrecked && Math.abs(heli.y-carrierDeckTop)<.01,
+    `${kind} lands back on the carrier flight deck`);
   damageHelicopter(world,heli.hp,players,null,undefined,undefined,kind);
   for(let i=0;i<190;i++)recoverHelicopter(world,1/30,players,kind);
   assert(world[kind]!==heli && world[kind].grounded && !world[kind].wrecked,`${kind} respawns`);
