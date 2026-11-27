@@ -3,13 +3,14 @@ import {roadHullFor} from './road-contact.js';
 import {jetHalfSpan,jetScale} from './jet-size.js';
 import {CITY,MAP,groundHeight,solidTopAt,flightBounds,spawn} from './world.js';
 import {onRunway,rotationSpeed,stallSpeed,runwayStart,outpostRunwayStart} from './runway-layout.js';
+import {carrierJetPads} from './aircraft-fleet.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 const fullTurn=Math.PI*2, rollSpeed=2.4;
-export function parkedJet(){
-  const start=CITY?runwayStart:outpostRunwayStart;
+export function parkedJet(pad){
+  const start=pad??(CITY?runwayStart:outpostRunwayStart);
   const x=start.x,z=start.z;
-  return {x,y:groundHeight(x,z),z,yaw:start.yaw,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
+  return {x,y:start.y??groundHeight(x,z),z,yaw:start.yaw,pitch:0,roll:0,speed:0,grounded:true,pilot:null,
     fuel:100,hp:500,maxHp:500,wrecked:false,recoverySeconds:0};
 }
 export function nearJet(jet,p){
@@ -27,8 +28,8 @@ export function leaveJet(jet,p){
   p.state={x:jet.x+side*c-along*s,y:jet.y+(jet.grounded?0:1.4*jetScale),
     z:jet.z+side*s+along*c,vy:0,grounded:jet.grounded,...(!jet.grounded && {parachute:'packed'})};
 }
-export function damageJet(world,amount,players,owner){
-  const j=world.jet;
+export function damageJet(world,amount,players,owner,kind='jet'){
+  const j=world[kind];
   if(!j || j.wrecked || !(amount>0))return;
   j.hp=Math.max(0,j.hp-amount);
   if(j.hp)return;
@@ -69,12 +70,12 @@ function clearFlightFraction(world,from,to){
   }
   return 1;
 }
-export function stepJet(world,input,dt,players){
-  const j=world.jet;
+export function stepJet(world,input,dt,players,kind='jet'){
+  const j=world[kind];
   if(j.wrecked){
     if(j.sinking)stepAircraftSinking(world,j,dt);
     j.recoverySeconds-=dt;
-    if(j.recoverySeconds<=0)world.jet=parkedJet();
+    if(j.recoverySeconds<=0)world[kind]=parkedJet(carrierJetPads[kind]);
     return;
   }
   if(j.pilot==null && j.grounded)return;

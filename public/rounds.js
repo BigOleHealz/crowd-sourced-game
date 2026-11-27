@@ -341,9 +341,11 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   for(const car of world.traffic??[])considerRoad(car,car.id);
   for(const car of world.patrolCars??[])if(!car.wrecked && car.targetId===round.shooter)considerRoad(car,car.id);
   if(world.tank && round.source!=='tank')accept(tankRoundContact(world.tank,round,d),world.tank,'tank');
-  const jet=world.jet;
-  if(jet && !jet.wrecked && round.source!=='jet')accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,'jet');
-  for(const kind of ['heli','heli2']){
+  for(const kind of ['jet','jet2','jet3']){
+    const jet=world[kind];
+    if(jet && !jet.wrecked && round.source!==kind)accept(box(round,d,jet,2.35,1.95,5.7,jet.yaw),jet,kind);
+  }
+  for(const kind of ['heli','heli2','heli3','heli4']){
     const heli=world[kind];
     if(heli && !heli.wrecked && round.source!==kind && round.passedVehicle!==kind)
       accept(box(round,d,heli,1.85,2.15,3.38,heli.yaw),heli,kind);

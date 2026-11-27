@@ -7,19 +7,21 @@ import {driveRover,drivenRoad} from './rover.js';
 import {fly,restoreFlightState} from './airframe.js';
 import {crewBoat,stepBoat} from './patrol-boats.js';
 import {stepYacht} from './superyacht.js';
+import {jetKinds,helicopterKinds,isJetKind,isHelicopterKind,pilotJetKind,pilotHelicopterKind} from './aircraft-fleet.js';
 
 // Predict only the local operator. Collisions and damage during replay must
 // never alter network snapshots, HUD events, or the other players' history.
 export function driverPrediction(snapshot,id) {
   const road=drivenRoad(snapshot,id), boat=crewBoat(snapshot,id);
-  const kind=snapshot.tank?.driver===id?'tank':road ? road.kind??'rover' : snapshot.heli.pilot===id ? 'heli' : snapshot.heli2?.pilot===id ? 'heli2' : snapshot.jet?.pilot===id ? 'jet' :
-    snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null;
+  const kind=snapshot.tank?.driver===id?'tank':road ? road.kind??'rover' :
+    (pilotHelicopterKind(snapshot,id) ?? pilotJetKind(snapshot,id) ?? (snapshot.yacht?.driver===id ? 'yacht' : boat?.driver===id ? 'boat' : null));
   if(!kind || road?.sling || boat?.sling)return null;
-  const {jet,heli,heli2,rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
-  const world=structuredClone({jet,heli,heli2,rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic});
+  const {rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic}=snapshot;
+  const aircraft=Object.fromEntries([...jetKinds,...helicopterKinds].map(kind=>[kind,snapshot[kind]]));
+  const world=structuredClone({...aircraft,rover,rover2,rover3,supercar,tank,yacht,boats,doors,hp,traffic});
   const vehicle=road?.model ? drivenRoad(world,id) : kind==='boat'?crewBoat(world,id):world[kind];
   if(road)seedRoadSuspension(vehicle);
-  if(kind==='heli'||kind==='heli2')restoreFlightState(vehicle);
+  if(isHelicopterKind(kind))restoreFlightState(vehicle);
   const occupants=new Map();
   let previous=vehicle;
   return {
@@ -28,8 +30,8 @@ export function driverPrediction(snapshot,id) {
       if(vehicle.wrecked || (vehicle.pilot??vehicle.driver)!==id)return;
       previous={...vehicle};
       if(kind==='tank')stepTank(world,cmd,dt);
-      else if(kind==='heli'||kind==='heli2')fly(world,cmd,dt,occupants,kind);
-      else if(kind==='jet')stepJet(world,cmd,dt,occupants);
+      else if(isHelicopterKind(kind))fly(world,cmd,dt,occupants,kind);
+      else if(isJetKind(kind))stepJet(world,cmd,dt,occupants,kind);
       else if(kind==='boat')stepBoat(world,vehicle,cmd,dt,occupants);
       else if(kind==='yacht')stepYacht(world,cmd,dt,occupants);
       else if(vehicle.model)driveTrafficCar(world,vehicle,cmd,dt,occupants);

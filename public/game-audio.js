@@ -24,6 +24,7 @@ import {civilianEngineLoop,civilianEngineMix} from './civilian-engine.js';
 import {tankDriveLoop,tankDriveMix} from './tank-drive-audio.js';
 import {treeCrackBuffer} from './tree-crack-audio.js';
 import {jetLoop,jetMix} from './jet-audio.js';
+import {jetKinds,helicopterKinds,isHelicopterKind} from './aircraft-fleet.js';
 import {weaponSound,chainGunLoop} from './weapon-sound.js';
 import {roadContactSound,roadLandingSound} from './road-contact-sound.js';
 import {isArcadeMelee,meleeAudioTracker,meleeBuffer} from './arcade-melee-feedback.js';
@@ -311,7 +312,7 @@ export function createGameAudio(button,slider,level,caption) {
       ...world.volleyball.flatMap(game=>game.phase==='closed'?[]:game.athletes.filter((_,i)=>game.players[i]==null))];
   }
   function roadAndAirVehicles(world){
-    return [['rover',world.rover],['rover2',world.rover2],['rover3',world.rover3],['heli',world.heli],['heli2',world.heli2],['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
+    return [['rover',world.rover],['rover2',world.rover2],['rover3',world.rover3],...helicopterKinds.map(kind=>[kind,world[kind]]),...jetKinds.map(kind=>[kind,world[kind]]),['supercar',world.supercar],...[...(world.traffic??[]),...(world.patrolCars??[])].map(c=>[c.id,c])].filter(([,v])=>v);
   }
   function events(world,listener,yaw,shots,light='day') {
     environmentWorld=world;
@@ -461,7 +462,7 @@ export function createGameAudio(button,slider,level,caption) {
         if(buffers.has('tank-car-crush'))burst('metal',shot.to,listener,yaw,.27,shot.id);
       }
       else if(shot.weapon==='vehiclePersonHit')burst('vehicle-person-hit',shot.to,listener,yaw,.75,shot.id);
-      else if(shot.weapon==='muzzle' && shot.firedWeapon!=='pilotGun' && !(world.map==='brickell' && (shot.source==='heli'||shot.source==='heli2')))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
+      else if(shot.weapon==='muzzle' && shot.firedWeapon!=='pilotGun' && !(world.map==='brickell' && isHelicopterKind(shot.source)))burst((shot.firedWeapon==='turret' || shot.firedWeapon==='yachtGun') ? 'turret' : shot.firedWeapon===2 ? 'sidearm' : 'carbine',shot.from,listener,yaw,.9,shot.id);
       else if(shot.weapon==='launch')burst('launch',shot.from,listener,yaw,.93,shot.id);
       else if(shot.weapon==='missile')burst('explosion',shot.to,listener,yaw,1.2);
       else if(shot.hit && shot.injury!=='headPop')burst(['rover','heli','metal'].includes(shot.hitKind) ? 'metal' : 'impact',shot.to,listener,yaw,.45);
@@ -475,7 +476,7 @@ export function createGameAudio(button,slider,level,caption) {
     const nextVehicles={};
     for(const [kind,vehicle] of roadAndAirVehicles(world)) {
       const prior=previousVehicles[kind],bump=vehicle.contactSound,landing=vehicle.landingSound;
-      const cue=kind!=='heli' && kind!=='heli2' && doorCue(prior,vehicle);
+      const cue=!isHelicopterKind(kind) && !jetKinds.includes(kind) && doorCue(prior,vehicle);
       if(cue)burst(cue,roadHandle(vehicle,vehicle.takeover?.progress??vehicle.boarding?.progress??0),listener,yaw,cue==='door-close'?.61:.39);
       if(prior && landing && landing.id!==prior.landingSound?.id){
         burst(landing.speed>=5?'landing-hard':'landing-soft',landing,listener,yaw,Math.min(1.35,.28+.10*landing.speed),landing.id);
@@ -486,7 +487,7 @@ export function createGameAudio(button,slider,level,caption) {
         const name='bump-'+(bump.speed>3?'hard':'soft')+'-'+(bump.wood?'wood':'body');
         burst(name,bump,listener,yaw,Math.min(1.3,.27+.085*bump.speed));
       }
-      if((kind==='heli'||kind==='heli2') && prior && vehicle.wrecked && !prior.wrecked)burst('wreck',vehicle,listener,yaw,1.3);
+      if(isHelicopterKind(kind) && prior && vehicle.wrecked && !prior.wrecked)burst('wreck',vehicle,listener,yaw,1.3);
       else if(prior && !vehicle.wrecked && !contact && vehicle.hp<prior.hp && !impacts.some(hit=>hit.hitKind===kind ||
         (hit.weapon==='missile' && Math.hypot(vehicle.x-hit.to.x,vehicle.y-hit.to.y,vehicle.z-hit.to.z)<5))) {
         burst('metal',vehicle,listener,yaw,.72);
@@ -544,7 +545,7 @@ export function createGameAudio(button,slider,level,caption) {
     track.gain.gain.setTargetAtTime(volume*place.gain*passage(track,v),now,.08);
     track.pan.pan.setTargetAtTime(place.pan,now,.05);
   }
-  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null,heli2=null,secondChainFiring=false,extraRovers=[]) {
+  function engines(listener,yaw,heli,rover,boats=[],chainFiring=false,supercar=null,heli2=null,secondChainFiring=false,extraRovers=[],extraHelis=[]) {
     motor('chainGun',heli,chainFiring && heli.fuel!==0,1,.94,listener,yaw);
     if(heli2)motor('chainGun',heli2,secondChainFiring && heli2.fuel!==0,1,.94,listener,yaw,'chainGun2');
     motor('engine',rover,rover.driver!=null && !rover.wrecked && rover.fuel!==0,.8+Math.min(2.1,Math.abs(rover.speed)*.13),.28,listener,yaw);
@@ -559,6 +560,14 @@ export function createGameAudio(button,slider,level,caption) {
       const active=(heli2.pilot!=null || heli2.abandonedFor!=null) && !heli2.wrecked && heli2.fuel!==0;
       const nearby=Math.hypot(heli2.x-listener.x,heli2.y-listener.y,heli2.z-listener.z)<180;
       motor('rotor',heli2,active && nearby,heli2.grounded?.88:1+Math.min(.085,speed*.002),heli2.grounded?.41:.61,listener,yaw,'rotor2');
+    }
+    for(const [kind,craft] of extraHelis){
+      if(!craft)continue;
+      const speed=Math.hypot(craft.vx??0,craft.vz??0);
+      const active=(craft.pilot!=null || craft.abandonedFor!=null) && !craft.wrecked && craft.fuel!==0;
+      const nearby=Math.hypot(craft.x-listener.x,craft.y-listener.y,craft.z-listener.z)<180;
+      motor('rotor',craft,active && nearby,craft.grounded?.88:1+Math.min(.085,speed*.002),craft.grounded?.41:.61,listener,yaw,'rotor/'+kind);
+      motor('chainGun',craft,craft.chainFiring && craft.fuel!==0,1,.94,listener,yaw,'chainGun/'+kind);
     }
     const present=new Set();
     for(const boat of boats) {
@@ -636,7 +645,9 @@ export function createGameAudio(button,slider,level,caption) {
     lastPatrol=nearest?{id:nearest.id,range}:null;
     motor('patrol-siren',nearest,!!nearest,rate,.68,listener,yaw);
   }
-  function jetEngine(listener,yaw,jet,dt){
+  function jetEngine(listener,yaw,jets,dt){
+    const jet=(Array.isArray(jets)?jets:[jets]).filter(j=>j && !j.wrecked && j.fuel!==0 && Math.abs(j.speed)>=.15)
+      .sort((a,b)=>Math.hypot(a.x-listener.x,a.y-listener.y,a.z-listener.z)-Math.hypot(b.x-listener.x,b.y-listener.y,b.z-listener.z))[0];
     const range=jet?Math.hypot(jet.x-listener.x,jet.y-listener.y,jet.z-listener.z):Infinity;
     if(!jet || jet.wrecked || jet.fuel===0 || Math.abs(jet.speed)<.15 || range>225 || !audible()){
       lastJetRange=null;stopMotor('jetFan');stopMotor('jetExhaust');return;

@@ -1,6 +1,7 @@
 import {CITY,groundHeight,MAP} from './world.js';
 import {fuelStop} from './fire-sites.js';
 import {roadGarages} from './road-garages.js';
+import {jetKinds,helicopterKinds,isJetKind} from './aircraft-fleet.js';
 
 const depot=roadGarages[0];
 export const fuelSites=CITY ? [
@@ -11,9 +12,7 @@ export const fuelSites=CITY ? [
 
 export function fuelVehicle(world,id){
   if(!world || id==null)return null;
-  if(world.heli?.pilot===id)return world.heli;
-  if(world.heli2?.pilot===id)return world.heli2;
-  if(world.jet?.pilot===id)return world.jet;
+  for(const kind of [...helicopterKinds,...jetKinds])if(world[kind]?.pilot===id)return world[kind];
   if(world.tank?.driver===id)return world.tank;
   for(const kind of ['rover','rover2','rover3'])if(world[kind]?.driver===id)return world[kind];
   if(world.supercar?.driver===id)return world.supercar;
@@ -83,10 +82,11 @@ export function stepVehicleFuel(world,dt){
   roadFuel(world,world.tank,dt);
   for(const car of world.traffic??[])roadFuel(world,car,dt);
   for(const car of world.patrolCars??[])roadFuel(world,car,dt);
-  for(const h of [world.heli,world.heli2,world.jet]){
+  for(const kind of [...helicopterKinds,...jetKinds]){
+    const h=world[kind];
     if(!h)continue;
     const demand=h.grounded?Math.abs(h.speed??0)/9:h.burner?1:.8;
-    useFuel(h,dt,h===world.jet ? .26 : .20,demand,h.pilot!=null);
+    useFuel(h,dt,isJetKind(kind) ? .26 : .20,demand,h.pilot!=null);
   }
   for(const b of world.boats??[])useFuel(b,dt,.13,Math.max(Math.abs(b.throttle??0),Math.abs(b.speed??0)/8),b.driver!=null || b.cruising);
   const y=world.yacht;
