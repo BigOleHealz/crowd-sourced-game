@@ -25,7 +25,10 @@ export const beachClubFixtures=[
   ...[[53.13,-207.41],[53.13,-211.09],[55.85,-211.09]].map(([x,z])=>({kind:'post',x,z,w:.11,d:.11,h:2.61})),
   ...[-208.75,-209.95].map(z=>({kind:'table',x:54.12,z,w:.35,d:.35,h:.54})),
   ...loungeSeats.map(s=>({...s,kind:'chair',w:.83,d:.76,h:.43})),
-];
+].map((fixture,i)=>({
+  ...fixture,
+  ...(['awning','cabana','speaker'].includes(fixture.kind)?{woodMaterial:false}:{fireSite:'club-wood-'+i}),
+}));
 export function beachClubAction(p){
   if(!p?.grounded || p.swimming || p.ride || p.climb || p.dive || p.parachute || p.liftTravel || p.stance || Math.abs(p.y-clubDeck.y)>.35)return null;
   if(p.x>43.68 && p.x<45.02){

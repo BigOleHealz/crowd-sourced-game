@@ -284,7 +284,7 @@ export function segmentContact(world,round,d,actors,previous,actorIntersection){
   }
   visitResortHits(world,round,d,false,accept);
   visitIntactTowerGlass(world,round,d,(hit,p)=>accept(hit,p,'glass'));
-  for(const p of roundCandidates(trunks,round,d,columnExtent))accept(column(round,d,p,p.radius,p.height),null,'scenery');
+  for(const p of roundCandidates(trunks,round,d,columnExtent))accept(column(round,d,p,p.radius,p.height),p,'scenery');
   const post=postContact(world,round,d);
   if(post.target)accept(post.t,post.target,post.target.lamp!=null?'lamp':'post');
   for(const p of roundCandidates(roundBarriers(world.doors),round,d,boxExtent)){
