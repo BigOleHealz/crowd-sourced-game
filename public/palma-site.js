@@ -1,4 +1,5 @@
 import {supercarLayout} from './supercar-layout.js';
+import {carrierDeckTop} from './eisenhower-carrier-layout.js';
 
 // The set-out uses the game's Y-up coordinates. Every dimension is in metres.
 export const fanHall=[[-88.5,32],[-74,32],[-74,35.5],[-69,35.5],[-69,52],[-74,52],[-74,62],[-88.5,62]];
@@ -23,6 +24,7 @@ export const displayBays=[
 export const resortArrivals=new Map([
   ['palma',{x:-67.4,y:1.8,z:43.4,yaw:-Math.PI/2}],
   ['fishing-pier',{x:87.2,y:.56,z:-419.55,yaw:Math.PI/2}],
+  ['carrier',{x:-300,y:carrierDeckTop,z:-210,yaw:0}],
   ['palma-pool',{x:-72.7,y:96.4,z:41.15,yaw:.48}],
 ]);
 export const levelY=[1.8,6.8,11.8,16.8,21.8,...Array.from({length:16},(_,i)=>+(26.8+3.8*i).toFixed(2)),87.6,92,96.4];
