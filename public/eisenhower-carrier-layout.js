@@ -22,7 +22,7 @@ export const carrierHullSections=sections.map(({z,d,x,w})=>{
   const worldZ=eisenhowerCarrier.z+z,base=seabedHeight(x,worldZ);
   // A constant 21.2 m above the varying seabed put the invisible hull above
   // the flight deck in several bays, blocking a player mid-runway.
-  return {x,z:worldZ,w,d,h:carrierDeckTop-2.4-base};
+  return {x,z:worldZ,w,d,h:carrierDeckTop-2.4-base,carrierHull:true};
 });
 export const carrierHullContains=(x,z,padding=0)=>carrierHullSections.some(s=>
   Math.abs(x-s.x)<=s.w/2+padding && Math.abs(z-s.z)<=s.d/2+padding);
@@ -30,13 +30,25 @@ export const carrierHullContains=(x,z,padding=0)=>carrierHullSections.some(s=>
 // The broad, nearly planar source flight deck is at model Y≈100. Keep its
 // walking support just above the visible surface, separate from the lower hull
 // so small boats still pass beneath the overhang without hitting invisible air.
-// Conservative walking spans follow the flight deck silhouette. The old
-// centered rectangles reached far beyond the starboard edge, leaving people
-// suspended over open water beside the gangway.
-const deckSpans=[{x:-306,w:24},{x:-310,w:44},{x:-313,w:42},{x:-307,w:50},{x:-301,w:42}];
-export const carrierDeckSections=sections.map(({z,d},i)=>{
-  const {x,w}=deckSpans[i],worldZ=eisenhowerCarrier.z+z,base=seabedHeight(x,worldZ);
-  return {x,z:worldZ,w,d,
+// Flight-deck x extents sampled every 5 m from the actual GLB upper surface.
+// The ship tapers at both ends and has several side extensions; five broad
+// rectangles left invisible floor at the tips and omitted walkable deck amidships.
+const deckSpans=[
+  [-303,-301.5],[-318,-298],[-318.5,-297.5],[-319,-297],[-320,-296.5],
+  [-320,-296],[-320.5,-295.5],[-321,-295],[-321.5,-294.5],[-321.5,-294],
+  [-322,-294],[-322.5,-291],[-323,-293],[-325,-290],[-328.5,-286],
+  [-332,-281.5],[-335.5,-277.5],[-338.5,-275.5],[-340.5,-276],[-340,-276],
+  [-340,-276],[-340,-276.5],[-339,-276.5],[-336,-284.5],[-336,-290.5],
+  [-336,-290.5],[-336,-290],[-336,-277.5],[-336,-277.5],[-336,-277.5],
+  [-336,-282],[-338.5,-290],[-336,-290],[-336,-290],[-335.5,-278],
+  [-335.5,-278],[-335.5,-278],[-335.5,-278],[-338,-278],[-335.5,-278],
+  [-335.5,-278],[-335.5,-276.5],[-335.5,-278],[-336.5,-290],[-324.5,-290],
+  [-324.5,-290],[-324.5,-290],[-324.5,-281.5],[-332.5,-282],[-324,-282],
+  [-323.5,-282.5],[-323,-283],[-322.5,-286],[-322,-288.5],[-321.5,-300],
+];
+export const carrierDeckSections=deckSpans.map(([west,east],i)=>{
+  const x=(west+east)/2,z=-365+i*5,base=seabedHeight(x,z);
+  return {x,z,w:east-west,d:5,flushEdge:true,
     bottom:carrierDeckTop-1.8-base,h:carrierDeckTop-base};
 });
 
