@@ -32,6 +32,7 @@ import {stepDistrictFires} from './public/district-fire.js';
 import {useBeachClub,updateBeachVisit} from './public/beach-club.js';
 import {seatAtClub,leaveClubSeat} from './public/club-lucero.js';
 import {nextUse} from './public/use-target.js';
+import {jetKinds,helicopterKinds as fleetHelicopterKinds,isJetKind,isHelicopterKind,pilotJetKind} from './public/aircraft-fleet.js';
 import {expireShots} from './public/shot-events.js';
 import {serviceRoadCar} from './public/road-garages.js';
 import {localWorldReactions,soundRoadHorn} from './public/pedestrian-reactions.js';
@@ -84,7 +85,7 @@ import { canUseHandheld, advanceMelee, reportVehicleWreck, reportVehiclePersonHi
 import { gunnerVehicle, gunnerFeet, vehicleById, turretPitch } from './public/mounts.js';
 import { stopRover, parkedRover, driveRover, interactRover, recoverRover, drivenRoad, roverKinds } from './public/rover.js';
 import { updateSupplyRun, replaySupplyRun } from './public/supply-run.js';
-import { flightState, recoverHelicopter, SECOND_HELIPAD } from './public/airframe.js';
+import { flightState, recoverHelicopter, helicopterPad } from './public/airframe.js';
 import { newLife, healthView, damageActor, recoverPlayerHealth, respawnDue, newRivals, updateRival, rivalView, vehicleContacts } from './public/rivals.js';
 
 import { advanceFall, startFall } from './public/falls.js';
@@ -121,7 +122,7 @@ function canPlayVolleyball(world,player){
   const id=player.id,feet=player.state;
   return player.life.hp && !player.life.fall && feet.grounded && !feet.swimming && !feet.climb && !feet.parachute &&
     player.clubSince==null && !drivenRoad(world,id) && !crewBoat(world,id) && !gunnerVehicle(world,id) &&
-    world.tank?.driver!==id && world.jet.pilot!==id && world.heli.pilot!==id && world.heli2?.pilot!==id &&
+    world.tank?.driver!==id && !pilotJetKind(world,id) && !pilotHelicopterKind(id) &&
     world.yacht?.driver!==id && !world.basketball?.players.includes(id);
 }
 function canFish(player){
@@ -181,7 +182,7 @@ function freshWorld(){
   return w;
 }
 let world = freshWorld();
-const helicopterKinds=()=>world.heli2?['heli','heli2']:['heli'];
+const helicopterKinds=()=>fleetHelicopterKinds.filter(kind=>world[kind]);
 const pilotHelicopterKind=id=>helicopterKinds().find(kind=>world[kind].pilot===id);
 function freshResidents(){
   if(zombies)return [];
@@ -197,20 +198,20 @@ function freshResidents(){
 let npcs = freshResidents();
 function worldView() {
   const bullets=CITY ? world.bullets.filter(r=>!r.hidden).map(r=>{
-    if(r.source!=='heli' && r.source!=='heli2' && r.source!=='jet')return r;
+    if(!isHelicopterKind(r.source) && !isJetKind(r.source))return r;
     const {id,weapon,x,y,z,vx,vy,vz,age}=r;
-    return r.source==='jet' ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
+    return isJetKind(r.source) ? {id,weapon,x,y,z,vx,vy,vz,age,source:r.source,shooter:r.shooter} : {id,weapon,x,y,z,vx,vy,vz,age};
   }) : world.bullets;
-  const heli=world.heli;
-  const heliView=CITY ? {...heli,chainFiring:!!heli.chainFiring && (heli.gunner!=null || heli.pilot!=null) && !heli.wrecked} : heli;
-  const second=world.heli2;
-  const secondView=second && {...second,chainFiring:!!second.chainFiring && (second.gunner!=null || second.pilot!=null) && !second.wrecked,
-    ...(second.pilot!=null?{motion:flightState(second)}:{})};
+  const helis=Object.fromEntries(helicopterKinds().map(kind=>{
+    const heli=world[kind];
+    return [kind,{...heli,...(CITY?{chainFiring:!!heli.chainFiring && (heli.gunner!=null || heli.pilot!=null) && !heli.wrecked}:{}),
+      ...(heli.pilot!=null?{motion:flightState(heli)}:{})}];
+  }));
   const sports=world.hoops?{
     basketball:{...world.basketball,npcs:world.hoops.roster.view(ticks)},
     volleyball:world.volleyball.map((game,i)=>({...game,athletes:world.volleyballActivity.rosters[i].view(ticks)})),
   }:{};
-  return { ...world,...sports, bullets, heli:heli.pilot==null ? heliView : {...heliView,motion:flightState(heli)}, ...(secondView?{heli2:secondView}:{}), map: CITY ? 'brickell' : 'outpost', npcs: npcs.filter(actor=>!actor.courtPose).map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
+  return { ...world,...sports, bullets, ...helis, map: CITY ? 'brickell' : 'outpost', npcs: npcs.filter(actor=>!actor.courtPose).map(actor => actor.venue ? {...rivalView(actor,ticks),...clubAppearance(actor)} : rivalView(actor,ticks)) };
 }
 const types = {
   '.html': 'text/html; charset=utf-8',
@@ -434,7 +435,7 @@ function acceptInput(player, data, binary) {
     if(!CITY || mode)return;
     if(input.action==='leave' && player.clubSince!=null)leaveClubSeat(player);
     else if(input.action==='join' && staffAtWork(world,'lucero-daniel') && player.clubSince==null && !drivenRoad(world,player.id) && !crewBoat(world,player.id) &&
-      !gunnerVehicle(world,player.id) && world.heli.pilot!==player.id && world.heli2?.pilot!==player.id && world.jet.pilot!==player.id &&
+      !gunnerVehicle(world,player.id) && !pilotHelicopterKind(player.id) && !pilotJetKind(world,player.id) &&
       world.tank?.driver!==player.id && world.yacht?.driver!==player.id)seatAtClub(player,ticks,players);
     return;
   }
@@ -599,7 +600,7 @@ sockets.on('connection', (ws,request) => {
       for(const p of players.values()){p.inputs.length=0;p.ack=p.lastSeq;p.moving=p.sprint=false;}
     }
     if(world.tank?.driver===id)leaveTank(world,player);
-    if(world.jet.pilot===id)leaveJet(world.jet);
+    for(const kind of jetKinds)if(world[kind]?.pilot===id)leaveJet(world[kind]);
     if(world.yacht?.driver===id){world.yacht.driver=null;world.yacht.throttle=0;}
     if(!players.size)departedScores.clear();
     else if(player.score.kills || player.score.deaths || world.bullets.some(r=>r.shooter===id) || world.missiles.some(m=>m.shooter===id)){
@@ -616,7 +617,7 @@ sockets.on('connection', (ws,request) => {
       else {
         const gunner=players.get(heli.gunner);
         if (gunner) interact(world,gunner,kind);
-        world[kind]=Object.assign(parkedHelicopter(kind==='heli2'?SECOND_HELIPAD:undefined),{hp:heli.hp,cargo:heli.cargo,fuel:heli.fuel});
+        world[kind]=Object.assign(parkedHelicopter(helicopterPad(kind)),{hp:heli.hp,cargo:heli.cargo,fuel:heli.fuel});
       }
     } else if (roverKinds.some(kind=>world[kind]?.driver===id)) {
       const kind=roverKinds.find(kind=>world[kind]?.driver===id),rover=world[kind];
@@ -674,15 +675,17 @@ function tick() {
   if(CITY && players.size) {
     const pedestrians=[];
     for(const p of players.values()) {
-      if(p.life.hp && !drivenRoad(world,p.id) && !pilotHelicopterKind(p.id) && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
+      if(p.life.hp && !drivenRoad(world,p.id) && !pilotHelicopterKind(p.id) && !pilotJetKind(world,p.id) && !gunnerVehicle(world,p.id) && !crewBoat(world,p.id))pedestrians.push(p.state);
     }
     stepStorefrontDoors(world.doors,pedestrians,step);
     stepRetailDoors(world.doors,pedestrians,step);
     stepHotelDoors(world.doors,pedestrians,step);
     stepFurniture(world.doors,step);
   }
-  world.jet.chainFiring=false;
-  if(world.jet.pilot==null)stepJet(world,null,step,players);
+  for(const kind of jetKinds)if(world[kind]){
+    world[kind].chainFiring=false;
+    if(world[kind].pilot==null)stepJet(world,null,step,players,kind);
+  }
   for(const kind of helicopterKinds())world[kind].chainFiring=false;
   const firingGunners=new Set(), boatInputs=new Map();
   let yachtInput,hookInput;
@@ -748,7 +751,7 @@ function tick() {
       const pilotKind=pilotHelicopterKind(player.id);
       if(pilotKind)interact(world,player,pilotKind);
       if(world.tank?.driver===player.id)leaveTank(world,player);
-      if(world.jet.pilot===player.id)leaveJet(world.jet);
+      for(const kind of jetKinds)if(world[kind]?.pilot===player.id)leaveJet(world[kind]);
       if(world.yacht?.driver===player.id){world.yacht.driver=null;world.yacht.throttle=0;}
       const role=gunnerVehicle(world,player.id);
       if(role) vehicleById(world,role).gunner=null;
@@ -800,10 +803,10 @@ function tick() {
           }else if(target==='tank'){
             if(use.role==='exit')leaveTank(world,player);
             else {world.tank.driver=player.id;match?.release(player);}
-          }else if(target==='jet'){
-            if(use.role==='exit')leaveJet(world.jet,player);
-            else world.jet.pilot=player.id;
-          }else if(target==='heli' || target==='heli2')interact(world,player,target);
+          }else if(isJetKind(target)){
+            if(use.role==='exit')leaveJet(world[target],player);
+            else world[target].pilot=player.id;
+          }else if(isHelicopterKind(target))interact(world,player,target);
           else if(target==='superyacht')interactYacht(world,player);
           else if(target==='basketball')world.hoops.interact(player,use.role);
           else if(boat)interactBoat(world,boat,player);
@@ -822,13 +825,14 @@ function tick() {
       player.state={x:t.x,y:t.y,z:t.z,grounded:true,vy:0};
       player.yaw=t.yaw;player.moving=player.sprint=false;continue;
     }
-    if(world.jet.pilot===player.id){
-      stepJet(world,input,step,players);
-      const jet=world.jet;
+    const jetKind=pilotJetKind(world,player.id);
+    if(jetKind){
+      stepJet(world,input,step,players,jetKind);
+      const jet=world[jetKind];
       if(jet.pilot!==player.id)continue;
-      if(input?.fire)fireTurret(world,'jet',player,ticks,players,npcs);
-      if(input?.missile)launchMissile(world,'jet',player,ticks);
-      if(input?.bomb)dropJetBomb(world,player,ticks);
+      if(input?.fire)fireTurret(world,jetKind,player,ticks,players,npcs);
+      if(input?.missile)launchMissile(world,jetKind,player,ticks);
+      if(input?.bomb)dropJetBomb(world,player,ticks,jetKind);
       player.state={x:jet.x,y:jet.y,z:jet.z,grounded:jet.grounded,vy:0};
       player.yaw=jet.yaw;player.moving=player.sprint=false;
       continue;
@@ -883,14 +887,14 @@ function tick() {
       if(input && !input.interact && !input.seat) {
         const vehicle=vehicleById(world,kind);
         vehicle.turretYaw=input.aimYaw;vehicle.turretPitch=turretPitch(input.aimPitch);
-        if(CITY && (kind==='heli' || kind==='heli2' || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
+        if(CITY && (isHelicopterKind(kind) || kind==='superyacht'))player.chainFireUntil=input.fire ? ticks+4 : 0;
         if(roverKinds.includes(kind) && input.sidearm && sidearmCar(world,player.id)){
           if(input.reload)startReload(player,ticks,sidearmSlot);
           if(input.fire)fireCarPistol(world,vehicle,player,input,ticks);
         }else if(input.fire) firingGunners.add(player.id);
       }
       // Bridge ordinary packet jitter, and release a stalled client's trigger.
-      if(CITY && (kind==='heli' || kind==='heli2' || kind==='superyacht') && ticks<player.chainFireUntil)firingGunners.add(player.id);
+      if(CITY && (isHelicopterKind(kind) || kind==='superyacht') && ticks<player.chainFireUntil)firingGunners.add(player.id);
       continue;
     }
     const falling = player.state;
@@ -971,10 +975,10 @@ function tick() {
   stepWakeCrossings(world,step);
   world.stepDolphins?.(step);
   world.stepManatees?.(step);
-  for(const kind of [...roverKinds.filter(kind=>world[kind]),'heli',...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
+  for(const kind of [...roverKinds.filter(kind=>world[kind]),...helicopterKinds(),...world.boats.map(b=>b.id),...(world.yacht?['superyacht']:[])]) {
     const v=vehicleById(world,kind), gunner=players.get(v.gunner);
     if(!gunner || !gunner.life.hp) continue;
-    gunner.state={...gunnerFeet(v,kind),grounded:(kind!=='heli'&&kind!=='heli2') || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
+    gunner.state={...gunnerFeet(v,kind),grounded:!isHelicopterKind(kind) || v.grounded,vy:0,...(kind==='superyacht'?{onYacht:true}:{})};
     gunner.yaw=v.turretYaw;gunner.moving=gunner.sprint=false;
     if(firingGunners.has(gunner.id)) fireTurret(world,kind,gunner,ticks,players,npcs);
   }
@@ -1026,7 +1030,7 @@ function tick() {
   if(world.yacht)reportVehicleWreck(world,world.yacht,world.yacht.id,'water',ticks);
   for(const boat of world.boats)reportVehicleWreck(world,boat,boat.id,'water',ticks);
   for(const kind of helicopterKinds())if(world[kind].sinking)reportVehicleWreck(world,world[kind],kind,'water',ticks);
-  reportVehicleWreck(world,world.jet,'jet',world.jet.sinking?'water':'road',ticks);
+  for(const kind of jetKinds)if(world[kind])reportVehicleWreck(world,world[kind],kind,world[kind].sinking?'water':'road',ticks);
   for(const kind of roverKinds)if(world[kind])reportVehicleWreck(world,world[kind],kind,'road',ticks);
   for(const car of world.traffic??[])reportVehicleWreck(world,car,car.id,'road',ticks);
   if(world.supercar)reportVehicleWreck(world,world.supercar,'supercar','road',ticks);

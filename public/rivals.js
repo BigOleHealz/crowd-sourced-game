@@ -130,12 +130,12 @@ export function rivalView(actor, tick) {
 export function vehicleContacts(world, kind, before, actors, tick, dt, players, onPersonHit) {
   const vehicle = world[kind]??world.traffic?.find(car=>car.id===kind);
   const vx = (vehicle.x - before.x) / dt, vz = (vehicle.z - before.z) / dt;
-  const helicopter=kind==='heli'||kind==='heli2';
+  const helicopter=kind.startsWith('heli');
   const descent = helicopter ? Math.max(0, (before.y - vehicle.y) / dt) : 0;
   const speed = Math.hypot(vx, vz, descent);
   if (vehicle.wrecked || speed < 1.8) return;
   const hull=vehicle.model?{traffic:[vehicle]}:{[kind]:vehicle};
-  const crew = [world.tank?.driver,world.tank?.gunner,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),...['rover','rover2','rover3'].flatMap(kind=>[world[kind]?.driver,world[kind]?.gunner]),world.supercar?.driver,...['heli','heli2'].flatMap(kind=>[world[kind]?.pilot,world[kind]?.gunner]),...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
+  const crew = [world.tank?.driver,world.tank?.gunner,...(world.traffic??[]).flatMap(car=>[car.driver,car.npcDriver,car.takeover?.npcId]),...['rover','rover2','rover3'].flatMap(kind=>[world[kind]?.driver,world[kind]?.gunner]),world.supercar?.driver,...['heli','heli2','heli3','heli4'].flatMap(kind=>[world[kind]?.pilot,world[kind]?.gunner]),...['jet','jet2','jet3'].map(kind=>world[kind]?.pilot),...(world.boats??[]).flatMap(b=>[b.driver,b.gunner])];
   for (const actor of actors) {
     if ((actor.officer && actor.targetId!==(vehicle.pilot??vehicle.driver)) || crew.includes(actor.id) || !actor.life.hp || actor.life.fall || tick < actor.life.immuneUntil) continue;
     const p = actor.state, dx = p.x - vehicle.x, dz = p.z - vehicle.z;

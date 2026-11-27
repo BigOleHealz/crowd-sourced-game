@@ -5,6 +5,7 @@ import { vehicleContact } from './vehicle-contact.js';
 import {crashAircraftInWater,stepAircraftSinking,swimmingFromAircraft} from './aircraft-water.js';
 import { CITY, MAP, flightBounds, HELIPAD, BOARD_RANGE, blocked, groundHeight, onBuildingLot, solidTopAt, spawn } from './world.js';
 import {militaryHelipads} from './military-island.js';
+import {carrierHelipads} from './aircraft-fleet.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const AIRFRAME_HP = 500;
@@ -22,7 +23,7 @@ export function restoreFlightState(heli) {
 export const SECOND_HELIPAD={x:militaryHelipads[1].x,z:militaryHelipads[1].z};
 export function parkedHelicopter(pad=HELIPAD) {
   const heli = {
-    ...pad, y: groundHeight(pad.x, pad.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
+    ...pad, y: pad.y??groundHeight(pad.x, pad.z), yaw: 0, pitch: 0, roll: 0, pilot: null, gunner: null, turretYaw: 0, turretPitch: 0, grounded: true,
     fuel:100, hp: AIRFRAME_HP, maxHp: AIRFRAME_HP, abandonedFor: null, wrecked: false, recoverySeconds: 0,
   };
   flightStates.set(heli, { vx: 0, vy: 0, vz: 0, tiltX: 0, tiltZ: 0, yawRate: 0, sideContact: false, floorContact: false });
@@ -97,15 +98,17 @@ export function recoverHelicopter(world, dt, players,kind='heli') {
   if(heli.sinking){
     stepAircraftSinking(world,heli,dt);
     heli.recoverySeconds=Math.max(0,heli.recoverySeconds-dt);
-    if(heli.recoverySeconds<.0001)world[kind]=parkedHelicopter(kind==='heli2'?SECOND_HELIPAD:HELIPAD);
+    if(heli.recoverySeconds<.0001)world[kind]=parkedHelicopter(helicopterPad(kind));
     return;
   }
   const ground = Math.max(groundHeight(heli.x, heli.z, Infinity,world.doors), MAP.waterY);
   heli.y = Math.max(ground, heli.y - dt * 6);
   heli.grounded = heli.y <= ground;
   heli.recoverySeconds = Math.max(0, heli.recoverySeconds - dt);
-  if (heli.recoverySeconds < 0.0001) world[kind] = parkedHelicopter(kind==='heli2'?SECOND_HELIPAD:HELIPAD);
+  if (heli.recoverySeconds < 0.0001) world[kind] = parkedHelicopter(helicopterPad(kind));
 }
+
+export function helicopterPad(kind){return kind==='heli2'?SECOND_HELIPAD:carrierHelipads[kind]??HELIPAD;}
 
 // Only the stopped component of a motion counts. A skimming hit loses less
 // hull than a square impact; slow taps can land without losing any hull.
@@ -302,7 +305,7 @@ export function interact(world, player,kind='heli') {
       const angle = heli.yaw + i * Math.PI / 4;
       const x = heli.x + 2.15 * Math.cos(angle);
       const z = heli.z + 2.15 * Math.sin(angle);
-      const y = Math.max(yachtDeckHeight(world.yacht,x,z),CITY && onBuildingLot(x,z) ? solidTopAt(x,z,world.hp,0,Infinity,world.doors) : groundHeight(x,z,Infinity,world.doors));
+      const y = Math.max(yachtDeckHeight(world.yacht,x,z),CITY && (onBuildingLot(x,z) || carrierHelipads[kind]) ? solidTopAt(x,z,world.hp,0,Infinity,world.doors) : groundHeight(x,z,Infinity,world.doors));
       if (y > MAP.waterY && Math.abs(y - heli.y) < 0.9 && !blocked(x, y, z, world.hp) && !vehicleContact(x,y,z,world,CITY).depth) {
         exit = {x,y,z,vy:0,grounded:true,...(heli.onYacht?{onYacht:true}:{})};
         break;

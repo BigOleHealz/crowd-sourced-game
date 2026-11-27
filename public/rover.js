@@ -11,6 +11,7 @@ import {breakRoadObstacle} from './road-obstacle-damage.js';
 import { roadContact, roadHullFor, sweepRoad } from './road-contact.js';
 import {flatMobility,flatTireCount} from './road-wheel-layout.js';
 import { vehicleContact } from './vehicle-contact.js';
+import {helicopterKinds} from './aircraft-fleet.js';
 import {humveeHull} from './humvee-layout.js';
 import { CITY, MAP, BOARD_RANGE, blocked, groundHeight, spawn } from './world.js';
 
@@ -53,7 +54,7 @@ export function nearestVehicle(world, feet) {
   if (!feet.grounded) return null;
   const {supercar} = world;
   const distance = v => Math.hypot(feet.x-v.x, feet.y-v.y, feet.z-v.z);
-  const flights=['heli','heli2'].map(kind=>({kind,vehicle:world[kind]})).filter(({vehicle})=>vehicle &&
+  const flights=helicopterKinds.map(kind=>({kind,vehicle:world[kind]})).filter(({vehicle})=>vehicle &&
     (vehicle.pilot==null || vehicle.gunner==null) && !vehicle.wrecked && vehicle.grounded);
   const nearest=flights.sort((a,b)=>distance(a.vehicle)-distance(b.vehicle))[0];
   const flight=nearest?distance(nearest.vehicle):Infinity;

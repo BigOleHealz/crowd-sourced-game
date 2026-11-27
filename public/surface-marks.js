@@ -116,7 +116,7 @@ export function surfaceMarks(scene){
     const actors=[local,...remotes,...(world.npcs??[])];
     if(walkers.size || actors.some(a=>a.swimming || (a.grounded && a.y<=MAP.waterY+.18 && a.y>MAP.waterY-.85))){
       const seated=new Set();
-      for(const v of [world.heli,world.jet,world.rover,world.rover2,world.rover3,world.supercar,world.tank,world.yacht,...(world.traffic??[]),...(world.boats??[])]){
+      for(const v of ['heli','heli2','heli3','heli4','jet','jet2','jet3','rover','rover2','rover3','supercar','tank','yacht'].map(kind=>world[kind]).concat(world.traffic??[],world.boats??[])){
         if(v)for(const id of [v.driver,v.pilot,v.gunner,v.npcDriver])if(id!=null)seated.add(id);
       }
       for(const actor of actors)footsteps(actor,world,seated,local);

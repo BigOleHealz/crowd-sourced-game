@@ -164,7 +164,7 @@ function move(dog,dx,dz,world){
 export function aboardDogCarrier(world,p){
   const id=p.id;
   return p.state.ride || drivenRoad(world,id) || ['rover','rover2','rover3'].some(kind=>world[kind]?.gunner===id) ||
-    [world.heli,world.jet,world.tank,world.yacht,...(world.boats??[])].some(v=>v && (v.pilot===id || v.driver===id || v.gunner===id));
+    ['heli','heli2','heli3','heli4','jet','jet2','jet3','tank','yacht'].map(kind=>world[kind]).concat(world.boats??[]).some(v=>v && (v.pilot===id || v.driver===id || v.gunner===id));
 }
 
 function stepDog(dog,owner,world,players,dt,tick){

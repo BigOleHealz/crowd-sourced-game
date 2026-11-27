@@ -5,6 +5,7 @@ import {supercarLayout,isCheetahCar} from './supercar-layout.js';
 import {marinaModel} from './marina-fleet-layout.js';
 import {tankScale,tankHull} from './tank-layout.js';
 import {humveeWalkShapes} from './humvee-layout.js';
+import {jetKinds,helicopterKinds,isHelicopterKind} from './aircraft-fleet.js';
 // Walking colliders in vehicle-local metres: half-width, front, rear, bottom, top.
 // The helicopter includes the 1.24 airframe model scale. Separating its cabin,
 // boom and landing gear leaves the sidewalk open underneath the elevated tail.
@@ -33,15 +34,15 @@ export function vehicleContact(x,y,z,world,city,height=1.8) {
   const yachtTop=yachtFloorAt(world.yacht,x,y,z);
   if(y>=yachtTop-.31)result.floor=yachtTop;
   result.ceiling=yachtCeilingAt(world.yacht,x,y,z)-height;
-  jetWalkContact(result,world.jet,x,y,z,radius,height);
+  for(const kind of jetKinds)jetWalkContact(result,world[kind],x,y,z,radius,height);
   const boats=world.boats??[];
-  const traffic=world.traffic??[],patrol=world.patrolCars??[],firstCar=7+boats.length;
-  for(let index=0;index<firstCar+traffic.length+patrol.length;index++) {
-    const kind=index===0?'heli':index===1?'heli2':index===2?'rover':index===3?'rover2':index===4?'rover3':index===5?'supercar':index===6?'tank':index<firstCar?'boat':'traffic';
-    const vehicle=kind==='traffic'?(traffic[index-firstCar]??patrol[index-firstCar-traffic.length]):kind==='boat'?boats[index-7]:world[kind];
+  const traffic=world.traffic??[],patrol=world.patrolCars??[];
+  const vehicles=[...helicopterKinds.map(kind=>[kind,world[kind]]),...['rover','rover2','rover3','supercar','tank'].map(kind=>[kind,world[kind]]),
+    ...boats.map(vehicle=>['boat',vehicle]),...[...traffic,...patrol].map(vehicle=>['traffic',vehicle])];
+  for(const [kind,vehicle] of vehicles) {
     if(kind==='boat' && vehicle.wrecked)continue;
     if(!vehicle || vehicle.crushed || Math.abs(vehicle.x-x)>8 || Math.abs(vehicle.z-z)>8) continue;
-    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : kind==='heli'||kind==='heli2' ? helicopter : humveeWalkShapes;
+    const shapes=kind==='tank'?tracks:isCheetahCar(vehicle)?sport:vehicle.model?trafficShapes[vehicle.model]:kind==='boat' ? marinaModel(vehicle)?.shapes??boatHull : isHelicopterKind(kind) ? helicopter : humveeWalkShapes;
     const c=Math.cos(vehicle.yaw),s=Math.sin(vehicle.yaw);
     const side=(x-vehicle.x)*c+(z-vehicle.z)*s;
     const along=-(x-vehicle.x)*s+(z-vehicle.z)*c;

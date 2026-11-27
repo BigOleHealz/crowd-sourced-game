@@ -2,7 +2,7 @@ import {civilianProfiles} from './civilian-fleet.js';
 
 export function roadUsers(world,players,npcs){
   const vehicles=[...(world.traffic??[]),...(world.patrolCars??[])];
-  for(const body of [world.rover,world.rover2,world.rover3,world.supercar,world.tank,world.heli?.grounded && world.heli,world.jet?.grounded && world.jet])
+  for(const body of [world.rover,world.rover2,world.rover3,world.supercar,world.tank,...['heli','heli2','heli3','heli4','jet','jet2','jet3'].map(kind=>world[kind]?.grounded && world[kind])])
     if(body)vehicles.push(body);
   const actors=[...players.values(),...npcs].filter(a=>a.life?.hp!==0 && !a.cruiserId &&
     !vehicles.some(v=>a.id!=null && (v.driver===a.id || v.npcDriver===a.id || v.takeover?.npcId===a.id || v.gunner===a.id || v.pilot===a.id)));

@@ -1,6 +1,7 @@
 import {equipmentFinish,equipmentPlate} from './equipment-finish.js';
 import * as THREE from 'three';
 import { mounts, mountPosition } from './mounts.js';
+import {isJetKind,isHelicopterKind} from './aircraft-fleet.js';
 
 // Game-space art shares one silhouette between the parked stores and the moving model.
 function missileModel(batch,x,y,z,scale=1) {
@@ -28,7 +29,7 @@ function missileModel(batch,x,y,z,scale=1) {
 export function missileLaunchers(batch,kind) {
   const [side,y,z]=mounts[kind].launcher;
   const bracket=new THREE.BoxGeometry(1,1,1);
-  if(kind==='heli'||kind==='heli2'){
+  if(isHelicopterKind(kind)){
     for(const sign of [-1,1]){
       // A swept, bevelled shelf extends from the cabin skin. The lighter cap
       // and dark underslung shoe keep the wing and store distinct at flight distance.
@@ -42,7 +43,7 @@ export function missileLaunchers(batch,kind) {
       batch.add(bracket,0x7b8274,sign*side,1.035,-.18,.21,.067,1.04);
       missileModel(batch,sign*side,y,z);
     }
-  } else if(kind==='jet'){
+  } else if(isJetKind(kind)){
     for(const sign of [-1,1]){
       const flank=side*sign;
       batch.add(bracket,0x63717a,flank,.80,-.04,.10,.20,.69,-.13);
@@ -85,7 +86,7 @@ export function missileView(scene,Batch,onMissileMove) {
       if(!mesh) {
         mesh=(m.bomb?bombTemplate:template).clone();live.set(m.id,mesh);scene.add(mesh);
         mesh.position.copy(target);
-        mesh.scale.setScalar(m.bomb || m.source==='heli' ? 1 : .65);
+        mesh.scale.setScalar(m.bomb || isHelicopterKind(m.source) ? 1 : .65);
         mesh.rotation.set(m.pitch ?? 0,-m.yaw,0,'YXZ');
       }
       mesh.position.lerp(target,1-Math.exp(-dt*35));
@@ -119,7 +120,7 @@ export function turretView(scene,kind,Batch,material) {
   scene.add(base);base.add(swivel);swivel.add(cradle);
   const metal=new Batch(true), stand=new Batch(true), box=new THREE.BoxGeometry(1,1,1);
   const cylinder=new THREE.CylinderGeometry(1,1,1,12);
-  const marine=kind==='boat'||kind==='superyacht',helicopter=kind==='heli'||kind==='heli2';
+  const marine=kind==='boat'||kind==='superyacht',helicopter=isHelicopterKind(kind);
   const coating=marine?0x616b6a:helicopter?0x4c544e:0x595c4c;
   const rim=marine?0x929798:0x767970;
   if(['rover','rover2','rover3','superyacht'].includes(kind)){

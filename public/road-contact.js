@@ -140,8 +140,8 @@ export function roadContact(world,x,z,yaw,fromX,fromZ,vehicle=world.rover){
   for(const prop of props)if(!prop.id||world.hp?.[prop.id]!==0)
     if(prop.treeId==null || !world.doors?.fallenTrees?.[prop.treeId])
       consider(roundContact(x,z,s,c,prop,prop.radius,shape));
-  consider(jetRoadContact(world.jet,x,base,z,yaw,shape));
-  for(const heli of [world.heli,world.heli2])
+  for(const jet of [world.jet,world.jet2,world.jet3])if(jet)consider(jetRoadContact(jet,x,base,z,yaw,shape));
+  for(const heli of [world.heli,world.heli2,world.heli3,world.heli4])
     if(heli && heli.y<base+roof && heli.y+3.61>base)consider(roundContact(x,z,s,c,heli,1.55,shape));
   function considerCar(parked){
     if(!parked || parked.crushed || parked===vehicle || parked.y>=base+roof || parked.y+(roadHullFor(parked).roof??roadHullFor(parked).height??1.66)<=base)return;

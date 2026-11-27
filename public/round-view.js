@@ -35,7 +35,7 @@ export function flightRounds(scene) {
       // Capture the muzzle once. The round leaves the moving shooter behind,
       // then converges on the server trajectory within its first four ticks.
       const age=r.visualAge??r.age;
-      const jet=r.source==='jet';
+      const jet=['jet','jet2','jet3'].includes(r.source);
       // The local reticle follows the replicated trajectory. Shifting that
       // round toward the posed gun makes it visibly fly away from the aim point.
       if(age<4 && r.shooter!==localShooterId && (jet || (r.weapon>=1 && r.weapon<=3)) && r.shooter!=null){
